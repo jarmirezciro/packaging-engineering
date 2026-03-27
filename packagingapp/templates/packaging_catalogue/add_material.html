@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4">
+  <h3>Add Item to: {{ catalogue.name }}</h3>
+
+  <div class="card shadow-sm mt-3">
+    <div class="card-body">
+
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+
+        <button class="btn btn-primary">Save</button>
+        <a href="{% url 'catalogue_detail' catalogue.pk %}" class="btn btn-outline-secondary">
+          Cancel
+        </a>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}

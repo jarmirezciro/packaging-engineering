@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Packaging Catalogues{% endblock %}
+
+{% block content %}
+
+
+<h2>Packaging Catalogues</h2>
+
+<div class="row mt-4">
+    
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+               
+            <div>
+                <a href="{% url 'create_catalogue' %}" class="btn btn-primary btn-sm">
+                    Create Catalogue
+                </a>
+            </div>
+    
+    
+    
+    </div>
+
+
+
+
+
+    {% for catalogue in catalogues %}
+    <div class="col-md-4 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">{{ catalogue.name }}</h5>
+                <p class="card-text">
+                    {{ catalogue.description|default:"No description" }}
+                </p>
+
+                <div class="d-flex gap-2">
+                    <a href="{% url 'catalogue_detail' catalogue.pk %}"
+                       class="btn btn-success btn-sm">
+                        View Materials
+                    </a>
+
+                    <button type="button"
+                            class="btn btn-outline-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteModal{{ catalogue.pk }}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ Modal must be INSIDE the loop -->
+    <div class="modal fade"
+         id="deleteModal{{ catalogue.pk }}"
+         tabindex="-1"
+         aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Catalogue</h5>
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    Are you sure you want to delete
+                    <strong>{{ catalogue.name }}</strong>?
+                    <div class="text-muted mt-2">
+                        This will also delete all materials inside this catalogue.
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <form method="post"
+                          action="{% url 'delete_catalogue' catalogue.pk %}">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="btn btn-danger">
+                            Delete
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    {% empty %}
+    <div class="col-12">
+        <p>
+            No catalogues yet.
+            <a href="{% url 'create_catalogue' %}">Create one</a>.
+        </p>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

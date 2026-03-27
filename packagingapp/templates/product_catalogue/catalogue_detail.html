@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}{{ catalogue.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>{{ catalogue.name }}</h2>
+
+        <div>
+            <a href="{% url 'add_product' catalogue.id %}" class="btn btn-primary btn-sm">
+                Add Product
+            </a>
+
+            <a href="{% url 'upload_products_excel' catalogue.id %}" class="btn btn-success btn-sm">
+                Upload Excel
+            </a>
+
+            <a href="{% url 'upload_product_images_zip' catalogue.id %}" class="btn btn-secondary btn-sm">
+                Upload Images (ZIP)
+            </a>
+
+            <a href="{% url 'product_catalogues' %}" class="btn btn-outline-secondary btn-sm">
+                Back
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body table-responsive">
+
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Picture</th>
+                        <th>Product ID</th>
+                        <th>Name</th>
+                        <th>L</th>
+                        <th>W</th>
+                        <th>H</th>
+                        <th>Rotation 1</th>
+                        <th>Rotation 2</th>
+                        <th>Rotation 3</th>
+                        <th>Weight</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in products %}
+                    <tr>
+                        <td>
+                            {% if p.product_picture %}
+                                <img src="{{ p.product_picture.url }}"
+                                     alt="product"
+                                     style="height:48px; width:48px; object-fit:cover; border-radius:8px;">
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ p.product_id }}</td>
+                        <td>{{ p.product_name|default:"-" }}</td>
+                        <td>{{ p.product_length }}</td>
+                        <td>{{ p.product_width }}</td>
+                        <td>{{ p.product_height }}</td>
+                        <td>{{ p.rotation_1|yesno:"Yes,No" }}</td>
+                        <td>{{ p.rotation_2|yesno:"Yes,No" }}</td>
+                        <td>{{ p.rotation_3|yesno:"Yes,No" }}</td>
+                        <td>{{ p.weight|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted">No products found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}

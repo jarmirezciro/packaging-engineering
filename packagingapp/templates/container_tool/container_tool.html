@@ -1,0 +1,574 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="cs-page">
+  <div class="cs-header">
+    <h2>Container Tool</h2>
+    <p>Multi-product container loading with 3D visualization, loading sequence and weight control.</p>
+  </div>
+
+  <form method="post" id="container-tool-form">
+    {% csrf_token %}
+    {{ form.action }}
+
+    {% if form.non_field_errors %}
+      <div class="cs-alert cs-alert-error">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    {% if row_errors %}
+      <div class="cs-alert cs-alert-error">
+        <div><b>Please fix the following:</b></div>
+        <ul style="margin:8px 0 0 16px;">
+          {% for err in row_errors %}
+            <li>{{ err }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <!-- TOP RESULT -->
+    <div class="cs-top-grid">
+      <div class="cs-card cs-result-card">
+        <div class="cs-card-title">3D Result</div>
+
+        {% if image_url %}
+          <div class="cs-img-wrap">
+            <img src="{{ image_url }}" alt="Container loading result" class="cs-img">
+          </div>
+        {% else %}
+          <div class="cs-empty">
+            Run the tool to generate the 3D container loading view.
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="cs-card cs-summary-card">
+        <div class="cs-card-title">Summary</div>
+
+        {% if result %}
+          <div class="cs-summary-grid">
+            <div class="cs-kpi">
+              <div class="cs-kpi-label">Placed units</div>
+              <div class="cs-kpi-value">{{ result.summary.placed_units }}</div>
+            </div>
+            <div class="cs-kpi">
+              <div class="cs-kpi-label">Unplaced units</div>
+              <div class="cs-kpi-value">{{ result.summary.unplaced_units }}</div>
+            </div>
+            <div class="cs-kpi">
+              <div class="cs-kpi-label">Volume utilization</div>
+              <div class="cs-kpi-value">{{ result.summary.utilization_volume_pct|floatformat:2 }}%</div>
+            </div>
+            <div class="cs-kpi">
+              <div class="cs-kpi-label">Weight utilization</div>
+              <div class="cs-kpi-value">{{ result.summary.utilization_weight_pct|floatformat:2 }}%</div>
+            </div>
+          </div>
+
+          <div class="cs-divider"></div>
+
+          <div class="cs-detail-lines">
+            <div><b>Packed volume:</b> {{ result.summary.packed_volume|floatformat:2 }}</div>
+            <div><b>Container volume:</b> {{ result.summary.container_volume|floatformat:2 }}</div>
+            <div><b>Loaded weight:</b> {{ result.summary.loaded_weight|floatformat:2 }}</div>
+            <div><b>Max weight:</b> {{ result.summary.container_max_weight|floatformat:2 }}</div>
+            <div><b>Occupied L × W × H:</b>
+              {{ result.summary.occupied_length|floatformat:2 }} ×
+              {{ result.summary.occupied_width|floatformat:2 }} ×
+              {{ result.summary.occupied_height|floatformat:2 }}
+            </div>
+            <div><b>Residual L × W × H:</b>
+              {{ result.summary.residual_length|floatformat:2 }} ×
+              {{ result.summary.residual_width|floatformat:2 }} ×
+              {{ result.summary.residual_height|floatformat:2 }}
+            </div>
+          </div>
+        {% else %}
+          <div class="cs-empty">
+            Summary will appear here after running the analysis.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- CONTAINER INPUTS -->
+    <div class="cs-card">
+      <div class="cs-card-title">Container</div>
+
+      <div class="cs-fields cs-fields-4">
+        <div class="cs-field">
+          <label class="cs-label">Internal length</label>
+          {{ form.container_l }}
+          {% if form.container_l.errors %}<div class="cs-field-error">{{ form.container_l.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="cs-field">
+          <label class="cs-label">Internal width</label>
+          {{ form.container_w }}
+          {% if form.container_w.errors %}<div class="cs-field-error">{{ form.container_w.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="cs-field">
+          <label class="cs-label">Internal height</label>
+          {{ form.container_h }}
+          {% if form.container_h.errors %}<div class="cs-field-error">{{ form.container_h.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="cs-field">
+          <label class="cs-label">Max weight</label>
+          {{ form.max_weight }}
+          {% if form.max_weight.errors %}<div class="cs-field-error">{{ form.max_weight.errors|join:", " }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="cs-hint">Use the same unit system consistently for dimensions and weight.</div>
+    </div>
+
+    <!-- PRODUCTS TABLE -->
+    <div class="cs-card">
+      <div class="cs-table-header">
+        <div class="cs-card-title" style="margin-bottom:0;">Products</div>
+        <button type="button" class="cs-btn-secondary" onclick="addProductRow()">+ Add row</button>
+      </div>
+
+      <div class="cs-table-wrap">
+        <table class="cs-table" id="products-table">
+          <thead>
+            <tr>
+              <th style="min-width:140px;">Name</th>
+              <th>L</th>
+              <th>W</th>
+              <th>H</th>
+              <th>Pieces</th>
+              <th>R1</th>
+              <th>R2</th>
+              <th>R3</th>
+              <th>Weight</th>
+              <th>Loading seq.</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="products-tbody">
+            {% for row in product_rows %}
+              <tr>
+                <td>
+                  <input type="text" name="item_name[]" class="cs-input" value="{{ row.name }}">
+                </td>
+                <td>
+                  <input type="number" step="any" name="item_length[]" class="cs-input" value="{{ row.length }}">
+                </td>
+                <td>
+                  <input type="number" step="any" name="item_width[]" class="cs-input" value="{{ row.width }}">
+                </td>
+                <td>
+                  <input type="number" step="any" name="item_height[]" class="cs-input" value="{{ row.height }}">
+                </td>
+                <td>
+                  <input type="number" step="1" min="1" name="item_qty[]" class="cs-input" value="{{ row.qty }}">
+                </td>
+                <td class="cs-cell-center">
+                  <input type="hidden" name="item_r1[]" value="0">
+                  <input type="checkbox" value="1" {% if row.r1 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
+                </td>
+                <td class="cs-cell-center">
+                  <input type="hidden" name="item_r2[]" value="0">
+                  <input type="checkbox" value="1" {% if row.r2 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
+                </td>
+                <td class="cs-cell-center">
+                  <input type="hidden" name="item_r3[]" value="0">
+                  <input type="checkbox" value="1" {% if row.r3 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
+                </td>
+                <td>
+                  <input type="number" step="any" min="0" name="item_weight[]" class="cs-input" value="{{ row.weight }}">
+                </td>
+                <td>
+                  <input type="number" step="1" min="1" name="item_sequence[]" class="cs-input" value="{{ row.sequence }}">
+                </td>
+                <td class="cs-cell-center">
+                  <button type="button" class="cs-btn-danger" onclick="removeProductRow(this)">×</button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cs-actions">
+        <button type="submit" class="cs-btn-primary">Run analysis</button>
+      </div>
+    </div>
+
+    <!-- PER PRODUCT SUMMARY -->
+    {% if result %}
+      <div class="cs-card">
+        <div class="cs-card-title">Per-product summary</div>
+
+        <div class="cs-table-wrap">
+          <table class="cs-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>L</th>
+                <th>W</th>
+                <th>H</th>
+                <th>Requested</th>
+                <th>Packed</th>
+                <th>Weight each</th>
+                <th>Sequence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in result.summary.product_rows %}
+                <tr>
+                  <td>{{ row.name }}</td>
+                  <td>{{ row.length }}</td>
+                  <td>{{ row.width }}</td>
+                  <td>{{ row.height }}</td>
+                  <td>{{ row.qty_requested }}</td>
+                  <td><b>{{ row.qty_packed }}</b></td>
+                  <td>{{ row.weight_each }}</td>
+                  <td>{{ row.sequence }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+
+  </form>
+</div>
+
+<template id="product-row-template">
+  <tr>
+    <td>
+      <input type="text" name="item_name[]" class="cs-input" value="">
+    </td>
+    <td>
+      <input type="number" step="any" name="item_length[]" class="cs-input" value="">
+    </td>
+    <td>
+      <input type="number" step="any" name="item_width[]" class="cs-input" value="">
+    </td>
+    <td>
+      <input type="number" step="any" name="item_height[]" class="cs-input" value="">
+    </td>
+    <td>
+      <input type="number" step="1" min="1" name="item_qty[]" class="cs-input" value="1">
+    </td>
+    <td class="cs-cell-center">
+      <input type="hidden" name="item_r1[]" value="0">
+      <input type="checkbox" value="1" checked onchange="syncCheckboxHidden(this)">
+    </td>
+    <td class="cs-cell-center">
+      <input type="hidden" name="item_r2[]" value="0">
+      <input type="checkbox" value="1" onchange="syncCheckboxHidden(this)">
+    </td>
+    <td class="cs-cell-center">
+      <input type="hidden" name="item_r3[]" value="0">
+      <input type="checkbox" value="1" onchange="syncCheckboxHidden(this)">
+    </td>
+    <td>
+      <input type="number" step="any" min="0" name="item_weight[]" class="cs-input" value="0">
+    </td>
+    <td>
+      <input type="number" step="1" min="1" name="item_sequence[]" class="cs-input" value="1">
+    </td>
+    <td class="cs-cell-center">
+      <button type="button" class="cs-btn-danger" onclick="removeProductRow(this)">×</button>
+    </td>
+  </tr>
+</template>
+
+<style>
+  .cs-page{padding:10px 4px;background:#f4f6f8;border-radius:12px;}
+  .cs-header{padding:10px 12px 14px 12px;}
+  .cs-header h2{margin:0;font-size:22px;}
+  .cs-header p{margin:6px 0 0 0;opacity:0.75;}
+
+  .cs-top-grid{
+    display:grid;
+    grid-template-columns:1.8fr 1fr;
+    gap:14px;
+    align-items:start;
+    padding:0 12px 12px 12px;
+  }
+
+  .cs-card{
+    background:#fff;
+    border:1px solid #e6e8eb;
+    border-radius:12px;
+    padding:12px;
+    box-shadow:0 2px 10px rgba(0,0,0,0.04);
+    margin:0 12px 12px 12px;
+  }
+
+  .cs-result-card, .cs-summary-card{
+    margin:0;
+  }
+
+  .cs-card-title{
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:0.2px;
+    margin-bottom:10px;
+  }
+
+  .cs-divider{height:1px;background:#eef0f2;margin:12px 0;}
+
+  .cs-fields{
+    display:grid;
+    gap:10px;
+  }
+
+  .cs-fields-4{
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+  }
+
+  .cs-field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+
+  .cs-label{
+    font-size:12px;
+    font-weight:600;
+    opacity:0.8;
+  }
+
+  .cs-input,
+  input[type="text"],
+  input[type="number"],
+  select{
+    width:100%;
+    border:1px solid #d8dde3;
+    border-radius:10px;
+    padding:8px 10px;
+    background:#fff;
+    font-size:13px;
+  }
+
+  .cs-input:focus,
+  input[type="text"]:focus,
+  input[type="number"]:focus,
+  select:focus{
+    outline:none;
+    border-color:#10a37f;
+    box-shadow:0 0 0 3px rgba(16,163,127,0.10);
+  }
+
+  .cs-hint{
+    margin-top:8px;
+    font-size:12px;
+    opacity:0.7;
+  }
+
+  .cs-img-wrap{
+    margin-top:10px;
+    border:1px solid #eef0f2;
+    border-radius:12px;
+    background:#fafbfc;
+    padding:8px;
+  }
+
+  .cs-img{
+    width:100%;
+    max-height:430px;
+    object-fit:contain;
+    border-radius:10px;
+    display:block;
+  }
+
+  .cs-empty{
+    opacity:0.7;
+    padding:14px 4px;
+  }
+
+  .cs-summary-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+
+  .cs-kpi{
+    background:#fbfcfd;
+    border:1px solid #eef0f2;
+    border-radius:12px;
+    padding:10px;
+  }
+
+  .cs-kpi-label{
+    font-size:12px;
+    opacity:0.75;
+    margin-bottom:4px;
+  }
+
+  .cs-kpi-value{
+    font-size:20px;
+    font-weight:700;
+  }
+
+  .cs-detail-lines{
+    display:grid;
+    gap:6px;
+    font-size:13px;
+  }
+
+  .cs-table-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:8px;
+  }
+
+  .cs-table-wrap{
+    border:1px solid #eef0f2;
+    border-radius:12px;
+    background:#fff;
+    overflow:auto;
+    max-height:420px;
+  }
+
+  .cs-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12px;
+  }
+
+  .cs-table th,
+  .cs-table td{
+    padding:8px 10px;
+    border-bottom:1px solid #f0f2f4;
+    white-space:nowrap;
+    vertical-align:middle;
+  }
+
+  .cs-table th{
+    position:sticky;
+    top:0;
+    background:#fbfcfd;
+    text-align:left;
+    font-weight:700;
+    z-index:1;
+  }
+
+  .cs-cell-center{
+    text-align:center;
+  }
+
+  .cs-actions{
+    margin-top:12px;
+    display:flex;
+    justify-content:flex-end;
+  }
+
+  .cs-btn-primary{
+    padding:10px 14px;
+    border-radius:10px;
+    border:1px solid #10a37f;
+    background:#10a37f;
+    color:#fff;
+    font-weight:600;
+    cursor:pointer;
+  }
+
+  .cs-btn-primary:hover{
+    opacity:0.95;
+  }
+
+  .cs-btn-secondary{
+    padding:8px 12px;
+    border-radius:10px;
+    border:1px solid #d7dbe0;
+    background:#fff;
+    cursor:pointer;
+  }
+
+  .cs-btn-secondary:hover{
+    background:#f6f7f9;
+  }
+
+  .cs-btn-danger{
+    width:30px;
+    height:30px;
+    border-radius:8px;
+    border:1px solid #e0c7c7;
+    background:#fff5f5;
+    color:#9b1c1c;
+    cursor:pointer;
+    font-weight:700;
+  }
+
+  .cs-btn-danger:hover{
+    background:#ffe9e9;
+  }
+
+  .cs-alert{
+    margin:0 12px 12px 12px;
+    padding:12px 14px;
+    border-radius:12px;
+    border:1px solid transparent;
+    font-size:13px;
+  }
+
+  .cs-alert-error{
+    background:#fff5f5;
+    border-color:#f3c2c2;
+    color:#8a1f1f;
+  }
+
+  .cs-field-error{
+    font-size:12px;
+    color:#b42318;
+  }
+
+  @media (max-width: 1200px){
+    .cs-top-grid{
+      grid-template-columns:1fr;
+      padding:0 12px 12px 12px;
+    }
+    .cs-fields-4{
+      grid-template-columns:1fr 1fr;
+    }
+  }
+
+  @media (max-width: 800px){
+    .cs-fields-4{
+      grid-template-columns:1fr;
+    }
+  }
+</style>
+
+<script>
+  function syncCheckboxHidden(checkbox){
+    const hidden = checkbox.parentElement.querySelector('input[type="hidden"]');
+    if(hidden){
+      hidden.value = checkbox.checked ? "1" : "0";
+    }
+  }
+
+  function addProductRow(){
+    const tpl = document.getElementById("product-row-template");
+    const tbody = document.getElementById("products-tbody");
+    const clone = tpl.content.cloneNode(true);
+    tbody.appendChild(clone);
+  }
+
+  function removeProductRow(btn){
+    const tbody = document.getElementById("products-tbody");
+    const rows = tbody.querySelectorAll("tr");
+    if(rows.length <= 1){
+      return;
+    }
+    btn.closest("tr").remove();
+  }
+
+  document.addEventListener("DOMContentLoaded", function(){
+    document.querySelectorAll('#products-tbody input[type="checkbox"]').forEach(cb => {
+      syncCheckboxHidden(cb);
+    });
+  });
+</script>
+
+{% endblock %}

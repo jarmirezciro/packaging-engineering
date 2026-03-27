@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Product Excel{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3>Upload Excel to: {{ catalogue.name }}</h3>
+
+    {% if error %}
+        <div class="alert alert-danger mt-3">{{ error }}</div>
+    {% endif %}
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-body">
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ form.as_p }}
+
+                <button class="btn btn-success">Upload</button>
+                <a href="{% url 'product_catalogue_detail' catalogue.id %}" class="btn btn-outline-secondary">
+                    Back
+                </a>
+            </form>
+
+            <hr>
+            <p class="mb-1"><strong>Excel columns supported:</strong></p>
+            <code>product_id, product_name, product_length, product_width, product_height, rotation_1, rotation_2, rotation_3, weight, product_picture</code>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="padding:12px;background:#f4f6f8;border-radius:12px;">
+
+  <h2 style="margin:0 0 10px 0;">Multiple Product Container Selection</h2>
+
+  <!-- TOP ROW: Inputs left + Arrangement right -->
+  <div style="display:grid;grid-template-columns: 1fr 1fr;gap:14px;align-items:start;">
+
+    <!-- LEFT: inputs -->
+    <div style="background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <label style="font-size:12px;opacity:.8;"><b>Product Catalogue</b></label><br/>
+          <select id="productCatalogue" style="min-width:260px;padding:8px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fff;">
+            <option value="">— Select —</option>
+            {% for c in product_catalogues %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label style="font-size:12px;opacity:.8;"><b>Packaging Catalogue</b></label><br/>
+          <select id="packagingCatalogue" style="min-width:260px;padding:8px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fff;">
+            <option value="">— Select —</option>
+            {% for c in packaging_catalogues %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <button id="runBtn"
+                style="height:38px;padding:10px 14px;border-radius:10px;border:1px solid #1f2937;background:#1f2937;color:#fff;cursor:pointer;">
+          Run (Top 5 / Product)
+        </button>
+
+        <button id="exportBtn"
+                style="height:38px;padding:10px 14px;border-radius:10px;border:1px solid #1f2937;background:#fff;color:#1f2937;cursor:pointer;">
+          Export to Excel
+        </button>
+      </div>
+
+      <div id="status" style="margin:10px 0;color:#333;"></div>
+    </div>
+
+    <!-- RIGHT: arrangement panel -->
+    <div style="background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+      <div style="font-weight:700;margin-bottom:8px;">Arrangement</div>
+      <div id="arrangementMeta" style="margin-bottom:8px;opacity:.85;">
+        <i>Click a box option to generate the arrangement.</i>
+      </div>
+      <div id="arrangementCanvas" style="border:1px solid #eef0f2;border-radius:12px;background:#fafbfc;padding:10px;min-height:240px;">
+        <i>No arrangement yet.</i>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RESULTS -->
+  <div id="resultsWrap" style="display:none;margin-top:14px;background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+    <div style="font-weight:700;margin-bottom:8px;">Results</div>
+    <div style="border:1px solid #eef0f2;border-radius:12px;overflow:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#fbfcfd;border-bottom:1px solid #f0f2f4;">
+            <th style="text-align:left;padding:10px;position:sticky;top:0;">Product</th>
+            <th style="text-align:left;padding:10px;position:sticky;top:0;">Best Box</th>
+            <th style="text-align:left;padding:10px;position:sticky;top:0;">Usage</th>
+            <th style="text-align:left;padding:10px;position:sticky;top:0;">Max Qty</th>
+            <th style="padding:10px;position:sticky;top:0;width:60px;"></th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const runBtn = document.getElementById("runBtn");
+  const exportBtn = document.getElementById("exportBtn");
+  const statusEl = document.getElementById("status");
+  const resultsWrap = document.getElementById("resultsWrap");
+  const resultsBody = document.getElementById("resultsBody");
+  const arrangementMeta = document.getElementById("arrangementMeta");
+  const arrangementCanvas = document.getElementById("arrangementCanvas");
+
+  function setStatus(msg, isError=false){
+    statusEl.textContent = msg || "";
+    statusEl.style.color = isError ? "crimson" : "#333";
+  }
+
+  function csrfToken() {
+    const name = "csrftoken=";
+    const parts = document.cookie.split(";").map(s => s.trim());
+    for (const p of parts) {
+      if (p.startsWith(name)) return p.substring(name.length);
+    }
+    return "";
+  }
+
+  function esc(s){
+    return String(s ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;");
+  }
+
+  function toggleRow(targetId, btn){
+    const row = document.getElementById(targetId);
+    if(!row) return;
+    const isHidden = (row.style.display === "none" || !row.style.display);
+    row.style.display = isHidden ? "table-row" : "none";
+    btn.textContent = isHidden ? "▼" : "▶";
+  }
+
+  async function drawArrangement(product, material){
+    arrangementMeta.innerHTML = `
+      <b>Product:</b> ${esc(product.label)} &nbsp; | &nbsp;
+      <b>Container:</b> ${esc(material.part_number)} &nbsp; | &nbsp;
+      <span style="opacity:.7;">${esc(material.part_length)}×${esc(material.part_width)}×${esc(material.part_height)}</span>
+    `;
+    arrangementCanvas.innerHTML = `<i>Generating image...</i>`;
+
+    const form = new FormData();
+    form.append("product_id", product.id);
+    form.append("container_id", material.id);
+
+    const res = await fetch("{% url 'multi_product_container_draw' %}", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfToken() },
+      body: form
+    });
+
+    const data = await res.json();
+    if(!res.ok || !data.ok){
+      arrangementCanvas.innerHTML = `<b style="color:crimson;">${esc(data.error || "Failed to draw.")}</b>`;
+      return;
+    }
+
+    arrangementMeta.innerHTML += ` &nbsp; | &nbsp; <b>Max Qty:</b> ${esc(data.max_quantity)}`;
+
+    arrangementCanvas.innerHTML = `
+      <img src="${esc(data.image_url)}" alt="3D packing"
+           style="width:100%;max-height:420px;object-fit:contain;border-radius:10px;display:block;">
+    `;
+  }
+
+  function renderResults(results){
+    resultsBody.innerHTML = "";
+
+    results.forEach((row) => {
+      const product = row.product;
+      const top5 = row.top5 || [];
+      const best = top5[0];
+
+      const expandId = `expand-p-${product.id}`;
+
+      const tr = document.createElement("tr");
+      tr.style.borderBottom = "1px solid #f0f2f4";
+
+      tr.innerHTML = `
+        <td style="padding:10px;">
+          <div><b>${esc(product.label)}</b></div>
+          <div style="opacity:.7;font-size:11px;">
+            ${esc(product.product_length)}×${esc(product.product_width)}×${esc(product.product_height)}
+          </div>
+        </td>
+        <td style="padding:10px;">
+          ${best ? `<b>${esc(best.material.part_number)}</b> — ${esc(best.material.part_description)}` : `<span style="opacity:.6;">No fit</span>`}
+        </td>
+        <td style="padding:10px;">${best ? best.usage.toFixed(2) : "-"}</td>
+        <td style="padding:10px;">${best ? `<b>${esc(best.max_qty)}</b>` : "-"}</td>
+        <td style="padding:10px;text-align:right;">
+          ${top5.length > 1 ? `<button type="button" data-action="toggle" data-target="${expandId}"
+              style="padding:6px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fff;cursor:pointer;">▶</button>` : ""}
+        </td>
+      `;
+
+      resultsBody.appendChild(tr);
+
+      if(top5.length > 1){
+        const tr2 = document.createElement("tr");
+        tr2.id = expandId;
+        tr2.style.display = "none";
+        tr2.innerHTML = `
+          <td colspan="5" style="padding:0 10px 10px 10px;">
+            <div style="border:1px solid #eef0f2;border-radius:12px;background:#fff;overflow:hidden;">
+              ${top5.slice(1).map((opt) => `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border-top:1px dashed #eee;">
+                  <div>
+                    <b>${esc(opt.material.part_number)}</b> — ${esc(opt.material.part_description)}
+                    <div style="opacity:.7;font-size:11px;">
+                      Usage: ${opt.usage.toFixed(2)} | Max Qty: ${esc(opt.max_qty)} | ${esc(opt.material.part_length)}×${esc(opt.material.part_width)}×${esc(opt.material.part_height)}
+                    </div>
+                  </div>
+                  <button type="button"
+                          data-action="draw"
+                          data-productid="${esc(product.id)}"
+                          data-containerid="${esc(opt.material.id)}"
+                          style="padding:6px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fff;cursor:pointer;">
+                    Show arrangement
+                  </button>
+                </div>
+              `).join("")}
+            </div>
+          </td>
+        `;
+        resultsBody.appendChild(tr2);
+      }
+
+      if(best){
+        const bestCell = tr.querySelector("td:nth-child(2)");
+        bestCell.style.cursor = "pointer";
+        bestCell.title = "Click to show arrangement";
+        bestCell.addEventListener("click", () => drawArrangement(product, best.material));
+      }
+    });
+
+    resultsWrap.style.display = "block";
+  }
+
+  resultsBody.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if(!btn) return;
+
+    const action = btn.getAttribute("data-action");
+
+    if(action === "toggle"){
+      toggleRow(btn.getAttribute("data-target"), btn);
+      return;
+    }
+
+    if(action === "draw"){
+      const productId = btn.getAttribute("data-productid");
+      const containerId = btn.getAttribute("data-containerid");
+
+      const cache = window.__mp_cache || [];
+      const row = cache.find(r => String(r.product.id) === String(productId));
+      if(!row) return;
+
+      const opt = (row.top5 || []).find(x => String(x.material.id) === String(containerId));
+      if(!opt) return;
+
+      await drawArrangement(row.product, opt.material);
+    }
+  });
+
+  runBtn.addEventListener("click", async () => {
+    const productCatalogueId = document.getElementById("productCatalogue").value;
+    const packagingCatalogueId = document.getElementById("packagingCatalogue").value;
+
+    resultsWrap.style.display = "none";
+
+    if(!productCatalogueId || !packagingCatalogueId){
+      setStatus("Please select both catalogues.", true);
+      return;
+    }
+
+    setStatus("Running Top 5 per product...");
+
+    const form = new FormData();
+    form.append("product_catalogue_id", productCatalogueId);
+    form.append("packaging_catalogue_id", packagingCatalogueId);
+
+    try{
+      const res = await fetch("{% url 'multi_product_container_run' %}", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfToken() },
+        body: form
+      });
+
+      const data = await res.json();
+      if(!res.ok || !data.ok){
+        setStatus(data.error || "Failed.", true);
+        return;
+      }
+
+      window.__mp_cache = data.results;
+
+      renderResults(data.results);
+      setStatus(`Done. Products processed: ${data.results.length}`);
+
+    }catch(err){
+      console.error(err);
+      setStatus("Unexpected error.", true);
+    }
+  });
+
+  exportBtn.addEventListener("click", async () => {
+    const productCatalogueId = document.getElementById("productCatalogue").value;
+    const packagingCatalogueId = document.getElementById("packagingCatalogue").value;
+
+    if(!productCatalogueId || !packagingCatalogueId){
+      setStatus("Please select both catalogues before export.", true);
+      return;
+    }
+
+    setStatus("Preparing Excel export...");
+
+    const form = new FormData();
+    form.append("product_catalogue_id", productCatalogueId);
+    form.append("packaging_catalogue_id", packagingCatalogueId);
+
+    try{
+      const res = await fetch("{% url 'multi_product_container_export_excel' %}", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfToken() },
+        body: form
+      });
+
+      if(!res.ok){
+        setStatus("Export failed (check server logs).", true);
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+
+      const cd = res.headers.get("Content-Disposition") || "";
+      const match = cd.match(/filename="([^"]+)"/);
+      a.download = match ? match[1] : "multi_product_container.xlsx";
+
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      setStatus("Excel exported.");
+
+    }catch(err){
+      console.error(err);
+      setStatus("Export error (see console).", true);
+    }
+  });
+
+})();
+</script>
+
+{% endblock %}

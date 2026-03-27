@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4">
+  <h3>Upload Drawings (ZIP) to: {{ catalogue.name }}</h3>
+
+  {% if success %}
+    <div class="alert alert-success mt-3">{{ success }}</div>
+  {% endif %}
+
+  {% if error %}
+    <div class="alert alert-danger mt-3">{{ error }}</div>
+  {% endif %}
+
+  <div class="card shadow-sm mt-3">
+    <div class="card-body">
+
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label class="form-label">{{ form.zip_file.label }}</label>
+          {{ form.zip_file }}
+        </div>
+
+        <button class="btn btn-success">Upload</button>
+        <a href="{% url 'catalogue_detail' catalogue.pk %}" class="btn btn-outline-secondary">
+          Back
+        </a>
+      </form>
+
+      <hr>
+      <p class="mb-1"><strong>ZIP rule:</strong> filename must match <code>part_number</code></p>
+      <p class="mb-0"><code>Example: 12345.pdf</code> (also allowed: png/jpg/jpeg)</p>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}

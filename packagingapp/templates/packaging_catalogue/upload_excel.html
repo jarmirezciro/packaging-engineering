@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4">
+  <h3>Upload Excel to: {{ catalogue.name }}</h3>
+
+  {% if error %}
+    <div class="alert alert-danger mt-3">{{ error }}</div>
+  {% endif %}
+
+  <div class="card shadow-sm mt-3">
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn btn-success">Upload</button>
+        <a href="{% url 'catalogue_detail' catalogue.pk %}" class="btn btn-outline-secondary">Back</a>
+      </form>
+
+      <hr>
+      <p class="mb-1"><strong>Excel columns required:</strong></p>
+      <code>part_number, part_description, packaging_type, branding, packaging_materials, part_length, part_width, part_height</code>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

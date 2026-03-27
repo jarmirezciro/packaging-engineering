@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Product Images ZIP{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3>Upload Product Images (ZIP) to: {{ catalogue.name }}</h3>
+
+    {% if success %}
+        <div class="alert alert-success mt-3">{{ success }}</div>
+    {% endif %}
+
+    {% if error %}
+        <div class="alert alert-danger mt-3">{{ error }}</div>
+    {% endif %}
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-body">
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                {{ form.as_p }}
+
+                <button class="btn btn-success">Upload</button>
+                <a href="{% url 'product_catalogue_detail' catalogue.id %}" class="btn btn-outline-secondary">
+                    Back
+                </a>
+            </form>
+
+            <hr>
+            <p class="mb-1"><strong>ZIP rule:</strong> image filename should match <code>product_id</code> or product name.</p>
+            <p class="mb-0"><code>Example: P-ABC123.jpg</code> or <code>My Product.png</code></p>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

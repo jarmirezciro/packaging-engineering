@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="cs-page">
+  <div class="cs-header">
+    <h2>Palletization Tool</h2>
+    <p>Manual or catalogue pallet selection, automatic result ranking, and 3D visualization.</p>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+    {{ form.action }}
+    {{ form.pallet_id }}
+    <input type="hidden" name="selected_result_key" id="selected_result_key">
+
+    <div class="cs-row">
+
+      <!-- BOX -->
+      <div class="cs-card">
+        <div class="cs-card-title">Box Parameters</div>
+
+        <div class="cs-fields">
+          <div class="cs-field">
+            <label class="cs-label">Length</label>
+            <div>
+              {{ form.box_l }}
+              {% for err in form.box_l.errors %}<div class="cs-field-error">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="cs-field">
+            <label class="cs-label">Width</label>
+            <div>
+              {{ form.box_w }}
+              {% for err in form.box_w.errors %}<div class="cs-field-error">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="cs-field">
+            <label class="cs-label">Height</label>
+            <div>
+              {{ form.box_h }}
+              {% for err in form.box_h.errors %}<div class="cs-field-error">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="cs-field">
+            <label class="cs-label">Box weight</label>
+            <div>
+              {{ form.box_weight }}
+              {% for err in form.box_weight.errors %}<div class="cs-field-error">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="cs-field">
+            <label class="cs-label">Max weight on bottom box</label>
+            <div>
+              {{ form.max_weight_on_bottom_box }}
+              {% for err in form.max_weight_on_bottom_box.errors %}<div class="cs-field-error">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PALLET -->
+      <div class="cs-card">
+        <div class="cs-card-title">Pallet Parameters</div>
+
+        <div class="cs-fields">
+          <div class="cs-field">
+            <label class="cs-label">Catalogue</label>
+            <div>
+              {{ form.catalogue_id }}
+              {% for err in form.catalogue_id.errors %}<div class="cs-field-error">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="cs-divider"></div>
+
+        <div class="cs-subtitle">Source</div>
+        <div class="cs-toggles">
+          <label class="cs-toggle">{{ form.pallet_source.0.tag }} <span>{{ form.pallet_source.0.choice_label }}</span></label>
+          <label class="cs-toggle">{{ form.pallet_source.1.tag }} <span>{{ form.pallet_source.1.choice_label }}</span></label>
+        </div>
+
+        <div class="cs-divider"></div>
+
+        <!-- MANUAL -->
+        <div id="manual-pallet-box">
+          <div class="cs-fields">
+            <div class="cs-field">
+              <label class="cs-label">Pallet length</label>
+              <div>
+                {{ form.pallet_l }}
+                {% for err in form.pallet_l.errors %}<div class="cs-field-error">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
+            <div class="cs-field">
+              <label class="cs-label">Pallet width</label>
+              <div>
+                {{ form.pallet_w }}
+                {% for err in form.pallet_w.errors %}<div class="cs-field-error">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CATALOGUE -->
+        <div id="catalogue-pallet-box" style="display:none;">
+          {% if selected_material %}
+            <div class="cs-selected">
+              <div class="cs-selected-title">Selected pallet</div>
+              <div class="cs-selected-line"><b>{{ selected_material.part_number }}</b> — {{ selected_material.part_description }}</div>
+              <div class="cs-selected-line">{{ selected_material.packaging_type }} | {{ selected_material.branding }}</div>
+              <div class="cs-selected-line">{{ selected_material.part_length }} × {{ selected_material.part_width }} × {{ selected_material.part_height }}</div>
+            </div>
+          {% endif %}
+
+          <div class="cs-table-header">
+            <div class="cs-table-title">Available pallets</div>
+            {% if selected_material %}
+              <button type="button" class="cs-linkbtn" onclick="togglePalletTable(true)">Change pallet</button>
+            {% else %}
+              <button type="button" class="cs-linkbtn" onclick="togglePalletTable()">Hide table</button>
+            {% endif %}
+          </div>
+
+          <div id="pallet-table-collapsible" class="cs-table-wrap">
+            <table class="cs-table">
+              <thead>
+                <tr>
+                  <th>Part #</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>Brand</th>
+                  <th>L</th>
+                  <th>W</th>
+                  <th>H</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for m in materials %}
+                  <tr class="{% if selected_material and selected_material.id == m.id %}cs-row-selected{% endif %}">
+                    <td>{{ m.part_number }}</td>
+                    <td class="cs-td-desc" title="{{ m.part_description }}">{{ m.part_description }}</td>
+                    <td>{{ m.packaging_type }}</td>
+                    <td>{{ m.branding }}</td>
+                    <td>{{ m.part_length }}</td>
+                    <td>{{ m.part_width }}</td>
+                    <td>{{ m.part_height }}</td>
+                    <td style="text-align:right;">
+                      <button type="button" class="cs-btn-secondary" onclick="selectPallet('{{ m.id }}')">Select pallet</button>
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="8" style="padding:12px;opacity:0.7;">Select a pallet catalogue first.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="cs-divider"></div>
+
+        <!-- SHARED CONSTRAINTS: render ONCE only -->
+        <div class="cs-subtitle">Stacking Constraints</div>
+        <div class="cs-fields">
+          <div class="cs-field">
+            <label class="cs-label">Max stack height</label>
+            <div>
+              {{ form.max_stack_height }}
+              {% for err in form.max_stack_height.errors %}<div class="cs-field-error">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="cs-field">
+            <label class="cs-label">Max width stickout</label>
+            <div>
+              {{ form.max_width_stickout }}
+              {% for err in form.max_width_stickout.errors %}<div class="cs-field-error">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="cs-field">
+            <label class="cs-label">Max length stickout</label>
+            <div>
+              {{ form.max_length_stickout }}
+              {% for err in form.max_length_stickout.errors %}<div class="cs-field-error">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="cs-divider"></div>
+        <button type="button" class="cs-btn" onclick="runAnalysis()">Run analysis</button>
+
+        {% if form.non_field_errors %}
+          <div class="cs-error">{{ form.non_field_errors }}</div>
+        {% endif %}
+      </div>
+
+      <!-- RESULT -->
+      <div class="cs-card cs-card-result">
+        <div class="cs-card-title">Best Result</div>
+
+        {% if selected_result %}
+          <div class="cs-kpi-grid">
+            <div class="cs-kpi"><div class="cs-kpi-label">Pattern</div><div class="cs-kpi-value">{{ selected_result.pattern }}</div></div>
+            <div class="cs-kpi"><div class="cs-kpi-label">Stacking</div><div class="cs-kpi-value">{{ selected_result.stacking }}</div></div>
+            <div class="cs-kpi"><div class="cs-kpi-label">Total boxes</div><div class="cs-kpi-value">{{ selected_result.total_boxes }}</div></div>
+            <div class="cs-kpi"><div class="cs-kpi-label">Layers</div><div class="cs-kpi-value">{{ selected_result.layers }}</div></div>
+            <div class="cs-kpi"><div class="cs-kpi-label">Footprint util.</div><div class="cs-kpi-value">{{ selected_result.layer_footprint_util_pct }}%</div></div>
+            <div class="cs-kpi"><div class="cs-kpi-label">Volume util.</div><div class="cs-kpi-value">{{ selected_result.volumetric_util_pct }}%</div></div>
+          </div>
+
+          {% if result_image_url %}
+            <div class="cs-img-wrap">
+              <img src="{{ result_image_url }}" alt="3D palletization" class="cs-img">
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="cs-empty">
+            Enter inputs and click <b>Run analysis</b>.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if results_table %}
+      <div class="cs-top5-card">
+        <div class="cs-card-title">Palletization Results</div>
+        <div class="cs-table-wrap" style="max-height:420px;">
+          <table class="cs-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Pattern</th>
+                <th>Stacking</th>
+                <th>Layer A</th>
+                <th>Layer B</th>
+                <th>Layers</th>
+                <th>Total Boxes</th>
+                <th>Footprint %</th>
+                <th>Volume %</th>
+                <th>Weight OK</th>
+                <th>Max Load</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in results_table %}
+                <tr class="{% if selected_result and selected_result.pattern == row.pattern and selected_result.stacking == row.stacking %}cs-row-selected{% endif %}">
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ row.pattern }}</td>
+                  <td>{{ row.stacking }}</td>
+                  <td>{{ row.boxes_layer_A }}</td>
+                  <td>{{ row.boxes_layer_B }}</td>
+                  <td>{{ row.layers }}</td>
+                  <td><b>{{ row.total_boxes }}</b></td>
+                  <td>{{ row.layer_footprint_util_pct }}</td>
+                  <td>{{ row.volumetric_util_pct }}</td>
+                  <td>{{ row.feasible_weight }}</td>
+                  <td>{{ row.max_bottom_load_kg }}</td>
+                  <td style="text-align:right;">
+                    <button type="button" class="cs-btn-secondary" onclick="selectResult('{{ row.pattern }}__{{ row.stacking }}')">Select & Draw</button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+  </form>
+</div>
+
+<style>
+  .cs-page{padding:10px 4px;background:#f4f6f8;border-radius:12px;}
+  .cs-header{padding:10px 12px 14px 12px;}
+  .cs-header h2{margin:0;font-size:22px;}
+  .cs-header p{margin:6px 0 0 0;opacity:0.75;}
+  .cs-row{display:grid;grid-template-columns:1fr 1fr 1.35fr;gap:14px;align-items:start;padding:0 12px 12px 12px;}
+  .cs-card{background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.04);}
+  .cs-card-title{font-weight:700;font-size:14px;margin-bottom:10px;}
+  .cs-subtitle{font-weight:600;font-size:12px;opacity:0.8;margin-bottom:8px;}
+  .cs-divider{height:1px;background:#eef0f2;margin:12px 0;}
+  .cs-fields{display:grid;gap:10px;}
+  .cs-field{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:start;}
+  .cs-label{font-size:13px;color:#2d3748;padding-top:8px;}
+  .cs-input,.cs-field input,.cs-field select{width:100%;padding:8px 10px;border:1px solid #d7dbe0;border-radius:10px;background:#fff;box-sizing:border-box;}
+  .cs-field-error{margin-top:4px;font-size:12px;color:#c53030;}
+  .cs-toggles{display:flex;gap:10px;flex-wrap:wrap;}
+  .cs-toggle{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid #d7dbe0;border-radius:10px;background:#fff;}
+  .cs-btn{width:100%;padding:10px 12px;border:none;border-radius:10px;background:#1f6feb;color:#fff;font-weight:600;cursor:pointer;}
+  .cs-btn-secondary{padding:6px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fff;cursor:pointer;}
+  .cs-linkbtn{border:none;background:none;padding:0;margin:0;cursor:pointer;color:#1f6feb;font-weight:600;}
+  .cs-selected{border:1px solid #dbeafe;background:#f8fbff;border-radius:10px;padding:10px;margin-bottom:10px;}
+  .cs-selected-title{font-weight:700;font-size:12px;margin-bottom:4px;}
+  .cs-selected-line{font-size:13px;line-height:1.4;}
+  .cs-table-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .cs-table-title{font-weight:700;font-size:13px;}
+  .cs-table-wrap{overflow:auto;border:1px solid #edf0f2;border-radius:10px;}
+  .cs-table{width:100%;border-collapse:collapse;background:#fff;font-size:13px;}
+  .cs-table th,.cs-table td{padding:10px 10px;border-bottom:1px solid #f0f2f4;white-space:nowrap;}
+  .cs-table th{position:sticky;top:0;background:#fbfcfd;text-align:left;font-weight:700;z-index:1;}
+  .cs-td-desc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cs-row-selected{background:#f0f7ff;}
+  .cs-kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+  .cs-kpi{border:1px solid #edf0f2;border-radius:10px;padding:10px;background:#fafbfd;}
+  .cs-kpi-label{font-size:12px;opacity:0.7;margin-bottom:4px;}
+  .cs-kpi-value{font-weight:700;font-size:14px;}
+  .cs-img-wrap{border:1px solid #edf0f2;border-radius:10px;overflow:hidden;background:#fff;}
+  .cs-img{display:block;width:100%;height:auto;}
+  .cs-empty{min-height:240px;display:flex;align-items:center;justify-content:center;text-align:center;color:#4a5568;border:1px dashed #d7dbe0;border-radius:10px;background:#fafbfd;padding:20px;}
+  .cs-error{margin-top:10px;padding:10px;border-radius:10px;background:#fff5f5;border:1px solid #fed7d7;color:#c53030;font-size:13px;}
+  .cs-top5-card{margin:0 12px 12px 12px;background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.04);}
+  @media (max-width:1100px){.cs-row{grid-template-columns:1fr;}.cs-field{grid-template-columns:120px 1fr;}.cs-kpi-grid{grid-template-columns:1fr;}}
+</style>
+
+<script>
+  function setAction(val){
+    const actionInput = document.querySelector('input[name="action"]');
+    if(actionInput) actionInput.value = val;
+  }
+
+  function currentPalletSource(){
+    const checked = document.querySelector('input[name="pallet_source"]:checked');
+    return checked ? checked.value : "manual";
+  }
+
+  function togglePalletSourceUI(){
+    const source = currentPalletSource();
+    const manualBox = document.getElementById("manual-pallet-box");
+    const catalogueBox = document.getElementById("catalogue-pallet-box");
+    if(!manualBox || !catalogueBox) return;
+
+    if(source === "manual"){
+      manualBox.style.display = "block";
+      catalogueBox.style.display = "none";
+    } else {
+      manualBox.style.display = "none";
+      catalogueBox.style.display = "block";
+    }
+  }
+
+  function togglePalletTable(forceOpen=null){
+    const table = document.getElementById("pallet-table-collapsible");
+    if(!table) return;
+    if(forceOpen === true){ table.style.display = "block"; return; }
+    table.style.display = (table.style.display === "none") ? "block" : "none";
+  }
+
+  function runAnalysis(){
+    setAction("run_analysis");
+    document.querySelector("form").submit();
+  }
+
+  function selectPallet(palletId){
+    setAction("run_analysis");
+    const sourceRadio = document.querySelector('input[name="pallet_source"][value="catalogue"]');
+    if(sourceRadio) sourceRadio.checked = true;
+    const hidden = document.querySelector('input[name="pallet_id"]');
+    if(hidden) hidden.value = palletId;
+    document.querySelector("form").submit();
+  }
+
+  function selectResult(resultKey){
+    setAction("select_result");
+    const selected = document.getElementById("selected_result_key");
+    if(selected) selected.value = resultKey;
+    document.querySelector("form").submit();
+  }
+
+  document.addEventListener("change", (e) => {
+    if(e.target.name === "pallet_source"){
+      togglePalletSourceUI();
+    }
+    if(e.target.name === "catalogue_id"){
+      e.target.form.submit();
+    }
+  });
+
+  document.addEventListener("DOMContentLoaded", () => {
+    togglePalletSourceUI();
+    const hasSelected = "{{ selected_material|default:'' }}" !== "";
+    const table = document.getElementById("pallet-table-collapsible");
+    if(table && hasSelected){
+      table.style.display = "none";
+    }
+  });
+</script>
+
+{% endblock %}

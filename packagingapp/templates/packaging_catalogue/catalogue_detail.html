@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>{{ catalogue.name }}</h2>
+
+        <div>
+            <a href="{% url 'add_material' catalogue.pk %}" class="btn btn-primary btn-sm">
+                Add Item
+            </a>
+
+
+            <a href="{% url 'upload_excel' catalogue.pk %}" class="btn btn-success btn-sm">
+                Upload Excel
+            </a>
+
+            <a href="{% url 'upload_drawings_for_catalogue' catalogue.pk %}" class="btn btn-secondary btn-sm">
+                Upload Drawings (ZIP)
+              </a>
+        </div>
+
+
+
+    </div>
+
+
+    <!-- ADVANCED FILTER BUTTON -->
+    <button class="btn btn-outline-primary mb-3"
+            data-bs-toggle="collapse"
+            data-bs-target="#filterPanel">
+        Advanced Filters
+    </button>
+
+    <!-- FILTER PANEL -->
+    <div class="collapse mb-4" id="filterPanel">
+        <div class="card card-body shadow-sm">
+
+            <form method="get" class="row g-3">
+
+                <div class="col-md-3">
+                    <label class="form-label">Part Number</label>
+                    {{ form.part_number }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Description</label>
+                    {{ form.part_description }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Type</label>
+                    {{ form.packaging_type }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Brand</label>
+                    {{ form.branding }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Min Length</label>
+                    {{ form.min_length }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Max Length</label>
+                    {{ form.max_length }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Min Width</label>
+                    {{ form.min_width }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Max Width</label>
+                    {{ form.max_width }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Min Heigth</label>
+                    {{ form.min_height }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Max Heigth</label>
+                    {{ form.max_height }}
+                </div>
+                
+
+                <div class="col-12 mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        Apply Filters
+                    </button>
+
+                    <a href="{% url 'catalogue_detail' catalogue.pk %}"
+                       class="btn btn-outline-secondary">
+                        Reset
+                    </a>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+
+    <!-- ITEMS TABLE -->
+    <div class="card shadow-sm">
+        <div class="card-body table-responsive">
+
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Part Number</th>
+                        <th>Description</th>
+                        <th>Type</th>
+                        <th>Brand</th>
+                        <th>Materials</th>
+                        <th>L</th>
+                        <th>W</th>
+                        <th>H</th>
+                        <th>Volume</th>
+                        <th>Drawing</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for material in page_obj %}
+                    <tr>
+                        <td>{{ material.part_number }}</td>
+                        <td>{{ material.part_description }}</td>
+                        <td>{{ material.packaging_type }}</td>
+                        <td>{{ material.branding }}</td>
+                        <td>{{ material.packaging_materials }}</td>
+                        <td>{{ material.part_length }}</td>
+                        <td>{{ material.part_width }}</td>
+                        <td>{{ material.part_height }}</td>
+                        <td>{{ material.part_volume }}</td>
+                        <td>
+                            {% if material.drawing %}
+                                <a href="{{ material.drawing.url }}" target="_blank" class="btn btn-sm btn-outline-dark">View</a>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted">No materials found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+
+
+    <!-- PAGINATION -->
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link"
+                   href="?page={{ page_obj.previous_page_number }}">
+                    Previous
+                </a>
+            </li>
+            {% endif %}
+
+            <li class="page-item active">
+                <span class="page-link">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link"
+                   href="?page={{ page_obj.next_page_number }}">
+                    Next
+                </a>
+            </li>
+            {% endif %}
+
+        </ul>
+    </nav>
+    {% endif %}
+
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="cs-page">
+  <div class="cs-header">
+    <h2>Container Selection Tool</h2>
+    <p>Single container analysis or Optimal container (Top 5 most volume-effective).</p>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+
+    <!-- IMPORTANT: render these ONCE only (prevents duplicate-field POST bugs) -->
+    {{ form.action }}
+    {{ form.container_id }}
+
+    <div class="cs-row">
+
+      <!-- Product -->
+      <div class="cs-card">
+        <div class="cs-card-title">Product</div>
+
+        <div class="cs-fields">
+          <div class="cs-field">
+            <label class="cs-label">Length</label>
+            {{ form.product_l }}
+          </div>
+          <div class="cs-field">
+            <label class="cs-label">Width</label>
+            {{ form.product_w }}
+          </div>
+          <div class="cs-field">
+            <label class="cs-label">Height</label>
+            {{ form.product_h }}
+          </div>
+          <div class="cs-field">
+            <label class="cs-label">Units needed</label>
+            {{ form.desired_qty }}
+          </div>
+        </div>
+
+        <div class="cs-divider"></div>
+
+        <div class="cs-subtitle">Rotation permissions</div>
+        <div class="cs-toggles">
+          <label class="cs-toggle">{{ form.r1 }} <span>Rotation 1</span></label>
+          <label class="cs-toggle">{{ form.r2 }} <span>Rotation 2</span></label>
+          <label class="cs-toggle">{{ form.r3 }} <span>Rotation 3</span></label>
+        </div>
+
+        <div class="cs-divider"></div>
+
+        <div class="cs-subtitle">Mode</div>
+        <div class="cs-fields">
+          <div class="cs-field">
+            <label class="cs-label">Analysis</label>
+            {{ form.mode }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Container -->
+      <div class="cs-card">
+        <div class="cs-card-title">Container</div>
+
+        <!-- Catalogue dropdown (GLOBAL, rendered ONCE) -->
+        <div class="cs-fields">
+          <div class="cs-field">
+            <label class="cs-label">Catalogue</label>
+            {{ form.catalogue_id }}
+          </div>
+        </div>
+
+        <div class="cs-divider"></div>
+
+        <!-- SINGLE MODE CONTROLS -->
+        <div id="single-controls">
+          <div class="cs-subtitle">Source</div>
+          <div class="cs-toggles">
+            <label class="cs-toggle">{{ form.container_source.0.tag }} <span>{{ form.container_source.0.choice_label }}</span></label>
+            <label class="cs-toggle">{{ form.container_source.1.tag }} <span>{{ form.container_source.1.choice_label }}</span></label>
+          </div>
+
+          <div class="cs-divider"></div>
+
+          <!-- Manual -->
+          <div id="manual-box">
+            <div class="cs-fields">
+              <div class="cs-field">
+                <label class="cs-label">Length</label>
+                {{ form.box_l }}
+              </div>
+              <div class="cs-field">
+                <label class="cs-label">Width</label>
+                {{ form.box_w }}
+              </div>
+              <div class="cs-field">
+                <label class="cs-label">Height</label>
+                {{ form.box_h }}
+              </div>
+            </div>
+            <div class="cs-hint">Use the same unit everywhere (mm / cm / inches).</div>
+          </div>
+
+          <!-- Catalogue (table view, collapsible) -->
+          <div id="catalogue-box" style="display:none;">
+
+            {% if selected_material %}
+              <div class="cs-selected">
+                <div class="cs-selected-title">Selected container</div>
+                <div class="cs-selected-line">
+                  <b>{{ selected_material.part_number }}</b> — {{ selected_material.part_description }}
+                </div>
+                <div class="cs-selected-line">
+                  {{ selected_material.packaging_type }} | {{ selected_material.branding }}
+                </div>
+                <div class="cs-selected-line">
+                  {{ selected_material.part_length }} × {{ selected_material.part_width }} × {{ selected_material.part_height }}
+                </div>
+              </div>
+            {% endif %}
+
+            <div class="cs-table-header">
+              <div class="cs-table-title">Available containers</div>
+              {% if selected_material %}
+                <button type="button" class="cs-linkbtn" onclick="toggleTable(true)">Change container</button>
+              {% else %}
+                <button type="button" class="cs-linkbtn" onclick="toggleTable()">Hide table</button>
+              {% endif %}
+            </div>
+
+            <div id="cs-table-collapsible" class="cs-table-wrap">
+              <table class="cs-table">
+                <thead>
+                  <tr>
+                    <th>Part #</th>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th>Brand</th>
+                    <th>L</th>
+                    <th>W</th>
+                    <th>H</th>
+                    <th>Vol</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for m in materials %}
+                    <tr class="{% if selected_material and selected_material.id == m.id %}cs-row-selected{% endif %}">
+                      <td>{{ m.part_number }}</td>
+                      <td class="cs-td-desc" title="{{ m.part_description }}">{{ m.part_description }}</td>
+                      <td>{{ m.packaging_type }}</td>
+                      <td>{{ m.branding }}</td>
+                      <td>{{ m.part_length }}</td>
+                      <td>{{ m.part_width }}</td>
+                      <td>{{ m.part_height }}</td>
+                      <td>{{ m.part_volume }}</td>
+                      <td style="text-align:right;">
+                        <button type="button" class="cs-btn-secondary" onclick="selectContainerSingle('{{ m.id }}')">Select</button>
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr><td colspan="9" style="padding:12px; opacity:0.7;">Select a catalogue to view materials.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <button class="cs-btn" type="submit" onclick="setAction('run_single')">Run analysis</button>
+        </div>
+
+        <!-- OPTIMAL MODE CONTROLS -->
+        <div id="optimal-controls" style="display:none;">
+          <button class="cs-btn" type="button" onclick="findTop5()">Find Top 5</button>
+          <div class="cs-hint">To speed up, the 3D drawing is generated only when you select a box from Top 5.</div>
+        </div>
+
+        {% if form.non_field_errors %}
+          <div class="cs-error">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Result -->
+      <div class="cs-card cs-card-result">
+        <div class="cs-card-title">Result</div>
+
+        {% if result %}
+          <div class="cs-kpi">
+            <div class="cs-kpi-label">Max quantity</div>
+            <div class="cs-kpi-value">{{ result.max_quantity }}</div>
+          </div>
+
+          {% if image_url %}
+            <div class="cs-img-wrap">
+              <img src="{{ image_url }}" alt="3D packing" class="cs-img">
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="cs-empty">
+            In Optimal mode: click <b>Find Top 5</b>, then <b>Select & Draw</b>.<br>
+            In Single mode: choose container and click <b>Run analysis</b>.
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- TOP 5 TABLE (below) -->
+    {% if top5 and form.mode.value == "optimal" %}
+      <div class="cs-top5-card">
+        <div class="cs-card-title">Top 5 most volume-effective containers</div>
+
+        <div class="cs-table-wrap" style="max-height: 420px;">
+          <table class="cs-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Part #</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>Brand</th>
+                <th>L</th>
+                <th>W</th>
+                <th>H</th>
+                <th>Max Qty</th>
+                <th>Usage</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in top5 %}
+                {% with m=row.material %}
+                <tr class="{% if selected_material and selected_material.id == m.id %}cs-row-selected{% endif %}">
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ m.part_number }}</td>
+                  <td class="cs-td-desc" title="{{ m.part_description }}">{{ m.part_description }}</td>
+                  <td>{{ m.packaging_type }}</td>
+                  <td>{{ m.branding }}</td>
+                  <td>{{ m.part_length }}</td>
+                  <td>{{ m.part_width }}</td>
+                  <td>{{ m.part_height }}</td>
+                  <td><b>{{ row.max_qty }}</b></td>
+                  <td>{{ row.usage|floatformat:2 }}</td>
+                  <td style="text-align:right;">
+                    <button type="button" class="cs-btn-secondary" onclick="selectCandidate('{{ m.id }}')">Select & Draw</button>
+                  </td>
+                </tr>
+                {% endwith %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+
+  </form>
+</div>
+
+<style>
+  .cs-page{padding:10px 4px;background:#f4f6f8;border-radius:12px;}
+  .cs-header{padding:10px 12px 14px 12px;}
+  .cs-header h2{margin:0;font-size:22px;}
+  .cs-header p{margin:6px 0 0 0;opacity:0.75;}
+
+  .cs-row{display:grid;grid-template-columns:1fr 1fr 1.35fr;gap:14px;align-items:start;padding:0 12px 12px 12px;}
+
+  .cs-card{background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.04);}
+  .cs-card-title{font-weight:700;font-size:14px;letter-spacing:0.2px;margin-bottom:10px;}
+  .cs-subtitle{font-weight:600;font-size:12px;opacity:0.8;margin-bottom:8px;}
+  .cs-divider{height:1px;background:#eef0f2;margin:12px 0;}
+
+  .cs-fields{display:grid;gap:10px;}
+  .cs-field{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;}
+  .cs-label{font-size:12px;opacity:0.8;white-space:nowrap;}
+
+  .cs-field input,.cs-field select{
+    width:100%;padding:8px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fbfcfd;outline:none;
+  }
+  .cs-field input:focus,.cs-field select:focus{border-color:#9aa7b2;background:#fff;}
+
+  .cs-toggles{display:grid;gap:8px;}
+  .cs-toggle{display:flex;gap:8px;align-items:center;font-size:12px;opacity:0.9;}
+
+  .cs-btn{
+    width:100%;margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid #1f2937;
+    background:#1f2937;color:#fff;cursor:pointer;
+  }
+  .cs-btn:hover{filter:brightness(1.05);}
+  .cs-hint{margin-top:8px;font-size:12px;opacity:0.65;}
+  .cs-error{margin-top:10px;color:#b42318;font-size:12px;}
+
+  .cs-kpi{display:flex;align-items:baseline;justify-content:space-between;border:1px solid #eef0f2;background:#fbfcfd;padding:10px 12px;border-radius:12px;}
+  .cs-kpi-label{font-size:12px;opacity:0.75;}
+  .cs-kpi-value{font-size:30px;font-weight:800;line-height:1;}
+  .cs-img-wrap{margin-top:10px;border:1px solid #eef0f2;border-radius:12px;background:#fafbfc;padding:8px;}
+  .cs-img{width:100%;max-height:300px;object-fit:contain;border-radius:10px;display:block;}
+  .cs-empty{opacity:0.7;padding:10px 2px;}
+
+  .cs-selected{margin-top:10px;padding:10px 12px;border:1px solid #e6e8eb;background:#fbfcfd;border-radius:12px;}
+  .cs-selected-title{font-weight:700;font-size:12px;margin-bottom:6px;}
+  .cs-selected-line{font-size:12px;opacity:0.9;margin-top:3px;}
+
+  .cs-table-header{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .cs-table-title{font-size:12px;font-weight:700;opacity:0.85;}
+  .cs-linkbtn{
+    border:0;background:transparent;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12px;
+    color:#1f2937;text-decoration:underline;opacity:0.85;
+  }
+  .cs-linkbtn:hover{opacity:1;background:#f3f4f6;text-decoration:none;}
+
+  .cs-table-wrap{margin-top:8px;border:1px solid #eef0f2;border-radius:12px;background:#fff;overflow:auto;max-height:360px;}
+  .cs-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .cs-table th,.cs-table td{padding:8px 10px;border-bottom:1px solid #f0f2f4;white-space:nowrap;}
+  .cs-table th{position:sticky;top:0;background:#fbfcfd;text-align:left;font-weight:700;z-index:1;}
+  .cs-td-desc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cs-btn-secondary{padding:6px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fff;cursor:pointer;}
+  .cs-btn-secondary:hover{background:#f6f7f9;}
+  .cs-row-selected{background:#f0f7ff;}
+
+  .cs-top5-card{
+    margin: 0 12px 12px 12px;
+    background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;
+    box-shadow:0 2px 10px rgba(0,0,0,0.04);
+  }
+
+  @media (max-width: 1100px){
+    .cs-row{grid-template-columns:1fr;}
+    .cs-field{grid-template-columns:120px 1fr;}
+  }
+</style>
+
+<script>
+  function setAction(val){
+    const actionInput = document.querySelector('input[name="action"]');
+    if(actionInput) actionInput.value = val;
+  }
+
+  // ---- Single mode helpers ----
+  function toggleTable(forceOpen=null){
+    const table=document.getElementById("cs-table-collapsible");
+    if(!table) return;
+    if(forceOpen===true){table.style.display="block";return;}
+    table.style.display=(table.style.display==="none")?"block":"none";
+  }
+
+  function selectContainerSingle(containerId){
+    setAction("run_single");
+
+    // ensure mode is single
+    const mode = document.querySelector('select[name="mode"]');
+    if(mode) mode.value = "single";
+
+    // ensure catalogue source in single mode
+    const catRadio = document.querySelector('input[name="container_source"][value="catalogue"]');
+    if(catRadio) catRadio.checked = true;
+
+    // set global hidden container id
+    const hidden = document.querySelector('input[name="container_id"]');
+    if(hidden) hidden.value = containerId;
+
+    document.querySelector("form").submit();
+  }
+
+  function updateSingleContainerUI(){
+    const manual = document.querySelector('input[name="container_source"][value="manual"]');
+    const manualBox = document.getElementById("manual-box");
+    const catBox = document.getElementById("catalogue-box");
+    if(!manual || !manualBox || !catBox) return;
+
+    if(manual.checked){
+      manualBox.style.display = "block";
+      catBox.style.display = "none";
+    } else {
+      manualBox.style.display = "none";
+      catBox.style.display = "block";
+    }
+  }
+
+  // ---- Optimal mode helpers ----
+  function findTop5(){
+    setAction("find_top5");
+    const mode = document.querySelector('select[name="mode"]');
+    if(mode) mode.value = "optimal";
+    document.querySelector("form").submit();
+  }
+
+  function selectCandidate(containerId){
+    setAction("select_candidate");
+    const hidden = document.querySelector('input[name="container_id"]');
+    if(hidden) hidden.value = containerId;
+    const mode = document.querySelector('select[name="mode"]');
+    if(mode) mode.value = "optimal";
+    document.querySelector("form").submit();
+  }
+
+  // ---- Mode toggling ----
+  function updateModeUI(){
+    const mode = document.querySelector('select[name="mode"]');
+    const single = document.getElementById("single-controls");
+    const optimal = document.getElementById("optimal-controls");
+    if(!mode || !single || !optimal) return;
+
+    if(mode.value === "optimal"){
+      single.style.display = "none";
+      optimal.style.display = "block";
+    } else {
+      single.style.display = "block";
+      optimal.style.display = "none";
+    }
+  }
+
+  document.addEventListener("change", (e) => {
+    if(e.target.name === "mode"){
+      updateModeUI();
+    }
+
+    if(e.target.name === "container_source"){
+      updateSingleContainerUI();
+    }
+
+    if(e.target.name === "catalogue_id"){
+      const mode = document.querySelector('select[name="mode"]');
+      if(mode && mode.value === "optimal"){
+        setAction("find_top5");
+        e.target.form.submit();
+      } else {
+        e.target.form.submit();
+      }
+    }
+  });
+
+  document.addEventListener("DOMContentLoaded", () => {
+    updateModeUI();
+    updateSingleContainerUI();
+
+    // auto-collapse single-mode table after selection
+    const hasSelected = "{{ selected_material|default:'' }}" !== "";
+    const table = document.getElementById("cs-table-collapsible");
+    if(table && hasSelected){
+      table.style.display="none";
+    }
+  });
+</script>
+
+{% endblock %}

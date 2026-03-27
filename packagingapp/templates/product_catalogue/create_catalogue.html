@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Create Product Catalogue{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3>Create Product Catalogue</h3>
+
+    <div class="card shadow-sm mt-3" style="max-width: 700px;">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label for="id_name" class="form-label">Catalogue Name</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form.name.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <button class="btn btn-success">Create</button>
+                <a href="{% url 'product_catalogues' %}" class="btn btn-outline-secondary">
+                    Cancel
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

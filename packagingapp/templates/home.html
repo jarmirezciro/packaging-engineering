@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block title %}Packaging Engineering | Home{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero-card {
+        background: linear-gradient(135deg, #0f172a 0%, #12344d 45%, #10a37f 100%);
+        color: white;
+        border: none;
+        border-radius: 1.5rem;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+    }
+
+    .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.18);
+        color: #ecfeff;
+        padding: 0.5rem 0.85rem;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+
+    .hero-title {
+        font-size: 2.3rem;
+        font-weight: 800;
+        line-height: 1.1;
+        margin-bottom: 1rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1.05rem;
+        color: rgba(255,255,255,0.86);
+        max-width: 720px;
+        margin-bottom: 1.5rem;
+    }
+
+    .hero-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .hero-stat {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.14);
+        border-radius: 1rem;
+        padding: 1rem;
+    }
+
+    .hero-stat .num {
+        font-size: 1.6rem;
+        font-weight: 800;
+        display: block;
+    }
+
+    .workflow-card,
+    .tool-card,
+    .highlight-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 1.1rem;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+    }
+
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 800;
+        margin-bottom: 0.25rem;
+    }
+
+    .section-subtitle {
+        color: #6b7280;
+        margin-bottom: 1.25rem;
+    }
+
+    .workflow-step {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        border-radius: 1rem;
+        background: #f8fafc;
+        border: 1px solid #edf2f7;
+        height: 100%;
+    }
+
+    .workflow-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #10a37f, #34d399);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+
+    .tool-card {
+        padding: 1.25rem;
+        height: 100%;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .tool-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    .tool-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: #ecfdf5;
+        color: #10a37f;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        margin-bottom: 1rem;
+    }
+
+    .tool-card h5 {
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .tool-card p {
+        color: #6b7280;
+        min-height: 72px;
+    }
+
+    .tool-card .btn {
+        border-radius: 0.8rem;
+    }
+
+    .highlight-card {
+        padding: 1.25rem;
+    }
+
+    .mini-pill {
+        display: inline-block;
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        background: #f0fdf4;
+        color: #0f766e;
+        font-size: 0.83rem;
+        font-weight: 600;
+        margin-right: 0.4rem;
+        margin-bottom: 0.4rem;
+    }
+
+    @media (max-width: 991px) {
+        .hero-title {
+            font-size: 1.8rem;
+        }
+
+        .hero-stat-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+
+    <div class="card hero-card p-4 p-lg-5 mb-4">
+        <div class="hero-badge">
+            <i class="bi bi-stars"></i>
+            Packaging Engineering Platform
+        </div>
+
+        <div class="hero-title">
+            Design, evaluate and optimize packaging decisions in one unified workspace.
+        </div>
+
+        <div class="hero-subtitle">
+            From product and packaging catalogues to container selection, bag sizing, palletization,
+            transport analysis and full packaging workflows, this platform brings together the tools
+            developed across your project into one structured engineering environment.
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'full_packaging_mode' %}" class="btn btn-light btn-lg">
+                <i class="bi bi-diagram-3 me-2"></i>Open Full Packaging Module
+            </a>
+            <a href="{% url 'product_catalogues' %}" class="btn btn-outline-light btn-lg">
+                <i class="bi bi-card-checklist me-2"></i>Go to Catalogues
+            </a>
+        </div>
+
+        <div class="hero-stat-grid">
+            <div class="hero-stat">
+                <span class="num">8+</span>
+                <span>Integrated engineering tools</span>
+            </div>
+            <div class="hero-stat">
+                <span class="num">1</span>
+                <span>Unified packaging workflow</span>
+            </div>
+            <div class="hero-stat">
+                <span class="num">3D</span>
+                <span>Visualization-driven decision making</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card workflow-card p-4 mb-4">
+        <div class="section-title">Recommended workflow</div>
+        <div class="section-subtitle">
+            A natural flow through the application from data setup to final packaging evaluation.
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-4 col-md-6">
+                <div class="workflow-step">
+                    <div class="workflow-icon"><i class="bi bi-card-checklist"></i></div>
+                    <div>
+                        <strong>1. Product Catalogue</strong><br>
+                        Define product dimensions, quantities and master data.
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <div class="workflow-step">
+                    <div class="workflow-icon"><i class="bi bi-archive"></i></div>
+                    <div>
+                        <strong>2. Packaging Catalogue</strong><br>
+                        Maintain available packaging materials and dimensions.
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <div class="workflow-step">
+                    <div class="workflow-icon"><i class="bi bi-box"></i></div>
+                    <div>
+                        <strong>3. Selection Tools</strong><br>
+                        Choose optimal containers or bags for one or many products.
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <div class="workflow-step">
+                    <div class="workflow-icon"><i class="bi bi-grid-3x3-gap"></i></div>
+                    <div>
+                        <strong>4. Palletization</strong><br>
+                        Build layer patterns and stacking strategies.
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <div class="workflow-step">
+                    <div class="workflow-icon"><i class="bi bi-truck"></i></div>
+                    <div>
+                        <strong>5. Transport Container</strong><br>
+                        Analyze transport loading and residual space usage.
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <div class="workflow-step">
+                    <div class="workflow-icon"><i class="bi bi-diagram-3"></i></div>
+                    <div>
+                        <strong>6. Full Packaging Module</strong><br>
+                        Connect the whole workflow into one integrated decision flow.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <div class="section-title">Tools</div>
+        <div class="section-subtitle">
+            Direct access to every tool already developed in the project.
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-xl-3 col-lg-4 col-md-6">
+            <div class="tool-card">
+                <div class="tool-icon"><i class="bi bi-card-checklist"></i></div>
+                <h5>Product Catalogue</h5>
+                <p>Create and manage products, dimensions, quantities, and supporting product data.</p>
+                <a href="{% url 'product_catalogues' %}" class="btn btn-outline-success w-100">Open</a>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-lg-4 col-md-6">
+            <div class="tool-card">
+                <div class="tool-icon"><i class="bi bi-archive"></i></div>
+                <h5>Packaging Catalogue</h5>
+                <p>Manage packaging materials and dimensions as the basis for selection and optimization.</p>
+                <a href="{% url 'catalogue_list' %}" class="btn btn-outline-success w-100">Open</a>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-lg-4 col-md-6">
+            <div class="tool-card">
+                <div class="tool-icon"><i class="bi bi-box"></i></div>
+                <h5>Container Selection</h5>
+                <p>Evaluate suitable containers for a single product with visualization and ranking logic.</p>
+                <a href="{% url 'container_selection_mode1' %}" class="btn btn-outline-success w-100">Open</a>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-lg-4 col-md-6">
+            <div class="tool-card">
+                <div class="tool-icon"><i class="bi bi-handbag"></i></div>
+                <h5>Bag Selection</h5>
+                <p>Estimate required bag size and packing arrangement for a single product scenario.</p>
+                <a href="{% url 'bag_selection_mode1' %}" class="btn btn-outline-success w-100">Open</a>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-lg-4 col-md-6">
+            <div class="tool-card">
+                <div class="tool-icon"><i class="bi bi-boxes"></i></div>
+                <h5>Container Multi Product</h5>
+                <p>Run top container analysis for product catalogues and export engineering results.</p>
+                <a href="{% url 'multi_product_container_selection' %}" class="btn btn-outline-success w-100">Open</a>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-lg-4 col-md-6">
+            <div class="tool-card">
+                <div class="tool-icon"><i class="bi bi-handbag-fill"></i></div>
+                <h5>Bag Multi Product</h5>
+                <p>Analyze multiple products against bag options with ranked results and visualization.</p>
+                <a href="{% url 'multi_product_bag_selection' %}" class="btn btn-outline-success w-100">Open</a>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-lg-4 col-md-6">
+            <div class="tool-card">
+                <div class="tool-icon"><i class="bi bi-grid-3x3-gap"></i></div>
+                <h5>Palletization Tool</h5>
+                <p>Generate pallet patterns, stacking approaches and support downstream logistics evaluation.</p>
+                <a href="{% url 'palletization_mode1' %}" class="btn btn-outline-success w-100">Open</a>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-lg-4 col-md-6">
+            <div class="tool-card">
+                <div class="tool-icon"><i class="bi bi-truck"></i></div>
+                <h5>Transport Container Tool</h5>
+                <p>Optimize transport-container loading and evaluate space usage for real shipping scenarios.</p>
+                <a href="{% url 'container_tool' %}" class="btn btn-outline-success w-100">Open</a>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-lg-4 col-md-6">
+            <div class="tool-card">
+                <div class="tool-icon"><i class="bi bi-diagram-3"></i></div>
+                <h5>Full Packaging Module</h5>
+                <p>Bring packaging decisions together into one integrated end-to-end packaging workflow.</p>
+                <a href="{% url 'full_packaging_mode' %}" class="btn btn-success w-100">Open</a>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-lg-7">
+            <div class="highlight-card h-100">
+                <div class="section-title">What makes this landing page feel fresh</div>
+                <div class="section-subtitle mb-3">
+                    The idea is to position the app as an engineering platform, not just a collection of forms.
+                </div>
+
+                <span class="mini-pill">Unified navigation</span>
+                <span class="mini-pill">Modern hero section</span>
+                <span class="mini-pill">Visual workflow</span>
+                <span class="mini-pill">Quick tool access</span>
+                <span class="mini-pill">Professional feel</span>
+
+                <hr>
+
+                <p class="mb-0 text-secondary">
+                    This page gives a strong first impression: structured, technical, visual, and clearly aligned
+                    with packaging engineering work. It also helps new users understand where to start.
+                </p>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="highlight-card h-100">
+                <div class="section-title">Suggested welcome text</div>
+                <div class="section-subtitle mb-3">Simple and professional.</div>
+
+                <p class="mb-2">
+                    <strong>Welcome to the Packaging Engineering Platform.</strong>
+                </p>
+                <p class="text-secondary mb-0">
+                    Use the tools on the left to create catalogues, evaluate packaging alternatives,
+                    simulate loading, and build a complete packaging solution from product to transport.
+                </p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
