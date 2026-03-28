@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,97 +6,98 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Packaging Engineering App{% endblock %}</title>
 
-    <!-- Bootstrap 5 CDN -->
+    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
 
+    <!-- Shared App Theme -->
+    <link rel="stylesheet" href="{% static 'css/app_theme.css' %}">
+
+    {% block extra_css %}{% endblock %}
+
     <style>
-        :root {
-            --pe-primary: #10a37f;
-            --pe-primary-dark: #0b7d61;
-            --pe-bg: #f6f8fa;
-            --pe-sidebar: #ffffff;
-            --pe-text: #1f2937;
-            --pe-muted: #6b7280;
-            --pe-border: #e5e7eb;
-            --pe-hover: #f0fdf9;
+        .app-shell {
+            display: flex;
+            min-height: 100vh;
+            background: var(--app-bg);
         }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--pe-bg);
-            color: var(--pe-text);
-        }
-
-        .sidebar {
-            height: 100vh;
-            position: fixed;
-            top: 0;
-            left: 0;
+        .app-sidebar {
             width: 280px;
-            background: var(--pe-sidebar);
-            border-right: 1px solid var(--pe-border);
+            background: #ffffff;
+            border-right: 1px solid var(--app-border);
             padding: 1rem 1rem 1.5rem 1rem;
             overflow-y: auto;
+            position: sticky;
+            top: 0;
+            height: 100vh;
             z-index: 1000;
         }
 
-        .sidebar-brand {
+        .app-brand {
             display: flex;
             align-items: center;
             gap: 0.75rem;
             padding: 0.5rem 0.5rem 1rem 0.5rem;
             margin-bottom: 0.5rem;
-            border-bottom: 1px solid var(--pe-border);
+            border-bottom: 1px solid var(--app-border);
         }
 
-        .sidebar-brand .icon-wrap {
+        .app-brand-icon {
             width: 42px;
             height: 42px;
             border-radius: 12px;
-            background: linear-gradient(135deg, var(--pe-primary), #35c9a5);
+            background: linear-gradient(135deg, var(--app-primary), #35c9a5);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.25rem;
             box-shadow: 0 6px 18px rgba(16, 163, 127, 0.22);
+            flex-shrink: 0;
         }
 
-        .sidebar-brand h5 {
+        .app-brand-title {
             margin: 0;
             font-weight: 700;
             font-size: 1rem;
+            color: var(--app-text);
         }
 
-        .sidebar-brand small {
-            color: var(--pe-muted);
+        .app-brand-subtitle {
+            color: var(--app-text-muted);
             display: block;
             margin-top: 0.1rem;
+            font-size: 0.82rem;
         }
 
-        .sidebar-section {
+        .app-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .app-nav-section {
             margin-top: 1.25rem;
         }
 
-        .sidebar-section-title {
+        .app-nav-section-title {
             font-size: 0.75rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            color: var(--pe-muted);
+            color: var(--app-text-muted);
             margin-bottom: 0.5rem;
             padding: 0 0.5rem;
         }
 
-        .sidebar a {
+        .app-nav-link {
             display: flex;
             align-items: center;
             gap: 0.65rem;
             padding: 0.7rem 0.85rem;
-            color: var(--pe-text);
+            color: var(--app-text);
             text-decoration: none;
             margin-bottom: 0.25rem;
             border-radius: 0.75rem;
@@ -103,139 +105,177 @@
             font-size: 0.95rem;
         }
 
-        .sidebar a:hover {
-            background: var(--pe-hover);
-            color: var(--pe-primary-dark);
+        .app-nav-link:hover {
+            background: var(--app-surface-soft);
+            color: var(--app-primary-dark);
         }
 
-        .sidebar a.active {
-            background: linear-gradient(135deg, var(--pe-primary), #1cc49b);
+        .app-nav-link.active {
+            background: linear-gradient(135deg, var(--app-primary), #1cc49b);
             color: white;
             box-shadow: 0 8px 20px rgba(16, 163, 127, 0.22);
         }
 
-        .sidebar a i {
+        .app-nav-link i {
             font-size: 1rem;
             width: 18px;
             text-align: center;
+            flex-shrink: 0;
         }
 
-        .content {
-            margin-left: 280px;
+        .app-main {
+            flex: 1;
+            min-width: 0;
             padding: 2rem;
-            min-height: 100vh;
         }
 
-        .page-shell {
+        .app-content-wrap {
             max-width: 1400px;
         }
 
+        .app-alerts {
+            margin-bottom: 1rem;
+        }
+
         @media (max-width: 991px) {
-            .sidebar {
+            .app-shell {
+                flex-direction: column;
+            }
+
+            .app-sidebar {
                 position: relative;
                 width: 100%;
                 height: auto;
+                border-right: 0;
+                border-bottom: 1px solid var(--app-border);
             }
 
-            .content {
-                margin-left: 0;
+            .app-main {
                 padding: 1.25rem;
             }
         }
     </style>
-
-    {% block extra_css %}{% endblock %}
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="sidebar-brand">
-            <div class="icon-wrap">
+<div class="app-shell">
+
+    <aside class="app-sidebar">
+        <div class="app-brand">
+            <div class="app-brand-icon">
                 <i class="bi bi-box-seam"></i>
             </div>
             <div>
-                <h5>Packaging Engineering</h5>
-                <small>Optimization & analysis suite</small>
+                <p class="app-brand-title">Packaging Engineering</p>
+                <small class="app-brand-subtitle">Optimization & analysis suite</small>
             </div>
         </div>
 
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">Home</div>
-            <a href="{% url 'home' %}" class="{% if request.path == '/' %}active{% endif %}">
-                <i class="bi bi-house-door"></i>
-                <span>Initialization Page</span>
-            </a>
-        </div>
+        <nav class="app-nav">
 
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">Catalogues</div>
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Home</div>
+                <a href="{% url 'home' %}"
+                   class="app-nav-link {% if request.path == '/' %}active{% endif %}">
+                    <i class="bi bi-house-door"></i>
+                    <span>Initialization Page</span>
+                </a>
+            </div>
 
-            <a href="{% url 'product_catalogues' %}" class="{% if request.path|slice:':20' == '/product-catalogues/' %}active{% endif %}">
-                <i class="bi bi-card-checklist"></i>
-                <span>Product Catalogue</span>
-            </a>
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Catalogues</div>
 
-            <a href="{% url 'catalogue_list' %}" class="{% if request.path|slice:':12' == '/catalogues/' %}active{% endif %}">
-                <i class="bi bi-archive"></i>
-                <span>Packaging Catalogue</span>
-            </a>
-        </div>
+                <a href="{% url 'product_catalogues' %}"
+                   class="app-nav-link {% if request.path|slice:':20' == '/product-catalogues/' %}active{% endif %}">
+                    <i class="bi bi-card-checklist"></i>
+                    <span>Product Catalogue</span>
+                </a>
 
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">Selection Tools</div>
+                <a href="{% url 'catalogue_list' %}"
+                   class="app-nav-link {% if request.path|slice:':12' == '/catalogues/' %}active{% endif %}">
+                    <i class="bi bi-archive"></i>
+                    <span>Packaging Catalogue</span>
+                </a>
+            </div>
 
-            <a href="{% url 'container_selection_mode1' %}" class="{% if request.path|slice:':27' == '/container-selection/mode1/' %}active{% endif %}">
-                <i class="bi bi-box"></i>
-                <span>Container Selection Tool</span>
-            </a>
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Selection Tools</div>
 
-            <a href="{% url 'bag_selection_mode1' %}" class="{% if request.path|slice:':15' == '/bag-selection/' %}active{% endif %}">
-                <i class="bi bi-handbag"></i>
-                <span>Bag Selection Tool</span>
-            </a>
+                <a href="{% url 'container_selection_mode1' %}"
+                   class="app-nav-link {% if request.path|slice:':27' == '/container-selection/mode1/' %}active{% endif %}">
+                    <i class="bi bi-box"></i>
+                    <span>Container Selection Tool</span>
+                </a>
 
-            <a href="{% url 'multi_product_container_selection' %}" class="{% if request.path|slice:':25' == '/multi-product-container/' %}active{% endif %}">
-                <i class="bi bi-boxes"></i>
-                <span>Container Multi Product</span>
-            </a>
+                <a href="{% url 'bag_selection_mode1' %}"
+                   class="app-nav-link {% if request.path|slice:':15' == '/bag-selection/' %}active{% endif %}">
+                    <i class="bi bi-handbag"></i>
+                    <span>Bag Selection Tool</span>
+                </a>
 
-            <a href="{% url 'multi_product_bag_selection' %}" class="{% if request.path|slice:':19' == '/multi-product-bag/' %}active{% endif %}">
-                <i class="bi bi-handbag-fill"></i>
-                <span>Bag Multi Product</span>
-            </a>
-        </div>
+                <a href="{% url 'multi_product_container_selection' %}"
+                   class="app-nav-link {% if request.path|slice:':25' == '/multi-product-container/' %}active{% endif %}">
+                    <i class="bi bi-boxes"></i>
+                    <span>Container Multi Product</span>
+                </a>
 
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">Advanced Tools</div>
+                <a href="{% url 'multi_product_bag_selection' %}"
+                   class="app-nav-link {% if request.path|slice:':19' == '/multi-product-bag/' %}active{% endif %}">
+                    <i class="bi bi-handbag-fill"></i>
+                    <span>Bag Multi Product</span>
+                </a>
+            </div>
 
-            <a href="{% url 'palletization_mode1' %}" class="{% if request.path|slice:':21' == '/palletization/mode1/' %}active{% endif %}">
-                <i class="bi bi-grid-3x3-gap"></i>
-                <span>Palletization Tool</span>
-            </a>
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Advanced Tools</div>
 
-            <a href="{% url 'container_tool' %}" class="{% if request.path|slice:':16' == '/container-tool/' %}active{% endif %}">
-                <i class="bi bi-truck"></i>
-                <span>Transport Container Tool</span>
-            </a>
-        </div>
+                <a href="{% url 'palletization_mode1' %}"
+                   class="app-nav-link {% if request.path|slice:':21' == '/palletization/mode1/' %}active{% endif %}">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                    <span>Palletization Tool</span>
+                </a>
 
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">Integrated Module</div>
+                <a href="{% url 'container_tool' %}"
+                   class="app-nav-link {% if request.path|slice:':16' == '/container-tool/' %}active{% endif %}">
+                    <i class="bi bi-truck"></i>
+                    <span>Transport Container Tool</span>
+                </a>
+            </div>
 
-            <a href="{% url 'full_packaging_mode' %}" class="{% if request.path|slice:':16' == '/full-packaging/' %}active{% endif %}">
-                <i class="bi bi-diagram-3"></i>
-                <span>Full Packaging Module</span>
-            </a>
-        </div>
-    </div>
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Integrated Module</div>
 
-    <div class="content">
-        <div class="page-shell">
+                <a href="{% url 'full_packaging_mode' %}"
+                   class="app-nav-link {% if request.path|slice:':16' == '/full-packaging/' %}active{% endif %}">
+                    <i class="bi bi-diagram-3"></i>
+                    <span>Full Packaging Module</span>
+                </a>
+            </div>
+
+        </nav>
+    </aside>
+
+    <main class="app-main">
+        <div class="app-content-wrap">
+
+            {% if messages %}
+            <div class="app-alerts">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
             {% block content %}{% endblock %}
         </div>
-    </div>
+    </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    {% block extra_js %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

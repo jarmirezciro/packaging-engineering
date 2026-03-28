@@ -1,198 +1,244 @@
 {% extends "base.html" %}
 
+{% block title %}{{ catalogue.name }}{% endblock %}
+
 {% block content %}
+<div class="app-page">
 
-<div class="container mt-4">
+    <div class="app-hero">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div class="d-flex align-items-start gap-3">
+                {% if catalogue.picture %}
+                    <img src="{{ catalogue.picture.url }}" alt="{{ catalogue.name }}" class="app-thumb">
+                {% else %}
+                    <div class="app-thumb-placeholder app-thumb-placeholder--small">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                {% endif %}
 
-    <!-- HEADER -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>{{ catalogue.name }}</h2>
-
-        <div>
-            <a href="{% url 'add_material' catalogue.pk %}" class="btn btn-primary btn-sm">
-                Add Item
-            </a>
-
-
-            <a href="{% url 'upload_excel' catalogue.pk %}" class="btn btn-success btn-sm">
-                Upload Excel
-            </a>
-
-            <a href="{% url 'upload_drawings_for_catalogue' catalogue.pk %}" class="btn btn-secondary btn-sm">
-                Upload Drawings (ZIP)
-              </a>
-        </div>
-
-
-
-    </div>
-
-
-    <!-- ADVANCED FILTER BUTTON -->
-    <button class="btn btn-outline-primary mb-3"
-            data-bs-toggle="collapse"
-            data-bs-target="#filterPanel">
-        Advanced Filters
-    </button>
-
-    <!-- FILTER PANEL -->
-    <div class="collapse mb-4" id="filterPanel">
-        <div class="card card-body shadow-sm">
-
-            <form method="get" class="row g-3">
-
-                <div class="col-md-3">
-                    <label class="form-label">Part Number</label>
-                    {{ form.part_number }}
+                <div>
+                    <div class="app-hero-badge">
+                        <i class="bi bi-box-seam"></i>
+                        Packaging Catalogue
+                    </div>
+                    <h1 class="app-title">{{ catalogue.name }}</h1>
+                    <p class="app-subtitle">
+                        {{ catalogue.description|default:"No description available." }}
+                    </p>
                 </div>
+            </div>
 
-                <div class="col-md-3">
-                    <label class="form-label">Description</label>
-                    {{ form.part_description }}
-                </div>
+            <div class="app-toolbar">
 
-                <div class="col-md-3">
-                    <label class="form-label">Type</label>
-                    {{ form.packaging_type }}
-                </div>
+                <a href="{% url 'edit_catalogue' catalogue.pk %}" class="btn btn-light btn-sm">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Catalogue
+                </a>
 
-                <div class="col-md-3">
-                    <label class="form-label">Brand</label>
-                    {{ form.branding }}
-                </div>
+                <a href="{% url 'add_material' catalogue.pk %}" class="btn btn-light btn-sm">
+                    <i class="bi bi-plus-circle me-2"></i>Add Item
+                </a>
 
-                <div class="col-md-3">
-                    <label class="form-label">Min Length</label>
-                    {{ form.min_length }}
-                </div>
+                <a href="{% url 'upload_excel' catalogue.pk %}" class="btn btn-app-primary btn-sm">
+                    <i class="bi bi-file-earmark-excel me-2"></i>Upload Excel
+                </a>
 
-                <div class="col-md-3">
-                    <label class="form-label">Max Length</label>
-                    {{ form.max_length }}
-                </div>
+                <a href="{% url 'upload_drawings_for_catalogue' catalogue.pk %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-folder me-2"></i>Upload Drawings
+                </a>
 
-                <div class="col-md-3">
-                    <label class="form-label">Min Width</label>
-                    {{ form.min_width }}
-                </div>
+                <a href="{% url 'export_catalogue_excel' catalogue.pk %}" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-box-arrow-down me-2"></i>Export Catalogue
+                </a>
 
-                <div class="col-md-3">
-                    <label class="form-label">Max Width</label>
-                    {{ form.max_width }}
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label">Min Heigth</label>
-                    {{ form.min_height }}
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label">Max Heigth</label>
-                    {{ form.max_height }}
-                </div>
-                
-
-                <div class="col-12 mt-3">
-                    <button type="submit" class="btn btn-primary">
-                        Apply Filters
-                    </button>
-
-                    <a href="{% url 'catalogue_detail' catalogue.pk %}"
-                       class="btn btn-outline-secondary">
-                        Reset
-                    </a>
-                </div>
-
-            </form>
+                <a href="{% url 'download_excel_template' catalogue.pk %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-download me-2"></i>Template
+                </a>
+            </div>
         </div>
     </div>
 
+    <div>
+        <button class="btn btn-app-outline app-filter-toggle"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#filterPanel"
+                aria-expanded="false"
+                aria-controls="filterPanel">
+            <i class="bi bi-funnel"></i>
+            Advanced Filters
+        </button>
+    </div>
 
-    <!-- ITEMS TABLE -->
-    <div class="card shadow-sm">
-        <div class="card-body table-responsive">
+    <div class="collapse" id="filterPanel">
+        <div class="app-card">
+            <div class="app-card-body">
+                <div class="app-section-title">Filter Packaging Materials</div>
+                <div class="app-section-subtitle">
+                    Filter all material fields except drawings. Dimensions are in mm and weight is in kg.
+                </div>
 
-            <table class="table table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Part Number</th>
-                        <th>Description</th>
-                        <th>Type</th>
-                        <th>Brand</th>
-                        <th>Materials</th>
-                        <th>L</th>
-                        <th>W</th>
-                        <th>H</th>
-                        <th>Volume</th>
-                        <th>Drawing</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for material in page_obj %}
-                    <tr>
-                        <td>{{ material.part_number }}</td>
-                        <td>{{ material.part_description }}</td>
-                        <td>{{ material.packaging_type }}</td>
-                        <td>{{ material.branding }}</td>
-                        <td>{{ material.packaging_materials }}</td>
-                        <td>{{ material.part_length }}</td>
-                        <td>{{ material.part_width }}</td>
-                        <td>{{ material.part_height }}</td>
-                        <td>{{ material.part_volume }}</td>
-                        <td>
-                            {% if material.drawing %}
-                                <a href="{{ material.drawing.url }}" target="_blank" class="btn btn-sm btn-outline-dark">View</a>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="10" class="text-center text-muted">No materials found.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Part Number</label>
+                        {{ form.part_number }}
+                    </div>
 
+                    <div class="col-md-3">
+                        <label class="form-label">Description</label>
+                        {{ form.part_description }}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Type</label>
+                        {{ form.packaging_type }}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Brand</label>
+                        {{ form.branding }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Min L</label>
+                        {{ form.min_length }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max L</label>
+                        {{ form.max_length }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Min W</label>
+                        {{ form.min_width }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max W</label>
+                        {{ form.max_width }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Min H</label>
+                        {{ form.min_height }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max H</label>
+                        {{ form.max_height }}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Min Weight</label>
+                        {{ form.min_weight }}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Max Weight</label>
+                        {{ form.max_weight }}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Min Volume</label>
+                        {{ form.min_volume }}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Max Volume</label>
+                        {{ form.max_volume }}
+                    </div>
+
+                    <div class="col-12">
+                        <div class="app-form-actions">
+                            <button type="submit" class="btn btn-app-primary">Apply Filters</button>
+                            <a href="{% url 'catalogue_detail' catalogue.pk %}" class="btn btn-app-outline">Reset</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
+    <div class="app-card">
+        <div class="app-card-body">
+            <div class="app-section-title">Catalogue Materials</div>
+            <div class="app-section-subtitle">
+                Internal and external dimensions are shown in mm. Weight is shown in kg.
+            </div>
 
-    <!-- PAGINATION -->
+            <div class="app-table-wrap">
+                <table class="table table-hover app-table align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Part Number</th>
+                            <th>Description</th>
+                            <th>Type</th>
+                            <th>Brand</th>
+                            <th>Materials</th>
+                            <th>Int. L (mm)</th>
+                            <th>Int. W (mm)</th>
+                            <th>Int. H (mm)</th>
+                            <th>Ext. L (mm)</th>
+                            <th>Ext. W (mm)</th>
+                            <th>Ext. H (mm)</th>
+                            <th>Weight (kg)</th>
+                            <th>Volume</th>
+                            <th>Drawing</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for material in page_obj %}
+                        <tr>
+                            <td>{{ material.part_number }}</td>
+                            <td>{{ material.part_description }}</td>
+                            <td>{{ material.packaging_type }}</td>
+                            <td>{{ material.branding }}</td>
+                            <td>{{ material.packaging_materials }}</td>
+                            <td>{{ material.part_length }}</td>
+                            <td>{{ material.part_width }}</td>
+                            <td>{{ material.part_height }}</td>
+                            <td>{{ material.external_length|default:"—" }}</td>
+                            <td>{{ material.external_width|default:"—" }}</td>
+                            <td>{{ material.external_height|default:"—" }}</td>
+                            <td>{{ material.part_weight|default:"—" }}</td>
+                            <td>{{ material.part_volume }}</td>
+                            <td>
+                                {% if material.drawing %}
+                                    <a href="{{ material.drawing.url }}" target="_blank" class="btn btn-sm btn-app-outline">
+                                        View
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="14" class="text-center text-muted">No materials found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     {% if page_obj.has_other_pages %}
-    <nav class="mt-4">
+    <nav>
         <ul class="pagination justify-content-center">
-
             {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link"
-                   href="?page={{ page_obj.previous_page_number }}">
-                    Previous
-                </a>
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
             </li>
             {% endif %}
 
             <li class="page-item active">
-                <span class="page-link">
-                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-                </span>
+                <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
             </li>
 
             {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link"
-                   href="?page={{ page_obj.next_page_number }}">
-                    Next
-                </a>
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
             </li>
             {% endif %}
-
         </ul>
     </nav>
     {% endif %}
 
-
 </div>
-
 {% endblock %}

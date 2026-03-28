@@ -27,18 +27,21 @@ from packagingapp.views.full_packaging import full_packaging_mode
 urlpatterns = [
     path("", home, name="home"),
 
-    # Packaging Catalogue
+
+# Packaging Catalogue
     path("catalogues/", packaging_catalogue.catalogue_list, name="catalogue_list"),
     path("catalogues/create/", packaging_catalogue.create_catalogue, name="create_catalogue"),
     path("catalogues/<int:pk>/", packaging_catalogue.catalogue_detail, name="catalogue_detail"),
     path("catalogues/<int:pk>/delete/", packaging_catalogue.delete_catalogue, name="delete_catalogue"),
     path("catalogues/<int:pk>/add-material/", packaging_catalogue.add_material, name="add_material"),
     path("catalogues/<int:pk>/upload-excel/", packaging_catalogue.upload_excel, name="upload_excel"),
+    path("catalogues/<int:pk>/download-excel-template/", packaging_catalogue.download_excel_template, name="download_excel_template"),
     path(
         "catalogues/<int:pk>/upload-drawings/",
         packaging_catalogue.upload_drawings_for_catalogue,
         name="upload_drawings_for_catalogue",
     ),
+    path("catalogues/<int:pk>/edit/", packaging_catalogue.edit_catalogue, name="edit_catalogue"),
 
     # Container Selection
     path(
@@ -46,6 +49,9 @@ urlpatterns = [
         container_selection.container_selection_mode1,
         name="container_selection_mode1",
     ),
+
+    path("catalogues/<int:pk>/export-excel/", packaging_catalogue.export_catalogue_excel, name="export_catalogue_excel"),
+
 
     # Product Catalogue
     path("product-catalogues/", products.product_catalogues, name="product_catalogues"),

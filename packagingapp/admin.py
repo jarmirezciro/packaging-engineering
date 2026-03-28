@@ -15,6 +15,7 @@ class PackagingMaterialAdmin(admin.ModelAdmin):
         "catalogue",
         "packaging_type",
         "branding",
+        "part_weight",
         "part_volume",
     )
     list_filter = ("catalogue", "packaging_type", "branding")

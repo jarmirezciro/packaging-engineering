@@ -1,109 +1,125 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block title %}Packaging Catalogues{% endblock %}
 
 {% block content %}
+<div class="app-page">
 
-
-<h2>Packaging Catalogues</h2>
-
-<div class="row mt-4">
-    
-    <!-- HEADER -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-               
+    <div class="app-hero">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
             <div>
-                <a href="{% url 'create_catalogue' %}" class="btn btn-primary btn-sm">
-                    Create Catalogue
+                <div class="app-hero-badge">
+                    <i class="bi bi-box-seam"></i>
+                    Packaging Catalogue
+                </div>
+                <h1 class="app-title">Manage packaging libraries and engineering data</h1>
+                <p class="app-subtitle">
+                    Create packaging catalogues, organize materials, maintain engineering dimensions,
+                    and keep related technical drawings connected to each item.
+                </p>
+            </div>
+
+            <div class="app-toolbar">
+                <a href="{% url 'create_catalogue' %}" class="btn btn-light">
+                    <i class="bi bi-plus-circle me-2"></i>Create Catalogue
                 </a>
             </div>
-    
-    
-    
-    </div>
-
-
-
-
-
-    {% for catalogue in catalogues %}
-    <div class="col-md-4 mb-3">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title">{{ catalogue.name }}</h5>
-                <p class="card-text">
-                    {{ catalogue.description|default:"No description" }}
-                </p>
-
-                <div class="d-flex gap-2">
-                    <a href="{% url 'catalogue_detail' catalogue.pk %}"
-                       class="btn btn-success btn-sm">
-                        View Materials
-                    </a>
-
-                    <button type="button"
-                            class="btn btn-outline-danger btn-sm"
-                            data-bs-toggle="modal"
-                            data-bs-target="#deleteModal{{ catalogue.pk }}">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
 
-    <!-- ✅ Modal must be INSIDE the loop -->
-    <div class="modal fade"
-         id="deleteModal{{ catalogue.pk }}"
-         tabindex="-1"
-         aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
+    <div class="row g-4">
+        {% for catalogue in catalogues %}
+        <div class="col-lg-4 col-md-6">
+            <div class="app-grid-card">
+                {% if catalogue.picture %}
+                    <img src="{{ catalogue.picture.url }}" alt="{{ catalogue.name }}" class="app-thumb-lg">
+                {% else %}
+                    <div class="app-thumb-placeholder app-thumb-placeholder--large">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                {% endif %}
 
-                <div class="modal-header">
-                    <h5 class="modal-title">Delete Catalogue</h5>
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal"></button>
-                </div>
+                <div class="app-grid-card-body">
+                    <h5 class="app-grid-card-title">{{ catalogue.name }}</h5>
+                    <p class="app-grid-card-text">
+                        {{ catalogue.description|default:"No description available." }}
+                    </p>
 
-                <div class="modal-body">
-                    Are you sure you want to delete
-                    <strong>{{ catalogue.name }}</strong>?
-                    <div class="text-muted mt-2">
-                        This will also delete all materials inside this catalogue.
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span class="app-meta-badge">
+                            <i class="bi bi-collection"></i>
+                            {{ catalogue.materials.count }} items
+                        </span>
+
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="{% url 'catalogue_detail' catalogue.pk %}" class="btn btn-app-primary btn-sm">
+                                View Materials
+                            </a>
+                        
+                            <a href="{% url 'edit_catalogue' catalogue.pk %}" class="btn btn-app-outline btn-sm">
+                                <i class="bi bi-pencil-square"></i>
+                            </a>
+                        
+                            <button type="button"
+                                    class="btn btn-outline-danger btn-sm"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteModal{{ catalogue.pk }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
-
-                <div class="modal-footer">
-                    <button type="button"
-                            class="btn btn-outline-secondary"
-                            data-bs-dismiss="modal">
-                        Cancel
-                    </button>
-
-                    <form method="post"
-                          action="{% url 'delete_catalogue' catalogue.pk %}">
-                        {% csrf_token %}
-                        <button type="submit"
-                                class="btn btn-danger">
-                            Delete
-                        </button>
-                    </form>
-                </div>
-
             </div>
         </div>
+
+        <div class="modal fade" id="deleteModal{{ catalogue.pk }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content rounded-4 border-0 shadow">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title">Delete Catalogue</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        Are you sure you want to delete <strong>{{ catalogue.name }}</strong>?
+                        <div class="text-muted mt-2">
+                            This will also delete all materials inside this catalogue.
+                        </div>
+                    </div>
+
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-app-outline" data-bs-dismiss="modal">
+                            Cancel
+                        </button>
+
+                        <form method="post" action="{% url 'delete_catalogue' catalogue.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% empty %}
+        <div class="col-12">
+            <div class="app-card">
+                <div class="app-card-body app-empty-state">
+                    <div class="mb-3" style="font-size: 2rem; color: var(--app-primary);">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    <h5 class="app-section-title">No catalogues yet</h5>
+                    <p class="app-section-subtitle">
+                        Create your first packaging catalogue to start loading packaging engineering data.
+                    </p>
+                    <a href="{% url 'create_catalogue' %}" class="btn btn-app-primary">
+                        <i class="bi bi-plus-circle me-2"></i>Create Catalogue
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
 
-    {% empty %}
-    <div class="col-12">
-        <p>
-            No catalogues yet.
-            <a href="{% url 'create_catalogue' %}">Create one</a>.
-        </p>
-    </div>
-    {% endfor %}
 </div>
-
 {% endblock %}

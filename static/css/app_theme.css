@@ -1,0 +1,318 @@
+/* =========================================================
+   Packaging Engineering App - Shared Theme
+   Based on home.html visual language
+   ========================================================= */
+
+   :root {
+    --app-bg: #f5f7fb;
+    --app-surface: #ffffff;
+    --app-surface-soft: #f8fafc;
+    --app-border: #e5e7eb;
+    --app-text: #0f172a;
+    --app-text-muted: #64748b;
+    --app-primary: #10a37f;
+    --app-primary-dark: #0b7a60;
+    --app-danger: #dc3545;
+    --app-shadow-sm: 0 10px 24px rgba(15, 23, 42, 0.05);
+    --app-shadow-md: 0 18px 36px rgba(15, 23, 42, 0.10);
+    --app-shadow-lg: 0 24px 48px rgba(15, 23, 42, 0.16);
+    --app-radius-lg: 1.25rem;
+    --app-radius-md: 1rem;
+    --app-radius-sm: 0.75rem;
+}
+
+body {
+    background-color: var(--app-bg);
+    color: var(--app-text);
+}
+
+/* =========================================================
+   Generic page layout
+   ========================================================= */
+
+.app-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.app-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #12344d 45%, #10a37f 100%);
+    color: #ffffff;
+    border-radius: 1.5rem;
+    padding: 1.75rem 2rem;
+    box-shadow: var(--app-shadow-lg);
+}
+
+.app-hero--compact {
+    padding: 1.25rem 1.5rem;
+}
+
+.app-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.9rem;
+}
+
+.app-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    color: #ffffff;
+}
+
+.app-subtitle {
+    color: rgba(255, 255, 255, 0.80);
+    margin-bottom: 0;
+    max-width: 900px;
+}
+
+.app-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    align-items: center;
+}
+
+.app-card {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg);
+    box-shadow: var(--app-shadow-sm);
+}
+
+.app-card-body {
+    padding: 1.5rem;
+}
+
+.app-section-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    color: var(--app-text);
+}
+
+.app-section-subtitle {
+    font-size: 0.95rem;
+    color: var(--app-text-muted);
+    margin-bottom: 1rem;
+}
+
+.app-empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--app-text-muted);
+}
+
+.app-divider {
+    border: 0;
+    height: 1px;
+    background: var(--app-border);
+    margin: 1.25rem 0;
+}
+
+/* =========================================================
+   Buttons
+   ========================================================= */
+
+.btn-app-primary {
+    background-color: var(--app-primary);
+    border-color: var(--app-primary);
+    color: #ffffff;
+}
+
+.btn-app-primary:hover,
+.btn-app-primary:focus {
+    background-color: var(--app-primary-dark);
+    border-color: var(--app-primary-dark);
+    color: #ffffff;
+}
+
+.btn-app-outline {
+    border: 1px solid var(--app-border);
+    background: #ffffff;
+    color: var(--app-text);
+}
+
+.btn-app-outline:hover,
+.btn-app-outline:focus {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+}
+
+/* =========================================================
+   Catalogue images / thumbnails
+   ========================================================= */
+
+.app-thumb {
+    width: 88px;
+    height: 88px;
+    object-fit: cover;
+    border-radius: 1rem;
+}
+
+.app-thumb-lg {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    display: block;
+}
+
+.app-thumb-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1rem;
+    color: var(--app-primary);
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+    border: 1px solid #cceee3;
+}
+
+.app-thumb-placeholder--small {
+    width: 88px;
+    height: 88px;
+    font-size: 1.8rem;
+}
+
+.app-thumb-placeholder--large {
+    width: 100%;
+    height: 180px;
+    font-size: 2rem;
+}
+
+/* =========================================================
+   Forms
+   ========================================================= */
+
+.app-form-section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--app-text);
+    margin-bottom: 0.75rem;
+}
+
+.app-form-note {
+    font-size: 0.9rem;
+    color: var(--app-text-muted);
+}
+
+.app-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+/* =========================================================
+   Tables
+   ========================================================= */
+
+.app-table-wrap {
+    overflow-x: auto;
+}
+
+.app-table {
+    margin-bottom: 0;
+    white-space: nowrap;
+}
+
+.app-table thead th {
+    font-size: 0.82rem;
+    text-transform: none;
+    color: #334155;
+    vertical-align: middle;
+}
+
+.app-table tbody td {
+    vertical-align: middle;
+}
+
+/* =========================================================
+   Filter panel
+   ========================================================= */
+
+.app-filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+/* =========================================================
+   Alerts and helper blocks
+   ========================================================= */
+
+.app-helper-block {
+    background: #f8fafc;
+    border: 1px dashed var(--app-border);
+    border-radius: 1rem;
+    padding: 1rem;
+    color: var(--app-text-muted);
+}
+
+.app-meta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    background: #f8fafc;
+    border: 1px solid var(--app-border);
+    font-size: 0.82rem;
+    color: var(--app-text-muted);
+}
+
+/* =========================================================
+   Cards used in list/grid pages
+   ========================================================= */
+
+.app-grid-card {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 1.1rem;
+    box-shadow: var(--app-shadow-sm);
+    overflow: hidden;
+    height: 100%;
+}
+
+.app-grid-card-body {
+    padding: 1.25rem;
+}
+
+.app-grid-card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.app-grid-card-text {
+    color: var(--app-text-muted);
+    margin-bottom: 1rem;
+}
+
+/* =========================================================
+   Responsive
+   ========================================================= */
+
+@media (max-width: 768px) {
+    .app-hero {
+        padding: 1.25rem 1.25rem;
+        border-radius: 1.1rem;
+    }
+
+    .app-title {
+        font-size: 1.35rem;
+    }
+
+    .app-card-body {
+        padding: 1rem;
+    }
+}

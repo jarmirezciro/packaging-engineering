@@ -7,10 +7,16 @@ import uuid
 class PackagingCatalogue(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
+    picture = models.ImageField(
+        upload_to="catalogue_pictures/",
+        blank=True,
+        null=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
+
 
 class PackagingMaterial(models.Model):
 
@@ -18,7 +24,7 @@ class PackagingMaterial(models.Model):
         ('BOX', 'BOX'),
         ('PALLET', 'PALLET'),
         ('CRATE', 'CRATE'),
-        ('BAG','BAG')
+        ('BAG', 'BAG'),
     ]
 
     BRANDS = [
@@ -41,9 +47,18 @@ class PackagingMaterial(models.Model):
 
     packaging_materials = models.CharField(max_length=255)
 
+    # Internal dimensions (mm)
     part_length = models.DecimalField(max_digits=10, decimal_places=2)
     part_width = models.DecimalField(max_digits=10, decimal_places=2)
     part_height = models.DecimalField(max_digits=10, decimal_places=2)
+
+    # External dimensions (mm)
+    external_length = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    external_width = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    external_height = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+
+    # Weight (kg)
+    part_weight = models.DecimalField(max_digits=12, decimal_places=3, blank=True, null=True)
 
     part_volume = models.DecimalField(max_digits=15, decimal_places=2, blank=True, null=True)
 
@@ -67,7 +82,6 @@ class PackagingMaterial(models.Model):
 
 
 def product_image_upload_path(instance, filename):
-    # media/products/<catalogue_id>/<filename>
     return f"products/{instance.catalogue_id}/{filename}"
 
 
@@ -96,7 +110,6 @@ class Product(models.Model):
     weight = models.DecimalField(max_digits=12, decimal_places=3, blank=True, null=True)
     product_picture = models.ImageField(upload_to=product_image_upload_path, blank=True, null=True)
 
-    # ✅ NEW: desired quantity per container
     desired_qty = models.PositiveIntegerField(default=1)
 
     created_at = models.DateTimeField(auto_now_add=True)

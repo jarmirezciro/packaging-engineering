@@ -2,6 +2,7 @@ from django import forms
 from .models import PackagingCatalogue, PackagingMaterial
 from .models import ProductCatalogue, Product
 
+
 class PackagingMaterialFilterForm(forms.Form):
     part_number = forms.CharField(required=False, label="Part Number")
     part_description = forms.CharField(required=False, label="Description")
@@ -14,14 +15,26 @@ class PackagingMaterialFilterForm(forms.Form):
     max_width = forms.DecimalField(required=False, label="Max Width")
     min_height = forms.DecimalField(required=False, label="Min Height")
     max_height = forms.DecimalField(required=False, label="Max Height")
-    
+
+    min_ext_length = forms.DecimalField(required=False, label="Min External Length")
+    max_ext_length = forms.DecimalField(required=False, label="Max External Length")
+    min_ext_width = forms.DecimalField(required=False, label="Min External Width")
+    max_ext_width = forms.DecimalField(required=False, label="Max External Width")
+    min_ext_height = forms.DecimalField(required=False, label="Min External Height")
+    max_ext_height = forms.DecimalField(required=False, label="Max External Height")
+
+    min_weight = forms.DecimalField(required=False, label="Min Weight")
+    max_weight = forms.DecimalField(required=False, label="Max Weight")
+
     min_volume = forms.DecimalField(required=False, label="Min Volume")
     max_volume = forms.DecimalField(required=False, label="Max Volume")
+
 
 class PackagingCatalogueForm(forms.ModelForm):
     class Meta:
         model = PackagingCatalogue
-        fields = ["name", "description"]
+        fields = ["name", "description", "picture"]
+
 
 class PackagingMaterialForm(forms.ModelForm):
     class Meta:
@@ -35,6 +48,10 @@ class PackagingMaterialForm(forms.ModelForm):
             "part_length",
             "part_width",
             "part_height",
+            "external_length",
+            "external_width",
+            "external_height",
+            "part_weight",
             "drawing",
         ]
 
@@ -48,26 +65,22 @@ class DrawingUploadForm(forms.Form):
 
 
 class ContainerSelectionMode1Form(forms.Form):
-    # --- Mode toggle (optional but nice) ---
     MODE_CHOICES = [
         ("single", "Single container analysis"),
         ("optimal", "Optimal container (Top 5)"),
     ]
     mode = forms.ChoiceField(choices=MODE_CHOICES, initial="single", required=True)
 
-    # Product
     product_l = forms.FloatField(min_value=0.0001, label="Length")
     product_w = forms.FloatField(min_value=0.0001, label="Width")
     product_h = forms.FloatField(min_value=0.0001, label="Height")
 
     desired_qty = forms.IntegerField(min_value=1, initial=1, label="Units needed")
 
-    # Rotations
     r1 = forms.BooleanField(required=False, initial=True, label="Allow rotation 1")
     r2 = forms.BooleanField(required=False, initial=True, label="Allow rotation 2")
     r3 = forms.BooleanField(required=False, initial=True, label="Allow rotation 3")
 
-    # Single container source
     CONTAINER_SOURCE_CHOICES = [
         ("manual", "Manual"),
         ("catalogue", "From catalogue"),
@@ -79,23 +92,17 @@ class ContainerSelectionMode1Form(forms.Form):
         required=True,
     )
 
-    # Catalogue selection (used by both: single+optimal)
     catalogue_id = forms.ChoiceField(required=False, label="Catalogue")
 
-    # Selected container id (table selection)
     container_id = forms.CharField(required=False, widget=forms.HiddenInput())
 
-    # Manual container dims (single/manual)
     box_l = forms.FloatField(min_value=0.0001, required=False, label="Length")
     box_w = forms.FloatField(min_value=0.0001, required=False, label="Width")
     box_h = forms.FloatField(min_value=0.0001, required=False, label="Height")
 
-    # Hidden action so we know which button was pressed
     action = forms.CharField(required=False, widget=forms.HiddenInput())
 
 
-    
-    
 class ProductCatalogueForm(forms.ModelForm):
     class Meta:
         model = ProductCatalogue
@@ -115,7 +122,7 @@ class ProductForm(forms.ModelForm):
             "rotation_2",
             "rotation_3",
             "weight",
-            "desired_qty",        
+            "desired_qty",
             "product_picture",
         ]
 
@@ -125,7 +132,7 @@ class ProductExcelUploadForm(forms.Form):
 
 
 class ProductImagesZipUploadForm(forms.Form):
-    file = forms.FileField(help_text="Upload a .zip containing product images") 
+    file = forms.FileField(help_text="Upload a .zip containing product images")
 
 
 class BagSelectionForm(forms.Form):
@@ -135,14 +142,12 @@ class BagSelectionForm(forms.Form):
     ]
     mode = forms.ChoiceField(choices=MODE_CHOICES, initial="single", required=True)
 
-    # Product (3D)
     product_l = forms.FloatField(min_value=0.0001, label="Length")
     product_w = forms.FloatField(min_value=0.0001, label="Width")
     product_h = forms.FloatField(min_value=0.0001, label="Height")
 
     desired_qty = forms.IntegerField(min_value=1, initial=1, label="Units needed")
 
-    # Single bag source
     BAG_SOURCE_CHOICES = [
         ("manual", "Manual"),
         ("catalogue", "From catalogue"),
@@ -154,19 +159,14 @@ class BagSelectionForm(forms.Form):
         required=True,
     )
 
-    # Catalogue selection
     catalogue_id = forms.ChoiceField(required=False, label="Catalogue")
 
-    # Selected bag (from tables)
     bag_id = forms.CharField(required=False, widget=forms.HiddenInput())
 
-    # Manual bag dims (2D)
     bag_length = forms.FloatField(min_value=0.0001, required=False, label="Bag length")
     bag_width = forms.FloatField(min_value=0.0001, required=False, label="Bag width")
 
-    # Hidden action
     action = forms.CharField(required=False, widget=forms.HiddenInput())
-
 
 
 class PalletizationForm(forms.Form):
