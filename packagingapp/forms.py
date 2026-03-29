@@ -3,6 +3,10 @@ from .models import PackagingCatalogue, PackagingMaterial
 from .models import ProductCatalogue, Product
 
 
+###
+# Packaging Materials Section
+###
+
 class PackagingMaterialFilterForm(forms.Form):
     part_number = forms.CharField(required=False, label="Part Number")
     part_description = forms.CharField(required=False, label="Description")
@@ -63,6 +67,9 @@ class ExcelUploadForm(forms.Form):
 class DrawingUploadForm(forms.Form):
     zip_file = forms.FileField(label="ZIP File (.zip)")
 
+###
+# Container Selection Form
+###
 
 class ContainerSelectionMode1Form(forms.Form):
     MODE_CHOICES = [
@@ -102,11 +109,35 @@ class ContainerSelectionMode1Form(forms.Form):
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
 
+###
+# Product Catalogue Section
+###
+
+class ProductFilterForm(forms.Form):
+    product_id = forms.CharField(required=False, label="Product ID")
+    product_name = forms.CharField(required=False, label="Product Name")
+
+    min_length = forms.DecimalField(required=False, label="Min Length")
+    max_length = forms.DecimalField(required=False, label="Max Length")
+    min_width = forms.DecimalField(required=False, label="Min Width")
+    max_width = forms.DecimalField(required=False, label="Max Width")
+    min_height = forms.DecimalField(required=False, label="Min Height")
+    max_height = forms.DecimalField(required=False, label="Max Height")
+
+    min_weight = forms.DecimalField(required=False, label="Min Weight")
+    max_weight = forms.DecimalField(required=False, label="Max Weight")
+
+    min_desired_qty = forms.IntegerField(required=False, label="Min Desired Qty")
+    max_desired_qty = forms.IntegerField(required=False, label="Max Desired Qty")
+
+    min_volume = forms.DecimalField(required=False, label="Min Volume")
+    max_volume = forms.DecimalField(required=False, label="Max Volume")
+
 
 class ProductCatalogueForm(forms.ModelForm):
     class Meta:
         model = ProductCatalogue
-        fields = ["name"]
+        fields = ["name", "description", "picture"]
 
 
 class ProductForm(forms.ModelForm):
@@ -128,11 +159,16 @@ class ProductForm(forms.ModelForm):
 
 
 class ProductExcelUploadForm(forms.Form):
-    file = forms.FileField()
+    file = forms.FileField(label="Excel File (.xlsx)")
 
 
 class ProductImagesZipUploadForm(forms.Form):
     file = forms.FileField(help_text="Upload a .zip containing product images")
+
+
+###
+# Bag Selection Form
+###
 
 
 class BagSelectionForm(forms.Form):

@@ -60,7 +60,10 @@ urlpatterns = [
     path("product-catalogues/<int:catalogue_id>/delete/", products.delete_product_catalogue, name="delete_product_catalogue"),
     path("product-catalogues/<int:catalogue_id>/add/", products.add_product, name="add_product"),
     path("product-catalogues/<int:catalogue_id>/upload-excel/", products.upload_products_excel, name="upload_products_excel"),
+    path("product-catalogues/<int:catalogue_id>/download-excel-template/", products.download_product_excel_template, name="download_product_excel_template"),
     path("product-catalogues/<int:catalogue_id>/upload-images-zip/", products.upload_product_images_zip, name="upload_product_images_zip"),
+    path("product-catalogues/<int:catalogue_id>/edit/", products.edit_product_catalogue, name="edit_product_catalogue"),
+    path("product-catalogues/<int:catalogue_id>/export-excel/", products.export_product_catalogue_excel, name="export_product_catalogue_excel"),
 
     # Multi Product Container
     path("multi-product-container/", multi_product_container_selection, name="multi_product_container_selection"),

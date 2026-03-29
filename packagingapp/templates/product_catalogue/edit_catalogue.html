@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}Create Product Catalogue{% endblock %}
+{% block title %}Edit Product Catalogue{% endblock %}
 
 {% block content %}
 <div class="app-page">
 
     <div class="app-hero app-hero--compact">
         <div class="app-hero-badge">
-            <i class="bi bi-plus-circle"></i>
+            <i class="bi bi-pencil-square"></i>
             Product Catalogue
         </div>
-        <h1 class="app-title">Create New Catalogue</h1>
+        <h1 class="app-title">Edit Catalogue</h1>
         <p class="app-subtitle">
-            Define the catalogue name, description, and optional image.
+            Update the catalogue name, description, and image for {{ catalogue.name }}.
         </p>
     </div>
 
@@ -20,7 +20,7 @@
         <div class="app-card-body">
             <div class="app-section-title">Catalogue Information</div>
             <div class="app-section-subtitle">
-                Create a catalogue to organize product master data and dimensions.
+                Modify the catalogue metadata and keep the visual identity updated.
             </div>
 
             <form method="post" enctype="multipart/form-data">
@@ -37,6 +37,18 @@
                         {{ form.picture }}
                     </div>
 
+                    {% if catalogue.picture %}
+                    <div class="col-12">
+                        <label class="form-label">Current Image</label>
+                        <div>
+                            <img src="{{ catalogue.picture.url }}"
+                                 alt="{{ catalogue.name }}"
+                                 class="app-thumb"
+                                 style="width: 120px; height: 120px;">
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <div class="col-12">
                         <label class="form-label">Description</label>
                         {{ form.description }}
@@ -44,8 +56,8 @@
                 </div>
 
                 <div class="app-form-actions">
-                    <button class="btn btn-app-primary">Create Catalogue</button>
-                    <a href="{% url 'product_catalogues' %}" class="btn btn-app-outline">Back</a>
+                    <button class="btn btn-app-primary">Save Changes</button>
+                    <a href="{% url 'product_catalogue_detail' catalogue.pk %}" class="btn btn-app-outline">Back</a>
                 </div>
             </form>
         </div>

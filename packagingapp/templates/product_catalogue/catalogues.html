@@ -3,93 +3,124 @@
 {% block title %}Product Catalogues{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="app-page">
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0">Product Catalogues</h2>
-        <div>
-            <a href="{% url 'create_product_catalogue' %}" class="btn btn-primary btn-sm">
-                Create Catalogue
-            </a>
+    <div class="app-hero">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <div class="app-hero-badge">
+                    <i class="bi bi-box"></i>
+                    Product Catalogue
+                </div>
+                <h1 class="app-title">Manage product libraries and master data</h1>
+                <p class="app-subtitle">
+                    Create product catalogues, organize dimensional data, maintain weights and images,
+                    and prepare product master data for packaging analysis.
+                </p>
+            </div>
+
+            <div class="app-toolbar">
+                <a href="{% url 'create_product_catalogue' %}" class="btn btn-light">
+                    <i class="bi bi-plus-circle me-2"></i>Create Catalogue
+                </a>
+            </div>
         </div>
     </div>
 
-    <div class="row">
+    <div class="row g-4">
         {% for catalogue in catalogues %}
-        <div class="col-md-4 mb-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title">{{ catalogue.name }}</h5>
-                    <p class="card-text text-muted mb-4">
-                        Product master data catalogue
+        <div class="col-lg-4 col-md-6">
+            <div class="app-grid-card">
+                {% if catalogue.picture %}
+                    <img src="{{ catalogue.picture.url }}" alt="{{ catalogue.name }}" class="app-thumb-lg">
+                {% else %}
+                    <div class="app-thumb-placeholder app-thumb-placeholder--large">
+                        <i class="bi bi-box"></i>
+                    </div>
+                {% endif %}
+
+                <div class="app-grid-card-body">
+                    <h5 class="app-grid-card-title">{{ catalogue.name }}</h5>
+                    <p class="app-grid-card-text">
+                        {{ catalogue.description|default:"No description available." }}
                     </p>
 
-                    <div class="d-flex gap-2 mt-auto">
-                        <a href="{% url 'product_catalogue_detail' catalogue.id %}"
-                           class="btn btn-success btn-sm">
-                            View Products
-                        </a>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span class="app-meta-badge">
+                            <i class="bi bi-boxes"></i>
+                            {{ catalogue.products.count }} products
+                        </span>
 
-                        <button type="button"
-                                class="btn btn-outline-danger btn-sm"
-                                data-bs-toggle="modal"
-                                data-bs-target="#deleteModal{{ catalogue.id }}">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="{% url 'product_catalogue_detail' catalogue.pk %}" class="btn btn-app-primary btn-sm">
+                                View Products
+                            </a>
+
+                            <a href="{% url 'edit_product_catalogue' catalogue.pk %}" class="btn btn-app-outline btn-sm">
+                                <i class="bi bi-pencil-square"></i>
+                            </a>
+
+                            <a href="{% url 'export_product_catalogue_excel' catalogue.pk %}" class="btn btn-app-outline btn-sm">
+                                <i class="bi bi-box-arrow-down"></i>
+                            </a>
+
+                            <button type="button"
+                                    class="btn btn-outline-danger btn-sm"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteModal{{ catalogue.pk }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="modal fade"
-             id="deleteModal{{ catalogue.id }}"
-             tabindex="-1"
-             aria-hidden="true">
+        <div class="modal fade" id="deleteModal{{ catalogue.pk }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog">
-                <div class="modal-content">
-
-                    <div class="modal-header">
+                <div class="modal-content rounded-4 border-0 shadow">
+                    <div class="modal-header border-0">
                         <h5 class="modal-title">Delete Product Catalogue</h5>
-                        <button type="button"
-                                class="btn-close"
-                                data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
 
                     <div class="modal-body">
-                        Are you sure you want to delete
-                        <strong>{{ catalogue.name }}</strong>?
+                        Are you sure you want to delete <strong>{{ catalogue.name }}</strong>?
                         <div class="text-muted mt-2">
                             This will also delete all products inside this catalogue.
                         </div>
                     </div>
 
-                    <div class="modal-footer">
-                        <button type="button"
-                                class="btn btn-outline-secondary"
-                                data-bs-dismiss="modal">
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-app-outline" data-bs-dismiss="modal">
                             Cancel
                         </button>
 
-                        <form method="post"
-                              action="{% url 'delete_product_catalogue' catalogue.id %}">
+                        <form method="post" action="{% url 'delete_product_catalogue' catalogue.pk %}">
                             {% csrf_token %}
-                            <button type="submit"
-                                    class="btn btn-danger">
-                                Delete
-                            </button>
+                            <button type="submit" class="btn btn-danger">Delete</button>
                         </form>
                     </div>
-
                 </div>
             </div>
         </div>
 
         {% empty %}
         <div class="col-12">
-            <p>
-                No product catalogues yet.
-                <a href="{% url 'create_product_catalogue' %}">Create one</a>.
-            </p>
+            <div class="app-card">
+                <div class="app-card-body app-empty-state">
+                    <div class="mb-3" style="font-size: 2rem; color: var(--app-primary);">
+                        <i class="bi bi-box"></i>
+                    </div>
+                    <h5 class="app-section-title">No catalogues yet</h5>
+                    <p class="app-section-subtitle">
+                        Create your first product catalogue to start loading product master data.
+                    </p>
+                    <a href="{% url 'create_product_catalogue' %}" class="btn btn-app-primary">
+                        <i class="bi bi-plus-circle me-2"></i>Create Catalogue
+                    </a>
+                </div>
+            </div>
         </div>
         {% endfor %}
     </div>

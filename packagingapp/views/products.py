@@ -1,100 +1,154 @@
-# packagingapp/views_product_catalogue.py
-import io
+from io import BytesIO
 import zipfile
-from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
-from django.db import transaction
-from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.core.files.base import ContentFile
+from django.core.paginator import Paginator
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from openpyxl import Workbook
 
-from openpyxl import load_workbook
-
-from ..models import ProductCatalogue, Product
-from ..forms import (
+from packagingapp.forms import (
     ProductCatalogueForm,
     ProductForm,
     ProductExcelUploadForm,
     ProductImagesZipUploadForm,
+    ProductFilterForm,
 )
+from packagingapp.models import ProductCatalogue, Product
+from packagingapp.services.product_excel_import import import_product_excel
 
 
-def _to_bool(value, default=False):
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    s = str(value).strip().lower()
-    if s in {"1", "true", "yes", "y"}:
-        return True
-    if s in {"0", "false", "no", "n"}:
-        return False
-    return default
-
-
-def _to_decimal(value, field_name):
-    if value is None or str(value).strip() == "":
-        raise ValueError(f"Missing required numeric field: {field_name}")
-    try:
-        return Decimal(str(value).strip())
-    except (InvalidOperation, ValueError):
-        raise ValueError(f"Invalid number for {field_name}: {value}")
-
-
-# 1) Catalogue list (tiles)
 def product_catalogues(request):
     catalogues = ProductCatalogue.objects.all().order_by("-created_at")
-    return render(request, "product_catalogue/catalogues.html", {"catalogues": catalogues})
+    return render(
+        request,
+        "product_catalogue/catalogues.html",
+        {"catalogues": catalogues},
+    )
 
 
-# 2) Create catalogue
 def create_product_catalogue(request):
     if request.method == "POST":
-        form = ProductCatalogueForm(request.POST)
+        form = ProductCatalogueForm(request.POST, request.FILES)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Product catalogue created.")
-            return redirect("product_catalogues")
+            catalogue = form.save()
+            messages.success(request, "Product catalogue created successfully.")
+            return redirect("product_catalogue_detail", catalogue_id=catalogue.pk)
     else:
         form = ProductCatalogueForm()
-    return render(request, "product_catalogue/create_catalogue.html", {"form": form})
+
+    return render(
+        request,
+        "product_catalogue/create_catalogue.html",
+        {"form": form},
+    )
 
 
-# 3) Delete catalogue
+def edit_product_catalogue(request, catalogue_id):
+    catalogue = get_object_or_404(ProductCatalogue, pk=catalogue_id)
+
+    if request.method == "POST":
+        form = ProductCatalogueForm(request.POST, request.FILES, instance=catalogue)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Product catalogue updated successfully.")
+            return redirect("product_catalogue_detail", catalogue_id=catalogue.pk)
+    else:
+        form = ProductCatalogueForm(instance=catalogue)
+
+    return render(
+        request,
+        "product_catalogue/edit_catalogue.html",
+        {
+            "catalogue": catalogue,
+            "form": form,
+        },
+    )
+
+
 def delete_product_catalogue(request, catalogue_id):
     catalogue = get_object_or_404(ProductCatalogue, id=catalogue_id)
     if request.method == "POST":
         catalogue.delete()
-        messages.success(request, "Product catalogue deleted.")
+        messages.success(request, "Product catalogue deleted successfully.")
         return redirect("product_catalogues")
-    return render(request, "product_catalogue/confirm_delete_catalogue.html", {"catalogue": catalogue})
+    return redirect("product_catalogues")
 
 
-# 4) Catalogue detail (table of products)
 def product_catalogue_detail(request, catalogue_id):
     catalogue = get_object_or_404(ProductCatalogue, id=catalogue_id)
-    products = catalogue.products.all()
+    products = catalogue.products.all().order_by("product_id")
+
+    form = ProductFilterForm(request.GET or None)
+
+    if form.is_valid():
+        cd = form.cleaned_data
+
+        if cd.get("product_id"):
+            products = products.filter(product_id__icontains=cd["product_id"])
+
+        if cd.get("product_name"):
+            products = products.filter(product_name__icontains=cd["product_name"])
+
+        if cd.get("min_length"):
+            products = products.filter(product_length__gte=cd["min_length"])
+        if cd.get("max_length"):
+            products = products.filter(product_length__lte=cd["max_length"])
+
+        if cd.get("min_width"):
+            products = products.filter(product_width__gte=cd["min_width"])
+        if cd.get("max_width"):
+            products = products.filter(product_width__lte=cd["max_width"])
+
+        if cd.get("min_height"):
+            products = products.filter(product_height__gte=cd["min_height"])
+        if cd.get("max_height"):
+            products = products.filter(product_height__lte=cd["max_height"])
+
+        if cd.get("min_weight"):
+            products = products.filter(weight__gte=cd["min_weight"])
+        if cd.get("max_weight"):
+            products = products.filter(weight__lte=cd["max_weight"])
+
+        if cd.get("min_desired_qty"):
+            products = products.filter(desired_qty__gte=cd["min_desired_qty"])
+        if cd.get("max_desired_qty"):
+            products = products.filter(desired_qty__lte=cd["max_desired_qty"])
+
+        if cd.get("min_volume"):
+            products = products.filter(product_volume__gte=cd["min_volume"])
+        if cd.get("max_volume"):
+            products = products.filter(product_volume__lte=cd["max_volume"])
+
+    paginator = Paginator(products, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
     return render(
         request,
         "product_catalogue/catalogue_detail.html",
-        {"catalogue": catalogue, "products": products},
+        {
+            "catalogue": catalogue,
+            "form": form,
+            "page_obj": page_obj,
+        },
     )
 
 
-# 5) Add product manually
 def add_product(request, catalogue_id):
     catalogue = get_object_or_404(ProductCatalogue, id=catalogue_id)
+
     if request.method == "POST":
         form = ProductForm(request.POST, request.FILES)
         if form.is_valid():
             product = form.save(commit=False)
             product.catalogue = catalogue
             product.save()
-            messages.success(request, "Product added.")
+            messages.success(request, "Product added successfully.")
             return redirect("product_catalogue_detail", catalogue_id=catalogue.id)
     else:
         form = ProductForm()
+
     return render(
         request,
         "product_catalogue/add_product.html",
@@ -102,111 +156,29 @@ def add_product(request, catalogue_id):
     )
 
 
-# 6) Mass upload via Excel
 def upload_products_excel(request, catalogue_id):
     catalogue = get_object_or_404(ProductCatalogue, id=catalogue_id)
 
     if request.method == "POST":
         form = ProductExcelUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            f = form.cleaned_data["file"]
             try:
-                wb = load_workbook(filename=f, data_only=True)
-                ws = wb.active
-            except Exception:
-                messages.error(request, "Could not read the Excel file. Please upload a valid .xlsx.")
-                return redirect("upload_products_excel", catalogue_id=catalogue.id)
-
-            # Expect headers on row 1
-            headers = {}
-            for idx, cell in enumerate(ws[1], start=1):
-                if cell.value:
-                    headers[str(cell.value).strip()] = idx
-
-            required = ["product_length", "product_width", "product_height"]
-            for col in required:
-                if col not in headers:
-                    messages.error(request, f"Missing required column: {col}")
-                    return redirect("upload_products_excel", catalogue_id=catalogue.id)
-
-            created = 0
-            updated = 0
-            errors = 0
-
-            with transaction.atomic():
-                for row in range(2, ws.max_row + 1):
-                    # skip fully empty rows
-                    if all(ws.cell(row=row, column=c).value in (None, "") for c in range(1, ws.max_column + 1)):
-                        continue
-
-                    def get(col, default=None):
-                        if col not in headers:
-                            return default
-                        return ws.cell(row=row, column=headers[col]).value
-
-                    try:
-                        pid = get("product_id")
-                        pname = get("product_name")
-                        length = _to_decimal(get("product_length"), "product_length")
-                        width = _to_decimal(get("product_width"), "product_width")
-                        height = _to_decimal(get("product_height"), "product_height")
-
-                        r1 = _to_bool(get("rotation_1"), True)
-                        r2 = _to_bool(get("rotation_2"), False)
-                        r3 = _to_bool(get("rotation_3"), False)
-
-                        weight_val = get("weight")
-                        weight = None
-                        if weight_val not in (None, ""):
-                            weight = _to_decimal(weight_val, "weight")
-
-                        picture_name = get("product_picture")
-
-                        obj, was_created = Product.objects.get_or_create(
-                            catalogue=catalogue,
-                            product_id=str(pid).strip() if pid not in (None, "") else None,
-                            defaults={
-                                "product_name": str(pname).strip() if pname not in (None, "") else None,
-                                "product_length": length,
-                                "product_width": width,
-                                "product_height": height,
-                                "rotation_1": r1,
-                                "rotation_2": r2,
-                                "rotation_3": r3,
-                                "weight": weight,
-                            },
-                        )
-
-                        if not was_created:
-                            obj.product_name = str(pname).strip() if pname not in (None, "") else obj.product_name
-                            obj.product_length = length
-                            obj.product_width = width
-                            obj.product_height = height
-                            obj.rotation_1 = r1
-                            obj.rotation_2 = r2
-                            obj.rotation_3 = r3
-                            obj.weight = weight
-                            obj.save()
-                            updated += 1
-                        else:
-                            created += 1
-
-                        # picture_name is just stored as "pending filename" unless already set
-                        # (actual image can be uploaded via ZIP in a separate step)
-                        if picture_name and not obj.product_picture:
-                            # store filename in name field temporarily if you want,
-                            # or simply ignore here and rely on ZIP upload later
-                            pass
-
-                    except Exception:
-                        errors += 1
-
-            messages.success(
-                request,
-                f"Excel processed. Created: {created}, Updated: {updated}, Errors: {errors}",
-            )
-            return redirect("product_catalogue_detail", catalogue_id=catalogue.id)
-
+                created_count, updated_count = import_product_excel(request.FILES["file"], catalogue)
+                return render(
+                    request,
+                    "product_catalogue/upload_excel.html",
+                    {
+                        "form": ProductExcelUploadForm(),
+                        "catalogue": catalogue,
+                        "success": f"Upload completed. Created: {created_count}. Updated: {updated_count}.",
+                    },
+                )
+            except Exception as e:
+                return render(
+                    request,
+                    "product_catalogue/upload_excel.html",
+                    {"form": form, "catalogue": catalogue, "error": str(e)},
+                )
     else:
         form = ProductExcelUploadForm()
 
@@ -217,7 +189,120 @@ def upload_products_excel(request, catalogue_id):
     )
 
 
-# 7) Upload product images ZIP (optional but useful for product_picture at scale)
+def download_product_excel_template(request, catalogue_id):
+    catalogue = get_object_or_404(ProductCatalogue, pk=catalogue_id)
+
+    wb = Workbook()
+
+    ws = wb.active
+    ws.title = "Template"
+    ws.append([
+        "product_id",
+        "product_name",
+        "product_length",
+        "product_width",
+        "product_height",
+        "rotation_1",
+        "rotation_2",
+        "rotation_3",
+        "weight",
+        "desired_qty",
+    ])
+    ws.append([
+        "P-100001",
+        "Sample Product",
+        300,
+        200,
+        150,
+        True,
+        False,
+        False,
+        1.250,
+        12,
+    ])
+
+    info = wb.create_sheet(title="Instructions")
+    info["A1"] = "Product Catalogue Upload Template"
+    info["A2"] = "Units"
+    info["B2"] = "Metric only"
+    info["A3"] = "Dimensions"
+    info["B3"] = "product_length, product_width, product_height in mm"
+    info["A4"] = "Weight"
+    info["B4"] = "weight in kg"
+    info["A5"] = "Desired quantity"
+    info["B5"] = "desired_qty is units needed per packaging analysis"
+    info["A6"] = "Rotations"
+    info["B6"] = "Use TRUE/FALSE, 1/0, YES/NO"
+    info["A7"] = "Catalogue"
+    info["B7"] = catalogue.name
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"product_catalogue_template_{catalogue.pk}.xlsx"
+
+    response = HttpResponse(
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+def export_product_catalogue_excel(request, catalogue_id):
+    catalogue = get_object_or_404(ProductCatalogue, pk=catalogue_id)
+    products = catalogue.products.all().order_by("product_id")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Product Catalogue Export"
+
+    ws.append([
+        "product_id",
+        "product_name",
+        "product_length",
+        "product_width",
+        "product_height",
+        "rotation_1",
+        "rotation_2",
+        "rotation_3",
+        "weight",
+        "desired_qty",
+        "product_volume",
+        "product_picture",
+    ])
+
+    for p in products:
+        ws.append([
+            p.product_id,
+            p.product_name,
+            float(p.product_length) if p.product_length is not None else None,
+            float(p.product_width) if p.product_width is not None else None,
+            float(p.product_height) if p.product_height is not None else None,
+            p.rotation_1,
+            p.rotation_2,
+            p.rotation_3,
+            float(p.weight) if p.weight is not None else None,
+            p.desired_qty,
+            float(p.product_volume) if p.product_volume is not None else None,
+            p.product_picture.url if p.product_picture else "",
+        ])
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"product_catalogue_export_{catalogue.pk}.xlsx"
+
+    response = HttpResponse(
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
 def upload_product_images_zip(request, catalogue_id):
     catalogue = get_object_or_404(ProductCatalogue, id=catalogue_id)
 
@@ -227,7 +312,6 @@ def upload_product_images_zip(request, catalogue_id):
             zf = form.cleaned_data["file"]
             try:
                 with zipfile.ZipFile(zf) as z:
-                    # index by lowercase filename
                     zip_names = {name.lower(): name for name in z.namelist() if not name.endswith("/")}
 
                     matched = 0
@@ -235,13 +319,22 @@ def upload_product_images_zip(request, catalogue_id):
                         if p.product_picture:
                             continue
 
-                        # Match on product_id.ext OR product_name.ext OR any known filename convention
                         candidates = []
                         if p.product_id:
-                            candidates += [f"{p.product_id}.png", f"{p.product_id}.jpg", f"{p.product_id}.jpeg", f"{p.product_id}.webp"]
+                            candidates += [
+                                f"{p.product_id}.png",
+                                f"{p.product_id}.jpg",
+                                f"{p.product_id}.jpeg",
+                                f"{p.product_id}.webp",
+                            ]
                         if p.product_name:
                             safe = str(p.product_name).strip()
-                            candidates += [f"{safe}.png", f"{safe}.jpg", f"{safe}.jpeg", f"{safe}.webp"]
+                            candidates += [
+                                f"{safe}.png",
+                                f"{safe}.jpg",
+                                f"{safe}.jpeg",
+                                f"{safe}.webp",
+                            ]
 
                         found_key = None
                         for c in candidates:
@@ -256,11 +349,25 @@ def upload_product_images_zip(request, catalogue_id):
                         p.product_picture.save(found_key.split("/")[-1], ContentFile(data), save=True)
                         matched += 1
 
-                messages.success(request, f"ZIP processed. Images matched and saved: {matched}")
+                return render(
+                    request,
+                    "product_catalogue/upload_images_zip.html",
+                    {
+                        "form": ProductImagesZipUploadForm(),
+                        "catalogue": catalogue,
+                        "success": f"ZIP processed successfully. Images matched and saved: {matched}.",
+                    },
+                )
             except zipfile.BadZipFile:
-                messages.error(request, "Invalid ZIP file.")
-            return redirect("product_catalogue_detail", catalogue_id=catalogue.id)
-
+                return render(
+                    request,
+                    "product_catalogue/upload_images_zip.html",
+                    {
+                        "form": form,
+                        "catalogue": catalogue,
+                        "error": "Invalid ZIP file.",
+                    },
+                )
     else:
         form = ProductImagesZipUploadForm()
 

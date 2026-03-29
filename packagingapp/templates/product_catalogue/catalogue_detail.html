@@ -3,80 +3,270 @@
 {% block title %}{{ catalogue.name }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="app-page">
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>{{ catalogue.name }}</h2>
+    <div class="app-hero">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div class="d-flex align-items-start gap-3">
+                {% if catalogue.picture %}
+                    <img src="{{ catalogue.picture.url }}" alt="{{ catalogue.name }}" class="app-thumb">
+                {% else %}
+                    <div class="app-thumb-placeholder app-thumb-placeholder--small">
+                        <i class="bi bi-box"></i>
+                    </div>
+                {% endif %}
 
-        <div>
-            <a href="{% url 'add_product' catalogue.id %}" class="btn btn-primary btn-sm">
-                Add Product
-            </a>
+                <div>
+                    <div class="app-hero-badge">
+                        <i class="bi bi-box"></i>
+                        Product Catalogue
+                    </div>
+                    <h1 class="app-title">{{ catalogue.name }}</h1>
+                    <p class="app-subtitle">
+                        {{ catalogue.description|default:"No description available." }}
+                    </p>
+                </div>
+            </div>
 
-            <a href="{% url 'upload_products_excel' catalogue.id %}" class="btn btn-success btn-sm">
-                Upload Excel
-            </a>
+            <div class="app-toolbar">
+                <a href="{% url 'edit_product_catalogue' catalogue.pk %}" class="btn btn-light btn-sm">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Catalogue
+                </a>
 
-            <a href="{% url 'upload_product_images_zip' catalogue.id %}" class="btn btn-secondary btn-sm">
-                Upload Images (ZIP)
-            </a>
+                <a href="{% url 'add_product' catalogue.pk %}" class="btn btn-light btn-sm">
+                    <i class="bi bi-plus-circle me-2"></i>Add Product
+                </a>
 
-            <a href="{% url 'product_catalogues' %}" class="btn btn-outline-secondary btn-sm">
-                Back
-            </a>
+                <a href="{% url 'upload_products_excel' catalogue.pk %}" class="btn btn-app-primary btn-sm">
+                    <i class="bi bi-file-earmark-excel me-2"></i>Upload Excel
+                </a>
+
+                <a href="{% url 'upload_product_images_zip' catalogue.pk %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-folder me-2"></i>Upload Images
+                </a>
+
+                <a href="{% url 'export_product_catalogue_excel' catalogue.pk %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-box-arrow-down me-2"></i>Export Catalogue
+                </a>
+
+                <a href="{% url 'download_product_excel_template' catalogue.pk %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-download me-2"></i>Template
+                </a>
+            </div>
         </div>
     </div>
 
-    <div class="card shadow-sm">
-        <div class="card-body table-responsive">
+    <div>
+        <button class="btn btn-app-outline app-filter-toggle"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#filterPanel"
+                aria-expanded="false"
+                aria-controls="filterPanel">
+            <i class="bi bi-funnel"></i>
+            Advanced Filters
+        </button>
+    </div>
 
-            <table class="table table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Picture</th>
-                        <th>Product ID</th>
-                        <th>Name</th>
-                        <th>L</th>
-                        <th>W</th>
-                        <th>H</th>
-                        <th>Rotation 1</th>
-                        <th>Rotation 2</th>
-                        <th>Rotation 3</th>
-                        <th>Weight</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in products %}
-                    <tr>
-                        <td>
-                            {% if p.product_picture %}
-                                <img src="{{ p.product_picture.url }}"
-                                     alt="product"
-                                     style="height:48px; width:48px; object-fit:cover; border-radius:8px;">
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ p.product_id }}</td>
-                        <td>{{ p.product_name|default:"-" }}</td>
-                        <td>{{ p.product_length }}</td>
-                        <td>{{ p.product_width }}</td>
-                        <td>{{ p.product_height }}</td>
-                        <td>{{ p.rotation_1|yesno:"Yes,No" }}</td>
-                        <td>{{ p.rotation_2|yesno:"Yes,No" }}</td>
-                        <td>{{ p.rotation_3|yesno:"Yes,No" }}</td>
-                        <td>{{ p.weight|default:"-" }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="10" class="text-center text-muted">No products found.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <div class="collapse" id="filterPanel">
+        <div class="app-card">
+            <div class="app-card-body">
+                <div class="app-section-title">Filter Products</div>
+                <div class="app-section-subtitle">
+                    Filter product master data by identifiers, dimensions, weight, desired quantity, and calculated volume.
+                </div>
 
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Product ID</label>
+                        {{ form.product_id }}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Product Name</label>
+                        {{ form.product_name }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Min L</label>
+                        {{ form.min_length }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max L</label>
+                        {{ form.max_length }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Min W</label>
+                        {{ form.min_width }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max W</label>
+                        {{ form.max_width }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Min H</label>
+                        {{ form.min_height }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max H</label>
+                        {{ form.max_height }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Min Weight</label>
+                        {{ form.min_weight }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max Weight</label>
+                        {{ form.max_weight }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Min Desired Qty</label>
+                        {{ form.min_desired_qty }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max Desired Qty</label>
+                        {{ form.max_desired_qty }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Min Volume</label>
+                        {{ form.min_volume }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max Volume</label>
+                        {{ form.max_volume }}
+                    </div>
+
+                    <div class="col-12">
+                        <div class="app-form-actions">
+                            <button type="submit" class="btn btn-app-primary">Apply Filters</button>
+                            <a href="{% url 'product_catalogue_detail' catalogue.pk %}" class="btn btn-app-outline">Reset</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
+
+    <div class="app-card">
+        <div class="app-card-body">
+            <div class="app-section-title">Catalogue Products</div>
+            <div class="app-section-subtitle">
+                Dimensions are shown in mm, weight in kg, and volume is automatically calculated.
+            </div>
+
+            <div class="app-table-wrap">
+                <table class="table table-hover app-table align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Picture</th>
+                            <th>Product ID</th>
+                            <th>Name</th>
+                            <th>L (mm)</th>
+                            <th>W (mm)</th>
+                            <th>H (mm)</th>
+                            <th>Rotation 1</th>
+                            <th>Rotation 2</th>
+                            <th>Rotation 3</th>
+                            <th>Weight (kg)</th>
+                            <th>Desired Qty</th>
+                            <th>Volume</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in page_obj %}
+                        <tr>
+                            <td>
+                                {% if product.product_picture %}
+                                    <img src="{{ product.product_picture.url }}"
+                                         alt="{{ product.product_name|default:product.product_id }}"
+                                         style="height:48px; width:48px; object-fit:cover; border-radius:10px;">
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ product.product_id }}</td>
+                            <td>{{ product.product_name|default:"—" }}</td>
+                            <td>{{ product.product_length }}</td>
+                            <td>{{ product.product_width }}</td>
+                            <td>{{ product.product_height }}</td>
+                            <td>{{ product.rotation_1|yesno:"Yes,No" }}</td>
+                            <td>{{ product.rotation_2|yesno:"Yes,No" }}</td>
+                            <td>{{ product.rotation_3|yesno:"Yes,No" }}</td>
+                            <td>{{ product.weight|default:"—" }}</td>
+                            <td>{{ product.desired_qty|default:"1" }}</td>
+                            <td>{{ product.product_volume|default:"—" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="12" class="text-center text-muted">No products found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link"
+                   href="?{% if request.GET.product_id %}product_id={{ request.GET.product_id }}&{% endif %}
+                           {% if request.GET.product_name %}product_name={{ request.GET.product_name }}&{% endif %}
+                           {% if request.GET.min_length %}min_length={{ request.GET.min_length }}&{% endif %}
+                           {% if request.GET.max_length %}max_length={{ request.GET.max_length }}&{% endif %}
+                           {% if request.GET.min_width %}min_width={{ request.GET.min_width }}&{% endif %}
+                           {% if request.GET.max_width %}max_width={{ request.GET.max_width }}&{% endif %}
+                           {% if request.GET.min_height %}min_height={{ request.GET.min_height }}&{% endif %}
+                           {% if request.GET.max_height %}max_height={{ request.GET.max_height }}&{% endif %}
+                           {% if request.GET.min_weight %}min_weight={{ request.GET.min_weight }}&{% endif %}
+                           {% if request.GET.max_weight %}max_weight={{ request.GET.max_weight }}&{% endif %}
+                           {% if request.GET.min_desired_qty %}min_desired_qty={{ request.GET.min_desired_qty }}&{% endif %}
+                           {% if request.GET.max_desired_qty %}max_desired_qty={{ request.GET.max_desired_qty }}&{% endif %}
+                           {% if request.GET.min_volume %}min_volume={{ request.GET.min_volume }}&{% endif %}
+                           {% if request.GET.max_volume %}max_volume={{ request.GET.max_volume }}&{% endif %}
+                           page={{ page_obj.previous_page_number }}">
+                    Previous
+                </a>
+            </li>
+            {% endif %}
+
+            <li class="page-item active">
+                <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            </li>
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link"
+                   href="?{% if request.GET.product_id %}product_id={{ request.GET.product_id }}&{% endif %}
+                           {% if request.GET.product_name %}product_name={{ request.GET.product_name }}&{% endif %}
+                           {% if request.GET.min_length %}min_length={{ request.GET.min_length }}&{% endif %}
+                           {% if request.GET.max_length %}max_length={{ request.GET.max_length }}&{% endif %}
+                           {% if request.GET.min_width %}min_width={{ request.GET.min_width }}&{% endif %}
+                           {% if request.GET.max_width %}max_width={{ request.GET.max_width }}&{% endif %}
+                           {% if request.GET.min_height %}min_height={{ request.GET.min_height }}&{% endif %}
+                           {% if request.GET.max_height %}max_height={{ request.GET.max_height }}&{% endif %}
+                           {% if request.GET.min_weight %}min_weight={{ request.GET.min_weight }}&{% endif %}
+                           {% if request.GET.max_weight %}max_weight={{ request.GET.max_weight }}&{% endif %}
+                           {% if request.GET.min_desired_qty %}min_desired_qty={{ request.GET.min_desired_qty }}&{% endif %}
+                           {% if request.GET.max_desired_qty %}max_desired_qty={{ request.GET.max_desired_qty }}&{% endif %}
+                           {% if request.GET.min_volume %}min_volume={{ request.GET.min_volume }}&{% endif %}
+                           {% if request.GET.max_volume %}max_volume={{ request.GET.max_volume }}&{% endif %}
+                           page={{ page_obj.next_page_number }}">
+                    Next
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 
 </div>
 {% endblock %}

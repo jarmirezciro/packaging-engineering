@@ -4,6 +4,10 @@ import uuid
 
 # Create your models here.
 
+###
+# Packaging Catalogue Data Model
+###
+
 class PackagingCatalogue(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
@@ -81,12 +85,27 @@ class PackagingMaterial(models.Model):
         return f"{self.part_number} ({self.catalogue.name})"
 
 
+###
+# Product Catalogue Data Model
+###
+
+
+def product_catalogue_picture_upload_path(instance, filename):
+    return f"product_catalogue_pictures/{filename}"
+
+
 def product_image_upload_path(instance, filename):
     return f"products/{instance.catalogue_id}/{filename}"
 
 
 class ProductCatalogue(models.Model):
     name = models.CharField(max_length=120, unique=True)
+    description = models.TextField(blank=True)
+    picture = models.ImageField(
+        upload_to=product_catalogue_picture_upload_path,
+        blank=True,
+        null=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -108,9 +127,10 @@ class Product(models.Model):
     rotation_3 = models.BooleanField(default=False)
 
     weight = models.DecimalField(max_digits=12, decimal_places=3, blank=True, null=True)
-    product_picture = models.ImageField(upload_to=product_image_upload_path, blank=True, null=True)
-
     desired_qty = models.PositiveIntegerField(default=1)
+    product_volume = models.DecimalField(max_digits=18, decimal_places=3, blank=True, null=True)
+
+    product_picture = models.ImageField(upload_to=product_image_upload_path, blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -121,6 +141,8 @@ class Product(models.Model):
     def save(self, *args, **kwargs):
         if not self.product_id:
             self.product_id = f"P-{uuid.uuid4().hex[:10].upper()}"
+
+        self.product_volume = self.product_length * self.product_width * self.product_height
         super().save(*args, **kwargs)
 
     def __str__(self):
