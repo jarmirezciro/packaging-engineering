@@ -76,22 +76,76 @@ class ContainerSelectionMode1Form(forms.Form):
         ("single", "Single container analysis"),
         ("optimal", "Optimal container (Top 5)"),
     ]
-    mode = forms.ChoiceField(choices=MODE_CHOICES, initial="single", required=True)
 
-    product_l = forms.FloatField(min_value=0.0001, label="Length")
-    product_w = forms.FloatField(min_value=0.0001, label="Width")
-    product_h = forms.FloatField(min_value=0.0001, label="Height")
-
-    desired_qty = forms.IntegerField(min_value=1, initial=1, label="Units needed")
-
-    r1 = forms.BooleanField(required=False, initial=True, label="Allow rotation 1")
-    r2 = forms.BooleanField(required=False, initial=True, label="Allow rotation 2")
-    r3 = forms.BooleanField(required=False, initial=True, label="Allow rotation 3")
+    PRODUCT_SOURCE_CHOICES = [
+        ("manual", "Manual"),
+        ("catalogue", "From catalogue"),
+    ]
 
     CONTAINER_SOURCE_CHOICES = [
         ("manual", "Manual"),
         ("catalogue", "From catalogue"),
     ]
+
+    mode = forms.ChoiceField(
+        choices=MODE_CHOICES,
+        initial="single",
+        required=True,
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+
+    product_source = forms.ChoiceField(
+        choices=PRODUCT_SOURCE_CHOICES,
+        initial="manual",
+        required=True,
+        widget=forms.RadioSelect
+    )
+
+    product_catalogue_id = forms.ChoiceField(
+        required=False,
+        label="Product Catalogue",
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+
+    selected_product_id = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    product_l = forms.FloatField(
+        min_value=0.0001,
+        label="Length",
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+    product_w = forms.FloatField(
+        min_value=0.0001,
+        label="Width",
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+    product_h = forms.FloatField(
+        min_value=0.0001,
+        label="Height",
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+    product_weight = forms.FloatField(
+        min_value=0,
+        required=False,
+        label="Weight",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+
+    desired_qty = forms.IntegerField(
+        min_value=1,
+        initial=1,
+        label="Units needed",
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"})
+    )
+
+    r1 = forms.BooleanField(required=False, initial=True, label="Allow rotation 1")
+    r2 = forms.BooleanField(required=False, initial=True, label="Allow rotation 2")
+    r3 = forms.BooleanField(required=False, initial=True, label="Allow rotation 3")
+
     container_source = forms.ChoiceField(
         choices=CONTAINER_SOURCE_CHOICES,
         initial="manual",
@@ -99,13 +153,32 @@ class ContainerSelectionMode1Form(forms.Form):
         required=True,
     )
 
-    catalogue_id = forms.ChoiceField(required=False, label="Catalogue")
+    catalogue_id = forms.ChoiceField(
+        required=False,
+        label="Packaging Catalogue",
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
 
     container_id = forms.CharField(required=False, widget=forms.HiddenInput())
 
-    box_l = forms.FloatField(min_value=0.0001, required=False, label="Length")
-    box_w = forms.FloatField(min_value=0.0001, required=False, label="Width")
-    box_h = forms.FloatField(min_value=0.0001, required=False, label="Height")
+    box_l = forms.FloatField(
+        min_value=0.0001,
+        required=False,
+        label="Length",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+    box_w = forms.FloatField(
+        min_value=0.0001,
+        required=False,
+        label="Width",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+    box_h = forms.FloatField(
+        min_value=0.0001,
+        required=False,
+        label="Height",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
 
