@@ -249,18 +249,66 @@ class BagSelectionForm(forms.Form):
         ("single", "Single bag analysis"),
         ("optimal", "Optimal bag (Top 5)"),
     ]
-    mode = forms.ChoiceField(choices=MODE_CHOICES, initial="single", required=True)
 
-    product_l = forms.FloatField(min_value=0.0001, label="Length")
-    product_w = forms.FloatField(min_value=0.0001, label="Width")
-    product_h = forms.FloatField(min_value=0.0001, label="Height")
-
-    desired_qty = forms.IntegerField(min_value=1, initial=1, label="Units needed")
+    PRODUCT_SOURCE_CHOICES = [
+        ("manual", "Manual"),
+        ("catalogue", "From catalogue"),
+    ]
 
     BAG_SOURCE_CHOICES = [
         ("manual", "Manual"),
         ("catalogue", "From catalogue"),
     ]
+
+    mode = forms.ChoiceField(
+        choices=MODE_CHOICES,
+        initial="single",
+        required=True,
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+
+    product_source = forms.ChoiceField(
+        choices=PRODUCT_SOURCE_CHOICES,
+        initial="manual",
+        required=True,
+        widget=forms.RadioSelect
+    )
+
+    product_catalogue_id = forms.ChoiceField(
+        required=False,
+        label="Product Catalogue",
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+
+    selected_product_id = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    product_l = forms.FloatField(
+        min_value=0.0001,
+        label="Length",
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+    product_w = forms.FloatField(
+        min_value=0.0001,
+        label="Width",
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+    product_h = forms.FloatField(
+        min_value=0.0001,
+        label="Height",
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+
+    desired_qty = forms.IntegerField(
+        min_value=1,
+        initial=1,
+        label="Units needed",
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"})
+    )
+
     bag_source = forms.ChoiceField(
         choices=BAG_SOURCE_CHOICES,
         initial="manual",
@@ -268,12 +316,26 @@ class BagSelectionForm(forms.Form):
         required=True,
     )
 
-    catalogue_id = forms.ChoiceField(required=False, label="Catalogue")
+    catalogue_id = forms.ChoiceField(
+        required=False,
+        label="Packaging Catalogue",
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
 
     bag_id = forms.CharField(required=False, widget=forms.HiddenInput())
 
-    bag_length = forms.FloatField(min_value=0.0001, required=False, label="Bag length")
-    bag_width = forms.FloatField(min_value=0.0001, required=False, label="Bag width")
+    bag_length = forms.FloatField(
+        min_value=0.0001,
+        required=False,
+        label="Bag length",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+    bag_width = forms.FloatField(
+        min_value=0.0001,
+        required=False,
+        label="Bag width",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
 

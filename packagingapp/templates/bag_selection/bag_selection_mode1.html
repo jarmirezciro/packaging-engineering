@@ -1,457 +1,565 @@
 {% extends "base.html" %}
+{% block title %}Bag Selection Tool{% endblock %}
+
 {% block content %}
+<div class="app-page">
 
-<div class="cs-page">
-  <div class="cs-header">
-    <h2>Bag Selection Tool</h2>
-    <p>Flexible packaging selection (Single bag analysis or Optimal bag Top 5).</p>
-  </div>
-
-  <form method="post">
-    {% csrf_token %}
-
-    <!-- render ONCE -->
-    {{ form.action }}
-    {{ form.bag_id }}
-
-    <div class="cs-row">
-
-      <!-- Product -->
-      <div class="cs-card">
-        <div class="cs-card-title">Product</div>
-
-        <div class="cs-fields">
-          <div class="cs-field">
-            <label class="cs-label">Length</label>
-            {{ form.product_l }}
-          </div>
-          <div class="cs-field">
-            <label class="cs-label">Width</label>
-            {{ form.product_w }}
-          </div>
-          <div class="cs-field">
-            <label class="cs-label">Height</label>
-            {{ form.product_h }}
-          </div>
-          <div class="cs-field">
-            <label class="cs-label">Units needed</label>
-            {{ form.desired_qty }}
-          </div>
+    <div class="app-hero app-hero--compact">
+        <div>
+            <div class="app-hero-badge">
+                <i class="bi bi-handbag"></i>
+                Bag Selection
+            </div>
+            <h1 class="app-title">Bag Selection Tool</h1>
+            <p class="app-subtitle">
+                Single bag analysis and optimal bag selection with on-demand 3D rendering.
+            </p>
         </div>
-
-        <div class="cs-divider"></div>
-
-        <div class="cs-subtitle">Mode</div>
-        <div class="cs-fields">
-          <div class="cs-field">
-            <label class="cs-label">Analysis</label>
-            {{ form.mode }}
-          </div>
-        </div>
-      </div>
-
-      <!-- Bag -->
-      <div class="cs-card">
-        <div class="cs-card-title">Bag</div>
-
-        <!-- Catalogue dropdown (GLOBAL, rendered ONCE) -->
-        <div class="cs-fields">
-          <div class="cs-field">
-            <label class="cs-label">Catalogue</label>
-            {{ form.catalogue_id }}
-          </div>
-        </div>
-
-        <div class="cs-divider"></div>
-
-        <!-- SINGLE MODE CONTROLS -->
-        <div id="single-controls">
-          <div class="cs-subtitle">Source</div>
-          <div class="cs-toggles">
-            <label class="cs-toggle">{{ form.bag_source.0.tag }} <span>{{ form.bag_source.0.choice_label }}</span></label>
-            <label class="cs-toggle">{{ form.bag_source.1.tag }} <span>{{ form.bag_source.1.choice_label }}</span></label>
-          </div>
-
-          <div class="cs-divider"></div>
-
-          <!-- Manual -->
-          <div id="manual-box">
-            <div class="cs-fields">
-              <div class="cs-field">
-                <label class="cs-label">Bag length</label>
-                {{ form.bag_length }}
-              </div>
-              <div class="cs-field">
-                <label class="cs-label">Bag width</label>
-                {{ form.bag_width }}
-              </div>
-            </div>
-            <div class="cs-hint">Use the same unit everywhere (mm / cm / inches).</div>
-          </div>
-
-          <!-- Catalogue -->
-          <div id="catalogue-box" style="display:none;">
-
-            {% if selected_material %}
-              <div class="cs-selected">
-                <div class="cs-selected-title">Selected bag</div>
-                <div class="cs-selected-line">
-                  <b>{{ selected_material.part_number }}</b> — {{ selected_material.part_description }}
-                </div>
-                <div class="cs-selected-line">
-                  {{ selected_material.packaging_type }} | {{ selected_material.branding }}
-                </div>
-                <div class="cs-selected-line">
-                  Bag (L×W): {{ selected_material.part_length }} × {{ selected_material.part_width }}
-                </div>
-                <div class="cs-hint" style="margin-top:6px;">
-                  Note: For BAG items, Width is read from <b>part_height</b> and part_width is ignored.
-                </div>
-              </div>
-            {% endif %}
-
-            <div class="cs-table-header">
-              <div class="cs-table-title">Available bags</div>
-              {% if selected_material %}
-                <button type="button" class="cs-linkbtn" onclick="toggleTable(true)">Change bag</button>
-              {% else %}
-                <button type="button" class="cs-linkbtn" onclick="toggleTable()">Hide table</button>
-              {% endif %}
-            </div>
-
-            <div id="cs-table-collapsible" class="cs-table-wrap">
-              <table class="cs-table">
-                <thead>
-                  <tr>
-                    <th>Part #</th>
-                    <th>Description</th>
-                    <th>Type</th>
-                    <th>Brand</th>
-                    <th>Bag L</th>
-                    <th>Bag W</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for m in materials %}
-                    <tr class="{% if selected_material and selected_material.id == m.id %}cs-row-selected{% endif %}">
-                      <td>{{ m.part_number }}</td>
-                      <td class="cs-td-desc" title="{{ m.part_description }}">{{ m.part_description }}</td>
-                      <td>{{ m.packaging_type }}</td>
-                      <td>{{ m.branding }}</td>
-                      <td>{{ m.part_length }}</td>
-                      <td>{{ m.part_width }}</td>
-                      <td style="text-align:right;">
-                        <button type="button" class="cs-btn-secondary" onclick="selectBagSingle('{{ m.id }}')">Select</button>
-                      </td>
-                    </tr>
-                  {% empty %}
-                    <tr><td colspan="7" style="padding:12px; opacity:0.7;">Select a catalogue to view BAG materials.</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <button class="cs-btn" type="submit" onclick="setAction('run_single')">Run analysis</button>
-        </div>
-
-        <!-- OPTIMAL MODE CONTROLS -->
-        <div id="optimal-controls" style="display:none;">
-          <button class="cs-btn" type="button" onclick="findTop5()">Find Top 5</button>
-          <div class="cs-hint">In Optimal mode, Top 5 are ranked by highest area usage of the best-fitting required option.</div>
-        </div>
-
-        {% if form.non_field_errors %}
-          <div class="cs-error">
-            {{ form.non_field_errors }}
-          </div>
-        {% endif %}
-      </div>
-
-        <!-- Result -->
-        <div class="cs-card cs-card-result">
-            <div class="cs-card-title">Result</div>
-        
-            {% if result %}
-            <div class="cs-kpi">
-                <div class="cs-kpi-label">Smooth qty (engine)</div>
-                <div class="cs-kpi-value">{{ result.smooth_qty }}</div>
-            </div>
-        
-            <div class="cs-selected" style="margin-top:10px;">
-                <div class="cs-selected-title">Single bag evaluation</div>
-                <div class="cs-selected-line"><b>Bag:</b> {{ result.bag_len }} × {{ result.bag_w }}</div>
-                <div class="cs-selected-line">
-                <b>Fits any required option:</b>
-                {% if result.fits %}Yes{% else %}No{% endif %}
-                </div>
-        
-                {% if result.best_required %}
-                <div class="cs-selected-line"><b>Best required option:</b> {{ result.best_required.0 }} × {{ result.best_required.1 }}</div>
-                <div class="cs-selected-line"><b>Usage (req area / bag area):</b> {{ result.usage|floatformat:4 }}</div>
-                {% endif %}
-            </div>
-        
-            {% if image_url %}
-                <div class="cs-selected" style="margin-top:10px;">
-                <div class="cs-selected-title">3D visualization</div>
-                <img
-                    src="{{ image_url }}"
-                    alt="Bag packing visualization"
-                    style="width:100%; border-radius:12px; border:1px solid #e6e8eb;"
-                >
-                <div class="cs-hint" style="margin-top:6px;">
-                    Products are drawn with a fixed orientation (no rotation). Only {{ result.desired_qty }} units are drawn.
-                </div>
-                </div>
-            {% endif %}
-        
-            <div class="cs-selected" style="margin-top:10px;">
-                <div class="cs-selected-title">Required bag options (for {{ result.desired_qty }} units)</div>
-                <div class="cs-hint" style="margin-top:0;">These are the candidate bag sizes generated by the engine.</div>
-                <div style="margin-top:8px; max-height:160px; overflow:auto; font-size:12px;">
-                {% for b in result.required_bags %}
-                    <div style="padding:3px 0; opacity:0.9;">{{ b.0 }} × {{ b.1 }}</div>
-                {% endfor %}
-                </div>
-            </div>
-        
-            {% else %}
-            <div class="cs-empty">
-                In Optimal mode: click <b>Find Top 5</b>, then <b>Select</b>.<br>
-                In Single mode: choose bag and click <b>Run analysis</b>.
-            </div>
-            {% endif %}
-        </div>
-
-        
-      
-
-
-
     </div>
 
-    <!-- TOP 5 TABLE -->
-    {% if top5 and form.mode.value == "optimal" %}
-      <div class="cs-top5-card">
-        <div class="cs-card-title">Top 5 most suitable bags</div>
+    <form method="post" class="app-page">
+        {% csrf_token %}
+        {{ form.action }}
+        {{ form.selected_product_id }}
+        {{ form.bag_id }}
 
-        <div class="cs-table-wrap" style="max-height: 420px;">
-          <table class="cs-table">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Part #</th>
-                <th>Description</th>
-                <th>Brand</th>
-                <th>Bag L</th>
-                <th>Bag W</th>
-                <th>Usage</th>
-                <th>Best required</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in top5 %}
-                {% with m=row.material %}
-                <tr class="{% if selected_material and selected_material.id == m.id %}cs-row-selected{% endif %}">
-                  <td>{{ forloop.counter }}</td>
-                  <td>{{ m.part_number }}</td>
-                  <td class="cs-td-desc" title="{{ m.part_description }}">{{ m.part_description }}</td>
-                  <td>{{ m.branding }}</td>
-                  <td>{{ row.bag_len }}</td>
-                  <td>{{ row.bag_w }}</td>
-                  <td><b>{{ row.usage|floatformat:4 }}</b></td>
-                  <td>{{ row.best_required.0 }} × {{ row.best_required.1 }}</td>
-                  <td style="text-align:right;">
-                    <button type="button" class="cs-btn-secondary" onclick="selectCandidate('{{ m.id }}')">Select</button>
-                  </td>
-                </tr>
-                {% endwith %}
-              {% endfor %}
-            </tbody>
-          </table>
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-0">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <div class="tool-grid-3">
+
+            <!-- PRODUCT -->
+            <div class="app-card">
+                <div class="app-card-body">
+                    <div class="app-section-title">Product</div>
+                    <div class="app-section-subtitle">Manual dimensions or product catalogue selection.</div>
+
+                    <div class="tool-field-group mb-0">
+                        <label class="form-label">Mode</label>
+                        {{ form.mode }}
+                    </div>
+
+                    <div class="tool-field-group">
+                        <label class="form-label">Product Source</label>
+                        <div class="tool-radio-group">
+                            {% for radio in form.product_source %}
+                                <label class="tool-radio-option">
+                                    {{ radio.tag }}
+                                    <span>{{ radio.choice_label }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div id="productCatalogueChooser" class="tool-field-group tool-tight-gap">
+                        <label class="form-label">Product Catalogue</label>
+                        {{ form.product_catalogue_id }}
+                    </div>
+
+                    <div id="manualProductFields">
+                        <div class="tool-compact-grid-three">
+                            <div class="tool-field-group mb-0">
+                                <label class="form-label">Length</label>
+                                {{ form.product_l }}
+                            </div>
+                            <div class="tool-field-group mb-0">
+                                <label class="form-label">Width</label>
+                                {{ form.product_w }}
+                            </div>
+                            <div class="tool-field-group mb-0">
+                                <label class="form-label">Height</label>
+                                {{ form.product_h }}
+                            </div>
+                        </div>
+
+                        <div class="tool-compact-grid-two tool-tight-gap">
+                            <div id="manualDesiredQtyWrap" class="tool-field-group mb-0">
+                                <label class="form-label">Units needed</label>
+                                {{ form.desired_qty }}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if selected_product %}
+                        <div class="tool-summary-strip">
+                            <div class="tool-summary-main">
+                                <strong>{{ selected_product.product_id }}</strong>
+                                {% if selected_product.product_name %} — {{ selected_product.product_name }}{% endif %}
+                            </div>
+                            <div class="tool-summary-meta">
+                                {{ selected_product.product_length }} × {{ selected_product.product_width }} × {{ selected_product.product_height }}
+                                {% if selected_product.weight %} | Wt: {{ selected_product.weight }}{% endif %}
+                                {% if current_mode == "optimal" %} | Desired Qty: {{ selected_product.desired_qty }}{% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- BAG -->
+            <div class="app-card">
+                <div class="app-card-body">
+                    <div class="app-section-title">Bag</div>
+                    <div class="app-section-subtitle">Manual size or packaging catalogue selection.</div>
+
+                    <div class="tool-field-group">
+                        <label class="form-label">Bag Source</label>
+                        <div class="tool-radio-group">
+                            {% for radio in form.bag_source %}
+                                <label class="tool-radio-option">
+                                    {{ radio.tag }}
+                                    <span>{{ radio.choice_label }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div id="globalCatalogueChooser" class="tool-field-group tool-tight-gap">
+                        <label class="form-label">Packaging Catalogue</label>
+                        {{ form.catalogue_id }}
+                    </div>
+
+                    <div id="singleBagControls">
+                        <div id="manualBagFields">
+                            <div class="tool-compact-grid-two">
+                                <div class="tool-field-group mb-0">
+                                    <label class="form-label">Bag length</label>
+                                    {{ form.bag_length }}
+                                </div>
+                                <div class="tool-field-group mb-0">
+                                    <label class="form-label">Bag width</label>
+                                    {{ form.bag_width }}
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if selected_material and current_mode == "single" %}
+                            <div class="tool-summary-strip">
+                                <div class="tool-summary-main">
+                                    <strong>{{ selected_material.part_number }}</strong> — {{ selected_material.part_description }}
+                                </div>
+                                <div class="tool-summary-meta">
+                                    {{ selected_material.part_length }} × {{ selected_material.part_width }}
+                                    {% if selected_material.part_weight %} | Wt: {{ selected_material.part_weight }}{% endif %}
+                                    | {{ selected_material.packaging_type }}
+                                    | {{ selected_material.branding }}
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <div class="app-form-actions tool-card-actions">
+                            {% if current_bag_source == "catalogue" %}
+                                {% if selected_material %}
+                                    <button type="button" class="btn btn-app-outline btn-sm" onclick="clearSelectedBag()">
+                                        <i class="bi bi-arrow-repeat me-2"></i>Change Bag
+                                    </button>
+                                {% else %}
+                                    <button type="button" class="btn btn-app-outline btn-sm" onclick="browsePackagingCatalogue()">
+                                        <i class="bi bi-search me-2"></i>Browse Catalogue
+                                    </button>
+                                {% endif %}
+                            {% endif %}
+
+                            <button type="submit" class="btn btn-app-primary btn-sm" onclick="setAction('run_single')">
+                                <i class="bi bi-play-circle me-2"></i>Run Analysis
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="optimalBagControls">
+                        <div class="app-form-actions tool-card-actions">
+                            <button type="button" class="btn btn-app-primary btn-sm" onclick="findTop5()">
+                                <i class="bi bi-stars me-2"></i>Find Top 5
+                            </button>
+                        </div>
+
+                        <p class="app-form-note mt-2 mb-0">
+                            3D rendering is generated only after selecting one Top 5 candidate.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RESULT -->
+            <div class="app-card">
+                <div class="app-card-body">
+                    <div class="app-section-title">Result</div>
+                    <div class="app-section-subtitle">3D bag preview and bag requirement summary.</div>
+
+                    {% if result %}
+                        <div class="tool-stat-card mb-3">
+                            <div class="tool-stat-label">Smooth qty</div>
+                            <div class="tool-stat-value">{{ result.smooth_qty }}</div>
+                        </div>
+
+                        <div class="tool-summary-strip mb-3">
+                            <div class="tool-summary-main">
+                                <strong>Bag:</strong> {{ result.bag_len }} × {{ result.bag_w }}
+                            </div>
+                            <div class="tool-summary-meta">
+                                Fits: {{ result.fits|yesno:"Yes,No" }}
+                                {% if result.best_required %}
+                                    | Best required: {{ result.best_required.0 }} × {{ result.best_required.1 }}
+                                {% endif %}
+                                {% if result.usage %}
+                                    | Usage: {{ result.usage|floatformat:4 }}
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% if image_url %}
+                            <div class="tool-render-wrap">
+                                <img src="{{ image_url }}" alt="Bag result" class="tool-render-image">
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="app-empty-state">
+                            <i class="bi bi-handbag fs-2 d-block mb-2"></i>
+                            <div>Run a single analysis or select one Top 5 candidate to generate the result.</div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
         </div>
-      </div>
-    {% endif %}
 
-  </form>
+        <!-- PRODUCT CATALOGUE TABLE -->
+        {% if current_product_source == "catalogue" and not selected_product %}
+            <div class="app-card">
+                <div class="app-card-body">
+                    <div class="app-section-title">Product Catalogue Selection</div>
+                    <div class="app-section-subtitle">Select a product from the chosen catalogue.</div>
+
+                    <div class="app-table-wrap">
+                        <table class="table table-hover app-table align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="tool-select-col"></th>
+                                    <th>Picture</th>
+                                    <th>Product ID</th>
+                                    <th>Name</th>
+                                    <th>L</th>
+                                    <th>W</th>
+                                    <th>H</th>
+                                    <th>Weight</th>
+                                    <th>Desired Qty</th>
+                                    <th>Volume</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in products %}
+                                <tr class="tool-clickable-row"
+                                    onclick="selectProduct('{{ product.id }}')"
+                                    tabindex="0"
+                                    role="button">
+                                    <td class="tool-select-col">
+                                        <button type="button"
+                                                class="btn btn-sm btn-app-outline"
+                                                onclick="event.stopPropagation(); selectProduct('{{ product.id }}')">
+                                            Select
+                                        </button>
+                                    </td>
+                                    <td>
+                                        {% if product.product_picture %}
+                                            <img src="{{ product.product_picture.url }}"
+                                                 alt="{{ product.product_name|default:product.product_id }}"
+                                                 class="app-thumb"
+                                                 style="width:48px;height:48px;">
+                                        {% else %}
+                                            <div class="app-thumb-placeholder app-thumb-placeholder--small" style="width:48px;height:48px;font-size:1rem;">
+                                                <i class="bi bi-box"></i>
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ product.product_id }}</td>
+                                    <td>{{ product.product_name|default:"—" }}</td>
+                                    <td>{{ product.product_length }}</td>
+                                    <td>{{ product.product_width }}</td>
+                                    <td>{{ product.product_height }}</td>
+                                    <td>{{ product.weight|default:"—" }}</td>
+                                    <td>{{ product.desired_qty|default:"—" }}</td>
+                                    <td>{{ product.product_volume|default:"—" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="10" class="text-center py-4 text-muted">
+                                        No products found in this catalogue.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- PACKAGING CATALOGUE TABLE FOR SINGLE MODE -->
+        {% if current_bag_source == "catalogue" and current_mode == "single" and not selected_material %}
+            <div class="app-card">
+                <div class="app-card-body">
+                    <div class="app-section-title">Packaging Catalogue Selection</div>
+                    <div class="app-section-subtitle">Select a bag from the chosen catalogue.</div>
+
+                    <div class="app-table-wrap">
+                        <table class="table table-hover app-table align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="tool-select-col"></th>
+                                    <th>Part Number</th>
+                                    <th>Description</th>
+                                    <th>Type</th>
+                                    <th>Brand</th>
+                                    <th>Bag L</th>
+                                    <th>Bag W</th>
+                                    <th>Weight</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in materials %}
+                                <tr class="tool-clickable-row"
+                                    onclick="selectBagSingle('{{ m.id }}')"
+                                    tabindex="0"
+                                    role="button">
+                                    <td class="tool-select-col">
+                                        <button type="button"
+                                                class="btn btn-sm btn-app-outline"
+                                                onclick="event.stopPropagation(); selectBagSingle('{{ m.id }}')">
+                                            Select
+                                        </button>
+                                    </td>
+                                    <td>{{ m.part_number }}</td>
+                                    <td>{{ m.part_description }}</td>
+                                    <td>{{ m.packaging_type }}</td>
+                                    <td>{{ m.branding }}</td>
+                                    <td>{{ m.part_length }}</td>
+                                    <td>{{ m.part_width }}</td>
+                                    <td>{{ m.part_weight|default:"—" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-muted">
+                                        No BAG materials found in this catalogue.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- TOP 5 -->
+        {% if current_mode == "optimal" and top5 %}
+            <div class="app-card">
+                <div class="app-card-body">
+                    <div class="app-section-title">Top 5 Most Suitable Bags</div>
+                    <div class="app-section-subtitle">Sorted by highest bag usage and smallest fitting area.</div>
+
+                    <div class="app-table-wrap">
+                        <table class="table table-hover app-table align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="tool-select-col"></th>
+                                    <th>Rank</th>
+                                    <th>Part Number</th>
+                                    <th>Description</th>
+                                    <th>Brand</th>
+                                    <th>Bag L</th>
+                                    <th>Bag W</th>
+                                    <th>Usage</th>
+                                    <th>Best Required</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in top5 %}
+                                <tr class="tool-clickable-row {% if selected_material and selected_material.id == row.material.id %}table-active{% endif %}"
+                                    onclick="selectCandidate('{{ row.material.id }}')"
+                                    tabindex="0"
+                                    role="button">
+                                    <td class="tool-select-col">
+                                        <button type="button"
+                                                class="btn btn-sm btn-app-outline"
+                                                onclick="event.stopPropagation(); selectCandidate('{{ row.material.id }}')">
+                                            Select
+                                        </button>
+                                    </td>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ row.material.part_number }}</td>
+                                    <td>{{ row.material.part_description }}</td>
+                                    <td>{{ row.material.branding }}</td>
+                                    <td>{{ row.bag_len }}</td>
+                                    <td>{{ row.bag_w }}</td>
+                                    <td>{{ row.usage|floatformat:4 }}</td>
+                                    <td>{{ row.best_required.0 }} × {{ row.best_required.1 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if selected_material %}
+                        <div class="tool-summary-strip mt-3">
+                            <div class="tool-summary-main">
+                                <strong>{{ selected_material.part_number }}</strong> — {{ selected_material.part_description }}
+                            </div>
+                            <div class="tool-summary-meta">
+                                {{ selected_material.part_length }} × {{ selected_material.part_width }}
+                                {% if selected_material.part_weight %} | Wt: {{ selected_material.part_weight }}{% endif %}
+                                | {{ selected_material.branding }}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </form>
 </div>
 
-<style>
-  /* Reuse same styles as container_selection_mode1.html */
-  .cs-page{padding:10px 4px;background:#f4f6f8;border-radius:12px;}
-  .cs-header{padding:10px 12px 14px 12px;}
-  .cs-header h2{margin:0;font-size:22px;}
-  .cs-header p{margin:6px 0 0 0;opacity:0.75;}
-
-  .cs-row{display:grid;grid-template-columns:1fr 1fr 1.35fr;gap:14px;align-items:start;padding:0 12px 12px 12px;}
-
-  .cs-card{background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.04);}
-  .cs-card-title{font-weight:700;font-size:14px;letter-spacing:0.2px;margin-bottom:10px;}
-  .cs-subtitle{font-weight:600;font-size:12px;opacity:0.8;margin-bottom:8px;}
-  .cs-divider{height:1px;background:#eef0f2;margin:12px 0;}
-
-  .cs-fields{display:grid;gap:10px;}
-  .cs-field{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;}
-  .cs-label{font-size:12px;opacity:0.8;white-space:nowrap;}
-
-  .cs-field input,.cs-field select{
-    width:100%;padding:8px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fbfcfd;outline:none;
-  }
-  .cs-field input:focus,.cs-field select:focus{border-color:#9aa7b2;background:#fff;}
-
-  .cs-toggles{display:grid;gap:8px;}
-  .cs-toggle{display:flex;gap:8px;align-items:center;font-size:12px;opacity:0.9;}
-
-  .cs-btn{
-    width:100%;margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid #1f2937;
-    background:#1f2937;color:#fff;cursor:pointer;
-  }
-  .cs-btn:hover{filter:brightness(1.05);}
-  .cs-hint{margin-top:8px;font-size:12px;opacity:0.65;}
-  .cs-error{margin-top:10px;color:#b42318;font-size:12px;}
-
-  .cs-kpi{display:flex;align-items:baseline;justify-content:space-between;border:1px solid #eef0f2;background:#fbfcfd;padding:10px 12px;border-radius:12px;}
-  .cs-kpi-label{font-size:12px;opacity:0.75;}
-  .cs-kpi-value{font-size:30px;font-weight:800;line-height:1;}
-  .cs-empty{opacity:0.7;padding:10px 2px;}
-
-  .cs-selected{margin-top:10px;padding:10px 12px;border:1px solid #e6e8eb;background:#fbfcfd;border-radius:12px;}
-  .cs-selected-title{font-weight:700;font-size:12px;margin-bottom:6px;}
-  .cs-selected-line{font-size:12px;opacity:0.9;margin-top:3px;}
-
-  .cs-table-header{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
-  .cs-table-title{font-size:12px;font-weight:700;opacity:0.85;}
-  .cs-linkbtn{
-    border:0;background:transparent;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12px;
-    color:#1f2937;text-decoration:underline;opacity:0.85;
-  }
-  .cs-linkbtn:hover{opacity:1;background:#f3f4f6;text-decoration:none;}
-
-  .cs-table-wrap{margin-top:8px;border:1px solid #eef0f2;border-radius:12px;background:#fff;overflow:auto;max-height:360px;}
-  .cs-table{width:100%;border-collapse:collapse;font-size:12px;}
-  .cs-table th,.cs-table td{padding:8px 10px;border-bottom:1px solid #f0f2f4;white-space:nowrap;}
-  .cs-table th{position:sticky;top:0;background:#fbfcfd;text-align:left;font-weight:700;z-index:1;}
-  .cs-td-desc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .cs-btn-secondary{padding:6px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fff;cursor:pointer;}
-  .cs-btn-secondary:hover{background:#f6f7f9;}
-  .cs-row-selected{background:#f0f7ff;}
-
-  .cs-top5-card{
-    margin: 0 12px 12px 12px;
-    background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;
-    box-shadow:0 2px 10px rgba(0,0,0,0.04);
-  }
-
-  @media (max-width: 1100px){
-    .cs-row{grid-template-columns:1fr;}
-    .cs-field{grid-template-columns:120px 1fr;}
-  }
-</style>
-
 <script>
-  function setAction(val){
-    const actionInput = document.querySelector('input[name="action"]');
-    if(actionInput) actionInput.value = val;
-  }
-
-  function toggleTable(forceOpen=null){
-    const table=document.getElementById("cs-table-collapsible");
-    if(!table) return;
-    if(forceOpen===true){table.style.display="block";return;}
-    table.style.display=(table.style.display==="none")?"block":"none";
-  }
-
-  function selectBagSingle(bagId){
-    setAction("run_single");
-    const mode = document.querySelector('select[name="mode"]');
-    if(mode) mode.value = "single";
-
-    const catRadio = document.querySelector('input[name="bag_source"][value="catalogue"]');
-    if(catRadio) catRadio.checked = true;
-
-    const hidden = document.querySelector('input[name="bag_id"]');
-    if(hidden) hidden.value = bagId;
-
-    document.querySelector("form").submit();
-  }
-
-  function updateSingleBagUI(){
-    const manual = document.querySelector('input[name="bag_source"][value="manual"]');
-    const manualBox = document.getElementById("manual-box");
-    const catBox = document.getElementById("catalogue-box");
-    if(!manual || !manualBox || !catBox) return;
-
-    if(manual.checked){
-      manualBox.style.display = "block";
-      catBox.style.display = "none";
-    } else {
-      manualBox.style.display = "none";
-      catBox.style.display = "block";
+    function setAction(value) {
+        const field = document.querySelector('input[name="action"]');
+        if (field) field.value = value;
     }
-  }
 
-  function findTop5(){
-    setAction("find_top5");
-    const mode = document.querySelector('select[name="mode"]');
-    if(mode) mode.value = "optimal";
-    document.querySelector("form").submit();
-  }
-
-  function selectCandidate(bagId){
-    setAction("select_candidate");
-    const hidden = document.querySelector('input[name="bag_id"]');
-    if(hidden) hidden.value = bagId;
-    const mode = document.querySelector('select[name="mode"]');
-    if(mode) mode.value = "optimal";
-    document.querySelector("form").submit();
-  }
-
-  function updateModeUI(){
-    const mode = document.querySelector('select[name="mode"]');
-    const single = document.getElementById("single-controls");
-    const optimal = document.getElementById("optimal-controls");
-    if(!mode || !single || !optimal) return;
-
-    if(mode.value === "optimal"){
-      single.style.display = "none";
-      optimal.style.display = "block";
-    } else {
-      single.style.display = "block";
-      optimal.style.display = "none";
+    function setHidden(name, value) {
+        const field = document.querySelector(`input[name="${name}"]`);
+        if (field) field.value = value;
     }
-  }
 
-  document.addEventListener("change", (e) => {
-    if(e.target.name === "mode"){
-      updateModeUI();
+    function submitRefresh() {
+        setAction("refresh");
+        document.querySelector("form").submit();
     }
-    if(e.target.name === "bag_source"){
-      updateSingleBagUI();
+
+    function browseProductCatalogue() {
+        setHidden("selected_product_id", "");
+        setAction("refresh");
+        document.querySelector("form").submit();
     }
-    if(e.target.name === "catalogue_id"){
-      const mode = document.querySelector('select[name="mode"]');
-      if(mode && mode.value === "optimal"){
+
+    function clearSelectedProduct() {
+        setHidden("selected_product_id", "");
+        setAction("refresh");
+        document.querySelector("form").submit();
+    }
+
+    function selectProduct(productId) {
+        setHidden("selected_product_id", productId);
+        setAction("select_product");
+        document.querySelector("form").submit();
+    }
+
+    function browsePackagingCatalogue() {
+        setHidden("bag_id", "");
+        setAction("refresh");
+        document.querySelector("form").submit();
+    }
+
+    function clearSelectedBag() {
+        setHidden("bag_id", "");
+        setAction("refresh");
+        document.querySelector("form").submit();
+    }
+
+    function selectBagSingle(bagId) {
+        setHidden("bag_id", bagId);
+        setAction("select_bag");
+        document.querySelector("form").submit();
+    }
+
+    function findTop5() {
         setAction("find_top5");
-        e.target.form.submit();
-      } else {
-        e.target.form.submit();
-      }
+        document.querySelector("form").submit();
     }
-  });
 
-  document.addEventListener("DOMContentLoaded", () => {
-    updateModeUI();
-    updateSingleBagUI();
-
-    const hasSelected = "{{ selected_material|default:'' }}" !== "";
-    const table = document.getElementById("cs-table-collapsible");
-    if(table && hasSelected){
-      table.style.display="none";
+    function selectCandidate(bagId) {
+        setHidden("bag_id", bagId);
+        setAction("select_candidate");
+        document.querySelector("form").submit();
     }
-  });
+
+    function updateUI() {
+        const mode = document.querySelector('select[name="mode"]')?.value || "single";
+        const productSource = document.querySelector('input[name="product_source"]:checked')?.value || "manual";
+        const bagSource = document.querySelector('input[name="bag_source"]:checked')?.value || "manual";
+
+        const manualProductFields = document.getElementById("manualProductFields");
+        const productCatalogueChooser = document.getElementById("productCatalogueChooser");
+        const manualDesiredQtyWrap = document.getElementById("manualDesiredQtyWrap");
+
+        const singleBagControls = document.getElementById("singleBagControls");
+        const optimalBagControls = document.getElementById("optimalBagControls");
+        const manualBagFields = document.getElementById("manualBagFields");
+        const globalCatalogueChooser = document.getElementById("globalCatalogueChooser");
+
+        if (productSource === "catalogue") {
+            if (productCatalogueChooser) productCatalogueChooser.style.display = "block";
+            if (manualProductFields) manualProductFields.style.display = "none";
+        } else {
+            if (productCatalogueChooser) productCatalogueChooser.style.display = "none";
+            if (manualProductFields) manualProductFields.style.display = "block";
+        }
+
+        if (manualDesiredQtyWrap) {
+            manualDesiredQtyWrap.style.display = (mode === "optimal" && productSource === "manual") ? "block" : "block";
+        }
+
+        if (mode === "single") {
+            if (singleBagControls) singleBagControls.style.display = "block";
+            if (optimalBagControls) optimalBagControls.style.display = "none";
+
+            if (bagSource === "catalogue") {
+                if (globalCatalogueChooser) globalCatalogueChooser.style.display = "block";
+                if (manualBagFields) manualBagFields.style.display = "none";
+            } else {
+                if (globalCatalogueChooser) globalCatalogueChooser.style.display = "none";
+                if (manualBagFields) manualBagFields.style.display = "block";
+            }
+        } else {
+            if (singleBagControls) singleBagControls.style.display = "none";
+            if (optimalBagControls) optimalBagControls.style.display = "block";
+            if (globalCatalogueChooser) globalCatalogueChooser.style.display = "block";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        updateUI();
+
+        document.querySelector('select[name="mode"]')?.addEventListener("change", submitRefresh);
+
+        document.querySelectorAll('input[name="product_source"]').forEach(el => el.addEventListener("change", function () {
+            setHidden("selected_product_id", "");
+            submitRefresh();
+        }));
+
+        document.querySelectorAll('input[name="bag_source"]').forEach(el => el.addEventListener("change", function () {
+            setHidden("bag_id", "");
+            submitRefresh();
+        }));
+
+        document.querySelector('select[name="product_catalogue_id"]')?.addEventListener("change", function () {
+            setHidden("selected_product_id", "");
+            submitRefresh();
+        });
+
+        document.querySelector('select[name="catalogue_id"]')?.addEventListener("change", function () {
+            setHidden("bag_id", "");
+            submitRefresh();
+        });
+
+        document.querySelectorAll(".tool-clickable-row").forEach(row => {
+            row.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    row.click();
+                }
+            });
+        });
+    });
 </script>
-
 {% endblock %}
