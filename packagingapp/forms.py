@@ -407,25 +407,45 @@ class PalletizationForm(forms.Form):
 
 
 class ContainerToolForm(forms.Form):
+    CONTAINER_SOURCE_CHOICES = [
+        ("manual", "Manual"),
+        ("catalogue", "From catalogue"),
+    ]
+
     action = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    container_source = forms.ChoiceField(
+        choices=CONTAINER_SOURCE_CHOICES,
+        initial="manual",
+        required=True,
+        widget=forms.RadioSelect
+    )
+
+    catalogue_id = forms.ChoiceField(
+        required=False,
+        label="Packaging Catalogue",
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+
+    container_id = forms.CharField(required=False, widget=forms.HiddenInput())
 
     container_l = forms.FloatField(
         min_value=0.0001,
         label="Internal length",
-        widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"})
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
     container_w = forms.FloatField(
         min_value=0.0001,
         label="Internal width",
-        widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"})
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
     container_h = forms.FloatField(
         min_value=0.0001,
         label="Internal height",
-        widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"})
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
     max_weight = forms.FloatField(
         min_value=0.0,
         label="Max weight",
-        widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"})
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
