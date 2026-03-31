@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+import io
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
+
 from django.conf import settings
 from django.http import JsonResponse, HttpRequest, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
-
-import io
-from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
 
 from packagingapp.models import PackagingCatalogue, ProductCatalogue, PackagingMaterial, Product
 from packagingapp.utils.bag_selection.engine import (
@@ -38,6 +38,78 @@ def _bag_dims_from_material(m: PackagingMaterial):
     - bag width  = part_width
     """
     return (float(m.part_length), float(m.part_width))
+
+
+def _serialize_product_catalogues() -> List[Dict[str, Any]]:
+    catalogues = ProductCatalogue.objects.all().order_by("name")
+    payload: List[Dict[str, Any]] = []
+
+    for c in catalogues:
+        products = c.products.all().order_by("-created_at")
+        payload.append(
+            {
+                "id": c.id,
+                "name": c.name,
+                "description": getattr(c, "description", "") or "",
+                "picture_url": c.picture.url if getattr(c, "picture", None) else "",
+                "product_count": products.count(),
+                "rows": [
+                    {
+                        "id": p.id,
+                        "product_id": p.product_id or "",
+                        "product_name": p.product_name or "",
+                        "product_length": float(p.product_length),
+                        "product_width": float(p.product_width),
+                        "product_height": float(p.product_height),
+                        "rotation_1": bool(p.rotation_1),
+                        "rotation_2": bool(p.rotation_2),
+                        "rotation_3": bool(p.rotation_3),
+                        "weight": float(p.weight) if p.weight is not None else None,
+                        "desired_qty": int(getattr(p, "desired_qty", 1) or 1),
+                        "product_volume": float(p.product_volume) if getattr(p, "product_volume", None) is not None else None,
+                        "picture_url": p.product_picture.url if p.product_picture else "",
+                    }
+                    for p in products
+                ],
+            }
+        )
+    return payload
+
+
+def _serialize_packaging_catalogues() -> List[Dict[str, Any]]:
+    catalogues = PackagingCatalogue.objects.all().order_by("name")
+    payload: List[Dict[str, Any]] = []
+
+    for c in catalogues:
+        materials = c.materials.filter(packaging_type="BAG").order_by("part_number")
+        payload.append(
+            {
+                "id": c.id,
+                "name": c.name,
+                "description": c.description or "",
+                "picture_url": c.picture.url if getattr(c, "picture", None) else "",
+                "material_count": materials.count(),
+                "rows": [
+                    {
+                        "id": m.id,
+                        "part_number": m.part_number,
+                        "part_description": m.part_description,
+                        "packaging_type": m.packaging_type,
+                        "branding": m.branding,
+                        "part_length": float(m.part_length),
+                        "part_width": float(m.part_width),
+                        "part_height": float(m.part_height),
+                        "external_length": float(m.external_length) if getattr(m, "external_length", None) is not None else None,
+                        "external_width": float(m.external_width) if getattr(m, "external_width", None) is not None else None,
+                        "external_height": float(m.external_height) if getattr(m, "external_height", None) is not None else None,
+                        "part_weight": float(m.part_weight) if getattr(m, "part_weight", None) is not None else None,
+                        "part_volume": float(m.part_volume) if m.part_volume is not None else None,
+                    }
+                    for m in materials
+                ],
+            }
+        )
+    return payload
 
 
 def _rank_top5_for_product(product: Product, materials: List[PackagingMaterial]) -> List[Dict[str, Any]]:
@@ -73,6 +145,11 @@ def _rank_top5_for_product(product: Product, materials: List[PackagingMaterial])
                         "part_length": float(m.part_length),
                         "part_width": float(m.part_width),
                         "part_height": float(m.part_height),
+                        "external_length": float(m.external_length) if getattr(m, "external_length", None) is not None else None,
+                        "external_width": float(m.external_width) if getattr(m, "external_width", None) is not None else None,
+                        "external_height": float(m.external_height) if getattr(m, "external_height", None) is not None else None,
+                        "part_weight": float(m.part_weight) if getattr(m, "part_weight", None) is not None else None,
+                        "part_volume": float(m.part_volume) if m.part_volume is not None else None,
                     },
                     "bag_len": float(bag_len),
                     "bag_w": float(bag_w),
@@ -85,24 +162,7 @@ def _rank_top5_for_product(product: Product, materials: List[PackagingMaterial])
             )
 
     scored.sort(key=lambda x: (-x["usage"], x["bag_area"]))
-    top5 = scored[:5]
-
-    out: List[Dict[str, Any]] = []
-    for row in top5:
-        out.append(
-            {
-                "bag_id": row["material"]["id"],
-                "bag_name": f'{row["material"]["part_number"]} — {row["material"]["part_description"]}',
-                "bag_len": row["bag_len"],
-                "bag_w": row["bag_w"],
-                "usage": row["usage"],
-                "best_required": row["best_required"],
-                "smooth_qty": row["smooth_qty"],
-                "required_bags": row["required_bags"],
-                "material": row["material"],
-            }
-        )
-    return out
+    return scored[:5]
 
 
 @require_GET
@@ -110,6 +170,8 @@ def multi_product_bag_selection(request: HttpRequest) -> HttpResponse:
     context = {
         "product_catalogues": ProductCatalogue.objects.all().order_by("name"),
         "packaging_catalogues": PackagingCatalogue.objects.all().order_by("name"),
+        "product_catalogues_payload": _serialize_product_catalogues(),
+        "packaging_catalogues_payload": _serialize_packaging_catalogues(),
     }
     return render(request, "multi_product_bag/multi_product_bag_selection.html", context)
 
@@ -125,7 +187,7 @@ def multi_product_bag_run(request: HttpRequest) -> JsonResponse:
     product_catalogue = get_object_or_404(ProductCatalogue, id=product_catalogue_id)
     packaging_catalogue = get_object_or_404(PackagingCatalogue, id=packaging_catalogue_id)
 
-    products = list(product_catalogue.products.all())
+    products = list(product_catalogue.products.all().order_by("-created_at"))
     materials = list(
         PackagingMaterial.objects.filter(
             catalogue_id=packaging_catalogue.id,
@@ -142,12 +204,28 @@ def multi_product_bag_run(request: HttpRequest) -> JsonResponse:
                 "product": {
                     "id": p.id,
                     "label": _product_label(p),
+                    "product_id": p.product_id or "",
+                    "product_name": p.product_name or "",
                     "product_length": float(p.product_length),
                     "product_width": float(p.product_width),
                     "product_height": float(p.product_height),
                     "desired_qty": max(int(getattr(p, "desired_qty", 1) or 1), 1),
+                    "weight": float(p.weight) if p.weight is not None else None,
+                    "product_volume": float(p.product_volume) if getattr(p, "product_volume", None) is not None else None,
+                    "picture_url": p.product_picture.url if p.product_picture else "",
                 },
-                "top5": top5,
+                "top5": [
+                    {
+                        "material": row["material"],
+                        "bag_len": row["bag_len"],
+                        "bag_w": row["bag_w"],
+                        "usage": row["usage"],
+                        "best_required": row["best_required"],
+                        "smooth_qty": row["smooth_qty"],
+                        "required_bags": row["required_bags"],
+                    }
+                    for row in top5
+                ],
             }
         )
 
@@ -228,7 +306,7 @@ def multi_product_bag_export_excel(request: HttpRequest) -> HttpResponse:
     product_catalogue = get_object_or_404(ProductCatalogue, id=product_catalogue_id)
     packaging_catalogue = get_object_or_404(PackagingCatalogue, id=packaging_catalogue_id)
 
-    products = list(product_catalogue.products.all())
+    products = list(product_catalogue.products.all().order_by("-created_at"))
     materials = list(
         PackagingMaterial.objects.filter(
             catalogue_id=packaging_catalogue.id,
@@ -274,7 +352,6 @@ def multi_product_bag_export_excel(request: HttpRequest) -> HttpResponse:
                 p.product_id, p.product_name,
                 float(p.product_length), float(p.product_width), float(p.product_height),
                 max(int(getattr(p, "desired_qty", 1) or 1), 1),
-
                 m["part_number"], m["part_description"],
                 float(best["bag_len"]), float(best["bag_w"]),
                 float(best["usage"]),

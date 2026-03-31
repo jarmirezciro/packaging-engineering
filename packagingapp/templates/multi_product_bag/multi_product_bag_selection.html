@@ -1,377 +1,746 @@
 {% extends "base.html" %}
+{% block title %}Multiple Product Bag Selection{% endblock %}
+
 {% block content %}
+<div class="app-page">
 
-<div style="padding:12px;background:#f4f6f8;border-radius:12px;">
-
-  <h2 style="margin:0 0 10px 0;">Multiple Product Bag Selection</h2>
-
-  <!-- TOP ROW: Inputs left + Arrangement right -->
-  <div style="display:grid;grid-template-columns: 1fr 1fr;gap:14px;align-items:start;">
-
-    <!-- LEFT: inputs -->
-    <div style="background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+    <div class="app-hero app-hero--compact">
         <div>
-          <label style="font-size:12px;opacity:.8;"><b>Product Catalogue</b></label><br/>
-          <select id="productCatalogue" style="min-width:260px;padding:8px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fff;">
-            <option value="">— Select —</option>
-            {% for c in product_catalogues %}
-              <option value="{{ c.id }}">{{ c.name }}</option>
-            {% endfor %}
-          </select>
+            <div class="app-hero-badge">
+                <i class="bi bi-handbag-fill"></i>
+                Multiple Product Bag
+            </div>
+            <h1 class="app-title">Multiple Product Bag Selection</h1>
+            <p class="app-subtitle">
+                Select a product catalogue and a bag catalogue, review their content, run Top 5 bag analysis, preview arrangements, and export results.
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Product catalogue block -->
+        <div class="col-lg-4">
+            <div class="app-card h-100">
+                <div class="app-card-body">
+                    <div class="app-section-title">Product Catalogue</div>
+                    <div class="app-section-subtitle">
+                        Choose the product catalogue to analyze.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Catalogue</label>
+                        <select id="productCatalogue" class="form-select">
+                            <option value="">— Select —</option>
+                            {% for c in product_catalogues %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div id="productCatalogueCard" class="app-helper-block">
+                        <div class="text-muted">No product catalogue selected yet.</div>
+                    </div>
+
+                    <div class="mt-3">
+                        <button type="button"
+                                id="toggleProductsBtn"
+                                class="btn btn-app-outline btn-sm app-filter-toggle"
+                                disabled>
+                            <i class="bi bi-table"></i>
+                            Show Product Catalogue Content
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div>
-          <label style="font-size:12px;opacity:.8;"><b>Packaging Catalogue</b></label><br/>
-          <select id="packagingCatalogue" style="min-width:260px;padding:8px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fff;">
-            <option value="">— Select —</option>
-            {% for c in packaging_catalogues %}
-              <option value="{{ c.id }}">{{ c.name }}</option>
-            {% endfor %}
-          </select>
+        <!-- Packaging catalogue block -->
+        <div class="col-lg-4">
+            <div class="app-card h-100">
+                <div class="app-card-body">
+                    <div class="app-section-title">Packaging Catalogue</div>
+                    <div class="app-section-subtitle">
+                        Choose the packaging catalogue to rank the best bags.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Catalogue</label>
+                        <select id="packagingCatalogue" class="form-select">
+                            <option value="">— Select —</option>
+                            {% for c in packaging_catalogues %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div id="packagingCatalogueCard" class="app-helper-block">
+                        <div class="text-muted">No packaging catalogue selected yet.</div>
+                    </div>
+
+                    <div class="mt-3">
+                        <button type="button"
+                                id="togglePackagingBtn"
+                                class="btn btn-app-outline btn-sm app-filter-toggle"
+                                disabled>
+                            <i class="bi bi-table"></i>
+                            Show Packaging Catalogue Content
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <button id="runBtn"
-                style="height:38px;padding:10px 14px;border-radius:10px;border:1px solid #1f2937;background:#1f2937;color:#fff;cursor:pointer;">
-          Run (Top 5 / Product)
-        </button>
+        <!-- Result block -->
+        <div class="col-lg-4">
+            <div class="app-card h-100">
+                <div class="app-card-body">
+                    <div class="app-section-title">Result</div>
+                    <div class="app-section-subtitle">
+                        Run the analysis, export to Excel, and preview the arrangement for any selected option.
+                    </div>
 
-        <button id="exportBtn"
-                style="height:38px;padding:10px 14px;border-radius:10px;border:1px solid #1f2937;background:#fff;color:#1f2937;cursor:pointer;">
-          Export to Excel
-        </button>
-      </div>
+                    <div class="app-form-actions mb-3">
+                        <button id="runBtn" type="button" class="btn btn-app-primary">
+                            <i class="bi bi-play-circle me-2"></i>Run Analysis
+                        </button>
+                        <button id="exportBtn" type="button" class="btn btn-app-outline">
+                            <i class="bi bi-file-earmark-excel me-2"></i>Export to Excel
+                        </button>
+                    </div>
 
-      <div id="status" style="margin:10px 0;color:#333;"></div>
-      <div style="margin-top:6px;font-size:12px;opacity:.7;">
-        Only materials with packaging type <b>BAG</b> are evaluated.
-      </div>
+                    <div id="status" class="app-form-note mb-3"></div>
+
+                    <div class="app-helper-block">
+                        <div class="app-section-title" style="font-size: 0.95rem;">Arrangement Preview</div>
+                        <div id="arrangementMeta" class="app-form-note mb-2">
+                            Click a result option to generate the arrangement.
+                        </div>
+                        <div id="arrangementCanvas" class="text-center">
+                            <div class="text-muted">No arrangement yet.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- RIGHT: arrangement panel -->
-    <div style="background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
-      <div style="font-weight:700;margin-bottom:8px;">Arrangement</div>
-      <div id="arrangementMeta" style="margin-bottom:8px;opacity:.85;">
-        <i>Click a bag option to generate the arrangement.</i>
-      </div>
-      <div id="arrangementCanvas" style="border:1px solid #eef0f2;border-radius:12px;background:#fafbfc;padding:10px;min-height:240px;">
-        <i>No arrangement yet.</i>
-      </div>
+    <!-- Product catalogue content -->
+    <div id="productContentWrap" class="app-card mt-4" style="display:none;">
+        <div class="app-card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div>
+                    <div class="app-section-title">Product Catalogue Content</div>
+                    <div class="app-section-subtitle">
+                        Review the products included in the selected catalogue.
+                    </div>
+                </div>
+            </div>
+
+            <div class="app-table-wrap">
+                <table class="table table-hover app-table align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Picture</th>
+                            <th>Product ID</th>
+                            <th>Name</th>
+                            <th>L (mm)</th>
+                            <th>W (mm)</th>
+                            <th>H (mm)</th>
+                            <th>Rotation 1</th>
+                            <th>Rotation 2</th>
+                            <th>Rotation 3</th>
+                            <th>Weight (kg)</th>
+                            <th>Desired Qty</th>
+                            <th>Volume</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productContentBody">
+                        <tr>
+                            <td colspan="12" class="text-center text-muted">No catalogue selected.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
-  </div>
+    <!-- Packaging catalogue content -->
+    <div id="packagingContentWrap" class="app-card mt-4" style="display:none;">
+        <div class="app-card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div>
+                    <div class="app-section-title">Packaging Catalogue Content</div>
+                    <div class="app-section-subtitle">
+                        Review the BAG materials available in the selected catalogue.
+                    </div>
+                </div>
+            </div>
 
-  <!-- RESULTS -->
-  <div id="resultsWrap" style="display:none;margin-top:14px;background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
-    <div style="font-weight:700;margin-bottom:8px;">Results</div>
-    <div style="border:1px solid #eef0f2;border-radius:12px;overflow:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead>
-          <tr style="background:#fbfcfd;border-bottom:1px solid #f0f2f4;">
-            <th style="text-align:left;padding:10px;position:sticky;top:0;">Product</th>
-            <th style="text-align:left;padding:10px;position:sticky;top:0;">Best Bag</th>
-            <th style="text-align:left;padding:10px;position:sticky;top:0;">Usage</th>
-            <th style="text-align:left;padding:10px;position:sticky;top:0;">Best Required</th>
-            <th style="padding:10px;position:sticky;top:0;width:60px;"></th>
-          </tr>
-        </thead>
-        <tbody id="resultsBody"></tbody>
-      </table>
+            <div class="app-table-wrap">
+                <table class="table table-hover app-table align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Part Number</th>
+                            <th>Description</th>
+                            <th>Type</th>
+                            <th>Brand</th>
+                            <th>L (mm)</th>
+                            <th>W (mm)</th>
+                            <th>H (mm)</th>
+                            <th>Ext L</th>
+                            <th>Ext W</th>
+                            <th>Ext H</th>
+                            <th>Weight (kg)</th>
+                            <th>Volume</th>
+                        </tr>
+                    </thead>
+                    <tbody id="packagingContentBody">
+                        <tr>
+                            <td colspan="12" class="text-center text-muted">No catalogue selected.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-  </div>
+
+    <!-- Results -->
+    <div id="resultsWrap" class="app-card mt-4" style="display:none;">
+        <div class="app-card-body">
+            <div class="app-section-title">Analysis Results</div>
+            <div class="app-section-subtitle">
+                Top 5 bag options per product, ranked by usage efficiency. Click a best result or an expanded option to preview the arrangement.
+            </div>
+
+            <div class="app-table-wrap">
+                <table class="table table-hover app-table align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Picture</th>
+                            <th>Product ID</th>
+                            <th>Product</th>
+                            <th>L (mm)</th>
+                            <th>W (mm)</th>
+                            <th>H (mm)</th>
+                            <th>Desired Qty</th>
+                            <th>Best Bag</th>
+                            <th>Usage</th>
+                            <th>Best Required</th>
+                            <th class="text-end">Options</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
 </div>
 
+{{ product_catalogues_payload|json_script:"product-catalogues-data" }}
+{{ packaging_catalogues_payload|json_script:"packaging-catalogues-data" }}
+
 <script>
-  (function(){
+(function() {
+    const productCatalogueSelect = document.getElementById("productCatalogue");
+    const packagingCatalogueSelect = document.getElementById("packagingCatalogue");
     const runBtn = document.getElementById("runBtn");
     const exportBtn = document.getElementById("exportBtn");
+
+    const productCatalogueCard = document.getElementById("productCatalogueCard");
+    const packagingCatalogueCard = document.getElementById("packagingCatalogueCard");
+
+    const toggleProductsBtn = document.getElementById("toggleProductsBtn");
+    const togglePackagingBtn = document.getElementById("togglePackagingBtn");
+
+    const productContentWrap = document.getElementById("productContentWrap");
+    const packagingContentWrap = document.getElementById("packagingContentWrap");
+    const productContentBody = document.getElementById("productContentBody");
+    const packagingContentBody = document.getElementById("packagingContentBody");
+
     const statusEl = document.getElementById("status");
-    const resultsWrap = document.getElementById("resultsWrap");
-    const resultsBody = document.getElementById("resultsBody");
     const arrangementMeta = document.getElementById("arrangementMeta");
     const arrangementCanvas = document.getElementById("arrangementCanvas");
-  
-    function setStatus(msg, isError=false){
-      statusEl.textContent = msg || "";
-      statusEl.style.color = isError ? "crimson" : "#333";
+
+    const resultsWrap = document.getElementById("resultsWrap");
+    const resultsBody = document.getElementById("resultsBody");
+
+    const productCatalogues = JSON.parse(document.getElementById("product-catalogues-data").textContent);
+    const packagingCatalogues = JSON.parse(document.getElementById("packaging-catalogues-data").textContent);
+
+    function esc(s) {
+        return String(s ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;");
     }
-  
+
+    function yesNo(v) {
+        return v ? "Yes" : "No";
+    }
+
+    function formatNumber(v, decimals = 2) {
+        if (v === null || v === undefined || v === "") return "—";
+        const n = Number(v);
+        if (Number.isNaN(n)) return "—";
+        return n.toFixed(decimals).replace(/\.00$/, "");
+    }
+
     function csrfToken() {
-      const name = "csrftoken=";
-      const parts = document.cookie.split(";").map(s => s.trim());
-      for (const p of parts) {
-        if (p.startsWith(name)) return p.substring(name.length);
-      }
-      return "";
+        const name = "csrftoken=";
+        const parts = document.cookie.split(";").map(s => s.trim());
+        for (const p of parts) {
+            if (p.startsWith(name)) return p.substring(name.length);
+        }
+        return "";
     }
-  
-    function esc(s){
-      return String(s ?? "")
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;");
-    }
-  
-    function toggleRow(targetId, btn){
-      const row = document.getElementById(targetId);
-      if(!row) return;
-      const isHidden = (row.style.display === "none" || !row.style.display);
-      row.style.display = isHidden ? "table-row" : "none";
-      btn.textContent = isHidden ? "▼" : "▶";
-    }
-  
-    async function drawArrangement(product, material){
-      const bagLen = Number(material.part_length);
-      const bagW = Number(material.part_width); // IMPORTANT BAG RULE
 
-
-
-  
-      arrangementMeta.innerHTML = `
-        <b>Product:</b> ${esc(product.label)} &nbsp; | &nbsp;
-        <b>Bag:</b> ${esc(material.part_number)} &nbsp; | &nbsp;
-        <span style="opacity:.7;">${esc(bagLen)}×${esc(bagW)}</span>
-      `;
-      arrangementCanvas.innerHTML = `<i>Generating image...</i>`;
-  
-      const form = new FormData();
-      form.append("product_id", product.id);
-      form.append("bag_id", material.id);
-  
-      const res = await fetch("{% url 'multi_product_bag_draw' %}", {
-        method: "POST",
-        headers: { "X-CSRFToken": csrfToken() },
-        body: form
-      });
-  
-      const data = await res.json();
-      if(!res.ok || !data.ok){
-        arrangementCanvas.innerHTML = `<b style="color:crimson;">${esc(data.error || "Failed to draw.")}</b>`;
-        return;
-      }
-  
-      arrangementMeta.innerHTML += `
-        &nbsp; | &nbsp; <b>Best required:</b> ${esc(data.best_required[0])}×${esc(data.best_required[1])}
-        &nbsp; | &nbsp; <b>Usage:</b> ${Number(data.usage).toFixed(4)}
-      `;
-  
-      arrangementCanvas.innerHTML = `
-        <img src="${esc(data.image_url)}" alt="Bag packing"
-             style="width:100%;max-height:420px;object-fit:contain;border-radius:10px;display:block;">
-      `;
+    function setStatus(msg, isError = false) {
+        statusEl.textContent = msg || "";
+        statusEl.style.color = isError ? "var(--bs-danger)" : "";
     }
-  
-    function renderResults(results){
-      resultsBody.innerHTML = "";
-  
-      results.forEach((row) => {
-        const product = row.product;
-        const top5 = Array.isArray(row.top5) ? row.top5 : [];
-        const best = top5.length ? top5[0] : null;
-  
-        const expandId = `expand-p-${product.id}`;
-  
-        const tr = document.createElement("tr");
-        tr.style.borderBottom = "1px solid #f0f2f4";
-  
-        tr.innerHTML = `
-          <td style="padding:10px;">
-            <div><b>${esc(product.label)}</b></div>
-            <div style="opacity:.7;font-size:11px;">
-              ${esc(product.product_length)}×${esc(product.product_width)}×${esc(product.product_height)}
-              &nbsp; | &nbsp; Qty: ${esc(product.desired_qty)}
+
+    function getSelectedProductCatalogue() {
+        const id = String(productCatalogueSelect.value || "");
+        return productCatalogues.find(c => String(c.id) === id) || null;
+    }
+
+    function getSelectedPackagingCatalogue() {
+        const id = String(packagingCatalogueSelect.value || "");
+        return packagingCatalogues.find(c => String(c.id) === id) || null;
+    }
+
+    function renderCatalogueCard(targetEl, data, kind) {
+        if (!data) {
+            targetEl.innerHTML = `<div class="text-muted">No ${kind} catalogue selected yet.</div>`;
+            return;
+        }
+
+        const countLabel = kind === "product" ? `${data.product_count} products` : `${data.material_count} bag materials`;
+
+        targetEl.innerHTML = `
+            <div class="d-flex gap-3 align-items-start">
+                <div>
+                    ${
+                        data.picture_url
+                        ? `<img src="${esc(data.picture_url)}" alt="${esc(data.name)}" class="app-thumb" style="width:72px;height:72px;">`
+                        : `<div class="app-thumb-placeholder app-thumb-placeholder--small" style="width:72px;height:72px;"><i class="bi bi-image"></i></div>`
+                    }
+                </div>
+                <div class="flex-grow-1">
+                    <div class="fw-semibold">${esc(data.name)}</div>
+                    <div class="app-form-note mb-2">${esc(data.description || "No description available.")}</div>
+                    <div class="app-form-note"><strong>${esc(countLabel)}</strong></div>
+                </div>
             </div>
-          </td>
-          <td style="padding:10px;">
-            ${
-              best
-                ? `<b>${esc(best.material.part_number)}</b> — ${esc(best.material.part_description)}`
-                : `<span style="opacity:.6;">No fit</span>`
-            }
-          </td>
-          <td style="padding:10px;">${best ? Number(best.usage).toFixed(4) : "-"}</td>
-          <td style="padding:10px;">
-            ${best ? `${esc(best.best_required[0])} × ${esc(best.best_required[1])}` : "-"}
-          </td>
-          <td style="padding:10px;text-align:right;">
-            ${
-              top5.length > 1
-                ? `<button type="button"
-                           data-action="toggle"
-                           data-target="${expandId}"
-                           style="padding:6px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fff;cursor:pointer;">▶</button>`
-                : ""
-            }
-          </td>
         `;
-  
-        resultsBody.appendChild(tr);
-  
-        if(top5.length > 1){
-          const tr2 = document.createElement("tr");
-          tr2.id = expandId;
-          tr2.style.display = "none";
-          tr2.innerHTML = `
-            <td colspan="5" style="padding:0 10px 10px 10px;">
-              <div style="border:1px solid #eef0f2;border-radius:12px;background:#fff;overflow:hidden;">
-                ${top5.slice(1).map((opt, idx) => `
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border-top:1px dashed #eee;">
-                    <div>
-                      <div><b>Rank ${idx + 2}</b></div>
-                      <b>${esc(opt.material.part_number)}</b> — ${esc(opt.material.part_description)}
-                      <div style="opacity:.7;font-size:11px;">
-                        Usage: ${Number(opt.usage).toFixed(4)}
-                        | Best Required: ${esc(opt.best_required[0])} × ${esc(opt.best_required[1])}
-                        | Bag: ${esc(opt.bag_len)} × ${esc(opt.bag_w)}
-                      </div>
-                    </div>
-                    <button type="button"
-                            data-action="draw"
-                            data-productid="${esc(product.id)}"
-                            data-bagid="${esc(opt.material.id)}"
-                            style="padding:6px 10px;border-radius:10px;border:1px solid #d7dbe0;background:#fff;cursor:pointer;">
-                      Show arrangement
-                    </button>
-                  </div>
-                `).join("")}
-              </div>
-            </td>
-          `;
-          resultsBody.appendChild(tr2);
-        }
-  
-        if(best){
-          const bestCell = tr.querySelector("td:nth-child(2)");
-          if(bestCell){
-            bestCell.style.cursor = "pointer";
-            bestCell.title = "Click to show arrangement";
-            bestCell.addEventListener("click", () => drawArrangement(product, best.material));
-          }
-        }
-      });
-  
-      resultsWrap.style.display = "block";
     }
-  
-    resultsBody.addEventListener("click", async (e) => {
-      const btn = e.target.closest("button");
-      if(!btn) return;
-  
-      const action = btn.getAttribute("data-action");
-  
-      if(action === "toggle"){
-        toggleRow(btn.getAttribute("data-target"), btn);
-        return;
-      }
-  
-      if(action === "draw"){
-        const productId = btn.getAttribute("data-productid");
-        const bagId = btn.getAttribute("data-bagid");
-  
-        const cache = window.__mpb_cache || [];
-        const row = cache.find(r => String(r.product.id) === String(productId));
-        if(!row) return;
-  
-        const opt = (row.top5 || []).find(x => String(x.material.id) === String(bagId));
-        if(!opt) return;
-  
-        await drawArrangement(row.product, opt.material);
-      }
-    });
-  
-    runBtn.addEventListener("click", async () => {
-      const productCatalogueId = document.getElementById("productCatalogue").value;
-      const packagingCatalogueId = document.getElementById("packagingCatalogue").value;
-  
-      resultsWrap.style.display = "none";
-  
-      if(!productCatalogueId || !packagingCatalogueId){
-        setStatus("Please select both catalogues.", true);
-        return;
-      }
-  
-      setStatus("Running Top 5 per product...");
-  
-      const form = new FormData();
-      form.append("product_catalogue_id", productCatalogueId);
-      form.append("packaging_catalogue_id", packagingCatalogueId);
-  
-      try{
-        const res = await fetch("{% url 'multi_product_bag_run' %}", {
-          method: "POST",
-          headers: { "X-CSRFToken": csrfToken() },
-          body: form
-        });
-  
-        const data = await res.json();
-        if(!res.ok || !data.ok){
-          setStatus(data.error || "Failed.", true);
-          return;
-        }
-  
-        console.log("multi product bag results:", data.results);
-  
-        window.__mpb_cache = data.results;
-        renderResults(data.results);
-        setStatus(`Done. Products processed: ${data.results.length}`);
-  
-      }catch(err){
-        console.error(err);
-        setStatus("Unexpected error.", true);
-      }
-    });
-  
-    exportBtn.addEventListener("click", async () => {
-      const productCatalogueId = document.getElementById("productCatalogue").value;
-      const packagingCatalogueId = document.getElementById("packagingCatalogue").value;
-  
-      if(!productCatalogueId || !packagingCatalogueId){
-        setStatus("Please select both catalogues before export.", true);
-        return;
-      }
-  
-      setStatus("Preparing Excel export...");
-  
-      const form = new FormData();
-      form.append("product_catalogue_id", productCatalogueId);
-      form.append("packaging_catalogue_id", packagingCatalogueId);
-  
-      try{
-        const res = await fetch("{% url 'multi_product_bag_export_excel' %}", {
-          method: "POST",
-          headers: { "X-CSRFToken": csrfToken() },
-          body: form
-        });
-  
-        if(!res.ok){
-          setStatus("Export failed (check server logs).", true);
-          return;
-        }
-  
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-  
-        const cd = res.headers.get("Content-Disposition") || "";
-        const match = cd.match(/filename="([^"]+)"/);
-        a.download = match ? match[1] : "multi_product_bag.xlsx";
-  
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-  
-        setStatus("Excel exported.");
-  
-      }catch(err){
-        console.error(err);
-        setStatus("Export error (see console).", true);
-      }
-    });
-  
-  })();
-  </script>
 
+    function renderProductContent(data) {
+        if (!data) {
+            productContentBody.innerHTML = `<tr><td colspan="12" class="text-center text-muted">No catalogue selected.</td></tr>`;
+            return;
+        }
+
+        if (!data.rows.length) {
+            productContentBody.innerHTML = `<tr><td colspan="12" class="text-center text-muted">This catalogue has no products.</td></tr>`;
+            return;
+        }
+
+        productContentBody.innerHTML = data.rows.map(row => `
+            <tr>
+                <td>
+                    ${
+                        row.picture_url
+                        ? `<img src="${esc(row.picture_url)}" alt="${esc(row.product_name || row.product_id)}" class="app-thumb" style="width:48px;height:48px;">`
+                        : `<span class="text-muted">—</span>`
+                    }
+                </td>
+                <td>${esc(row.product_id)}</td>
+                <td>${esc(row.product_name || "—")}</td>
+                <td>${formatNumber(row.product_length, 3)}</td>
+                <td>${formatNumber(row.product_width, 3)}</td>
+                <td>${formatNumber(row.product_height, 3)}</td>
+                <td>${yesNo(row.rotation_1)}</td>
+                <td>${yesNo(row.rotation_2)}</td>
+                <td>${yesNo(row.rotation_3)}</td>
+                <td>${formatNumber(row.weight, 3)}</td>
+                <td>${esc(row.desired_qty)}</td>
+                <td>${formatNumber(row.product_volume, 3)}</td>
+            </tr>
+        `).join("");
+    }
+
+    function renderPackagingContent(data) {
+        if (!data) {
+            packagingContentBody.innerHTML = `<tr><td colspan="12" class="text-center text-muted">No catalogue selected.</td></tr>`;
+            return;
+        }
+
+        if (!data.rows.length) {
+            packagingContentBody.innerHTML = `<tr><td colspan="12" class="text-center text-muted">This catalogue has no BAG materials.</td></tr>`;
+            return;
+        }
+
+        packagingContentBody.innerHTML = data.rows.map(row => `
+            <tr>
+                <td>${esc(row.part_number)}</td>
+                <td>${esc(row.part_description)}</td>
+                <td>${esc(row.packaging_type)}</td>
+                <td>${esc(row.branding)}</td>
+                <td>${formatNumber(row.part_length, 2)}</td>
+                <td>${formatNumber(row.part_width, 2)}</td>
+                <td>${formatNumber(row.part_height, 2)}</td>
+                <td>${formatNumber(row.external_length, 2)}</td>
+                <td>${formatNumber(row.external_width, 2)}</td>
+                <td>${formatNumber(row.external_height, 2)}</td>
+                <td>${formatNumber(row.part_weight, 3)}</td>
+                <td>${formatNumber(row.part_volume, 2)}</td>
+            </tr>
+        `).join("");
+    }
+
+    function updateProductSelectionUI() {
+        const selected = getSelectedProductCatalogue();
+        renderCatalogueCard(productCatalogueCard, selected, "product");
+        renderProductContent(selected);
+        toggleProductsBtn.disabled = !selected;
+        if (!selected) {
+            productContentWrap.style.display = "none";
+            toggleProductsBtn.innerHTML = `<i class="bi bi-table"></i> Show Product Catalogue Content`;
+        }
+    }
+
+    function updatePackagingSelectionUI() {
+        const selected = getSelectedPackagingCatalogue();
+        renderCatalogueCard(packagingCatalogueCard, selected, "packaging");
+        renderPackagingContent(selected);
+        togglePackagingBtn.disabled = !selected;
+        if (!selected) {
+            packagingContentWrap.style.display = "none";
+            togglePackagingBtn.innerHTML = `<i class="bi bi-table"></i> Show Packaging Catalogue Content`;
+        }
+    }
+
+    function toggleWrap(btn, wrapEl, showText, hideText) {
+        const isHidden = window.getComputedStyle(wrapEl).display === "none";
+        wrapEl.style.display = isHidden ? "block" : "none";
+        btn.innerHTML = isHidden
+            ? `<i class="bi bi-chevron-up"></i> ${hideText}`
+            : `<i class="bi bi-table"></i> ${showText}`;
+    }
+
+    async function drawArrangement(product, material) {
+        arrangementMeta.innerHTML = `
+            <strong>${esc(product.label)}</strong>
+            &nbsp;|&nbsp;
+            Desired Qty: ${esc(product.desired_qty)}
+            &nbsp;|&nbsp;
+            ${esc(material.part_number)} — ${esc(material.part_description)}
+        `;
+        arrangementCanvas.innerHTML = `<div class="text-muted">Generating image...</div>`;
+
+        const form = new FormData();
+        form.append("product_id", product.id);
+        form.append("bag_id", material.id);
+
+        const res = await fetch("{% url 'multi_product_bag_draw' %}", {
+            method: "POST",
+            headers: { "X-CSRFToken": csrfToken() },
+            body: form
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+            arrangementCanvas.innerHTML = `<div class="text-danger">${esc(data.error || "Failed to draw arrangement.")}</div>`;
+            return;
+        }
+
+        arrangementMeta.innerHTML += `
+            &nbsp;|&nbsp;
+            Best Required: ${formatNumber(data.best_required[0], 2)} × ${formatNumber(data.best_required[1], 2)}
+            &nbsp;|&nbsp;
+            Usage: ${Number(data.usage).toFixed(4)}
+        `;
+
+        arrangementCanvas.innerHTML = `
+            <img src="${esc(data.image_url)}"
+                 alt="Arrangement"
+                 style="width:100%;max-height:360px;object-fit:contain;border-radius:14px;">
+        `;
+    }
+
+    function renderResults(results) {
+        if (!results.length) {
+            resultsBody.innerHTML = `
+                <tr>
+                    <td colspan="11" class="text-center text-muted">No feasible bag options were found for the selected catalogues.</td>
+                </tr>
+            `;
+            resultsWrap.style.display = "";
+            return;
+        }
+
+        resultsBody.innerHTML = "";
+
+        results.forEach((row) => {
+            const product = row.product;
+            const top5 = row.top5 || [];
+            const best = top5[0];
+            const expandId = `expand-p-${product.id}`;
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>
+                    ${
+                        product.picture_url
+                        ? `<img src="${esc(product.picture_url)}" alt="${esc(product.label)}" class="app-thumb" style="width:48px;height:48px;">`
+                        : `<span class="text-muted">—</span>`
+                    }
+                </td>
+                <td>${esc(product.product_id || "—")}</td>
+                <td>
+                    <div class="fw-semibold">${esc(product.label)}</div>
+                    ${product.product_name ? `<div class="app-form-note">${esc(product.product_name)}</div>` : ``}
+                </td>
+                <td>${formatNumber(product.product_length, 3)}</td>
+                <td>${formatNumber(product.product_width, 3)}</td>
+                <td>${formatNumber(product.product_height, 3)}</td>
+                <td>${esc(product.desired_qty)}</td>
+                <td class="js-best-cell" style="${best ? 'cursor:pointer;' : ''}">
+                    ${
+                        best
+                        ? `<div class="fw-semibold">${esc(best.material.part_number)}</div>
+                           <div class="app-form-note">${esc(best.material.part_description)}</div>`
+                        : `<span class="text-muted">No fit</span>`
+                    }
+                </td>
+                <td>${best ? Number(best.usage).toFixed(4) : "—"}</td>
+                <td>
+                    ${best ? `${formatNumber(best.best_required[0], 2)} × ${formatNumber(best.best_required[1], 2)}` : "—"}
+                </td>
+                <td class="text-end">
+                    ${
+                        top5.length > 1
+                        ? `<button type="button" class="btn btn-app-outline btn-sm" data-action="toggle" data-target="${expandId}">
+                                <i class="bi bi-chevron-down"></i>
+                           </button>`
+                        : ``
+                    }
+                </td>
+            `;
+            resultsBody.appendChild(tr);
+
+            if (best) {
+                const bestCell = tr.querySelector(".js-best-cell");
+                bestCell.addEventListener("click", () => drawArrangement(product, best.material));
+            }
+
+            if (top5.length > 1) {
+                const tr2 = document.createElement("tr");
+                tr2.id = expandId;
+                tr2.style.display = "none";
+                tr2.innerHTML = `
+                    <td colspan="11" class="p-0">
+                        <div class="p-3" style="background:#f8fafc;border-top:1px solid var(--app-border);">
+                            <div class="app-table-wrap">
+                                <table class="table table-hover app-table align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Part Number</th>
+                                            <th>Description</th>
+                                            <th>Type</th>
+                                            <th>Brand</th>
+                                            <th>L (mm)</th>
+                                            <th>W (mm)</th>
+                                            <th>H (mm)</th>
+                                            <th>Usage</th>
+                                            <th>Best Required</th>
+                                            <th class="text-end">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${top5.slice(1).map(opt => `
+                                            <tr>
+                                                <td>${esc(opt.material.part_number)}</td>
+                                                <td>${esc(opt.material.part_description)}</td>
+                                                <td>${esc(opt.material.packaging_type)}</td>
+                                                <td>${esc(opt.material.branding)}</td>
+                                                <td>${formatNumber(opt.material.part_length, 2)}</td>
+                                                <td>${formatNumber(opt.material.part_width, 2)}</td>
+                                                <td>${formatNumber(opt.material.part_height, 2)}</td>
+                                                <td>${Number(opt.usage).toFixed(4)}</td>
+                                                <td>${formatNumber(opt.best_required[0], 2)} × ${formatNumber(opt.best_required[1], 2)}</td>
+                                                <td class="text-end">
+                                                    <button type="button"
+                                                            class="btn btn-app-outline btn-sm"
+                                                            data-action="draw"
+                                                            data-productid="${esc(product.id)}"
+                                                            data-bagid="${esc(opt.material.id)}">
+                                                        <i class="bi bi-badge-3d me-1"></i>Show arrangement
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join("")}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                resultsBody.appendChild(tr2);
+            }
+        });
+
+        resultsWrap.style.display = "";
+    }
+
+    resultsBody.addEventListener("click", async (e) => {
+        const btn = e.target.closest("button");
+        if (!btn) return;
+
+        const action = btn.getAttribute("data-action");
+
+        if (action === "toggle") {
+            const targetId = btn.getAttribute("data-target");
+            const row = document.getElementById(targetId);
+            if (!row) return;
+
+            const hidden = row.style.display === "none" || !row.style.display;
+            row.style.display = hidden ? "table-row" : "none";
+            btn.innerHTML = hidden
+                ? `<i class="bi bi-chevron-up"></i>`
+                : `<i class="bi bi-chevron-down"></i>`;
+            return;
+        }
+
+        if (action === "draw") {
+            const productId = btn.getAttribute("data-productid");
+            const bagId = btn.getAttribute("data-bagid");
+
+            const cache = window.__mpb_cache || [];
+            const row = cache.find(r => String(r.product.id) === String(productId));
+            if (!row) return;
+
+            const opt = (row.top5 || []).find(x => String(x.material.id) === String(bagId));
+            if (!opt) return;
+
+            await drawArrangement(row.product, opt.material);
+        }
+    });
+
+    runBtn.addEventListener("click", async () => {
+        const productCatalogueId = productCatalogueSelect.value;
+        const packagingCatalogueId = packagingCatalogueSelect.value;
+
+        if (!productCatalogueId || !packagingCatalogueId) {
+            setStatus("Please select both catalogues before running the analysis.", true);
+            return;
+        }
+
+        setStatus("Running Top 5 analysis per product...");
+        resultsWrap.style.display = "none";
+        resultsBody.innerHTML = "";
+
+        const form = new FormData();
+        form.append("product_catalogue_id", productCatalogueId);
+        form.append("packaging_catalogue_id", packagingCatalogueId);
+
+        try {
+            const res = await fetch("{% url 'multi_product_bag_run' %}", {
+                method: "POST",
+                headers: { "X-CSRFToken": csrfToken() },
+                body: form
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || !data.ok) {
+                setStatus(data.error || "Failed to run analysis.", true);
+                return;
+            }
+
+            window.__mpb_cache = data.results;
+            renderResults(data.results);
+            setStatus(`Done. Products processed: ${data.results.length}`);
+        } catch (err) {
+            console.error(err);
+            setStatus("Unexpected error while running the analysis.", true);
+        }
+    });
+
+    exportBtn.addEventListener("click", async () => {
+        const productCatalogueId = productCatalogueSelect.value;
+        const packagingCatalogueId = packagingCatalogueSelect.value;
+
+        if (!productCatalogueId || !packagingCatalogueId) {
+            setStatus("Please select both catalogues before export.", true);
+            return;
+        }
+
+        setStatus("Preparing Excel export...");
+
+        const form = new FormData();
+        form.append("product_catalogue_id", productCatalogueId);
+        form.append("packaging_catalogue_id", packagingCatalogueId);
+
+        try {
+            const res = await fetch("{% url 'multi_product_bag_export_excel' %}", {
+                method: "POST",
+                headers: { "X-CSRFToken": csrfToken() },
+                body: form
+            });
+
+            if (!res.ok) {
+                setStatus("Export failed.", true);
+                return;
+            }
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+
+            const cd = res.headers.get("Content-Disposition") || "";
+            const match = cd.match(/filename="([^"]+)"/);
+            a.download = match ? match[1] : "multi_product_bag.xlsx";
+
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+            setStatus("Excel exported.");
+        } catch (err) {
+            console.error(err);
+            setStatus("Unexpected error while exporting.", true);
+        }
+    });
+
+    productCatalogueSelect.addEventListener("change", updateProductSelectionUI);
+    packagingCatalogueSelect.addEventListener("change", updatePackagingSelectionUI);
+
+    toggleProductsBtn.addEventListener("click", () => {
+        toggleWrap(
+            toggleProductsBtn,
+            productContentWrap,
+            "Show Product Catalogue Content",
+            "Hide Product Catalogue Content"
+        );
+    });
+
+    togglePackagingBtn.addEventListener("click", () => {
+        toggleWrap(
+            togglePackagingBtn,
+            packagingContentWrap,
+            "Show Packaging Catalogue Content",
+            "Hide Packaging Catalogue Content"
+        );
+    });
+
+    updateProductSelectionUI();
+    updatePackagingSelectionUI();
+})();
+</script>
 {% endblock %}
