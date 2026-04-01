@@ -347,61 +347,86 @@ class PalletizationForm(forms.Form):
     ]
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
-    pallet_id = forms.CharField(required=False, widget=forms.HiddenInput())
 
+    # BOX / LOAD
+    box_source = forms.ChoiceField(
+        choices=SOURCE_CHOICES,
+        initial="manual",
+        widget=forms.RadioSelect
+    )
+    box_catalogue_id = forms.ChoiceField(
+        required=False,
+        choices=[("", "— Select —")],
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+    selected_box_id = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    box_l = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    box_w = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    box_h = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    box_weight = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    max_weight_on_bottom_box = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+
+    # PALLET
     pallet_source = forms.ChoiceField(
         choices=SOURCE_CHOICES,
         initial="manual",
         widget=forms.RadioSelect
     )
-
-    catalogue_id = forms.ChoiceField(
+    pallet_catalogue_id = forms.ChoiceField(
         required=False,
         choices=[("", "— Select —")],
-        widget=forms.Select(attrs={"class": "cs-input"})
+        widget=forms.Select(attrs={"class": "form-select"})
     )
+    pallet_id = forms.CharField(required=False, widget=forms.HiddenInput())
 
-    # Box
-    box_l = forms.FloatField(widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"}))
-    box_w = forms.FloatField(widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"}))
-    box_h = forms.FloatField(widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"}))
-    box_weight = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"}))
-    max_weight_on_bottom_box = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"}))
+    pallet_l = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    pallet_w = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
 
-    # Manual pallet
-    pallet_l = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"}))
-    pallet_w = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"}))
-
-    # Constraints
-    max_stack_height = forms.FloatField(widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"}))
-    max_width_stickout = forms.FloatField(required=False, initial=0, widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"}))
-    max_length_stickout = forms.FloatField(required=False, initial=0, widget=forms.NumberInput(attrs={"class": "cs-input", "step": "any"}))
+    # CONSTRAINTS
+    max_stack_height = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    max_width_stickout = forms.FloatField(required=False, initial=0, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    max_length_stickout = forms.FloatField(required=False, initial=0, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
 
     def clean(self):
         cleaned = super().clean()
+        action = cleaned.get("action") or ""
 
-        source = cleaned.get("pallet_source") or "manual"
+        # allow refresh actions without forcing validation
+        if action not in ("run_analysis", "select_result"):
+            return cleaned
 
-        for fld in ["box_l", "box_w", "box_h", "max_stack_height"]:
-            v = cleaned.get(fld)
-            if v is not None and v <= 0:
-                self.add_error(fld, "Value must be greater than 0.")
+        box_source = cleaned.get("box_source") or "manual"
+        pallet_source = cleaned.get("pallet_source") or "manual"
 
-        for fld in ["box_weight", "max_weight_on_bottom_box", "max_width_stickout", "max_length_stickout"]:
-            v = cleaned.get(fld)
-            if v is not None and v < 0:
-                self.add_error(fld, "Value cannot be negative.")
+        if box_source == "manual":
+            if cleaned.get("box_l") is None or cleaned.get("box_w") is None or cleaned.get("box_h") is None:
+                raise forms.ValidationError("Please enter all manual box dimensions.")
+        else:
+            if not cleaned.get("selected_box_id"):
+                raise forms.ValidationError("Please select a box/container from the catalogue table.")
 
-        if source == "manual":
+        if pallet_source == "manual":
             if cleaned.get("pallet_l") is None or cleaned.get("pallet_w") is None:
                 raise forms.ValidationError("Please enter pallet length and pallet width.")
-            if cleaned.get("pallet_l") is not None and cleaned["pallet_l"] <= 0:
-                self.add_error("pallet_l", "Value must be greater than 0.")
-            if cleaned.get("pallet_w") is not None and cleaned["pallet_w"] <= 0:
-                self.add_error("pallet_w", "Value must be greater than 0.")
         else:
             if not cleaned.get("pallet_id"):
                 raise forms.ValidationError("Please select a pallet from the catalogue table.")
+
+        if cleaned.get("max_stack_height") is None:
+            raise forms.ValidationError("Please enter max stack height.")
+
+        positive_fields = ["box_l", "box_w", "box_h", "pallet_l", "pallet_w", "max_stack_height"]
+        for fld in positive_fields:
+            value = cleaned.get(fld)
+            if value is not None and value <= 0:
+                self.add_error(fld, "Value must be greater than 0.")
+
+        non_negative_fields = ["box_weight", "max_weight_on_bottom_box", "max_width_stickout", "max_length_stickout"]
+        for fld in non_negative_fields:
+            value = cleaned.get(fld)
+            if value is not None and value < 0:
+                self.add_error(fld, "Value cannot be negative.")
 
         return cleaned
 
