@@ -3,32 +3,488 @@
 <div class="app-card" id="fpTransportProductCatalogueCard_{{ step_index }}" {% if selected_row_index == "" or auto_hide_product_catalogue %}style="display:none;"{% endif %}>
   <div class="app-card-body">
     <div class="container-tool-card-head">
-      <div><div class="app-section-title mb-1">Product Catalogue</div><div class="app-section-subtitle mb-0">Select a product to fill row <span id="fpTransportSelectedRowLabel_{{ step_index }}">{{ selected_row_index }}</span>.</div></div>
-      <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportHideProductCatalogueSection({{ step_index }})"><i class="bi bi-x-lg"></i></button>
+      <div>
+        <div class="app-section-title mb-1">Product Catalogue</div>
+        <div class="app-section-subtitle mb-0">
+          Select a product to fill row <span id="fpTransportSelectedRowLabel_{{ step_index }}">{{ selected_row_index }}</span>.
+        </div>
+      </div>
+      <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportHideProductCatalogueSection({{ step_index }})">
+        <i class="bi bi-x-lg"></i>
+      </button>
     </div>
-    <div class="container-tool-catalogue-row container-tool-catalogue-row-single"><div class="tool-field-group mb-0"><label class="form-label">Product Catalogue</label><select name="transport_product_catalogue_id_{{ step_index }}" id="fpTransportProductCatalogueSelect_{{ step_index }}" class="form-select" onchange="fpTransportProductCatalogueChanged({{ step_index }})"><option value="">— Select —</option>{% for cat in product_catalogues %}<option value="{{ cat.id }}" {% if product_catalogue_id|stringformat:"s" == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}</select></div></div>
-    {% if product_catalogue_id %}<div class="app-table-wrap container-tool-table-wrap mt-3"><table class="table table-hover app-table align-middle mb-0"><thead class="table-light"><tr><th></th><th>Product ID</th><th>Name</th><th>L</th><th>W</th><th>H</th><th>Weight</th><th>R1</th><th>R2</th><th>R3</th></tr></thead><tbody>{% for product in product_items %}<tr class="tool-clickable-row" onclick="fpTransportSelectProduct({{ step_index }}, '{{ product.id }}')"><td><button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); fpTransportSelectProduct({{ step_index }}, '{{ product.id }}')">Select</button></td><td>{{ product.product_id }}</td><td>{{ product.product_name }}</td><td>{{ product.product_length }}</td><td>{{ product.product_width }}</td><td>{{ product.product_height }}</td><td>{{ product.weight|default:"—" }}</td><td>{% if product.rotation_1 %}✓{% endif %}</td><td>{% if product.rotation_2 %}✓{% endif %}</td><td>{% if product.rotation_3 %}✓{% endif %}</td></tr>{% empty %}<tr><td colspan="10" class="text-center text-muted">No products found in this catalogue.</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="app-empty-state mt-3"><i class="bi bi-box-seam fs-2 d-block mb-2"></i><div>Select a product catalogue to display available products.</div></div>{% endif %}
+
+    <div class="container-tool-catalogue-row container-tool-catalogue-row-single">
+      <div class="tool-field-group mb-0">
+        <label class="form-label">Product Catalogue</label>
+        <select name="transport_product_catalogue_id_{{ step_index }}"
+                id="fpTransportProductCatalogueSelect_{{ step_index }}"
+                class="form-select"
+                onchange="fpTransportProductCatalogueChanged({{ step_index }})">
+          <option value="">— Select —</option>
+          {% for cat in product_catalogues %}
+          <option value="{{ cat.id }}" {% if product_catalogue_id|stringformat:"s" == cat.id|stringformat:"s" %}selected{% endif %}>
+            {{ cat.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    {% if product_catalogue_id %}
+    <div class="app-table-wrap container-tool-table-wrap mt-3">
+      <table class="table table-hover app-table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th></th>
+            <th>Product ID</th>
+            <th>Name</th>
+            <th>L</th>
+            <th>W</th>
+            <th>H</th>
+            <th>Weight</th>
+            <th>R1</th>
+            <th>R2</th>
+            <th>R3</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in product_items %}
+          <tr class="tool-clickable-row" onclick="fpTransportSelectProduct({{ step_index }}, '{{ product.id }}')">
+            <td>
+              <button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); fpTransportSelectProduct({{ step_index }}, '{{ product.id }}')">
+                Select
+              </button>
+            </td>
+            <td>{{ product.product_id }}</td>
+            <td>{{ product.product_name }}</td>
+            <td>{{ product.product_length }}</td>
+            <td>{{ product.product_width }}</td>
+            <td>{{ product.product_height }}</td>
+            <td>{{ product.weight|default:"—" }}</td>
+            <td>{% if product.rotation_1 %}✓{% endif %}</td>
+            <td>{% if product.rotation_2 %}✓{% endif %}</td>
+            <td>{% if product.rotation_3 %}✓{% endif %}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="10" class="text-center text-muted">No products found in this catalogue.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="app-empty-state mt-3">
+      <i class="bi bi-box-seam fs-2 d-block mb-2"></i>
+      <div>Select a product catalogue to display available products.</div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endif %}
+
 <div class="app-card" id="fpTransportProductsSectionCard_{{ step_index }}">
   <div class="app-card-body">
-    <div class="container-tool-table-header"><div><div class="app-section-title mb-1">Products</div><div class="app-section-subtitle mb-0">{% if is_first_step %}Add products manually or use catalogue selection per row.{% else %}Products inherited from the previous workflow step.{% endif %}</div></div>{% if is_first_step %}<button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportAddProductRow({{ step_index }})"><i class="bi bi-plus-circle me-2"></i>Add row</button>{% endif %}</div>
-    <div class="app-table-wrap container-tool-table-wrap"><table class="table table-hover align-middle app-table mb-0"><thead class="table-light"><tr><th style="min-width: 160px;">Name</th><th>L</th><th>W</th><th>H</th><th>Pieces</th><th>R1</th><th>R2</th><th>R3</th><th>Weight</th><th>Loading seq.</th>{% if is_first_step %}<th>Catalogue</th><th></th>{% endif %}</tr></thead><tbody id="fpTransportProductsTbody_{{ step_index }}">{% for row in product_rows %}<tr><td><input type="text" name="item_name[]" class="form-control" value="{{ row.name }}"></td><td><input type="number" step="any" name="item_length[]" class="form-control" value="{{ row.length }}"></td><td><input type="number" step="any" name="item_width[]" class="form-control" value="{{ row.width }}"></td><td><input type="number" step="any" name="item_height[]" class="form-control" value="{{ row.height }}"></td><td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="{{ row.qty }}"></td><td class="text-center"><input type="hidden" name="item_r1[]" value="{% if row.r1 %}1{% else %}0{% endif %}"><input type="checkbox" value="1" {% if row.r1 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" {% if not is_first_step %}disabled{% endif %}></td><td class="text-center"><input type="hidden" name="item_r2[]" value="{% if row.r2 %}1{% else %}0{% endif %}"><input type="checkbox" value="1" {% if row.r2 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" {% if not is_first_step %}disabled{% endif %}></td><td class="text-center"><input type="hidden" name="item_r3[]" value="{% if row.r3 %}1{% else %}0{% endif %}"><input type="checkbox" value="1" {% if row.r3 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" {% if not is_first_step %}disabled{% endif %}></td><td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}"></td><td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{{ row.sequence }}"></td>{% if is_first_step %}<td class="text-center"><button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueForRow({{ step_index }}, {{ forloop.counter0 }})"><i class="bi bi-box-arrow-in-down"></i></button></td><td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="fpTransportRemoveProductRow(this, {{ step_index }})"><i class="bi bi-trash"></i></button></td>{% endif %}</tr>{% endfor %}</tbody></table></div>
-    <div class="app-form-actions"><button type="submit" class="btn btn-app-primary" onclick="fpSetAction({{ step_index }}, 'run_analysis')"><i class="bi bi-play-circle me-2"></i>Run analysis</button></div>
+    <div class="container-tool-table-header">
+      <div>
+        <div class="app-section-title mb-1">Products</div>
+        <div class="app-section-subtitle mb-0">
+          {% if is_first_step %}
+          Add products manually or use catalogue selection per row.
+          {% else %}
+          Products inherited from the previous workflow step.
+          {% endif %}
+        </div>
+      </div>
+      {% if is_first_step %}
+      <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportAddProductRow({{ step_index }})">
+        <i class="bi bi-plus-circle me-2"></i>Add row
+      </button>
+      {% endif %}
+    </div>
+
+    <div class="app-table-wrap container-tool-table-wrap">
+      <table class="table table-hover align-middle app-table mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="min-width: 160px;">Name</th>
+            <th>L</th>
+            <th>W</th>
+            <th>H</th>
+            <th>Pieces</th>
+            <th>R1</th>
+            <th>R2</th>
+            <th>R3</th>
+            <th>Weight</th>
+            <th>Loading seq.</th>
+            {% if is_first_step %}
+            <th>Catalogue</th>
+            <th></th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody id="fpTransportProductsTbody_{{ step_index }}">
+          {% for row in product_rows %}
+          <tr>
+            <td><input type="text" name="item_name[]" class="form-control" value="{{ row.name }}"></td>
+            <td><input type="number" step="any" name="item_length[]" class="form-control" value="{{ row.length }}"></td>
+            <td><input type="number" step="any" name="item_width[]" class="form-control" value="{{ row.width }}"></td>
+            <td><input type="number" step="any" name="item_height[]" class="form-control" value="{{ row.height }}"></td>
+            <td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="{{ row.qty }}"></td>
+
+            <td class="text-center">
+              <input type="hidden" name="item_r1[]" value="{% if row.r1 %}1{% else %}0{% endif %}">
+              <input type="checkbox" value="1" {% if row.r1 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" {% if not is_first_step %}disabled{% endif %}>
+            </td>
+            <td class="text-center">
+              <input type="hidden" name="item_r2[]" value="{% if row.r2 %}1{% else %}0{% endif %}">
+              <input type="checkbox" value="1" {% if row.r2 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" {% if not is_first_step %}disabled{% endif %}>
+            </td>
+            <td class="text-center">
+              <input type="hidden" name="item_r3[]" value="{% if row.r3 %}1{% else %}0{% endif %}">
+              <input type="checkbox" value="1" {% if row.r3 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" {% if not is_first_step %}disabled{% endif %}>
+            </td>
+
+            <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}"></td>
+            <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{{ row.sequence }}"></td>
+
+            {% if is_first_step %}
+            <td class="text-center">
+              <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueForRow({{ step_index }}, {{ forloop.counter0 }})">
+                <i class="bi bi-box-arrow-in-down"></i>
+              </button>
+            </td>
+            <td class="text-end">
+              <button type="button" class="btn btn-outline-danger btn-sm" onclick="fpTransportRemoveProductRow(this, {{ step_index }})">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="app-form-actions">
+      <button type="submit" class="btn btn-app-primary" onclick="fpSetAction({{ step_index }}, 'run_analysis')">
+        <i class="bi bi-play-circle me-2"></i>Run analysis
+      </button>
+    </div>
   </div>
 </div>
-{% if result %}<div class="app-card"><div class="app-card-body"><div class="app-section-title">Per-product summary</div><div class="app-section-subtitle">Requested versus packed units for each product row.</div><div class="app-table-wrap"><table class="table table-hover align-middle app-table mb-0"><thead class="table-light"><tr><th>Product</th><th>L</th><th>W</th><th>H</th><th>Requested</th><th>Packed</th><th>Weight each</th><th>Sequence</th></tr></thead><tbody>{% for row in result.summary.product_rows %}<tr><td>{{ row.name }}</td><td>{{ row.length }}</td><td>{{ row.width }}</td><td>{{ row.height }}</td><td>{{ row.qty_requested }}</td><td><strong>{{ row.qty_packed }}</strong></td><td>{{ row.weight_each }}</td><td>{{ row.sequence }}</td></tr>{% endfor %}</tbody></table></div></div></div>{% endif %}
-{% if is_first_step %}<template id="fpTransportProductRowTemplate_{{ step_index }}"><tr><td><input type="text" name="item_name[]" class="form-control" value=""></td><td><input type="number" step="any" name="item_length[]" class="form-control" value=""></td><td><input type="number" step="any" name="item_width[]" class="form-control" value=""></td><td><input type="number" step="any" name="item_height[]" class="form-control" value=""></td><td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="1"></td><td class="text-center"><input type="hidden" name="item_r1[]" value="1"><input type="checkbox" value="1" checked onchange="fpTransportSyncCheckboxHidden(this)"></td><td class="text-center"><input type="hidden" name="item_r2[]" value="0"><input type="checkbox" value="1" onchange="fpTransportSyncCheckboxHidden(this)"></td><td class="text-center"><input type="hidden" name="item_r3[]" value="0"><input type="checkbox" value="1" onchange="fpTransportSyncCheckboxHidden(this)"></td><td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0"></td><td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1"></td><td class="text-center"><button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueForRowFromButton(this, {{ step_index }})"><i class="bi bi-box-arrow-in-down"></i></button></td><td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="fpTransportRemoveProductRow(this, {{ step_index }})"><i class="bi bi-trash"></i></button></td></tr></template>{% endif %}
+
+{% if result %}
+<div class="app-card">
+  <div class="app-card-body">
+    <div class="app-section-title">Per-product summary</div>
+    <div class="app-section-subtitle">Requested versus packed units for each product row.</div>
+    <div class="app-table-wrap">
+      <table class="table table-hover align-middle app-table mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Product</th>
+            <th>L</th>
+            <th>W</th>
+            <th>H</th>
+            <th>Requested</th>
+            <th>Packed</th>
+            <th>Weight each</th>
+            <th>Sequence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in result.summary.product_rows %}
+          <tr>
+            <td>{{ row.name }}</td>
+            <td>{{ row.length }}</td>
+            <td>{{ row.width }}</td>
+            <td>{{ row.height }}</td>
+            <td>{{ row.qty_requested }}</td>
+            <td><strong>{{ row.qty_packed }}</strong></td>
+            <td>{{ row.weight_each }}</td>
+            <td>{{ row.sequence }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if is_first_step %}
+<template id="fpTransportProductRowTemplate_{{ step_index }}">
+  <tr>
+    <td><input type="text" name="item_name[]" class="form-control" value=""></td>
+    <td><input type="number" step="any" name="item_length[]" class="form-control" value=""></td>
+    <td><input type="number" step="any" name="item_width[]" class="form-control" value=""></td>
+    <td><input type="number" step="any" name="item_height[]" class="form-control" value=""></td>
+    <td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="1"></td>
+
+    <td class="text-center">
+      <input type="hidden" name="item_r1[]" value="1">
+      <input type="checkbox" value="1" checked onchange="fpTransportSyncCheckboxHidden(this)">
+    </td>
+    <td class="text-center">
+      <input type="hidden" name="item_r2[]" value="0">
+      <input type="checkbox" value="1" onchange="fpTransportSyncCheckboxHidden(this)">
+    </td>
+    <td class="text-center">
+      <input type="hidden" name="item_r3[]" value="0">
+      <input type="checkbox" value="1" onchange="fpTransportSyncCheckboxHidden(this)">
+    </td>
+
+    <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0"></td>
+    <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1"></td>
+    <td class="text-center">
+      <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueForRowFromButton(this, {{ step_index }})">
+        <i class="bi bi-box-arrow-in-down"></i>
+      </button>
+    </td>
+    <td class="text-end">
+      <button type="button" class="btn btn-outline-danger btn-sm" onclick="fpTransportRemoveProductRow(this, {{ step_index }})">
+        <i class="bi bi-trash"></i>
+      </button>
+    </td>
+  </tr>
+</template>
+{% endif %}
+
 {% else %}
+
 <div class="app-card" id="productCatalogueCard" {% if selected_row_index == "" or auto_hide_product_catalogue %}style="display:none;"{% endif %}>
   <div class="app-card-body">
-    <div class="container-tool-card-head"><div><div class="app-section-title mb-1">Product Catalogue</div><div class="app-section-subtitle mb-0">Select a product to fill row <span id="selectedRowLabel">{{ selected_row_index }}</span>.</div></div><button type="button" class="btn btn-app-outline btn-sm" onclick="hideProductCatalogueSection()"><i class="bi bi-x-lg"></i></button></div>
-    <div class="container-tool-catalogue-row container-tool-catalogue-row-single"><div class="tool-field-group mb-0"><label class="form-label">Product Catalogue</label><select name="product_catalogue_id" id="product_catalogue_id" class="form-select" onchange="onProductCatalogueChange()"><option value="">— Select —</option>{% for cat in product_catalogues %}<option value="{{ cat.id }}" {% if product_catalogue_id|stringformat:"s" == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}</select></div></div>
-    {% if product_catalogue_id %}<div class="app-table-wrap container-tool-table-wrap mt-3"><table class="table table-hover app-table align-middle mb-0"><thead class="table-light"><tr><th></th><th>Product ID</th><th>Name</th><th>L</th><th>W</th><th>H</th><th>Weight</th><th>R1</th><th>R2</th><th>R3</th></tr></thead><tbody>{% for product in product_items %}<tr class="tool-clickable-row" onclick="selectProductFromCatalogue('{{ product.id }}')"><td><button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); selectProductFromCatalogue('{{ product.id }}')">Select</button></td><td>{{ product.product_id }}</td><td>{{ product.product_name }}</td><td>{{ product.product_length }}</td><td>{{ product.product_width }}</td><td>{{ product.product_height }}</td><td>{{ product.weight|default:"—" }}</td><td>{% if product.rotation_1 %}✓{% endif %}</td><td>{% if product.rotation_2 %}✓{% endif %}</td><td>{% if product.rotation_3 %}✓{% endif %}</td></tr>{% empty %}<tr><td colspan="10" class="text-center text-muted">No products found in this catalogue.</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="app-empty-state mt-3"><i class="bi bi-box-seam fs-2 d-block mb-2"></i><div>Select a product catalogue to display available products.</div></div>{% endif %}
+    <div class="container-tool-card-head">
+      <div>
+        <div class="app-section-title mb-1">Product Catalogue</div>
+        <div class="app-section-subtitle mb-0">
+          Select a product to fill row <span id="selectedRowLabel">{{ selected_row_index }}</span>.
+        </div>
+      </div>
+      <button type="button" class="btn btn-app-outline btn-sm" onclick="hideProductCatalogueSection()">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="container-tool-catalogue-row container-tool-catalogue-row-single">
+      <div class="tool-field-group mb-0">
+        <label class="form-label">Product Catalogue</label>
+        <select name="product_catalogue_id" id="product_catalogue_id" class="form-select" onchange="onProductCatalogueChange()">
+          <option value="">— Select —</option>
+          {% for cat in product_catalogues %}
+          <option value="{{ cat.id }}" {% if product_catalogue_id|stringformat:"s" == cat.id|stringformat:"s" %}selected{% endif %}>
+            {{ cat.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    {% if product_catalogue_id %}
+    <div class="app-table-wrap container-tool-table-wrap mt-3">
+      <table class="table table-hover app-table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th></th>
+            <th>Product ID</th>
+            <th>Name</th>
+            <th>L</th>
+            <th>W</th>
+            <th>H</th>
+            <th>Weight</th>
+            <th>R1</th>
+            <th>R2</th>
+            <th>R3</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in product_items %}
+          <tr class="tool-clickable-row" onclick="selectProductFromCatalogue('{{ product.id }}')">
+            <td>
+              <button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); selectProductFromCatalogue('{{ product.id }}')">
+                Select
+              </button>
+            </td>
+            <td>{{ product.product_id }}</td>
+            <td>{{ product.product_name }}</td>
+            <td>{{ product.product_length }}</td>
+            <td>{{ product.product_width }}</td>
+            <td>{{ product.product_height }}</td>
+            <td>{{ product.weight|default:"—" }}</td>
+            <td>{% if product.rotation_1 %}✓{% endif %}</td>
+            <td>{% if product.rotation_2 %}✓{% endif %}</td>
+            <td>{% if product.rotation_3 %}✓{% endif %}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="10" class="text-center text-muted">No products found in this catalogue.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="app-empty-state mt-3">
+      <i class="bi bi-box-seam fs-2 d-block mb-2"></i>
+      <div>Select a product catalogue to display available products.</div>
+    </div>
+    {% endif %}
   </div>
 </div>
-<div class="app-card" id="productsSectionCard"><div class="app-card-body"><div class="container-tool-table-header"><div><div class="app-section-title mb-1">Products</div><div class="app-section-subtitle mb-0">Add products manually or use catalogue selection per row.</div></div><button type="button" class="btn btn-app-outline btn-sm" onclick="addProductRow()"><i class="bi bi-plus-circle me-2"></i>Add row</button></div><div class="app-table-wrap container-tool-table-wrap"><table class="table table-hover align-middle app-table container-tool-table mb-0" id="products-table"><thead class="table-light"><tr><th style="min-width: 160px;">Name</th><th>L</th><th>W</th><th>H</th><th>Pieces</th><th>R1</th><th>R2</th><th>R3</th><th>Weight</th><th>Loading seq.</th><th>Catalogue</th><th></th></tr></thead><tbody id="products-tbody">{% for row in product_rows %}<tr><td><input type="text" name="item_name[]" class="form-control" value="{{ row.name }}"></td><td><input type="number" step="any" name="item_length[]" class="form-control" value="{{ row.length }}"></td><td><input type="number" step="any" name="item_width[]" class="form-control" value="{{ row.width }}"></td><td><input type="number" step="any" name="item_height[]" class="form-control" value="{{ row.height }}"></td><td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="{{ row.qty }}"></td><td class="text-center"><input type="hidden" name="item_r1[]" value="0"><input type="checkbox" value="1" {% if row.r1 %}checked{% endif %} onchange="syncCheckboxHidden(this)"></td><td class="text-center"><input type="hidden" name="item_r2[]" value="0"><input type="checkbox" value="1" {% if row.r2 %}checked{% endif %} onchange="syncCheckboxHidden(this)"></td><td class="text-center"><input type="hidden" name="item_r3[]" value="0"><input type="checkbox" value="1" {% if row.r3 %}checked{% endif %} onchange="syncCheckboxHidden(this)"></td><td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}"></td><td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{{ row.sequence }}"></td><td class="text-center"><button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRow({{ forloop.counter0 }})"><i class="bi bi-box-arrow-in-down"></i></button></td><td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="removeProductRow(this)"><i class="bi bi-trash"></i></button></td></tr>{% endfor %}</tbody></table></div><div class="app-form-actions"><button type="submit" class="btn btn-app-primary" onclick="setAction('run_analysis')"><i class="bi bi-play-circle me-2"></i>Run analysis</button></div></div></div>
-{% if result %}<div class="app-card"><div class="app-card-body"><div class="app-section-title">Per-product summary</div><div class="app-section-subtitle">Requested versus packed units for each product row.</div><div class="app-table-wrap"><table class="table table-hover align-middle app-table mb-0"><thead class="table-light"><tr><th>Product</th><th>L</th><th>W</th><th>H</th><th>Requested</th><th>Packed</th><th>Weight each</th><th>Sequence</th></tr></thead><tbody>{% for row in result.summary.product_rows %}<tr><td>{{ row.name }}</td><td>{{ row.length }}</td><td>{{ row.width }}</td><td>{{ row.height }}</td><td>{{ row.qty_requested }}</td><td><strong>{{ row.qty_packed }}</strong></td><td>{{ row.weight_each }}</td><td>{{ row.sequence }}</td></tr>{% endfor %}</tbody></table></div></div></div>{% endif %}
-<template id="product-row-template"><tr><td><input type="text" name="item_name[]" class="form-control" value=""></td><td><input type="number" step="any" name="item_length[]" class="form-control" value=""></td><td><input type="number" step="any" name="item_width[]" class="form-control" value=""></td><td><input type="number" step="any" name="item_height[]" class="form-control" value=""></td><td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="1"></td><td class="text-center"><input type="hidden" name="item_r1[]" value="0"><input type="checkbox" value="1" checked onchange="syncCheckboxHidden(this)"></td><td class="text-center"><input type="hidden" name="item_r2[]" value="0"><input type="checkbox" value="1" onchange="syncCheckboxHidden(this)"></td><td class="text-center"><input type="hidden" name="item_r3[]" value="0"><input type="checkbox" value="1" onchange="syncCheckboxHidden(this)"></td><td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0"></td><td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1"></td><td class="text-center"><button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRowFromButton(this)"><i class="bi bi-box-arrow-in-down"></i></button></td><td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="removeProductRow(this)"><i class="bi bi-trash"></i></button></td></tr></template>
+
+<div class="app-card" id="productsSectionCard">
+  <div class="app-card-body">
+    <div class="container-tool-table-header">
+      <div>
+        <div class="app-section-title mb-1">Products</div>
+        <div class="app-section-subtitle mb-0">Add products manually or use catalogue selection per row.</div>
+      </div>
+      <button type="button" class="btn btn-app-outline btn-sm" onclick="addProductRow()">
+        <i class="bi bi-plus-circle me-2"></i>Add row
+      </button>
+    </div>
+
+    <div class="app-table-wrap container-tool-table-wrap">
+      <table class="table table-hover align-middle app-table container-tool-table mb-0" id="products-table">
+        <thead class="table-light">
+          <tr>
+            <th style="min-width: 160px;">Name</th>
+            <th>L</th>
+            <th>W</th>
+            <th>H</th>
+            <th>Pieces</th>
+            <th>R1</th>
+            <th>R2</th>
+            <th>R3</th>
+            <th>Weight</th>
+            <th>Loading seq.</th>
+            <th>Catalogue</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="products-tbody">
+          {% for row in product_rows %}
+          <tr>
+            <td><input type="text" name="item_name[]" class="form-control" value="{{ row.name }}"></td>
+            <td><input type="number" step="any" name="item_length[]" class="form-control" value="{{ row.length }}"></td>
+            <td><input type="number" step="any" name="item_width[]" class="form-control" value="{{ row.width }}"></td>
+            <td><input type="number" step="any" name="item_height[]" class="form-control" value="{{ row.height }}"></td>
+            <td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="{{ row.qty }}"></td>
+
+            <td class="text-center">
+              <input type="hidden" name="item_r1[]" value="{% if row.r1 %}1{% else %}0{% endif %}">
+              <input type="checkbox" value="1" {% if row.r1 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
+            </td>
+            <td class="text-center">
+              <input type="hidden" name="item_r2[]" value="{% if row.r2 %}1{% else %}0{% endif %}">
+              <input type="checkbox" value="1" {% if row.r2 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
+            </td>
+            <td class="text-center">
+              <input type="hidden" name="item_r3[]" value="{% if row.r3 %}1{% else %}0{% endif %}">
+              <input type="checkbox" value="1" {% if row.r3 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
+            </td>
+
+            <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}"></td>
+            <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{{ row.sequence }}"></td>
+            <td class="text-center">
+              <button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRow({{ forloop.counter0 }})">
+                <i class="bi bi-box-arrow-in-down"></i>
+              </button>
+            </td>
+            <td class="text-end">
+              <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeProductRow(this)">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="app-form-actions">
+      <button type="submit" class="btn btn-app-primary" onclick="setAction('run_analysis')">
+        <i class="bi bi-play-circle me-2"></i>Run analysis
+      </button>
+    </div>
+  </div>
+</div>
+
+{% if result %}
+<div class="app-card">
+  <div class="app-card-body">
+    <div class="app-section-title">Per-product summary</div>
+    <div class="app-section-subtitle">Requested versus packed units for each product row.</div>
+    <div class="app-table-wrap">
+      <table class="table table-hover align-middle app-table mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Product</th>
+            <th>L</th>
+            <th>W</th>
+            <th>H</th>
+            <th>Requested</th>
+            <th>Packed</th>
+            <th>Weight each</th>
+            <th>Sequence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in result.summary.product_rows %}
+          <tr>
+            <td>{{ row.name }}</td>
+            <td>{{ row.length }}</td>
+            <td>{{ row.width }}</td>
+            <td>{{ row.height }}</td>
+            <td>{{ row.qty_requested }}</td>
+            <td><strong>{{ row.qty_packed }}</strong></td>
+            <td>{{ row.weight_each }}</td>
+            <td>{{ row.sequence }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<template id="product-row-template">
+  <tr>
+    <td><input type="text" name="item_name[]" class="form-control" value=""></td>
+    <td><input type="number" step="any" name="item_length[]" class="form-control" value=""></td>
+    <td><input type="number" step="any" name="item_width[]" class="form-control" value=""></td>
+    <td><input type="number" step="any" name="item_height[]" class="form-control" value=""></td>
+    <td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="1"></td>
+
+    <td class="text-center">
+      <input type="hidden" name="item_r1[]" value="1">
+      <input type="checkbox" value="1" checked onchange="syncCheckboxHidden(this)">
+    </td>
+    <td class="text-center">
+      <input type="hidden" name="item_r2[]" value="0">
+      <input type="checkbox" value="1" onchange="syncCheckboxHidden(this)">
+    </td>
+    <td class="text-center">
+      <input type="hidden" name="item_r3[]" value="0">
+      <input type="checkbox" value="1" onchange="syncCheckboxHidden(this)">
+    </td>
+
+    <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0"></td>
+    <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1"></td>
+    <td class="text-center">
+      <button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRowFromButton(this)">
+        <i class="bi bi-box-arrow-in-down"></i>
+      </button>
+    </td>
+    <td class="text-end">
+      <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeProductRow(this)">
+        <i class="bi bi-trash"></i>
+      </button>
+    </td>
+  </tr>
+</template>
+
 {% endif %}
