@@ -1,0 +1,398 @@
+
+<div class="container-tool-form">
+  {% if step.row_errors %}
+    <div class="alert alert-danger mb-0">
+      <strong>Please fix the following:</strong>
+      <ul class="mb-0 mt-2">
+        {% for err in step.row_errors %}<li>{{ err }}</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <!-- CONTAINER SECTION -->
+  <div class="app-card">
+    <div class="app-card-body">
+      <div class="container-tool-card-head">
+        <div>
+          <div class="app-section-title mb-1">Container</div>
+          <div class="app-section-subtitle mb-0">Manual dimensions or packaging catalogue selection.</div>
+        </div>
+        <div class="d-flex gap-2">
+          {% if step.config.container_source == 'catalogue' and step.selected_material %}
+            <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportBrowsePackaging({{ idx }})">
+              <i class="bi bi-grid me-2"></i>Show Packaging Catalogue
+            </button>
+          {% endif %}
+          <button type="button" class="btn btn-app-outline btn-sm" onclick="fpToggleTransportContainerSection({{ idx }}, this)">
+            <i class="bi bi-chevron-up"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="container-collapsed-summary" id="transportContainerCollapsedSummary_{{ idx }}" style="display:none;">
+        <div class="tool-summary-strip compact">
+          <div class="tool-summary-main">
+            <strong>
+              {% if step.selected_material %}
+                {{ step.selected_material.part_number }} — {{ step.selected_material.part_description }}
+              {% else %}
+                Manual container
+              {% endif %}
+            </strong>
+          </div>
+          <div class="tool-summary-meta">
+            {% if step.selected_material %}
+              {{ step.selected_material.part_length }} × {{ step.selected_material.part_width }} × {{ step.selected_material.part_height }}
+              | {{ step.selected_material.packaging_type }} | {{ step.selected_material.branding }}
+              | Max weight: {{ step.config.max_weight|default:'' }}
+            {% else %}
+              {{ step.config.container_l|default:'' }} × {{ step.config.container_w|default:'' }} × {{ step.config.container_h|default:'' }}
+              | Manual dimensions | Max weight: {{ step.config.max_weight|default:'' }}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div id="transportContainerSectionBody_{{ idx }}">
+        <div class="tool-field-group">
+          <label class="form-label">Container Source</label>
+          <div class="tool-radio-group">
+            <label class="tool-radio-option"><input type="radio" name="transport_container_source_{{ idx }}" value="manual" {% if step.config.container_source == 'manual' %}checked{% endif %} onchange="fpUpdateTransportUI({{ idx }})"><span>Manual</span></label>
+            <label class="tool-radio-option"><input type="radio" name="transport_container_source_{{ idx }}" value="catalogue" {% if step.config.container_source == 'catalogue' %}checked{% endif %} onchange="fpUpdateTransportUI({{ idx }})"><span>From Catalogue</span></label>
+          </div>
+        </div>
+
+        <div id="transportManualContainerFields_{{ idx }}" {% if step.config.container_source == 'catalogue' %}style="display:none;"{% endif %}>
+          <div class="container-tool-fields-4">
+            <div class="tool-field-group mb-0"><label class="form-label">Internal length</label><input type="number" step="any" class="form-control" name="transport_container_l_{{ idx }}" value="{{ step.config.container_l|default:'' }}"></div>
+            <div class="tool-field-group mb-0"><label class="form-label">Internal width</label><input type="number" step="any" class="form-control" name="transport_container_w_{{ idx }}" value="{{ step.config.container_w|default:'' }}"></div>
+            <div class="tool-field-group mb-0"><label class="form-label">Internal height</label><input type="number" step="any" class="form-control" name="transport_container_h_{{ idx }}" value="{{ step.config.container_h|default:'' }}"></div>
+            <div class="tool-field-group mb-0"><label class="form-label">Max weight</label><input type="number" step="any" class="form-control" name="transport_max_weight_{{ idx }}" value="{{ step.config.max_weight|default:'' }}"></div>
+          </div>
+        </div>
+
+        <div id="transportCatalogueContainerSummary_{{ idx }}" {% if step.config.container_source != 'catalogue' %}style="display:none;"{% endif %}>
+          {% if step.selected_material %}
+            <div class="tool-summary-strip mt-3">
+              <div class="tool-summary-main"><strong>{{ step.selected_material.part_number }}</strong> — {{ step.selected_material.part_description }}</div>
+              <div class="tool-summary-meta">
+                {{ step.selected_material.part_length }} × {{ step.selected_material.part_width }} × {{ step.selected_material.part_height }}
+                {% if step.selected_material.part_weight %} | Wt: {{ step.selected_material.part_weight }}{% endif %}
+                | {{ step.selected_material.packaging_type }}
+                | {{ step.selected_material.branding }}
+              </div>
+            </div>
+          {% endif %}
+
+          <div class="container-tool-fields-4 mt-3">
+            <div class="tool-field-group mb-0"><label class="form-label">Internal length</label><input type="number" step="any" class="form-control" name="transport_container_l_{{ idx }}" value="{{ step.config.container_l|default:'' }}"></div>
+            <div class="tool-field-group mb-0"><label class="form-label">Internal width</label><input type="number" step="any" class="form-control" name="transport_container_w_{{ idx }}" value="{{ step.config.container_w|default:'' }}"></div>
+            <div class="tool-field-group mb-0"><label class="form-label">Internal height</label><input type="number" step="any" class="form-control" name="transport_container_h_{{ idx }}" value="{{ step.config.container_h|default:'' }}"></div>
+            <div class="tool-field-group mb-0"><label class="form-label">Max weight</label><input type="number" step="any" class="form-control" name="transport_max_weight_{{ idx }}" value="{{ step.config.max_weight|default:'' }}"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PACKAGING CATALOGUE SECTION -->
+  <div class="app-card" id="transportCatalogueSectionCard_{{ idx }}" {% if step.config.container_source != 'catalogue' or step.selected_material %}style="display:none;"{% endif %}>
+    <div class="app-card-body">
+      <div class="container-tool-card-head">
+        <div>
+          <div class="app-section-title mb-1">Packaging Catalogue</div>
+          <div class="app-section-subtitle mb-0">Choose the catalogue and select the desired container.</div>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-app-outline btn-sm" onclick="fpToggleTransportCatalogueSection({{ idx }}, this)">
+            <i class="bi bi-chevron-up"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="transportCatalogueSectionBody_{{ idx }}">
+        <div class="container-tool-catalogue-row container-tool-catalogue-row-single">
+          <div class="tool-field-group mb-0">
+            <label class="form-label">Packaging Catalogue</label>
+            <select name="transport_catalogue_id_{{ idx }}" class="form-select" onchange="fpTransportClearPackaging({{ idx }})">
+              <option value="">— Select —</option>
+              {% for c in packaging_catalogues %}
+                <option value="{{ c.id }}" {% if step.config.catalogue_id|stringformat:'s' == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        {% if step.config.catalogue_id %}
+          <div class="app-table-wrap container-tool-table-wrap mt-3">
+            <table class="table table-hover app-table align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="tool-select-col"></th>
+                  <th>Part Number</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>Brand</th>
+                  <th>Materials</th>
+                  <th>Int. L</th>
+                  <th>Int. W</th>
+                  <th>Int. H</th>
+                  <th>Weight</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for material in step.materials %}
+                  <tr class="tool-clickable-row" onclick="fpTransportSelectPackaging({{ idx }}, '{{ material.id }}')">
+                    <td class="tool-select-col">
+                      <button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); fpTransportSelectPackaging({{ idx }}, '{{ material.id }}')">Select</button>
+                    </td>
+                    <td>{{ material.part_number }}</td>
+                    <td>{{ material.part_description }}</td>
+                    <td>{{ material.packaging_type }}</td>
+                    <td>{{ material.branding }}</td>
+                    <td>{{ material.packaging_materials }}</td>
+                    <td>{{ material.part_length }}</td>
+                    <td>{{ material.part_width }}</td>
+                    <td>{{ material.part_height }}</td>
+                    <td>{{ material.part_weight|default:'—' }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="10" class="text-center text-muted">No packaging items found in this catalogue.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="app-empty-state mt-3">
+            <i class="bi bi-grid fs-2 d-block mb-2"></i>
+            <div>Select a packaging catalogue to display available containers.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- TOP RESULT -->
+  <div class="container-tool-top">
+    <div class="app-card">
+      <div class="app-card-body">
+        <div class="app-section-title">3D Result</div>
+        <div class="app-section-subtitle">Container loading arrangement preview.</div>
+        {% if step.image_url %}
+          <div class="tool-render-wrap container-tool-render-wrap">
+            <img src="{{ step.image_url }}" alt="Transport result" class="tool-render-image container-tool-render-image">
+          </div>
+        {% else %}
+          <div class="app-empty-state container-tool-empty">
+            <i class="bi bi-box2-heart fs-2 d-block mb-2"></i>
+            <div>Run the tool to generate the 3D container loading view.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="app-card">
+      <div class="app-card-body">
+        <div class="app-section-title">Summary</div>
+        <div class="app-section-subtitle">Loaded units, usage and occupied space.</div>
+        {% if step.result %}
+          <div class="container-tool-summary-grid">
+            <div class="tool-stat-card"><div class="tool-stat-label">Placed units</div><div class="tool-stat-value">{{ step.result.placed_units }}</div></div>
+            <div class="tool-stat-card"><div class="tool-stat-label">Unplaced units</div><div class="tool-stat-value">{{ step.result.unplaced_units }}</div></div>
+            <div class="tool-stat-card"><div class="tool-stat-label">Volume utilization</div><div class="tool-stat-value">{{ step.result.utilization_volume_pct|floatformat:2 }}%</div></div>
+            <div class="tool-stat-card"><div class="tool-stat-label">Weight utilization</div><div class="tool-stat-value">{{ step.result.utilization_weight_pct|floatformat:2 }}%</div></div>
+          </div>
+          <div class="tool-summary-strip mt-3">
+            <div class="tool-summary-main"><strong>Container usage details</strong></div>
+            <div class="tool-summary-meta">Packed volume: {{ step.result.packed_volume|floatformat:2 }}</div>
+            <div class="tool-summary-meta">Container volume: {{ step.result.container_volume|floatformat:2 }}</div>
+            <div class="tool-summary-meta">Loaded weight: {{ step.result.loaded_weight|floatformat:2 }}</div>
+            <div class="tool-summary-meta">Max weight: {{ step.result.container_max_weight|floatformat:2 }}</div>
+            <div class="tool-summary-meta mt-2">Occupied L × W × H: {{ step.result.occupied_length|floatformat:2 }} × {{ step.result.occupied_width|floatformat:2 }} × {{ step.result.occupied_height|floatformat:2 }}</div>
+            <div class="tool-summary-meta">Residual L × W × H: {{ step.result.residual_length|floatformat:2 }} × {{ step.result.residual_width|floatformat:2 }} × {{ step.result.residual_height|floatformat:2 }}</div>
+          </div>
+          <div class="app-form-actions mt-3">
+            <button type="button" class="btn btn-app-primary w-100" onclick="fpUseStepResult({{ idx }})"><i class="bi bi-check2-circle me-2"></i>Use this result in workflow</button>
+          </div>
+        {% else %}
+          <div class="app-empty-state container-tool-empty">
+            <i class="bi bi-bar-chart-line fs-2 d-block mb-2"></i>
+            <div>Summary will appear here after running the analysis.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCT CATALOGUE PICKER -->
+  {% if first_step and step.config.selected_row_index != '' %}
+  <div class="app-card" id="transportProductCatalogueCard_{{ idx }}">
+    <div class="app-card-body">
+      <div class="container-tool-card-head">
+        <div>
+          <div class="app-section-title mb-1">Product Catalogue</div>
+          <div class="app-section-subtitle mb-0">Select a product to fill row <span>{{ step.config.selected_row_index|add:1 }}</span>.</div>
+        </div>
+        <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportHideProductCatalogue({{ idx }})">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <div class="container-tool-catalogue-row container-tool-catalogue-row-single">
+        <div class="tool-field-group mb-0">
+          <label class="form-label">Product Catalogue</label>
+          <select name="transport_product_catalogue_id_{{ idx }}" class="form-select" onchange="fpSetAction({{ idx }}, 'refresh'); fpForm({{ idx }}).submit();">
+            <option value="">— Select —</option>
+            {% for cat in product_catalogues %}
+              <option value="{{ cat.id }}" {% if step.config.product_catalogue_id|stringformat:'s' == cat.id|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      {% if step.config.product_catalogue_id %}
+        <div class="app-table-wrap container-tool-table-wrap mt-3">
+          <table class="table table-hover app-table align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th></th><th>Product ID</th><th>Name</th><th>L</th><th>W</th><th>H</th><th>Weight</th><th>R1</th><th>R2</th><th>R3</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for product in step.transport_product_items %}
+                <tr class="tool-clickable-row" onclick="fpTransportSelectProduct({{ idx }}, '{{ product.id }}')">
+                  <td><button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); fpTransportSelectProduct({{ idx }}, '{{ product.id }}')">Select</button></td>
+                  <td>{{ product.product_id }}</td>
+                  <td>{{ product.product_name }}</td>
+                  <td>{{ product.product_length }}</td>
+                  <td>{{ product.product_width }}</td>
+                  <td>{{ product.product_height }}</td>
+                  <td>{{ product.weight|default:'—' }}</td>
+                  <td>{% if product.rotation_1 %}✓{% endif %}</td>
+                  <td>{% if product.rotation_2 %}✓{% endif %}</td>
+                  <td>{% if product.rotation_3 %}✓{% endif %}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="10" class="text-center text-muted">No products found in this catalogue.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="app-empty-state mt-3">
+          <i class="bi bi-box-seam fs-2 d-block mb-2"></i>
+          <div>Select a product catalogue to display available products.</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- PRODUCTS TABLE -->
+  <div class="app-card" id="transportProductsSection_{{ idx }}">
+    <div class="app-card-body">
+      <div class="container-tool-table-header">
+        <div>
+          <div class="app-section-title mb-1">Products</div>
+          <div class="app-section-subtitle mb-0">{% if first_step %}Add products manually or use catalogue selection per row.{% else %}Load inherited from the previous workflow step.{% endif %}</div>
+        </div>
+        {% if first_step %}
+        <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportAddRow({{ idx }})"><i class="bi bi-plus-circle me-2"></i>Add row</button>
+        {% endif %}
+      </div>
+
+      <div class="app-table-wrap container-tool-table-wrap">
+        <table class="table table-hover align-middle app-table container-tool-table mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="min-width: 160px;">Name</th>
+              <th>L</th>
+              <th>W</th>
+              <th>H</th>
+              <th>Pieces</th>
+              <th>R1</th>
+              <th>R2</th>
+              <th>R3</th>
+              <th>Weight</th>
+              <th>Loading seq.</th>
+              {% if first_step %}<th>Catalogue</th><th></th>{% endif %}
+            </tr>
+          </thead>
+          <tbody id="transport-products-tbody-{{ idx }}">
+            {% for row in step.transport_product_rows %}
+              <tr>
+                <td><input type="text" name="item_name[]" class="form-control" value="{{ row.name }}" {% if not first_step %}readonly{% endif %}></td>
+                <td><input type="number" step="any" name="item_length[]" class="form-control" value="{{ row.length }}" {% if not first_step %}readonly{% endif %}></td>
+                <td><input type="number" step="any" name="item_width[]" class="form-control" value="{{ row.width }}" {% if not first_step %}readonly{% endif %}></td>
+                <td><input type="number" step="any" name="item_height[]" class="form-control" value="{{ row.height }}" {% if not first_step %}readonly{% endif %}></td>
+                <td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="{{ row.qty }}"></td>
+                <td class="text-center"><input type="hidden" name="item_r1[]" value="0"><input type="checkbox" value="1" {% if row.r1 %}checked{% endif %} onchange="syncCheckboxHidden(this)"></td>
+                <td class="text-center"><input type="hidden" name="item_r2[]" value="0"><input type="checkbox" value="1" {% if row.r2 %}checked{% endif %} onchange="syncCheckboxHidden(this)"></td>
+                <td class="text-center"><input type="hidden" name="item_r3[]" value="0"><input type="checkbox" value="1" {% if row.r3 %}checked{% endif %} onchange="syncCheckboxHidden(this)"></td>
+                <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}"></td>
+                <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{{ row.sequence }}"></td>
+                {% if first_step %}
+                <td class="text-center"><button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueFromButton({{ idx }}, this)"><i class="bi bi-box-arrow-in-down"></i></button></td>
+                <td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="fpTransportRemoveRow(this)"><i class="bi bi-trash"></i></button></td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="app-form-actions">
+        <button type="button" class="btn btn-app-primary" onclick="fpSetAction({{ idx }}, 'run_analysis'); fpForm({{ idx }}).submit();"><i class="bi bi-play-circle me-2"></i>Run analysis</button>
+      </div>
+    </div>
+  </div>
+
+  {% if step.result and step.result.product_rows %}
+  <div class="app-card">
+    <div class="app-card-body">
+      <div class="app-section-title">Per-product summary</div>
+      <div class="app-section-subtitle">Requested versus packed units for each product row.</div>
+      <div class="app-table-wrap container-tool-table-wrap mt-3">
+        <table class="table table-hover app-table align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Name</th><th>L</th><th>W</th><th>H</th><th>Requested</th><th>Packed</th><th>Weight</th><th>Sequence</th></tr>
+          </thead>
+          <tbody>
+            {% for row in step.result.product_rows %}
+              <tr>
+                <td>{{ row.name }}</td>
+                <td>{{ row.length }}</td>
+                <td>{{ row.width }}</td>
+                <td>{{ row.height }}</td>
+                <td>{{ row.qty_requested }}</td>
+                <td>{{ row.qty_packed }}</td>
+                <td>{{ row.weight }}</td>
+                <td>{{ row.sequence }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if first_step %}
+  <template id="transport-product-row-template-{{ idx }}">
+    <tr>
+      <td><input type="text" name="item_name[]" class="form-control" value=""></td>
+      <td><input type="number" step="any" name="item_length[]" class="form-control" value=""></td>
+      <td><input type="number" step="any" name="item_width[]" class="form-control" value=""></td>
+      <td><input type="number" step="any" name="item_height[]" class="form-control" value=""></td>
+      <td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="1"></td>
+      <td class="text-center"><input type="hidden" name="item_r1[]" value="0"><input type="checkbox" value="1" checked onchange="syncCheckboxHidden(this)"></td>
+      <td class="text-center"><input type="hidden" name="item_r2[]" value="0"><input type="checkbox" value="1" onchange="syncCheckboxHidden(this)"></td>
+      <td class="text-center"><input type="hidden" name="item_r3[]" value="0"><input type="checkbox" value="1" onchange="syncCheckboxHidden(this)"></td>
+      <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0"></td>
+      <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1"></td>
+      <td class="text-center"><button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueFromButton({{ idx }}, this)"><i class="bi bi-box-arrow-in-down"></i></button></td>
+      <td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="fpTransportRemoveRow(this)"><i class="bi bi-trash"></i></button></td>
+    </tr>
+  </template>
+  {% endif %}
+</div>
