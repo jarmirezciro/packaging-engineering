@@ -1,0 +1,15 @@
+{% if is_workflow %}
+<div class="container-collapsed-summary" id="fpTransportContainerCollapsedSummary_{{ step_index }}" style="display:none;">
+  <div class="tool-summary-strip compact">
+    <div class="tool-summary-main"><strong>{{ container_summary.title }}</strong></div>
+    <div class="tool-summary-meta">{{ container_summary.dims }} | {{ container_summary.meta }} | Max weight: {{ container_summary.max_weight }}</div>
+  </div>
+</div>
+{% else %}
+<div class="container-collapsed-summary" id="containerCollapsedSummary" style="display:none;">
+  <div class="tool-summary-strip compact">
+    <div class="tool-summary-main"><strong>{{ container_summary.title }}</strong></div>
+    <div class="tool-summary-meta">{{ container_summary.dims }} | {{ container_summary.meta }} | Max weight: {{ container_summary.max_weight }}</div>
+  </div>
+</div>
+{% endif %}

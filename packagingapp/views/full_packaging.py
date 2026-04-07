@@ -9,8 +9,18 @@ from ..utils.bag_selection.engine import (
     run_bag_mode1_and_render,
 )
 from ..utils.palletization.engine import run_palletization_analysis, render_selected_result
-from ..utils.container_tool.engine import run_container_tool
-from .container_tool import _parse_product_rows, _read_product_rows_raw, _default_product_rows
+
+from ..tools.transport.presenter import (
+    selected_container_summary,
+    build_transport_pending_result,
+)
+from ..tools.transport.serializers import sanitize_transport_rows_for_session
+from ..tools.transport.service import (
+    analyze_transport_config,
+    read_product_rows_raw,
+)
+from ..tools.transport.state import default_product_rows
+
 
 SESSION_KEY = "full_packaging_mode_session"
 
@@ -124,248 +134,12 @@ def _new_transport_step():
             "product_catalogue_id": "",
             "product_id_to_fill": "",
             "selected_row_index": "",
-            "product_rows": _default_product_rows(),
+            "product_rows": default_product_rows(),
         },
     }
 
 
 
-
-def _json_safe_scalar(value):
-    if isinstance(value, bool) or value is None:
-        return value
-    try:
-        # Decimal -> float, ints stay ints when possible
-        if hasattr(value, "__float__") and value.__class__.__name__ == "Decimal":
-            return float(value)
-    except Exception:
-        pass
-    return value
-
-
-def _sanitize_transport_rows_for_session(rows):
-    safe_rows = []
-    for row in rows or []:
-        safe_rows.append({
-            "name": str(row.get("name", "")),
-            "length": _json_safe_scalar(row.get("length", "")),
-            "width": _json_safe_scalar(row.get("width", "")),
-            "height": _json_safe_scalar(row.get("height", "")),
-            "qty": _json_safe_scalar(row.get("qty", 1)),
-            "weight": _json_safe_scalar(row.get("weight", 0)),
-            "sequence": _json_safe_scalar(row.get("sequence", 1)),
-            "r1": bool(row.get("r1", False)),
-            "r2": bool(row.get("r2", False)),
-            "r3": bool(row.get("r3", False)),
-        })
-    return safe_rows
-
-def _transport_rows_from_selected(prev):
-    if not prev:
-        return _default_product_rows()
-    return [{
-        "name": prev.get("label") or "Upstream Load",
-        "length": prev.get("length", ""),
-        "width": prev.get("width", ""),
-        "height": prev.get("height", ""),
-        "qty": prev.get("units_per_parent", 1) or 1,
-        "weight": 0,
-        "sequence": 1,
-        "r1": True,
-        "r2": True,
-        "r3": True,
-    }]
-
-
-def _validate_transport_rows(raw_rows):
-    rows = []
-    errors = []
-    if not raw_rows:
-        return rows, ["Please add at least one valid product row."]
-
-    for i, raw in enumerate(raw_rows):
-        name = str(raw.get("name", "")).strip() or f"Product {i+1}"
-        try:
-            length = float(raw.get("length"))
-            width = float(raw.get("width"))
-            height = float(raw.get("height"))
-            qty = int(float(raw.get("qty", 1)))
-            weight = float(raw.get("weight", 0) or 0)
-            sequence = int(float(raw.get("sequence", 1) or 1))
-        except Exception:
-            errors.append(f"Row {i+1}: invalid numeric values.")
-            continue
-
-        r1 = bool(raw.get("r1"))
-        r2 = bool(raw.get("r2"))
-        r3 = bool(raw.get("r3"))
-
-        if length <= 0 or width <= 0 or height <= 0:
-            errors.append(f"Row {i+1}: dimensions must be greater than 0.")
-            continue
-        if qty <= 0:
-            errors.append(f"Row {i+1}: quantity must be greater than 0.")
-            continue
-        if weight < 0:
-            errors.append(f"Row {i+1}: weight cannot be negative.")
-            continue
-        if sequence <= 0:
-            errors.append(f"Row {i+1}: loading sequence must be greater than 0.")
-            continue
-        if not (r1 or r2 or r3):
-            errors.append(f"Row {i+1}: enable at least one rotation.")
-            continue
-
-        rows.append({
-            "name": name,
-            "length": length,
-            "width": width,
-            "height": height,
-            "qty": qty,
-            "weight": weight,
-            "sequence": sequence,
-            "r1": r1,
-            "r2": r2,
-            "r3": r3,
-        })
-
-    if not rows:
-        errors.append("Please add at least one valid product row.")
-    return rows, errors
-
-
-def _transport_selected_container_summary(selected_material, cfg):
-    if selected_material:
-        return {
-            "title": f"{selected_material.part_number} — {selected_material.part_description}",
-            "dims": f"{selected_material.part_length} × {selected_material.part_width} × {selected_material.part_height}",
-            "meta": f"{selected_material.packaging_type} | {selected_material.branding}",
-            "max_weight": cfg.get("max_weight") or "",
-        }
-
-    return {
-        "title": "Manual container",
-        "dims": f'{cfg.get("container_l") or ""} × {cfg.get("container_w") or ""} × {cfg.get("container_h") or ""}',
-        "meta": "Manual dimensions",
-        "max_weight": cfg.get("max_weight") or "",
-    }
-
-
-def _run_transport_analysis(step, steps, idx):
-    cfg = step["config"]
-    step["result"] = None
-    step["image_url"] = None
-    step["pending_result"] = None
-
-    selected_material = PackagingMaterial.objects.filter(
-        id=cfg.get("container_id") or None
-    ).select_related("catalogue").first()
-
-    if idx == 0:
-        raw_rows = cfg.get("product_rows") or _default_product_rows()
-        product_rows, row_errors = _validate_transport_rows(raw_rows)
-    else:
-        upstream = _selected_input_for_step(steps, idx)
-        raw_rows = _transport_rows_from_selected(upstream)
-        cfg["product_rows"] = raw_rows
-        product_rows, row_errors = _validate_transport_rows(raw_rows)
-
-    messages = list(row_errors)
-
-    try:
-        max_weight = float(cfg.get("max_weight") or 0)
-    except Exception:
-        max_weight = None
-        messages.append("Please enter a valid max weight.")
-
-    if cfg.get("container_source") == "catalogue":
-        if not selected_material:
-            messages.append("Please select a packaging item from the catalogue table.")
-            container = None
-        else:
-            container = {
-                "L": float(selected_material.part_length),
-                "W": float(selected_material.part_width),
-                "H": float(selected_material.part_height),
-                "max_weight": max_weight or 0.0,
-            }
-    else:
-        try:
-            container = {
-                "L": float(cfg.get("container_l")),
-                "W": float(cfg.get("container_w")),
-                "H": float(cfg.get("container_h")),
-                "max_weight": float(cfg.get("max_weight")),
-            }
-        except Exception:
-            container = None
-            messages.append("Please enter all manual container dimensions and max weight.")
-
-    if container is not None:
-        for label, value in [
-            ("length", container["L"]),
-            ("width", container["W"]),
-            ("height", container["H"]),
-            ("max weight", container["max_weight"]),
-        ]:
-            if value <= 0:
-                messages.append(f"Container {label} must be greater than 0.")
-
-    if messages:
-        step["messages"] = messages
-        return
-
-    result = run_container_tool(
-        container=container,
-        products=product_rows,
-        media_root=settings.MEDIA_ROOT,
-    )
-    summary = result.get("summary", {}) or {}
-    step["result"] = {
-        "summary": {
-            "container_volume": float(summary.get("container_volume", 0) or 0),
-            "packed_volume": float(summary.get("packed_volume", 0) or 0),
-            "utilization_volume_pct": float(summary.get("utilization_volume_pct", 0) or 0),
-            "container_max_weight": float(summary.get("container_max_weight", 0) or 0),
-            "loaded_weight": float(summary.get("loaded_weight", 0) or 0),
-            "utilization_weight_pct": float(summary.get("utilization_weight_pct", 0) or 0),
-            "placed_units": int(summary.get("placed_units", 0) or 0),
-            "unplaced_units": int(summary.get("unplaced_units", 0) or 0),
-            "occupied_length": float(summary.get("occupied_length", 0) or 0),
-            "occupied_width": float(summary.get("occupied_width", 0) or 0),
-            "occupied_height": float(summary.get("occupied_height", 0) or 0),
-            "residual_length": float(summary.get("residual_length", 0) or 0),
-            "residual_width": float(summary.get("residual_width", 0) or 0),
-            "residual_height": float(summary.get("residual_height", 0) or 0),
-            "product_rows": [
-                {
-                    "name": str(r.get("name", "")),
-                    "length": float(r.get("length", 0) or 0),
-                    "width": float(r.get("width", 0) or 0),
-                    "height": float(r.get("height", 0) or 0),
-                    "qty_requested": int(r.get("qty_requested", 0) or 0),
-                    "qty_packed": int(r.get("qty_packed", 0) or 0),
-                    "weight_each": float(r.get("weight_each", 0) or 0),
-                    "sequence": int(r.get("sequence", 0) or 0),
-                }
-                for r in (summary.get("product_rows") or [])
-            ],
-        }
-    }
-    step["image_url"] = settings.MEDIA_URL + result["image_rel_path"]
-
-    prev = _selected_input_for_step(steps, idx)
-    upstream_units = prev.get("total_base_units", 1) if prev else 1
-    label = selected_material.part_number if selected_material else "Manual Container"
-    step["pending_result"] = {
-        "label": label,
-        "length": round(float(container["L"]), 2),
-        "width": round(float(container["W"]), 2),
-        "height": round(float(container["H"]), 2),
-        "units_per_parent": int(result["summary"]["placed_units"]),
-        "total_base_units": int(result["summary"]["placed_units"]) * int(upstream_units),
-    }
-    step["messages"] = []
 
 
 
@@ -1188,16 +962,16 @@ def _process_transport_step(step, steps, idx, post):
         )
 
         if action == "run_analysis":
-            rows, row_errors = _parse_product_rows(post)
+            rows, row_errors = parse_product_rows(post)
             if not rows:
-                rows = _default_product_rows()
-            cfg["product_rows"] = _sanitize_transport_rows_for_session(rows)
+                rows = default_product_rows()
+            cfg["product_rows"] = sanitize_transport_rows_for_session(rows)
             step["messages"] = row_errors
         else:
-            rows = _read_product_rows_raw(post)
+            rows = read_product_rows_raw(post)
             if not rows:
-                rows = _default_product_rows()
-            cfg["product_rows"] = _sanitize_transport_rows_for_session(rows)
+                rows = default_product_rows()
+            cfg["product_rows"] = sanitize_transport_rows_for_session(rows)
             step["messages"] = []
     else:
         cfg["product_catalogue_id"] = ""
@@ -1222,7 +996,7 @@ def _process_transport_step(step, steps, idx, post):
             row["r1"] = bool(selected_product.rotation_1)
             row["r2"] = bool(selected_product.rotation_2)
             row["r3"] = bool(selected_product.rotation_3)
-            cfg["product_rows"] = _sanitize_transport_rows_for_session(cfg.get("product_rows") or [])
+            cfg["product_rows"] = sanitize_transport_rows_for_session(cfg.get("product_rows") or [])
             cfg["selected_row_index"] = ""
             cfg["product_id_to_fill"] = ""
             step["auto_hide_product_catalogue"] = True
@@ -1560,12 +1334,12 @@ def full_packaging_mode(request):
                 cfg["container_w"] = float(step["selected_material"].part_width)
                 cfg["container_h"] = float(step["selected_material"].part_height)
             if idx == 0:
-                step["product_rows"] = _sanitize_transport_rows_for_session(cfg.get("product_rows") or _default_product_rows())
+                step["product_rows"] = sanitize_transport_rows_for_session(cfg.get("product_rows") or default_product_rows())
                 cfg["product_rows"] = step["product_rows"]
             else:
                 step["product_rows"] = _transport_rows_from_selected(_selected_input_for_step(steps, idx))
                 cfg["product_rows"] = step["product_rows"]
-            step["container_summary"] = _transport_selected_container_summary(step["selected_material"], cfg)
+            step["container_summary"] = selected_container_summary(step["selected_material"], cfg)
             if step.get("analysis_ran"):
                 _run_transport_analysis(step, steps, idx)
         elif step.get("type") == "bag":
@@ -1637,3 +1411,48 @@ def full_packaging_mode(request):
         "product_catalogues": product_catalogues,
         "packaging_catalogues": packaging_catalogues,
     })
+
+def _run_transport_analysis(step, steps, idx):
+    cfg = step["config"]
+    step["result"] = None
+    step["image_url"] = None
+    step["pending_result"] = None
+
+    selected_material = PackagingMaterial.objects.filter(
+        id=cfg.get("container_id") or None
+    ).select_related("catalogue").first()
+
+    if idx == 0:
+        raw_rows = cfg.get("product_rows") or default_product_rows()
+    else:
+        upstream = _selected_input_for_step(steps, idx)
+        raw_rows = _transport_rows_from_selected(upstream)
+        cfg["product_rows"] = sanitize_transport_rows_for_session(raw_rows)
+
+    analysis = analyze_transport_config(
+        cfg,
+        raw_rows,
+        selected_material=selected_material,
+        media_root=settings.MEDIA_ROOT,
+    )
+
+    cfg["product_rows"] = analysis["safe_rows"]
+    step["product_rows"] = analysis["safe_rows"]
+    step["container_summary"] = selected_container_summary(selected_material, cfg)
+    step["messages"] = analysis["messages"]
+
+    if not analysis["ok"]:
+        return
+
+    step["result"] = analysis["serialized_result"]
+    step["image_url"] = analysis["image_url"]
+
+    prev = _selected_input_for_step(steps, idx)
+    upstream_units = prev.get("total_base_units", 1) if prev else 1
+
+    step["pending_result"] = build_transport_pending_result(
+        analysis["container"],
+        analysis["result"],
+        selected_material=selected_material,
+        upstream_units=upstream_units,
+    )

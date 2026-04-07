@@ -1,0 +1,111 @@
+<div class="app-card">
+  <div class="app-card-body">
+    <div class="container-tool-card-head">
+      <div>
+        <div class="app-section-title mb-1">Container</div>
+        <div class="app-section-subtitle mb-0">Manual dimensions or packaging catalogue selection.</div>
+      </div>
+      <div class="d-flex gap-2">
+        {% if current_container_source == "catalogue" and selected_material %}
+          {% if is_workflow %}
+          <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportShowPackagingCatalogue({{ step_index }})"><i class="bi bi-grid me-2"></i>Show Packaging Catalogue</button>
+          {% else %}
+          <button type="button" class="btn btn-app-outline btn-sm" onclick="showPackagingCatalogueAgain()"><i class="bi bi-grid me-2"></i>Show Packaging Catalogue</button>
+          {% endif %}
+        {% endif %}
+        {% if is_workflow %}
+        <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportToggleSection({{ step_index }}, 'container')"><i class="bi bi-chevron-up" id="fpTransportContainerIcon_{{ step_index }}"></i></button>
+        {% else %}
+        <button type="button" class="btn btn-app-outline btn-sm" onclick="toggleSection('containerSectionBody', this)"><i class="bi bi-chevron-up"></i></button>
+        {% endif %}
+      </div>
+    </div>
+
+    {% include "container_tool/partials/_transport_summary_section.html" with is_workflow=is_workflow step_index=step_index container_summary=container_summary %}
+
+    <div id="{% if is_workflow %}fpTransportContainerSectionBody_{{ step_index }}{% else %}containerSectionBody{% endif %}">
+      <div class="tool-field-group">
+        <label class="form-label">Container Source</label>
+        <div class="tool-radio-group">
+          {% if is_workflow %}
+            <label class="tool-radio-option"><input type="radio" name="container_source_{{ step_index }}" value="manual" {% if current_container_source == 'manual' %}checked{% endif %} onchange="fpTransportContainerSourceChanged({{ step_index }})"><span>Manual</span></label>
+            <label class="tool-radio-option"><input type="radio" name="container_source_{{ step_index }}" value="catalogue" {% if current_container_source == 'catalogue' %}checked{% endif %} onchange="fpTransportContainerSourceChanged({{ step_index }})"><span>From catalogue</span></label>
+          {% else %}
+            {% for radio in form.container_source %}<label class="tool-radio-option">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>{% endfor %}
+          {% endif %}
+        </div>
+      </div>
+
+      <div id="{% if is_workflow %}fpTransportManualContainerFields_{{ step_index }}{% else %}manualContainerFields{% endif %}">
+        <div class="container-tool-fields-4">
+          <div class="tool-field-group mb-0"><label class="form-label">Internal length</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_l_{{ step_index }}" value="{{ step.config.container_l|default:'' }}">{% else %}{{ form.container_l }}{% endif %}</div>
+          <div class="tool-field-group mb-0"><label class="form-label">Internal width</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_w_{{ step_index }}" value="{{ step.config.container_w|default:'' }}">{% else %}{{ form.container_w }}{% endif %}</div>
+          <div class="tool-field-group mb-0"><label class="form-label">Internal height</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_h_{{ step_index }}" value="{{ step.config.container_h|default:'' }}">{% else %}{{ form.container_h }}{% endif %}</div>
+          <div class="tool-field-group mb-0"><label class="form-label">Max weight</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="max_weight_{{ step_index }}" value="{{ step.config.max_weight|default:'' }}">{% else %}{{ form.max_weight }}{% endif %}</div>
+        </div>
+      </div>
+
+      <div id="{% if is_workflow %}fpTransportCatalogueContainerSummary_{{ step_index }}{% else %}catalogueContainerSummary{% endif %}" {% if current_container_source != "catalogue" %}style="display:none;"{% endif %}>
+        {% if selected_material %}
+          <div class="tool-summary-strip mt-3">
+            <div class="tool-summary-main"><strong>{{ selected_material.part_number }}</strong> — {{ selected_material.part_description }}</div>
+            <div class="tool-summary-meta">{{ selected_material.part_length }} × {{ selected_material.part_width }} × {{ selected_material.part_height }}{% if selected_material.part_weight %} | Wt: {{ selected_material.part_weight }}{% endif %} | {{ selected_material.packaging_type }} | {{ selected_material.branding }}</div>
+          </div>
+        {% endif %}
+
+        <div class="container-tool-fields-4 mt-3">
+          <div class="tool-field-group mb-0"><label class="form-label">Internal length</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_l_{{ step_index }}" value="{{ step.config.container_l|default:'' }}">{% else %}{{ form.container_l }}{% endif %}</div>
+          <div class="tool-field-group mb-0"><label class="form-label">Internal width</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_w_{{ step_index }}" value="{{ step.config.container_w|default:'' }}">{% else %}{{ form.container_w }}{% endif %}</div>
+          <div class="tool-field-group mb-0"><label class="form-label">Internal height</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_h_{{ step_index }}" value="{{ step.config.container_h|default:'' }}">{% else %}{{ form.container_h }}{% endif %}</div>
+          <div class="tool-field-group mb-0"><label class="form-label">Max weight</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="max_weight_{{ step_index }}" value="{{ step.config.max_weight|default:'' }}">{% else %}{{ form.max_weight }}{% endif %}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app-card" id="{% if is_workflow %}fpTransportCatalogueSectionCard_{{ step_index }}{% else %}catalogueSectionCard{% endif %}" {% if current_container_source != "catalogue" or selected_material %}style="display:none;"{% endif %}>
+  <div class="app-card-body">
+    <div class="container-tool-card-head">
+      <div>
+        <div class="app-section-title mb-1">Packaging Catalogue</div>
+        <div class="app-section-subtitle mb-0">Choose the catalogue and select the desired container.</div>
+      </div>
+      {% if not is_workflow %}<div class="d-flex gap-2"><button type="button" id="togglePackagingBtn" class="btn btn-app-outline btn-sm" onclick="toggleSection('catalogueSectionBody', this)"><i class="bi bi-chevron-up"></i></button></div>{% endif %}
+    </div>
+
+    <div id="{% if is_workflow %}fpTransportCatalogueSectionBody_{{ step_index }}{% else %}catalogueSectionBody{% endif %}">
+      <div class="container-tool-catalogue-row container-tool-catalogue-row-single">
+        <div class="tool-field-group mb-0">
+          <label class="form-label">Packaging Catalogue</label>
+          {% if is_workflow %}
+          <select name="catalogue_id_{{ step_index }}" class="form-select" onchange="fpTransportPackagingCatalogueChanged({{ step_index }})">
+            <option value="">— Select —</option>
+            {% for c in packaging_catalogues %}<option value="{{ c.id }}" {% if current_catalogue_id|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+          </select>
+          {% else %}
+          {{ form.catalogue_id }}
+          {% endif %}
+        </div>
+      </div>
+
+      {% if current_catalogue_id %}
+      <div class="app-table-wrap container-tool-table-wrap mt-3">
+        <table class="table table-hover app-table align-middle mb-0">
+          <thead class="table-light"><tr><th class="tool-select-col"></th><th>Part Number</th><th>Description</th><th>Type</th><th>Brand</th><th>Materials</th><th>Int. L</th><th>Int. W</th><th>Int. H</th><th>Weight</th></tr></thead>
+          <tbody>
+            {% for material in materials %}
+            <tr class="tool-clickable-row" {% if is_workflow %}onclick="fpTransportSelectContainerFromCatalogue({{ step_index }}, '{{ material.id }}')"{% else %}onclick="selectContainerFromCatalogue('{{ material.id }}')"{% endif %}>
+              <td class="tool-select-col"><button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); {% if is_workflow %}fpTransportSelectContainerFromCatalogue({{ step_index }}, '{{ material.id }}'){% else %}selectContainerFromCatalogue('{{ material.id }}'){% endif %}">Select</button></td>
+              <td>{{ material.part_number }}</td><td>{{ material.part_description }}</td><td>{{ material.packaging_type }}</td><td>{{ material.branding }}</td><td>{{ material.packaging_materials }}</td><td>{{ material.part_length }}</td><td>{{ material.part_width }}</td><td>{{ material.part_height }}</td><td>{{ material.part_weight|default:"—" }}</td>
+            </tr>
+            {% empty %}<tr><td colspan="10" class="text-center text-muted">No packaging items found in this catalogue.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="app-empty-state mt-3"><i class="bi bi-grid fs-2 d-block mb-2"></i><div>Select a packaging catalogue to display available containers.</div></div>
+      {% endif %}
+    </div>
+  </div>
+</div>

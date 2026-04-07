@@ -1,0 +1,32 @@
+<div class="container-tool-top">
+  <div class="app-card">
+    <div class="app-card-body">
+      <div class="app-section-title">3D Result</div>
+      <div class="app-section-subtitle">Container loading arrangement preview.</div>
+      {% if image_url %}<div class="tool-render-wrap container-tool-render-wrap"><img src="{{ image_url }}" alt="Transport container loading result" class="tool-render-image container-tool-render-image"></div>{% else %}<div class="app-empty-state container-tool-empty"><i class="bi bi-box2-heart fs-2 d-block mb-2"></i><div>Run the tool to generate the 3D container loading view.</div></div>{% endif %}
+    </div>
+  </div>
+  <div class="app-card">
+    <div class="app-card-body">
+      <div class="app-section-title">Summary</div>
+      <div class="app-section-subtitle">Loaded units, usage and occupied space.</div>
+      {% if result %}
+      <div class="container-tool-summary-grid">
+        <div class="tool-stat-card"><div class="tool-stat-label">Placed units</div><div class="tool-stat-value">{{ result.summary.placed_units }}</div></div>
+        <div class="tool-stat-card"><div class="tool-stat-label">Unplaced units</div><div class="tool-stat-value">{{ result.summary.unplaced_units }}</div></div>
+        <div class="tool-stat-card"><div class="tool-stat-label">Volume utilization</div><div class="tool-stat-value">{{ result.summary.utilization_volume_pct|floatformat:2 }}%</div></div>
+        <div class="tool-stat-card"><div class="tool-stat-label">Weight utilization</div><div class="tool-stat-value">{{ result.summary.utilization_weight_pct|floatformat:2 }}%</div></div>
+      </div>
+      <div class="tool-summary-strip mt-3">
+        <div class="tool-summary-main"><strong>Container usage details</strong></div>
+        <div class="tool-summary-meta">Packed volume: {{ result.summary.packed_volume|floatformat:2 }}</div>
+        <div class="tool-summary-meta">Container volume: {{ result.summary.container_volume|floatformat:2 }}</div>
+        <div class="tool-summary-meta">Loaded weight: {{ result.summary.loaded_weight|floatformat:2 }}</div>
+        <div class="tool-summary-meta">Max weight: {{ result.summary.container_max_weight|floatformat:2 }}</div>
+        <div class="tool-summary-meta mt-2">Occupied L × W × H: {{ result.summary.occupied_length|floatformat:2 }} × {{ result.summary.occupied_width|floatformat:2 }} × {{ result.summary.occupied_height|floatformat:2 }}</div>
+        <div class="tool-summary-meta">Residual L × W × H: {{ result.summary.residual_length|floatformat:2 }} × {{ result.summary.residual_width|floatformat:2 }} × {{ result.summary.residual_height|floatformat:2 }}</div>
+      </div>
+      {% else %}<div class="app-empty-state container-tool-empty"><i class="bi bi-bar-chart-line fs-2 d-block mb-2"></i><div>Summary will appear here after running the analysis.</div></div>{% endif %}
+    </div>
+  </div>
+</div>
