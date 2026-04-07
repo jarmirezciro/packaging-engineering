@@ -961,18 +961,12 @@ def _process_transport_step(step, steps, idx, post):
             cfg.get("selected_row_index", ""),
         )
 
-        if action == "run_analysis":
-            rows, row_errors = parse_product_rows(post)
-            if not rows:
-                rows = default_product_rows()
-            cfg["product_rows"] = sanitize_transport_rows_for_session(rows)
-            step["messages"] = row_errors
-        else:
-            rows = read_product_rows_raw(post)
-            if not rows:
-                rows = default_product_rows()
-            cfg["product_rows"] = sanitize_transport_rows_for_session(rows)
-            step["messages"] = []
+        rows = read_product_rows_raw(post)
+        if not rows:
+            rows = default_product_rows()
+        cfg["product_rows"] = sanitize_transport_rows_for_session(rows)
+        step["messages"] = []
+
     else:
         cfg["product_catalogue_id"] = ""
         cfg["product_id_to_fill"] = ""
