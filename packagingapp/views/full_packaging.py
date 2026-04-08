@@ -8,7 +8,18 @@ from ..utils.bag_selection.engine import (
     best_usage_for_bag,
     run_bag_mode1_and_render,
 )
-from ..utils.palletization.engine import run_palletization_analysis, render_selected_result
+from ..tools.palletization.presenter import (
+    result_card_from_row,
+    build_pallet_pending_result,
+)
+from ..tools.palletization.serializers import sanitize_palletization_config_for_session
+from ..tools.palletization.service import (
+    analyze_palletization_config,
+    get_selected_box_material,
+    get_selected_pallet_material,
+)
+from ..tools.palletization.state import default_palletization_config
+from ..views.palletization import _build_shared_pallet_ui_contract
 
 from ..tools.transport.presenter import (
     selected_container_summary,
@@ -40,6 +51,11 @@ def _get_workflow(request):
 
 
 def _save_workflow(request, workflow):
+    for step in workflow.get("steps", []):
+        step.pop("selected_box_material", None)
+        step.pop("selected_pallet_material", None)
+        step.pop("box_materials", None)
+        step.pop("pallet_materials", None)
     request.session[SESSION_KEY] = workflow
     request.session.modified = True
 
@@ -181,195 +197,124 @@ def _new_pallet_step():
     }
 
 
-def _dims_from_material(material, prefer_external=False):
-    if not material:
-        return None
-    if prefer_external:
-        l = material.external_length if material.external_length is not None else material.part_length
-        w = material.external_width if material.external_width is not None else material.part_width
-        h = material.external_height if material.external_height is not None else material.part_height
+def _extract_pallet_config_from_step(step):
+    cfg = default_palletization_config()
+    cfg.update(step.get("config") or {})
+    return sanitize_palletization_config_for_session(cfg)
+
+
+def _update_pallet_config_on_step(step, config):
+    step["config"] = sanitize_palletization_config_for_session(config)
+
+
+def _read_prefixed_pallet_post(step, idx, post):
+    cfg = _extract_pallet_config_from_step(step)
+
+    if idx == 0:
+        cfg["box_source"] = post.get(f"box_source_{idx}", cfg.get("box_source", "manual"))
+        cfg["box_catalogue_id"] = post.get(f"box_catalogue_id_{idx}", cfg.get("box_catalogue_id", ""))
+        cfg["selected_box_id"] = post.get(f"selected_box_id_{idx}", cfg.get("selected_box_id", ""))
     else:
-        l = material.part_length
-        w = material.part_width
-        h = material.part_height
-    return float(l), float(w), float(h)
+        cfg["box_source"] = "manual"
+        cfg["box_catalogue_id"] = ""
+        cfg["selected_box_id"] = ""
+
+    cfg["box_l"] = post.get(f"box_l_{idx}", cfg.get("box_l", ""))
+    cfg["box_w"] = post.get(f"box_w_{idx}", cfg.get("box_w", ""))
+    cfg["box_h"] = post.get(f"box_h_{idx}", cfg.get("box_h", ""))
+    cfg["box_weight"] = post.get(f"box_weight_{idx}", cfg.get("box_weight", ""))
+    cfg["max_weight_on_bottom_box"] = post.get(
+        f"max_weight_on_bottom_box_{idx}",
+        cfg.get("max_weight_on_bottom_box", ""),
+    )
+
+    cfg["pallet_source"] = post.get(f"pallet_source_{idx}", cfg.get("pallet_source", "manual"))
+    cfg["pallet_catalogue_id"] = post.get(
+        f"pallet_catalogue_id_{idx}",
+        cfg.get("pallet_catalogue_id", ""),
+    )
+    cfg["pallet_id"] = post.get(f"pallet_id_{idx}", cfg.get("pallet_id", ""))
+    cfg["pallet_l"] = post.get(f"pallet_l_{idx}", cfg.get("pallet_l", ""))
+    cfg["pallet_w"] = post.get(f"pallet_w_{idx}", cfg.get("pallet_w", ""))
+    cfg["max_stack_height"] = post.get(f"max_stack_height_{idx}", cfg.get("max_stack_height", ""))
+    cfg["max_width_stickout"] = post.get(
+        f"max_width_stickout_{idx}",
+        cfg.get("max_width_stickout", 0),
+    )
+    cfg["max_length_stickout"] = post.get(
+        f"max_length_stickout_{idx}",
+        cfg.get("max_length_stickout", 0),
+    )
+
+    cfg["show_advanced"] = post.get(
+        f"show_advanced_{idx}",
+        "1" if cfg.get("show_advanced") else "0",
+    ) in ("1", "true", "True", "on", "yes")
+
+    return sanitize_palletization_config_for_session(cfg)
 
 
-def _sanitize_pallet_row(row):
-    return {
-        "pattern": row["pattern"],
-        "stacking": row["stacking"],
-        "boxes_layer_A": row["boxes_layer_A"],
-        "boxes_layer_B": row["boxes_layer_B"],
-        "layers": row["layers"],
-        "total_boxes": row["total_boxes"],
-        "used_height_mm": row["used_height_mm"],
-        "layer_footprint_util_pct": row["layer_footprint_util_pct"],
-        "volumetric_util_pct": row["volumetric_util_pct"],
-        "feasible_weight": row["feasible_weight"],
-        "max_bottom_load_kg": row["max_bottom_load_kg"],
-        "avg_bottom_load_kg": row.get("avg_bottom_load_kg"),
-        "weight_limit_kg": row.get("weight_limit_kg"),
-    }
-
-
-def _pallet_result_card_from_row(row, pallet_l, pallet_w):
-    result = _sanitize_pallet_row(row)
-    result["kind"] = "pallet"
-    result["pallet_l"] = round(float(pallet_l), 2)
-    result["pallet_w"] = round(float(pallet_w), 2)
-    result["total_height_mm"] = round(float(row["used_height_mm"]) + 100.0, 2)
-    return result
-
-
-def _get_pallet_analysis_inputs(step, idx):
-    cfg = step["config"]
-    messages = []
-
-    selected_box_material = step.get("selected_box_material")
-    selected_pallet_material = step.get("selected_pallet_material")
-
-    if cfg.get("box_source") == "catalogue":
-        if not selected_box_material:
-            messages.append("Please select a box/container from the catalogue table.")
-            box_dims = None
-            box_weight = None
-        else:
-            box_dims = _dims_from_material(selected_box_material, prefer_external=True)
-            inferred_box_weight = _to_float(getattr(selected_box_material, "part_weight", None))
-            manual_box_weight = _to_float(cfg.get("box_weight"))
-            box_weight = manual_box_weight if manual_box_weight is not None else inferred_box_weight
-    else:
-        box_dims = (
-            _to_float(cfg.get("box_l")),
-            _to_float(cfg.get("box_w")),
-            _to_float(cfg.get("box_h")),
-        )
-        box_weight = _to_float(cfg.get("box_weight"))
-        if None in box_dims:
-            messages.append("Please enter all manual box dimensions.")
-
-    if cfg.get("pallet_source") == "catalogue":
-        if not selected_pallet_material:
-            messages.append("Please select a pallet from the catalogue table.")
-            pallet_dims = None
-        else:
-            pallet_dims = _dims_from_material(selected_pallet_material, prefer_external=True)
-    else:
-        pallet_dims = (
-            _to_float(cfg.get("pallet_l")),
-            _to_float(cfg.get("pallet_w")),
-            None,
-        )
-        if pallet_dims[0] is None or pallet_dims[1] is None:
-            messages.append("Please enter pallet length and pallet width.")
-
-    max_stack_height = _to_float(cfg.get("max_stack_height"))
-    if max_stack_height is None:
-        messages.append("Please enter max stack height.")
-
-    max_weight_on_bottom_box = _to_float(cfg.get("max_weight_on_bottom_box"))
-    max_width_stickout = _to_float(cfg.get("max_width_stickout"), 0) or 0
-    max_length_stickout = _to_float(cfg.get("max_length_stickout"), 0) or 0
-
-    positive_vals = [
-        ("box length", box_dims[0] if box_dims else None),
-        ("box width", box_dims[1] if box_dims else None),
-        ("box height", box_dims[2] if box_dims else None),
-        ("pallet length", pallet_dims[0] if pallet_dims else None),
-        ("pallet width", pallet_dims[1] if pallet_dims else None),
-        ("max stack height", max_stack_height),
-    ]
-    for label, value in positive_vals:
-        if value is not None and value <= 0:
-            messages.append(f"{label.capitalize()} must be greater than 0.")
-
-    for label, value in [
-        ("box weight", box_weight),
-        ("max weight on bottom box", max_weight_on_bottom_box),
-        ("max width stickout", max_width_stickout),
-        ("max length stickout", max_length_stickout),
-    ]:
-        if value is not None and value < 0:
-            messages.append(f"{label.capitalize()} cannot be negative.")
-
-    return {
-        "messages": messages,
-        "box_dims": box_dims,
-        "pallet_dims": pallet_dims,
-        "box_weight": box_weight,
-        "max_weight_on_bottom_box": max_weight_on_bottom_box,
-        "max_stack_height": max_stack_height,
-        "max_width_stickout": max_width_stickout,
-        "max_length_stickout": max_length_stickout,
-    }
-
-
-def _compute_pallet_view_model(step, steps, idx):
+def _run_pallet_analysis_shared(step, steps, idx):
     step["result"] = None
     step["image_url"] = None
     step["pending_result"] = None
     step["results_table"] = []
 
     if not step.get("analysis_ran"):
+        step["messages"] = []
         return
 
-    inputs = _get_pallet_analysis_inputs(step, idx)
-    if inputs["messages"]:
-        step["messages"] = inputs["messages"]
-        return
+    cfg = _extract_pallet_config_from_step(step)
+    _update_pallet_config_on_step(step, cfg)
 
-    raw_results = run_palletization_analysis(
-        box_l=float(inputs["box_dims"][0]),
-        box_w=float(inputs["box_dims"][1]),
-        box_h=float(inputs["box_dims"][2]),
-        pallet_l=float(inputs["pallet_dims"][0]),
-        pallet_w=float(inputs["pallet_dims"][1]),
-        max_stack_height=float(inputs["max_stack_height"]),
-        max_width_stickout=float(inputs["max_width_stickout"]),
-        max_length_stickout=float(inputs["max_length_stickout"]),
-        box_weight=inputs["box_weight"],
-        max_weight_on_bottom_box=inputs["max_weight_on_bottom_box"],
-    )
+    selected_box_material = get_selected_box_material(cfg) if idx == 0 else None
+    selected_pallet_material = get_selected_pallet_material(cfg)
 
-    step["results_table"] = [_sanitize_pallet_row(row) for row in raw_results]
-    if not raw_results:
-        return
-
-    selected_row = None
-    selected_key = step.get("selected_result_key") or ""
-    if selected_key:
-        for row in raw_results:
-            if f'{row["pattern"]}__{row["stacking"]}' == selected_key:
-                selected_row = row
-                break
-    if selected_row is None:
-        selected_row = raw_results[0]
-        step["selected_result_key"] = f'{selected_row["pattern"]}__{selected_row["stacking"]}'
-
-    render_res = render_selected_result(
-        selected_result=selected_row,
-        pallet_l=float(inputs["pallet_dims"][0]),
-        pallet_w=float(inputs["pallet_dims"][1]),
-        max_stack_height=float(inputs["max_stack_height"]),
+    analysis = analyze_palletization_config(
+        config=cfg,
+        selected_result_key=step.get("selected_result_key") or "",
+        selected_box_material=selected_box_material,
+        selected_pallet_material=selected_pallet_material,
         media_root=settings.MEDIA_ROOT,
     )
-    step["image_url"] = settings.MEDIA_URL + render_res.image_rel_path
-    step["result"] = _pallet_result_card_from_row(selected_row, inputs["pallet_dims"][0], inputs["pallet_dims"][1])
+
+    step["messages"] = analysis["messages"]
+
+    if not analysis["ok"]:
+        return
+
+    serialized = analysis["serialized_result"] or {}
+    effective = analysis["effective_config"] or {}
+
+    step["results_table"] = serialized.get("results_table") or []
+    step["selected_result_key"] = serialized.get("selected_result_key") or ""
+    image_rel_path = serialized.get("image_rel_path")
+    step["image_url"] = settings.MEDIA_URL + image_rel_path if image_rel_path else None
+
+    selected_row = serialized.get("selected_result")
+    if not selected_row:
+        return
+
+    step["result"] = result_card_from_row(
+        selected_row,
+        effective.get("pallet_l"),
+        effective.get("pallet_w"),
+    )
 
     prev = _selected_input_for_step(steps, idx)
     upstream_units = prev.get("total_base_units", 1) if prev else 1
-    total_base_units = int(selected_row["total_boxes"]) * int(upstream_units)
-    selected_pallet_material = step.get("selected_pallet_material")
-    label = (selected_pallet_material.part_number if selected_pallet_material else "Manual Pallet") + f' | {selected_row["pattern"]} / {selected_row["stacking"]}'
-    step["pending_result"] = {
-        "label": label,
-        "length": round(float(inputs["pallet_dims"][0]), 2),
-        "width": round(float(inputs["pallet_dims"][1]), 2),
-        "height": round(float(selected_row["used_height_mm"]) + 100.0, 2),
-        "units_per_parent": int(selected_row["total_boxes"]),
-        "total_base_units": total_base_units,
-    }
+
+    step["pending_result"] = build_pallet_pending_result(
+        effective.get("pallet_l"),
+        effective.get("pallet_w"),
+        selected_row,
+        selected_pallet_material=selected_pallet_material,
+        upstream_units=upstream_units,
+    )
+
+
+def _compute_pallet_view_model(step, steps, idx):
+    _run_pallet_analysis_shared(step, steps, idx)
 
 def _new_step(step_type):
     if step_type == "bag":
@@ -1019,78 +964,79 @@ def _process_transport_step(step, steps, idx, post):
 
 
 def _process_pallet_step(step, steps, idx, post):
-    cfg = step["config"]
-    messages = []
-
-    if idx == 0:
-        cfg["box_source"] = post.get(f"box_source_{idx}", cfg.get("box_source", "manual"))
-        cfg["box_catalogue_id"] = post.get(f"box_catalogue_id_{idx}", cfg.get("box_catalogue_id", ""))
-        cfg["selected_box_id"] = post.get(f"selected_box_id_{idx}", cfg.get("selected_box_id", ""))
-    else:
-        cfg["box_source"] = "manual"
-        cfg["box_catalogue_id"] = ""
-        cfg["selected_box_id"] = ""
-        step["show_box_catalogue"] = False
-
-    cfg["box_l"] = post.get(f"box_l_{idx}", cfg.get("box_l", ""))
-    cfg["box_w"] = post.get(f"box_w_{idx}", cfg.get("box_w", ""))
-    cfg["box_h"] = post.get(f"box_h_{idx}", cfg.get("box_h", ""))
-    cfg["box_weight"] = post.get(f"box_weight_{idx}", cfg.get("box_weight", ""))
-    cfg["max_weight_on_bottom_box"] = post.get(f"max_weight_on_bottom_box_{idx}", cfg.get("max_weight_on_bottom_box", ""))
-    cfg["pallet_source"] = post.get(f"pallet_source_{idx}", cfg.get("pallet_source", "manual"))
-    cfg["pallet_catalogue_id"] = post.get(f"pallet_catalogue_id_{idx}", cfg.get("pallet_catalogue_id", ""))
-    cfg["pallet_id"] = post.get(f"pallet_id_{idx}", cfg.get("pallet_id", ""))
-    cfg["pallet_l"] = post.get(f"pallet_l_{idx}", cfg.get("pallet_l", ""))
-    cfg["pallet_w"] = post.get(f"pallet_w_{idx}", cfg.get("pallet_w", ""))
-    cfg["max_stack_height"] = post.get(f"max_stack_height_{idx}", cfg.get("max_stack_height", ""))
-    cfg["max_width_stickout"] = post.get(f"max_width_stickout_{idx}", cfg.get("max_width_stickout", 0))
-    cfg["max_length_stickout"] = post.get(f"max_length_stickout_{idx}", cfg.get("max_length_stickout", 0))
-    cfg["show_advanced"] = post.get(f"show_advanced_{idx}", "1" if cfg.get("show_advanced") else "0") in ("1", "true", "True", "on", "yes")
+    cfg = _read_prefixed_pallet_post(step, idx, post)
+    _update_pallet_config_on_step(step, cfg)
 
     action = post.get(f"step_action_{idx}", "refresh")
-    step["selected_result_key"] = post.get(f"selected_result_key_{idx}", step.get("selected_result_key", ""))
+    step["selected_result_key"] = post.get(
+        f"selected_result_key_{idx}",
+        step.get("selected_result_key", ""),
+    )
 
-    # reset transient UI based on source switches
     if cfg.get("box_source") != "catalogue":
         step["show_box_catalogue"] = False
     if cfg.get("pallet_source") != "catalogue":
         step["show_pallet_catalogue"] = False
 
     if action == "browse_box_packaging" and idx == 0:
-        cfg["selected_box_id"] = ""
+        step["config"]["selected_box_id"] = ""
         step["show_box_catalogue"] = True
+
     elif action == "clear_box_packaging" and idx == 0:
-        cfg["selected_box_id"] = ""
+        step["config"]["selected_box_id"] = ""
         step["show_box_catalogue"] = True
+
     elif action == "select_box" and idx == 0:
-        cfg["selected_box_id"] = post.get(f"selected_box_id_{idx}", "")
+        step["config"]["selected_box_id"] = post.get(f"selected_box_id_{idx}", "")
         step["show_box_catalogue"] = False
+
     elif action == "browse_pallet_packaging":
-        cfg["pallet_id"] = ""
+        step["config"]["pallet_id"] = ""
         step["show_pallet_catalogue"] = True
+
     elif action == "clear_pallet_packaging":
-        cfg["pallet_id"] = ""
+        step["config"]["pallet_id"] = ""
         step["show_pallet_catalogue"] = True
+
     elif action == "select_pallet":
-        cfg["pallet_id"] = post.get(f"pallet_id_{idx}", "")
+        step["config"]["pallet_id"] = post.get(f"pallet_id_{idx}", "")
         step["show_pallet_catalogue"] = False
 
-    # if catalogue changed and no selection, show table
-    if idx == 0 and cfg.get("box_source") == "catalogue" and cfg.get("box_catalogue_id") and not cfg.get("selected_box_id"):
+    if (
+        idx == 0
+        and step["config"].get("box_source") == "catalogue"
+        and step["config"].get("box_catalogue_id")
+        and not step["config"].get("selected_box_id")
+    ):
         step["show_box_catalogue"] = True
-    if cfg.get("pallet_source") == "catalogue" and cfg.get("pallet_catalogue_id") and not cfg.get("pallet_id"):
+
+    if (
+        step["config"].get("pallet_source") == "catalogue"
+        and step["config"].get("pallet_catalogue_id")
+        and not step["config"].get("pallet_id")
+    ):
         step["show_pallet_catalogue"] = True
 
     if action in ("run_analysis", "select_result"):
         step["analysis_ran"] = True
-    elif action in ("browse_box_packaging", "clear_box_packaging", "select_box", "browse_pallet_packaging", "clear_pallet_packaging", "select_pallet"):
-        # preserve prior results table while editing catalogues
+
+    elif action in (
+        "browse_box_packaging",
+        "clear_box_packaging",
+        "select_box",
+        "browse_pallet_packaging",
+        "clear_pallet_packaging",
+        "select_pallet",
+    ):
         step["analysis_ran"] = step.get("analysis_ran", False)
+
     elif action == "refresh":
         step["analysis_ran"] = step.get("analysis_ran", False)
 
-    step["messages"] = messages
     step["expanded"] = True
+    step["messages"] = []
+
+    _run_pallet_analysis_shared(step, steps, idx)
 
 
 
@@ -1176,105 +1122,7 @@ def full_packaging_mode(request):
                     _run_transport_analysis(step, steps, idx)
                 elif steps[idx].get("type") == "pallet":
                     step = steps[idx]
-                    cfg = step["config"]
-
-                    selected_box_material = None
-                    if idx == 0 and cfg.get("box_source") == "catalogue" and cfg.get("selected_box_id"):
-                        selected_box_material = PackagingMaterial.objects.filter(
-                            id=cfg.get("selected_box_id"),
-                            packaging_type__in=["BOX", "CRATE"],
-                        ).first()
-
-                    selected_pallet_material = None
-                    if cfg.get("pallet_source") == "catalogue" and cfg.get("pallet_id"):
-                        selected_pallet_material = PackagingMaterial.objects.filter(
-                            id=cfg.get("pallet_id"),
-                            packaging_type="PALLET",
-                        ).first()
-
-                    messages = []
-
-                    if cfg.get("box_source") == "catalogue":
-                        if not selected_box_material:
-                            messages.append("Please select a box/container from the catalogue table.")
-                            box_dims = None
-                            box_weight = None
-                        else:
-                            box_dims = _dims_from_material(selected_box_material, prefer_external=True)
-                            inferred_box_weight = _to_float(getattr(selected_box_material, "part_weight", None))
-                            manual_box_weight = _to_float(cfg.get("box_weight"))
-                            box_weight = manual_box_weight if manual_box_weight is not None else inferred_box_weight
-                    else:
-                        box_dims = (
-                            _to_float(cfg.get("box_l")),
-                            _to_float(cfg.get("box_w")),
-                            _to_float(cfg.get("box_h")),
-                        )
-                        box_weight = _to_float(cfg.get("box_weight"))
-                        if None in box_dims:
-                            messages.append("Please enter all manual box dimensions.")
-
-                    if cfg.get("pallet_source") == "catalogue":
-                        if not selected_pallet_material:
-                            messages.append("Please select a pallet from the catalogue table.")
-                            pallet_dims = None
-                        else:
-                            pallet_dims = _dims_from_material(selected_pallet_material, prefer_external=True)
-                    else:
-                        pallet_dims = (
-                            _to_float(cfg.get("pallet_l")),
-                            _to_float(cfg.get("pallet_w")),
-                            None,
-                        )
-                        if pallet_dims[0] is None or pallet_dims[1] is None:
-                            messages.append("Please enter pallet length and pallet width.")
-
-                    max_stack_height = _to_float(cfg.get("max_stack_height"))
-                    if max_stack_height is None:
-                        messages.append("Please enter max stack height.")
-
-                    max_weight_on_bottom_box = _to_float(cfg.get("max_weight_on_bottom_box"))
-                    max_width_stickout = _to_float(cfg.get("max_width_stickout"), 0) or 0
-                    max_length_stickout = _to_float(cfg.get("max_length_stickout"), 0) or 0
-
-                    if step.get("analysis_ran") and not messages:
-                        raw_results = run_palletization_analysis(
-                            box_l=float(box_dims[0]),
-                            box_w=float(box_dims[1]),
-                            box_h=float(box_dims[2]),
-                            pallet_l=float(pallet_dims[0]),
-                            pallet_w=float(pallet_dims[1]),
-                            max_stack_height=float(max_stack_height),
-                            max_width_stickout=float(max_width_stickout),
-                            max_length_stickout=float(max_length_stickout),
-                            box_weight=box_weight,
-                            max_weight_on_bottom_box=max_weight_on_bottom_box,
-                        )
-
-                        selected_row = None
-                        selected_key = step.get("selected_result_key") or ""
-                        if selected_key:
-                            for row in raw_results:
-                                if f'{row["pattern"]}__{row["stacking"]}' == selected_key:
-                                    selected_row = row
-                                    break
-                        if selected_row is None and raw_results:
-                            selected_row = raw_results[0]
-
-                        if selected_row is not None:
-                            prev = _selected_input_for_step(steps, idx)
-                            upstream_units = prev.get("total_base_units", 1) if prev else 1
-                            total_base_units = int(selected_row["total_boxes"]) * int(upstream_units)
-                            selected_pallet_part_number = selected_pallet_material.part_number if selected_pallet_material else "Manual Pallet"
-
-                            step["pending_result"] = {
-                                "label": f'{selected_pallet_part_number} | {selected_row["pattern"]} / {selected_row["stacking"]}',
-                                "length": round(float(pallet_dims[0]), 2),
-                                "width": round(float(pallet_dims[1]), 2),
-                                "height": round(float(selected_row["used_height_mm"]) + 100.0, 2),
-                                "units_per_parent": int(selected_row["total_boxes"]),
-                                "total_base_units": total_base_units,
-                            }
+                    _run_pallet_analysis_shared(step, steps, idx)
 
                 pending = steps[idx].get("pending_result")
                 if pending:
@@ -1348,15 +1196,17 @@ def full_packaging_mode(request):
             step.setdefault("results_table", [])
             step.setdefault("show_box_catalogue", False)
             step.setdefault("show_pallet_catalogue", False)
+
+            cfg = _extract_pallet_config_from_step(step)
+            _update_pallet_config_on_step(step, cfg)
+
             if idx == 0:
                 step["box_materials"] = PackagingMaterial.objects.filter(
                     catalogue_id=cfg.get("box_catalogue_id") or None,
                     packaging_type__in=["BOX", "CRATE"],
                 ).select_related("catalogue").order_by("part_number") if cfg.get("box_catalogue_id") else PackagingMaterial.objects.none()
-                step["selected_box_material"] = PackagingMaterial.objects.filter(
-                    id=cfg.get("selected_box_id") or None,
-                    packaging_type__in=["BOX", "CRATE"],
-                ).select_related("catalogue").first()
+
+                step["selected_box_material"] = get_selected_box_material(cfg)
             else:
                 step["box_materials"] = PackagingMaterial.objects.none()
                 step["selected_box_material"] = None
@@ -1364,15 +1214,14 @@ def full_packaging_mode(request):
                 cfg["box_catalogue_id"] = ""
                 cfg["selected_box_id"] = ""
                 step["show_box_catalogue"] = False
+                _update_pallet_config_on_step(step, cfg)
 
             step["pallet_materials"] = PackagingMaterial.objects.filter(
                 catalogue_id=cfg.get("pallet_catalogue_id") or None,
                 packaging_type="PALLET",
             ).select_related("catalogue").order_by("part_number") if cfg.get("pallet_catalogue_id") else PackagingMaterial.objects.none()
-            step["selected_pallet_material"] = PackagingMaterial.objects.filter(
-                id=cfg.get("pallet_id") or None,
-                packaging_type="PALLET",
-            ).select_related("catalogue").first()
+
+            step["selected_pallet_material"] = get_selected_pallet_material(cfg)
 
             step["show_box_catalogue"] = bool(step.get("show_box_catalogue")) or (
                 idx == 0
@@ -1380,11 +1229,20 @@ def full_packaging_mode(request):
                 and bool(cfg.get("box_catalogue_id"))
                 and not cfg.get("selected_box_id")
             )
+
             step["show_pallet_catalogue"] = bool(step.get("show_pallet_catalogue")) or (
                 cfg.get("pallet_source") == "catalogue"
                 and bool(cfg.get("pallet_catalogue_id"))
                 and not cfg.get("pallet_id")
             )
+
+            step["pallet_ui"] = _build_shared_pallet_ui_contract(prefix=str(idx))
+            step["pallet_values"] = {
+                k: cfg.get(k)
+                for k in default_palletization_config().keys()
+            }
+            step["mode"] = "workflow"
+            step["prefix"] = str(idx)
 
             _compute_pallet_view_model(step, steps, idx)
         else:

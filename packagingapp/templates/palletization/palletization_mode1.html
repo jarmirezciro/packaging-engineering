@@ -19,10 +19,11 @@
 
     <form method="post" class="app-page">
         {% csrf_token %}
-        {{ form.action }}
-        {{ form.selected_box_id }}
-        {{ form.pallet_id }}
-        <input type="hidden" name="selected_result_key" id="selected_result_key">
+        <input type="hidden" name="{{ pallet_ui.names.action }}" value="">
+        <input type="hidden" name="{{ pallet_ui.names.selected_box_id }}" value="{{ pallet_values.selected_box_id|default:'' }}">
+        <input type="hidden" name="{{ pallet_ui.names.pallet_id }}" value="{{ pallet_values.pallet_id|default:'' }}">
+        <input type="hidden" name="{{ pallet_ui.names.selected_result_key }}" id="{{ pallet_ui.ids.selected_result_key }}" value="">
+        <input type="hidden" name="{{ pallet_ui.names.show_advanced }}" id="{{ pallet_ui.ids.show_advanced }}" value="{% if show_advanced %}1{% else %}0{% endif %}">
 
         {% if form.non_field_errors %}
             <div class="alert alert-danger mb-0">
@@ -30,572 +31,182 @@
             </div>
         {% endif %}
 
-        <div class="tool-grid-3">
-
-            <!-- BOX -->
-            <div class="app-card">
-                <div class="app-card-body">
-                    <div class="app-section-title">Box</div>
-                    <div class="app-section-subtitle">Manual dimensions or packaging catalogue selection.</div>
-
-                    <div class="tool-field-group">
-                        <label class="form-label">Box Source</label>
-                        <div class="tool-radio-group">
-                            {% for radio in form.box_source %}
-                                <label class="tool-radio-option">
-                                    {{ radio.tag }}
-                                    <span>{{ radio.choice_label }}</span>
-                                </label>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    <div id="boxCatalogueChooser" class="tool-field-group tool-tight-gap">
-                        <label class="form-label">Packaging Catalogue</label>
-                        {{ form.box_catalogue_id }}
-                    </div>
-
-                    <div id="manualBoxFields">
-                        <div class="tool-compact-grid-three">
-                            <div class="tool-field-group mb-0">
-                                <label class="form-label">Length</label>
-                                {{ form.box_l }}
-                            </div>
-                            <div class="tool-field-group mb-0">
-                                <label class="form-label">Width</label>
-                                {{ form.box_w }}
-                            </div>
-                            <div class="tool-field-group mb-0">
-                                <label class="form-label">Height</label>
-                                {{ form.box_h }}
-                            </div>
-                        </div>
-                    </div>
-
-                    {% if selected_box_material %}
-                        <div class="tool-summary-strip">
-                            <div class="tool-summary-main">
-                                <strong>{{ selected_box_material.part_number }}</strong> — {{ selected_box_material.part_description }}
-                            </div>
-                            <div class="tool-summary-meta">
-                                {{ selected_box_material.external_length|default:selected_box_material.part_length }}
-                                ×
-                                {{ selected_box_material.external_width|default:selected_box_material.part_width }}
-                                ×
-                                {{ selected_box_material.external_height|default:selected_box_material.part_height }}
-                                {% if selected_box_material.part_weight %} | Wt: {{ selected_box_material.part_weight }}{% endif %}
-                                | {{ selected_box_material.packaging_type }}
-                                | {{ selected_box_material.branding }}
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if current_box_source == "catalogue" %}
-                        <div class="app-form-actions tool-card-actions">
-                            {% if selected_box_material %}
-                                <button type="button" class="btn btn-app-outline btn-sm" onclick="clearSelectedBox()">
-                                    <i class="bi bi-arrow-repeat me-2"></i>Change Box
-                                </button>
-                            {% else %}
-                                <button type="button" class="btn btn-app-outline btn-sm" onclick="browseBoxCatalogue()">
-                                    <i class="bi bi-search me-2"></i>Browse Catalogue
-                                </button>
-                            {% endif %}
-                        </div>
-                    {% endif %}
-                </div>
+        <div id="{{ pallet_ui.ids.root }}" data-pallet-tool-root data-pallet-prefix="{{ pallet_ui.prefix }}">
+            <div class="tool-grid-3">
+                {% include "palletization_tool/partials/_palletization_box_section.html" %}
+                {% include "palletization_tool/partials/_palletization_pallet_section.html" %}
+                {% include "palletization_tool/partials/_palletization_result_section.html" %}
             </div>
 
-            <!-- PALLET -->
-            <div class="app-card">
-                <div class="app-card-body">
-                    <div class="app-section-title">Pallet</div>
-                    <div class="app-section-subtitle">Manual dimensions or pallet catalogue selection.</div>
+            {% if current_box_source == "catalogue" and not selected_box_material %}
+                <div class="app-card">
+                    <div class="app-card-body">
+                        <div class="app-section-title">Box Catalogue</div>
+                        <div class="app-section-subtitle">Select the box/container to palletize.</div>
 
-                    <div class="tool-field-group">
-                        <label class="form-label">Pallet Source</label>
-                        <div class="tool-radio-group">
-                            {% for radio in form.pallet_source %}
-                                <label class="tool-radio-option">
-                                    {{ radio.tag }}
-                                    <span>{{ radio.choice_label }}</span>
-                                </label>
-                            {% endfor %}
+                        <div class="app-table-wrap">
+                            <table class="table table-hover align-middle app-table">
+                                <thead>
+                                    <tr>
+                                        <th>Select</th>
+                                        <th>Part Number</th>
+                                        <th>Description</th>
+                                        <th>Type</th>
+                                        <th>Brand</th>
+                                        <th>Ext. L</th>
+                                        <th>Ext. W</th>
+                                        <th>Ext. H</th>
+                                        <th>Weight</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for material in box_materials %}
+                                        <tr class="tool-clickable-row"
+                                            onclick="{{ pallet_ui.actions.select_box }}('{{ pallet_ui.prefix }}', '{{ material.id }}')"
+                                            tabindex="0"
+                                            role="button">
+                                            <td class="tool-select-col">
+                                                <button type="button"
+                                                        class="btn btn-sm btn-app-outline"
+                                                        onclick="event.stopPropagation(); {{ pallet_ui.actions.select_box }}('{{ pallet_ui.prefix }}', '{{ material.id }}')">
+                                                    Select
+                                                </button>
+                                            </td>
+                                            <td>{{ material.part_number }}</td>
+                                            <td>{{ material.part_description }}</td>
+                                            <td>{{ material.packaging_type }}</td>
+                                            <td>{{ material.branding }}</td>
+                                            <td>{{ material.external_length|default:material.part_length }}</td>
+                                            <td>{{ material.external_width|default:material.part_width }}</td>
+                                            <td>{{ material.external_height|default:material.part_height }}</td>
+                                            <td>{{ material.part_weight|default:"—" }}</td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">No BOX or CRATE materials found in this catalogue.</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
-                    </div>
-
-                    <div id="palletCatalogueChooser" class="tool-field-group tool-tight-gap">
-                        <label class="form-label">Packaging Catalogue</label>
-                        {{ form.pallet_catalogue_id }}
-                    </div>
-
-                    <div id="manualPalletFields">
-                        <div class="tool-compact-grid-three">
-                            <div class="tool-field-group mb-0">
-                                <label class="form-label">Pallet length</label>
-                                {{ form.pallet_l }}
-                            </div>
-                            <div class="tool-field-group mb-0">
-                                <label class="form-label">Pallet width</label>
-                                {{ form.pallet_w }}
-                            </div>
-                            <div class="tool-field-group mb-0">
-                                <label class="form-label">Max height</label>
-                                {{ form.max_stack_height }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="cataloguePalletMainFields" style="display:none;">
-                        <div class="tool-compact-grid-one">
-                            <div class="tool-field-group mb-0">
-                                <label class="form-label">Max stack height</label>
-                                {{ form.max_stack_height }}
-                            </div>
-                        </div>
-                    </div>
-
-                    {% if selected_pallet_material %}
-                        <div class="tool-summary-strip">
-                            <div class="tool-summary-main">
-                                <strong>{{ selected_pallet_material.part_number }}</strong> — {{ selected_pallet_material.part_description }}
-                            </div>
-                            <div class="tool-summary-meta">
-                                {{ selected_pallet_material.external_length|default:selected_pallet_material.part_length }}
-                                ×
-                                {{ selected_pallet_material.external_width|default:selected_pallet_material.part_width }}
-                                ×
-                                {{ selected_pallet_material.external_height|default:selected_pallet_material.part_height }}
-                                {% if selected_pallet_material.part_weight %} | Wt: {{ selected_pallet_material.part_weight }}{% endif %}
-                                | {{ selected_pallet_material.packaging_type }}
-                                | {{ selected_pallet_material.branding }}
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if current_pallet_source == "catalogue" %}
-                        <div class="app-form-actions tool-card-actions">
-                            {% if selected_pallet_material %}
-                                <button type="button" class="btn btn-app-outline btn-sm" onclick="clearSelectedPallet()">
-                                    <i class="bi bi-arrow-repeat me-2"></i>Change Pallet
-                                </button>
-                            {% else %}
-                                <button type="button" class="btn btn-app-outline btn-sm" onclick="browsePalletCatalogue()">
-                                    <i class="bi bi-search me-2"></i>Browse Catalogue
-                                </button>
-                            {% endif %}
-                        </div>
-                    {% endif %}
-
-                    <hr class="app-divider">
-
-                    <div class="tool-collapsible-head">
-                        <div>
-                            <div class="app-form-section-title mb-0">Advanced Parameters</div>
-                            <div class="app-form-note">Optional stickout and weight settings.</div>
-                        </div>
-
-                        <button type="button"
-                                id="toggleConstraintsBtn"
-                                class="btn btn-app-outline btn-sm"
-                                onclick="toggleConstraintsSection()">
-                            <i class="bi bi-chevron-down me-2" id="toggleConstraintsIcon"></i>
-                            <span id="toggleConstraintsText">Show Advanced</span>
-                        </button>
-                    </div>
-
-                    <div id="stackingConstraintsSection" style="display:none;">
-                        <div class="tool-compact-grid-two">
-                            <div class="tool-field-group mb-0">
-                                <label class="form-label">Max width stickout</label>
-                                {{ form.max_width_stickout }}
-                            </div>
-                            <div class="tool-field-group mb-0">
-                                <label class="form-label">Max length stickout</label>
-                                {{ form.max_length_stickout }}
-                            </div>
-                        </div>
-
-                        <div class="tool-compact-grid-two tool-tight-gap">
-                            <div class="tool-field-group mb-0">
-                                <label class="form-label">Box weight</label>
-                                {{ form.box_weight }}
-                                <div class="app-form-note mt-1">Optional</div>
-                            </div>
-                            <div class="tool-field-group mb-0">
-                                <label class="form-label">Max weight on bottom box</label>
-                                {{ form.max_weight_on_bottom_box }}
-                                <div class="app-form-note mt-1">Optional</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="app-form-actions tool-card-actions">
-                        <button type="button" class="btn btn-app-primary btn-sm" onclick="runAnalysis()">
-                            <i class="bi bi-play-circle me-2"></i>Run Analysis
-                        </button>
                     </div>
                 </div>
-            </div>
+            {% endif %}
 
-            <!-- RESULT -->
-            <div class="app-card">
-                <div class="app-card-body">
-                    <div class="app-section-title">Result</div>
-                    <div class="app-section-subtitle">Best ranked result, same presentation style as the other tools.</div>
+            {% if current_pallet_source == "catalogue" and not selected_pallet_material %}
+                <div class="app-card">
+                    <div class="app-card-body">
+                        <div class="app-section-title">Pallet Catalogue</div>
+                        <div class="app-section-subtitle">Select the pallet from the chosen packaging catalogue.</div>
 
-                    {% if selected_result %}
-                        <div class="tool-top-pair">
-                            <div class="tool-stat-card">
-                                <div class="tool-stat-label">Total boxes</div>
-                                <div class="tool-stat-value">{{ selected_result.total_boxes }}</div>
-                            </div>
-                            <div class="tool-stat-card">
-                                <div class="tool-stat-label">Layers</div>
-                                <div class="tool-stat-value">{{ selected_result.layers }}</div>
-                            </div>
+                        <div class="app-table-wrap">
+                            <table class="table table-hover align-middle app-table">
+                                <thead>
+                                    <tr>
+                                        <th>Select</th>
+                                        <th>Part Number</th>
+                                        <th>Description</th>
+                                        <th>Type</th>
+                                        <th>Brand</th>
+                                        <th>L</th>
+                                        <th>W</th>
+                                        <th>H</th>
+                                        <th>Weight</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for material in pallet_materials %}
+                                        <tr class="tool-clickable-row"
+                                            onclick="{{ pallet_ui.actions.select_pallet }}('{{ pallet_ui.prefix }}', '{{ material.id }}')"
+                                            tabindex="0"
+                                            role="button">
+                                            <td class="tool-select-col">
+                                                <button type="button"
+                                                        class="btn btn-sm btn-app-outline"
+                                                        onclick="event.stopPropagation(); {{ pallet_ui.actions.select_pallet }}('{{ pallet_ui.prefix }}', '{{ material.id }}')">
+                                                    Select
+                                                </button>
+                                            </td>
+                                            <td>{{ material.part_number }}</td>
+                                            <td>{{ material.part_description }}</td>
+                                            <td>{{ material.packaging_type }}</td>
+                                            <td>{{ material.branding }}</td>
+                                            <td>{{ material.external_length|default:material.part_length }}</td>
+                                            <td>{{ material.external_width|default:material.part_width }}</td>
+                                            <td>{{ material.external_height|default:material.part_height }}</td>
+                                            <td>{{ material.part_weight|default:"—" }}</td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">No PALLET materials found in this catalogue.</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
-
-                        <div class="tool-summary-strip mb-3">
-                            <div class="tool-summary-main">
-                                <strong>{{ selected_result.pattern }}</strong> — {{ selected_result.stacking|title }}
-                            </div>
-                            <div class="tool-summary-meta">
-                                Footprint: {{ selected_result.layer_footprint_util_pct }}%
-                                | Volume: {{ selected_result.volumetric_util_pct }}%
-                                | Weight OK: {{ selected_result.feasible_weight }}
-                                | Max bottom load: {{ selected_result.max_bottom_load_kg }}
-                            </div>
-                        </div>
-
-                        {% if result_image_url %}
-                            <div class="tool-render-wrap">
-                                <img src="{{ result_image_url }}" alt="Palletization result" class="tool-render-image">
-                            </div>
-                        {% endif %}
-                    {% else %}
-                        <div class="app-empty-state">
-                            <i class="bi bi-boxes fs-2 d-block mb-2"></i>
-                            <div>Run analysis to generate the best palletization result and 3D view.</div>
-                        </div>
-                    {% endif %}
+                    </div>
                 </div>
-            </div>
+            {% endif %}
+
+            {% if results_table %}
+                <div class="app-card">
+                    <div class="app-card-body">
+                        <div class="app-section-title">Palletization Results</div>
+                        <div class="app-section-subtitle">Select a row to draw another result in 3D.</div>
+
+                        <div class="app-table-wrap">
+                            <table class="table table-hover align-middle app-table">
+                                <thead>
+                                    <tr>
+                                        <th>Select</th>
+                                        <th>Rank</th>
+                                        <th>Pattern</th>
+                                        <th>Stacking</th>
+                                        <th>Layer A</th>
+                                        <th>Layer B</th>
+                                        <th>Layers</th>
+                                        <th>Total Boxes</th>
+                                        <th>Footprint %</th>
+                                        <th>Volume %</th>
+                                        <th>Weight OK</th>
+                                        <th>Max Bottom Load</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in results_table %}
+                                        <tr class="tool-clickable-row {% if selected_result and selected_result.pattern == row.pattern and selected_result.stacking == row.stacking %}tool-row-selected{% endif %}"
+                                            onclick="{{ pallet_ui.actions.select_result }}('{{ pallet_ui.prefix }}', '{{ row.pattern }}__{{ row.stacking }}')"
+                                            tabindex="0"
+                                            role="button">
+                                            <td class="tool-select-col">
+                                                <button type="button"
+                                                        class="btn btn-sm btn-app-outline"
+                                                        onclick="event.stopPropagation(); {{ pallet_ui.actions.select_result }}('{{ pallet_ui.prefix }}', '{{ row.pattern }}__{{ row.stacking }}')">
+                                                    Select
+                                                </button>
+                                            </td>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>{{ row.pattern }}</td>
+                                            <td>{{ row.stacking }}</td>
+                                            <td>{{ row.boxes_layer_A }}</td>
+                                            <td>{{ row.boxes_layer_B }}</td>
+                                            <td>{{ row.layers }}</td>
+                                            <td>{{ row.total_boxes }}</td>
+                                            <td>{{ row.layer_footprint_util_pct }}</td>
+                                            <td>{{ row.volumetric_util_pct }}</td>
+                                            <td>{{ row.feasible_weight }}</td>
+                                            <td>{{ row.max_bottom_load_kg }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
         </div>
-
-        {% if current_box_source == "catalogue" and not selected_box_material %}
-            <div class="app-card">
-                <div class="app-card-body">
-                    <div class="app-section-title">Box Catalogue</div>
-                    <div class="app-section-subtitle">Select the box/container to palletize.</div>
-
-                    <div class="app-table-wrap">
-                        <table class="table table-hover align-middle app-table">
-                            <thead>
-                                <tr>
-                                    <th>Select</th>
-                                    <th>Part Number</th>
-                                    <th>Description</th>
-                                    <th>Type</th>
-                                    <th>Brand</th>
-                                    <th>Ext. L</th>
-                                    <th>Ext. W</th>
-                                    <th>Ext. H</th>
-                                    <th>Weight</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for material in box_materials %}
-                                    <tr class="tool-clickable-row" onclick="selectBox('{{ material.id }}')" tabindex="0" role="button">
-                                        <td class="tool-select-col">
-                                            <button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); selectBox('{{ material.id }}')">Select</button>
-                                        </td>
-                                        <td>{{ material.part_number }}</td>
-                                        <td>{{ material.part_description }}</td>
-                                        <td>{{ material.packaging_type }}</td>
-                                        <td>{{ material.branding }}</td>
-                                        <td>{{ material.external_length|default:material.part_length }}</td>
-                                        <td>{{ material.external_width|default:material.part_width }}</td>
-                                        <td>{{ material.external_height|default:material.part_height }}</td>
-                                        <td>{{ material.part_weight|default:"—" }}</td>
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="9" class="text-center text-muted py-4">No BOX or CRATE materials found in this catalogue.</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        {% endif %}
-
-        {% if current_pallet_source == "catalogue" and not selected_pallet_material %}
-            <div class="app-card">
-                <div class="app-card-body">
-                    <div class="app-section-title">Pallet Catalogue</div>
-                    <div class="app-section-subtitle">Select the pallet from the chosen packaging catalogue.</div>
-
-                    <div class="app-table-wrap">
-                        <table class="table table-hover align-middle app-table">
-                            <thead>
-                                <tr>
-                                    <th>Select</th>
-                                    <th>Part Number</th>
-                                    <th>Description</th>
-                                    <th>Type</th>
-                                    <th>Brand</th>
-                                    <th>L</th>
-                                    <th>W</th>
-                                    <th>H</th>
-                                    <th>Weight</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for material in pallet_materials %}
-                                    <tr class="tool-clickable-row" onclick="selectPallet('{{ material.id }}')" tabindex="0" role="button">
-                                        <td class="tool-select-col">
-                                            <button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); selectPallet('{{ material.id }}')">Select</button>
-                                        </td>
-                                        <td>{{ material.part_number }}</td>
-                                        <td>{{ material.part_description }}</td>
-                                        <td>{{ material.packaging_type }}</td>
-                                        <td>{{ material.branding }}</td>
-                                        <td>{{ material.external_length|default:material.part_length }}</td>
-                                        <td>{{ material.external_width|default:material.part_width }}</td>
-                                        <td>{{ material.external_height|default:material.part_height }}</td>
-                                        <td>{{ material.part_weight|default:"—" }}</td>
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="9" class="text-center text-muted py-4">No PALLET materials found in this catalogue.</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        {% endif %}
-
-        {% if results_table %}
-            <div class="app-card">
-                <div class="app-card-body">
-                    <div class="app-section-title">Palletization Results</div>
-                    <div class="app-section-subtitle">Select a row to draw another result in 3D.</div>
-
-                    <div class="app-table-wrap">
-                        <table class="table table-hover align-middle app-table">
-                            <thead>
-                                <tr>
-                                    <th>Select</th>
-                                    <th>Rank</th>
-                                    <th>Pattern</th>
-                                    <th>Stacking</th>
-                                    <th>Layer A</th>
-                                    <th>Layer B</th>
-                                    <th>Layers</th>
-                                    <th>Total Boxes</th>
-                                    <th>Footprint %</th>
-                                    <th>Volume %</th>
-                                    <th>Weight OK</th>
-                                    <th>Max Bottom Load</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for row in results_table %}
-                                    <tr class="tool-clickable-row {% if selected_result and selected_result.pattern == row.pattern and selected_result.stacking == row.stacking %}tool-row-selected{% endif %}"
-                                        onclick="selectResult('{{ row.pattern }}__{{ row.stacking }}')" tabindex="0" role="button">
-                                        <td class="tool-select-col">
-                                            <button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); selectResult('{{ row.pattern }}__{{ row.stacking }}')">Select</button>
-                                        </td>
-                                        <td>{{ forloop.counter }}</td>
-                                        <td>{{ row.pattern }}</td>
-                                        <td>{{ row.stacking }}</td>
-                                        <td>{{ row.boxes_layer_A }}</td>
-                                        <td>{{ row.boxes_layer_B }}</td>
-                                        <td>{{ row.layers }}</td>
-                                        <td>{{ row.total_boxes }}</td>
-                                        <td>{{ row.layer_footprint_util_pct }}</td>
-                                        <td>{{ row.volumetric_util_pct }}</td>
-                                        <td>{{ row.feasible_weight }}</td>
-                                        <td>{{ row.max_bottom_load_kg }}</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        {% endif %}
     </form>
 </div>
 
-<style>
-    .tool-collapsible-head{
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-start;
-        gap:12px;
-        margin-top:2px;
-        margin-bottom:10px;
-    }
-
-    @media (max-width: 768px){
-        .tool-collapsible-head{
-            flex-direction:column;
-            align-items:stretch;
-        }
-    }
-</style>
-
-<script>
-    function setAction(value) {
-        const field = document.querySelector('input[name="action"]');
-        if (field) field.value = value;
-    }
-
-    function setHidden(name, value) {
-        const field = document.querySelector(`input[name="${name}"]`);
-        if (field) field.value = value;
-    }
-
-    function submitRefresh() {
-        setAction("refresh");
-        document.querySelector("form").submit();
-    }
-
-    function browseBoxCatalogue() {
-        setHidden("selected_box_id", "");
-        submitRefresh();
-    }
-
-    function clearSelectedBox() {
-        setHidden("selected_box_id", "");
-        submitRefresh();
-    }
-
-    function selectBox(boxId) {
-        setHidden("selected_box_id", boxId);
-        submitRefresh();
-    }
-
-    function browsePalletCatalogue() {
-        setHidden("pallet_id", "");
-        submitRefresh();
-    }
-
-    function clearSelectedPallet() {
-        setHidden("pallet_id", "");
-        submitRefresh();
-    }
-
-    function selectPallet(palletId) {
-        setHidden("pallet_id", palletId);
-        submitRefresh();
-    }
-
-    function toggleConstraintsSection(forceOpen = null) {
-        const section = document.getElementById("stackingConstraintsSection");
-        const text = document.getElementById("toggleConstraintsText");
-        const icon = document.getElementById("toggleConstraintsIcon");
-
-        if (!section) return;
-
-        let shouldOpen;
-        if (forceOpen === true) {
-            shouldOpen = true;
-        } else if (forceOpen === false) {
-            shouldOpen = false;
-        } else {
-            shouldOpen = section.style.display === "none";
-        }
-
-        section.style.display = shouldOpen ? "block" : "none";
-
-        if (text) text.textContent = shouldOpen ? "Hide Advanced" : "Show Advanced";
-        if (icon) {
-            icon.className = shouldOpen
-                ? "bi bi-chevron-up me-2"
-                : "bi bi-chevron-down me-2";
-        }
-    }
-
-    function runAnalysis() {
-        toggleConstraintsSection(false);
-        setAction("run_analysis");
-        document.querySelector("form").submit();
-    }
-
-    function selectResult(resultKey) {
-        document.getElementById("selected_result_key").value = resultKey;
-        setAction("select_result");
-        document.querySelector("form").submit();
-    }
-
-    function updateUI() {
-        const boxSource = document.querySelector('input[name="box_source"]:checked')?.value || "manual";
-        const palletSource = document.querySelector('input[name="pallet_source"]:checked')?.value || "manual";
-
-        const boxCatalogueChooser = document.getElementById("boxCatalogueChooser");
-        const manualBoxFields = document.getElementById("manualBoxFields");
-
-        const palletCatalogueChooser = document.getElementById("palletCatalogueChooser");
-        const manualPalletFields = document.getElementById("manualPalletFields");
-        const cataloguePalletMainFields = document.getElementById("cataloguePalletMainFields");
-
-        if (boxSource === "catalogue") {
-            if (boxCatalogueChooser) boxCatalogueChooser.style.display = "block";
-            if (manualBoxFields) manualBoxFields.style.display = "none";
-        } else {
-            if (boxCatalogueChooser) boxCatalogueChooser.style.display = "none";
-            if (manualBoxFields) manualBoxFields.style.display = "block";
-        }
-
-        if (palletSource === "catalogue") {
-            if (palletCatalogueChooser) palletCatalogueChooser.style.display = "block";
-            if (manualPalletFields) manualPalletFields.style.display = "none";
-            if (cataloguePalletMainFields) cataloguePalletMainFields.style.display = "block";
-        } else {
-            if (palletCatalogueChooser) palletCatalogueChooser.style.display = "none";
-            if (manualPalletFields) manualPalletFields.style.display = "block";
-            if (cataloguePalletMainFields) cataloguePalletMainFields.style.display = "none";
-        }
-    }
-
-    document.addEventListener("DOMContentLoaded", function () {
-        updateUI();
-        toggleConstraintsSection(false);
-
-        document.querySelectorAll('input[name="box_source"]').forEach(el => el.addEventListener("change", function () {
-            setHidden("selected_box_id", "");
-            submitRefresh();
-        }));
-
-        document.querySelectorAll('input[name="pallet_source"]').forEach(el => el.addEventListener("change", function () {
-            setHidden("pallet_id", "");
-            submitRefresh();
-        }));
-
-        document.querySelector('select[name="box_catalogue_id"]')?.addEventListener("change", function () {
-            setHidden("selected_box_id", "");
-            submitRefresh();
-        });
-
-        document.querySelector('select[name="pallet_catalogue_id"]')?.addEventListener("change", function () {
-            setHidden("pallet_id", "");
-            submitRefresh();
-        });
-
-        document.querySelectorAll(".tool-clickable-row").forEach(row => {
-            row.addEventListener("keydown", function (e) {
-                if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    row.click();
-                }
-            });
-        });
-    });
-</script>
+{% include "palletization_tool/partials/_palletization_scripts.html" %}
 {% endblock %}

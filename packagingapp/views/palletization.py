@@ -1,207 +1,263 @@
 from django.conf import settings
 from django.shortcuts import render
 
-from ..models import PackagingCatalogue, PackagingMaterial
 from ..forms import PalletizationForm
-from ..utils.palletization.engine import run_palletization_analysis, render_selected_result
+from ..models import PackagingCatalogue
+from ..tools.palletization.serializers import sanitize_palletization_config_for_session
+from ..tools.palletization.service import (
+    analyze_palletization_config,
+    get_box_materials,
+    get_pallet_materials,
+    get_selected_box_material,
+    get_selected_pallet_material,
+)
+from ..tools.palletization.state import default_palletization_config
 
 
-def _dims_from_material(material, prefer_external=False):
-    if prefer_external:
-        l = material.external_length if material.external_length is not None else material.part_length
-        w = material.external_width if material.external_width is not None else material.part_width
-        h = material.external_height if material.external_height is not None else material.part_height
+def _as_bool(value):
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _read_raw_palletization_config(request):
+    cfg = default_palletization_config()
+
+    if request.method == "POST":
+        source = request.POST
     else:
-        l = material.part_length
-        w = material.part_width
-        h = material.part_height
-    return float(l), float(w), float(h)
+        source = request.GET
 
+    cfg.update({
+        "box_source": source.get("box_source", cfg["box_source"]),
+        "box_catalogue_id": source.get("box_catalogue_id", cfg["box_catalogue_id"]),
+        "selected_box_id": source.get("selected_box_id", cfg["selected_box_id"]),
+        "box_l": source.get("box_l", cfg["box_l"]),
+        "box_w": source.get("box_w", cfg["box_w"]),
+        "box_h": source.get("box_h", cfg["box_h"]),
+        "box_weight": source.get("box_weight", cfg["box_weight"]),
+        "max_weight_on_bottom_box": source.get(
+            "max_weight_on_bottom_box",
+            cfg["max_weight_on_bottom_box"],
+        ),
+        "pallet_source": source.get("pallet_source", cfg["pallet_source"]),
+        "pallet_catalogue_id": source.get("pallet_catalogue_id", cfg["pallet_catalogue_id"]),
+        "pallet_id": source.get("pallet_id", cfg["pallet_id"]),
+        "pallet_l": source.get("pallet_l", cfg["pallet_l"]),
+        "pallet_w": source.get("pallet_w", cfg["pallet_w"]),
+        "max_stack_height": source.get("max_stack_height", cfg["max_stack_height"]),
+        "max_width_stickout": source.get("max_width_stickout", cfg["max_width_stickout"]),
+        "max_length_stickout": source.get("max_length_stickout", cfg["max_length_stickout"]),
+        "show_advanced": _as_bool(source.get("show_advanced", cfg["show_advanced"])),
+    })
+
+    return sanitize_palletization_config_for_session(cfg)
+
+
+def _build_hydrated_form(request, config, selected_box_material=None, selected_pallet_material=None):
+    if request.method == "POST":
+        post_data = request.POST.copy()
+
+        if config.get("box_source") == "catalogue" and selected_box_material is not None:
+            box_l = selected_box_material.external_length
+            box_w = selected_box_material.external_width
+            box_h = selected_box_material.external_height
+
+            if box_l is None:
+                box_l = selected_box_material.part_length
+            if box_w is None:
+                box_w = selected_box_material.part_width
+            if box_h is None:
+                box_h = selected_box_material.part_height
+
+            post_data["box_l"] = "" if box_l is None else str(box_l)
+            post_data["box_w"] = "" if box_w is None else str(box_w)
+            post_data["box_h"] = "" if box_h is None else str(box_h)
+
+            if (
+                (post_data.get("box_weight") in (None, "", "None"))
+                and getattr(selected_box_material, "part_weight", None) is not None
+            ):
+                post_data["box_weight"] = str(selected_box_material.part_weight)
+
+        if config.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
+            pallet_l = selected_pallet_material.external_length
+            pallet_w = selected_pallet_material.external_width
+
+            if pallet_l is None:
+                pallet_l = selected_pallet_material.part_length
+            if pallet_w is None:
+                pallet_w = selected_pallet_material.part_width
+
+            post_data["pallet_l"] = "" if pallet_l is None else str(pallet_l)
+            post_data["pallet_w"] = "" if pallet_w is None else str(pallet_w)
+
+        form = PalletizationForm(post_data)
+    else:
+        initial_data = dict(config)
+
+        if config.get("box_source") == "catalogue" and selected_box_material is not None:
+            box_l = selected_box_material.external_length
+            box_w = selected_box_material.external_width
+            box_h = selected_box_material.external_height
+
+            if box_l is None:
+                box_l = selected_box_material.part_length
+            if box_w is None:
+                box_w = selected_box_material.part_width
+            if box_h is None:
+                box_h = selected_box_material.part_height
+
+            initial_data["box_l"] = "" if box_l is None else box_l
+            initial_data["box_w"] = "" if box_w is None else box_w
+            initial_data["box_h"] = "" if box_h is None else box_h
+
+            if (
+                initial_data.get("box_weight") in (None, "", "None")
+                and getattr(selected_box_material, "part_weight", None) is not None
+            ):
+                initial_data["box_weight"] = selected_box_material.part_weight
+
+        if config.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
+            pallet_l = selected_pallet_material.external_length
+            pallet_w = selected_pallet_material.external_width
+
+            if pallet_l is None:
+                pallet_l = selected_pallet_material.part_length
+            if pallet_w is None:
+                pallet_w = selected_pallet_material.part_width
+
+            initial_data["pallet_l"] = "" if pallet_l is None else pallet_l
+            initial_data["pallet_w"] = "" if pallet_w is None else pallet_w
+
+        form = PalletizationForm(initial=initial_data)
+
+    return form
+
+
+def _apply_catalogue_choices(form, packaging_catalogues):
+    choices = [("", "— Select —")] + [(str(c.id), c.name) for c in packaging_catalogues]
+    form.fields["box_catalogue_id"].choices = choices
+    form.fields["pallet_catalogue_id"].choices = choices
+
+
+def _build_shared_pallet_ui_contract(prefix=""):
+    suffix = f"_{prefix}" if prefix else ""
+
+    return {
+        "prefix": prefix,
+        "names": {
+            "action": f"action{suffix}",
+            "selected_box_id": f"selected_box_id{suffix}",
+            "pallet_id": f"pallet_id{suffix}",
+            "selected_result_key": f"selected_result_key{suffix}",
+            "show_advanced": f"show_advanced{suffix}",
+            "box_source": f"box_source{suffix}",
+            "box_catalogue_id": f"box_catalogue_id{suffix}",
+            "box_l": f"box_l{suffix}",
+            "box_w": f"box_w{suffix}",
+            "box_h": f"box_h{suffix}",
+            "box_weight": f"box_weight{suffix}",
+            "max_weight_on_bottom_box": f"max_weight_on_bottom_box{suffix}",
+            "pallet_source": f"pallet_source{suffix}",
+            "pallet_catalogue_id": f"pallet_catalogue_id{suffix}",
+            "pallet_l": f"pallet_l{suffix}",
+            "pallet_w": f"pallet_w{suffix}",
+            "max_stack_height": f"max_stack_height{suffix}",
+            "max_width_stickout": f"max_width_stickout{suffix}",
+            "max_length_stickout": f"max_length_stickout{suffix}",
+        },
+        "ids": {
+            "root": f"palletizationToolRoot{suffix}",
+            "box_catalogue_chooser": f"boxCatalogueChooser{suffix}",
+            "manual_box_fields": f"manualBoxFields{suffix}",
+            "pallet_catalogue_chooser": f"palletCatalogueChooser{suffix}",
+            "manual_pallet_fields": f"manualPalletFields{suffix}",
+            "catalogue_pallet_main_fields": f"cataloguePalletMainFields{suffix}",
+            "stacking_constraints_section": f"stackingConstraintsSection{suffix}",
+            "toggle_constraints_text": f"toggleConstraintsText{suffix}",
+            "toggle_constraints_icon": f"toggleConstraintsIcon{suffix}",
+            "selected_result_key": f"selected_result_key{suffix}",
+            "show_advanced": f"show_advanced{suffix}",
+        },
+        "actions": {
+            "browse_box": "palletToolBrowseBoxCatalogue",
+            "clear_box": "palletToolClearSelectedBox",
+            "select_box": "palletToolSelectBox",
+            "browse_pallet": "palletToolBrowsePalletCatalogue",
+            "clear_pallet": "palletToolClearSelectedPallet",
+            "select_pallet": "palletToolSelectPallet",
+            "toggle_advanced": "palletToolToggleConstraints",
+            "run_analysis": "palletToolRunAnalysis",
+            "select_result": "palletToolSelectResult",
+        },
+    }
 
 def palletization_mode1(request):
+    packaging_catalogues = PackagingCatalogue.objects.all().order_by("name")
+
+    config = _read_raw_palletization_config(request)
+
+    selected_box_material = get_selected_box_material(config)
+    selected_pallet_material = get_selected_pallet_material(config)
+
+    box_materials = get_box_materials(config)
+    pallet_materials = get_pallet_materials(config)
+
+    form = _build_hydrated_form(
+        request=request,
+        config=config,
+        selected_box_material=selected_box_material,
+        selected_pallet_material=selected_pallet_material,
+    )
+    _apply_catalogue_choices(form, packaging_catalogues)
+
     results_table = []
     selected_result = None
     result_image_url = None
 
-    box_materials = PackagingMaterial.objects.none()
-    pallet_materials = PackagingMaterial.objects.none()
-
-    selected_box_material = None
-    selected_pallet_material = None
-
-    if request.method == "POST":
-        form = PalletizationForm(request.POST)
-    else:
-        form = PalletizationForm(initial={
-            "box_source": "manual",
-            "pallet_source": "manual",
-            "max_width_stickout": 0,
-            "max_length_stickout": 0,
-        })
-
-    packaging_catalogues = PackagingCatalogue.objects.all().order_by("name")
-
-    form.fields["box_catalogue_id"].choices = [("", "— Select —")] + [
-        (str(c.id), c.name) for c in packaging_catalogues
-    ]
-    form.fields["pallet_catalogue_id"].choices = [("", "— Select —")] + [
-        (str(c.id), c.name) for c in packaging_catalogues
-    ]
-
-    raw_box_source = request.POST.get("box_source") or request.GET.get("box_source") or "manual"
-    raw_pallet_source = request.POST.get("pallet_source") or request.GET.get("pallet_source") or "manual"
-
-    raw_box_catalogue_id = request.POST.get("box_catalogue_id") or request.GET.get("box_catalogue_id") or ""
-    raw_selected_box_id = request.POST.get("selected_box_id") or request.GET.get("selected_box_id") or ""
-
-    raw_pallet_catalogue_id = request.POST.get("pallet_catalogue_id") or request.GET.get("pallet_catalogue_id") or ""
-    raw_pallet_id = request.POST.get("pallet_id") or request.GET.get("pallet_id") or ""
-
-    if raw_box_catalogue_id:
-        box_materials = PackagingMaterial.objects.filter(
-            catalogue_id=raw_box_catalogue_id,
-            packaging_type__in=["BOX", "CRATE"]
-        ).select_related("catalogue").order_by("part_number")
-
-    if raw_pallet_catalogue_id:
-        pallet_materials = PackagingMaterial.objects.filter(
-            catalogue_id=raw_pallet_catalogue_id,
-            packaging_type="PALLET"
-        ).select_related("catalogue").order_by("part_number")
-
-    if raw_selected_box_id:
-        selected_box_material = PackagingMaterial.objects.filter(
-            id=raw_selected_box_id,
-            packaging_type__in=["BOX", "CRATE"]
-        ).select_related("catalogue").first()
-
-    if raw_pallet_id:
-        selected_pallet_material = PackagingMaterial.objects.filter(
-            id=raw_pallet_id,
-            packaging_type="PALLET"
-        ).select_related("catalogue").first()
-
     if request.method == "POST":
         action = request.POST.get("action") or "refresh"
+        selected_result_key = request.POST.get("selected_result_key") or ""
 
         if action in ("run_analysis", "select_result"):
-            if form.is_valid():
-                current_box_source = form.cleaned_data.get("box_source") or "manual"
-                current_pallet_source = form.cleaned_data.get("pallet_source") or "manual"
+            analysis = analyze_palletization_config(
+                config=config,
+                selected_result_key=selected_result_key,
+                selected_box_material=selected_box_material,
+                selected_pallet_material=selected_pallet_material,
+                media_root=settings.MEDIA_ROOT,
+            )
 
-                raw_box_catalogue_id = form.cleaned_data.get("box_catalogue_id") or raw_box_catalogue_id
-                raw_selected_box_id = form.cleaned_data.get("selected_box_id") or raw_selected_box_id
-                raw_pallet_catalogue_id = form.cleaned_data.get("pallet_catalogue_id") or raw_pallet_catalogue_id
-                raw_pallet_id = form.cleaned_data.get("pallet_id") or raw_pallet_id
+            if analysis["ok"]:
+                serialized = analysis["serialized_result"] or {}
+                results_table = serialized.get("results_table") or []
+                selected_result = serialized.get("selected_result")
+                image_rel_path = serialized.get("image_rel_path")
 
-                if raw_box_catalogue_id:
-                    box_materials = PackagingMaterial.objects.filter(
-                        catalogue_id=raw_box_catalogue_id,
-                        packaging_type__in=["BOX", "CRATE"]
-                    ).select_related("catalogue").order_by("part_number")
-                else:
-                    box_materials = PackagingMaterial.objects.none()
+                if image_rel_path:
+                    result_image_url = settings.MEDIA_URL + image_rel_path
+            else:
+                for message in analysis["messages"]:
+                    form.add_error(None, message)
 
-                if raw_pallet_catalogue_id:
-                    pallet_materials = PackagingMaterial.objects.filter(
-                        catalogue_id=raw_pallet_catalogue_id,
-                        packaging_type="PALLET"
-                    ).select_related("catalogue").order_by("part_number")
-                else:
-                    pallet_materials = PackagingMaterial.objects.none()
-
-                selected_box_material = (
-                    PackagingMaterial.objects.filter(
-                        id=raw_selected_box_id,
-                        packaging_type__in=["BOX", "CRATE"]
-                    ).select_related("catalogue").first()
-                    if raw_selected_box_id else None
-                )
-
-                selected_pallet_material = (
-                    PackagingMaterial.objects.filter(
-                        id=raw_pallet_id,
-                        packaging_type="PALLET"
-                    ).select_related("catalogue").first()
-                    if raw_pallet_id else None
-                )
-
-                if current_box_source == "catalogue":
-                    box_l, box_w, box_h = _dims_from_material(selected_box_material, prefer_external=True)
-                    box_weight = (
-                        float(selected_box_material.part_weight)
-                        if selected_box_material and selected_box_material.part_weight is not None
-                        else None
-                    )
-                    manual_box_weight = form.cleaned_data.get("box_weight")
-                    if manual_box_weight is not None:
-                        box_weight = float(manual_box_weight)
-                else:
-                    box_l = float(form.cleaned_data["box_l"])
-                    box_w = float(form.cleaned_data["box_w"])
-                    box_h = float(form.cleaned_data["box_h"])
-                    box_weight = form.cleaned_data.get("box_weight")
-                    if box_weight is not None:
-                        box_weight = float(box_weight)
-
-                if current_pallet_source == "catalogue":
-                    pallet_l, pallet_w, _ = _dims_from_material(selected_pallet_material, prefer_external=True)
-                else:
-                    pallet_l = float(form.cleaned_data["pallet_l"])
-                    pallet_w = float(form.cleaned_data["pallet_w"])
-
-                max_weight_on_bottom_box = form.cleaned_data.get("max_weight_on_bottom_box")
-                if max_weight_on_bottom_box is not None:
-                    max_weight_on_bottom_box = float(max_weight_on_bottom_box)
-
-                max_stack_height = float(form.cleaned_data["max_stack_height"])
-                max_width_stickout = float(form.cleaned_data.get("max_width_stickout") or 0)
-                max_length_stickout = float(form.cleaned_data.get("max_length_stickout") or 0)
-
-                results_table = run_palletization_analysis(
-                    box_l=box_l,
-                    box_w=box_w,
-                    box_h=box_h,
-                    pallet_l=pallet_l,
-                    pallet_w=pallet_w,
-                    max_stack_height=max_stack_height,
-                    max_width_stickout=max_width_stickout,
-                    max_length_stickout=max_length_stickout,
-                    box_weight=box_weight,
-                    max_weight_on_bottom_box=max_weight_on_bottom_box,
-                )
-
-                selected_result_key = request.POST.get("selected_result_key") or ""
-
-                if results_table:
-                    if action == "select_result" and selected_result_key:
-                        for row in results_table:
-                            row_key = f'{row["pattern"]}__{row["stacking"]}'
-                            if row_key == selected_result_key:
-                                selected_result = row
-                                break
-
-                    if selected_result is None:
-                        selected_result = results_table[0]
-
-                    render_res = render_selected_result(
-                        selected_result=selected_result,
-                        pallet_l=pallet_l,
-                        pallet_w=pallet_w,
-                        max_stack_height=max_stack_height,
-                        media_root=settings.MEDIA_ROOT,
-                    )
-                    result_image_url = settings.MEDIA_URL + render_res.image_rel_path
-
-    return render(request, "palletization/palletization_mode1.html", {
-        "form": form,
-        "box_materials": box_materials,
-        "pallet_materials": pallet_materials,
-        "selected_box_material": selected_box_material,
-        "selected_pallet_material": selected_pallet_material,
-        "results_table": results_table,
-        "selected_result": selected_result,
-        "result_image_url": result_image_url,
-        "current_box_source": raw_box_source,
-        "current_pallet_source": raw_pallet_source,
-    })
+    return render(
+        request,
+        "palletization/palletization_mode1.html",
+        {
+            "form": form,
+            "pallet_form": form,
+            "pallet_config": config,
+            "box_materials": box_materials,
+            "pallet_materials": pallet_materials,
+            "selected_box_material": selected_box_material,
+            "selected_pallet_material": selected_pallet_material,
+            "results_table": results_table,
+            "selected_result": selected_result,
+            "result_image_url": result_image_url,
+            "current_box_source": config.get("box_source") or "manual",
+            "current_pallet_source": config.get("pallet_source") or "manual",
+            "show_advanced": bool(config.get("show_advanced", False)),
+            "mode": "standalone",
+            "prefix": "",
+            "pallet_ui": _build_shared_pallet_ui_contract(prefix=""),
+        },
+    )
