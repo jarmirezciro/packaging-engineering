@@ -258,6 +258,11 @@ def palletization_mode1(request):
             "show_advanced": bool(config.get("show_advanced", False)),
             "mode": "standalone",
             "prefix": "",
+            "packaging_catalogues": packaging_catalogues,
+            "pallet_values": {
+                k: config.get(k)
+                for k in default_palletization_config().keys()
+            },
             "pallet_ui": _build_shared_pallet_ui_contract(prefix=""),
         },
     )
