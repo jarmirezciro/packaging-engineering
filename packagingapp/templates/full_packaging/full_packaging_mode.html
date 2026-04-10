@@ -477,22 +477,7 @@
         </div>
 
         {% elif step.type == "container" %}
-        <input type="hidden" name="{{ step.container_ui.names.action }}" value="{{ step.container_values.action|default:'' }}">
-        <input type="hidden" name="{{ step.container_ui.names.selected_product_id }}" id="{{ step.container_ui.ids.selected_product_id }}" value="{{ step.container_values.selected_product_id|default:'' }}">
-        <input type="hidden" name="{{ step.container_ui.names.container_id }}" id="{{ step.container_ui.ids.container_id }}" value="{{ step.container_values.container_id|default:'' }}">
-
-        <div id="{{ step.container_ui.ids.root }}"
-            data-container-tool-root
-            data-container-prefix="{{ step.container_ui.prefix }}">
-          {% include "container_selection_tool/partials/_container_selection_tool.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url products=step.products materials=step.materials top5=step.container_top5_rows %}
-        </div>
-
-          {% include "container_selection_tool/partials/_container_selection_product_catalogue_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix products=step.products current_product_source=step.current_product_source selected_product=step.selected_product %}
-          {% include "container_selection_tool/partials/_container_selection_packaging_catalogue_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix materials=step.materials current_mode=step.current_mode current_container_source=step.current_container_source selected_material=step.selected_material %}
-          {% include "container_selection_tool/partials/_container_selection_top5_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix top5=step.container_top5_rows current_mode=step.current_mode selected_material=step.selected_material %}
-        </div>
-
-        {% include "container_selection_tool/partials/_container_selection_scripts.html" with container_ui=step.container_ui %}
+{% include "container_selection_tool/container_selection_wrapper.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url products=step.products materials=step.materials top5=step.container_top5_rows %}
 
         {% else %}
         <div class="tool-grid-3">
@@ -776,7 +761,7 @@
           </div>
         </div>
 
-        {% if forloop.first and step.config.product_source == 'catalogue' and not step.selected_product %}
+        {% if step.type != 'container' and forloop.first and step.config.product_source == 'catalogue' and not step.selected_product %}
         <div class="app-card">
           <div class="app-card-body">
             <div class="app-section-title">Product Catalogue Selection</div>
@@ -837,59 +822,6 @@
         </div>
         {% endif %}
 
-        {% if step.type == 'container' and step.config.mode == 'single' and step.config.container_source == 'catalogue' and not step.selected_material and step.config.catalogue_id %}
-        <div class="app-card">
-          <div class="app-card-body">
-            <div class="app-section-title">Packaging Catalogue Selection</div>
-            <div class="app-section-subtitle">Select one container from the chosen catalogue.</div>
-            <div class="app-table-wrap">
-              <table class="table table-hover app-table align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th class="tool-select-col"></th>
-                    <th>Part Number</th>
-                    <th>Description</th>
-                    <th>Type</th>
-                    <th>Brand</th>
-                    <th>Materials</th>
-                    <th>Int. L (mm)</th>
-                    <th>Int. W (mm)</th>
-                    <th>Int. H (mm)</th>
-                    <th>Ext. L (mm)</th>
-                    <th>Ext. W (mm)</th>
-                    <th>Ext. H (mm)</th>
-                    <th>Weight</th>
-                    <th>Volume</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for m in step.materials %}
-                  <tr class="tool-clickable-row" onclick="fpSelectPackaging({{ forloop.parentloop.counter0 }}, '{{ m.id }}', 'select_container')" tabindex="0" role="button">
-                    <td class="tool-select-col"><button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); fpSelectPackaging({{ forloop.parentloop.counter0 }}, '{{ m.id }}', 'select_container')">Select</button></td>
-                    <td>{{ m.part_number }}</td>
-                    <td class="text-nowrap">{{ m.part_description }}</td>
-                    <td>{{ m.packaging_type }}</td>
-                    <td>{{ m.branding }}</td>
-                    <td>{{ m.packaging_materials }}</td>
-                    <td>{{ m.part_length }}</td>
-                    <td>{{ m.part_width }}</td>
-                    <td>{{ m.part_height }}</td>
-                    <td>{{ m.external_length|default:'—' }}</td>
-                    <td>{{ m.external_width|default:'—' }}</td>
-                    <td>{{ m.external_height|default:'—' }}</td>
-                    <td>{{ m.part_weight|default:'—' }}</td>
-                    <td>{{ m.part_volume|default:'—' }}</td>
-                  </tr>
-                  {% empty %}
-                  <tr><td colspan="14" class="text-center text-muted">No packaging materials found.</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
         {% if step.type == 'bag' and step.config.mode == 'single' and step.config.bag_source == 'catalogue' and not step.selected_material and step.config.catalogue_id %}
         <div class="app-card">
           <div class="app-card-body">
@@ -923,45 +855,6 @@
                   </tr>
                   {% empty %}
                   <tr><td colspan="8" class="text-center text-muted">No BAG materials found in this catalogue.</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
-        {% if step.type == 'container' and step.config.mode == 'optimal' and step.top5 %}
-        <div class="app-card">
-          <div class="app-card-body">
-            <div class="app-section-title">Top 5 Most Suitable Containers</div>
-            <div class="app-section-subtitle">Choose one candidate to generate the 3D arrangement and continue the workflow.</div>
-            <div class="app-table-wrap">
-              <table class="table table-hover app-table align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th>Rank</th>
-                    <th>Part Number</th>
-                    <th>L (mm)</th>
-                    <th>W (mm)</th>
-                    <th>H (mm)</th>
-                    <th>Max Qty</th>
-                    <th>Usage %</th>
-                    <th class="text-end">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for c in step.top5 %}
-                  <tr class="{% if step.config.container_id|stringformat:'s' == c.id|stringformat:'s' %}table-success{% endif %}">
-                    <td>{{ forloop.counter }}</td>
-                    <td>{{ c.part_number }}</td>
-                    <td>{{ c.length }}</td>
-                    <td>{{ c.width }}</td>
-                    <td>{{ c.height }}</td>
-                    <td>{{ c.max_qty }}</td>
-                    <td>{{ c.usage_pct }}</td>
-                    <td class="text-end"><button type="button" class="btn btn-sm btn-app-outline" onclick="fpSelectPackaging({{ forloop.parentloop.counter0 }}, '{{ c.id }}', 'select_candidate')">Select & Draw</button></td>
-                  </tr>
                   {% endfor %}
                 </tbody>
               </table>
@@ -1481,5 +1374,6 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 
+{% include "container_selection_tool/partials/_container_selection_scripts.html" %}
 {% include "container_tool/partials/_transport_scripts.html" %}
 {% endblock %}

@@ -1,0 +1,25 @@
+<input type="hidden"
+       name="{{ container_ui.names.action }}"
+       value="{{ container_values.action|default:'' }}">
+
+<input type="hidden"
+       name="{{ container_ui.names.selected_product_id }}"
+       id="{{ container_ui.ids.selected_product_id }}"
+       value="{{ container_values.selected_product_id|default:'' }}">
+
+<input type="hidden"
+       name="{{ container_ui.names.container_id }}"
+       id="{{ container_ui.ids.container_id }}"
+       value="{{ container_values.container_id|default:'' }}">
+
+{% if form and form.non_field_errors %}
+    <div class="alert alert-danger mb-0">
+        {{ form.non_field_errors }}
+    </div>
+{% endif %}
+
+<div id="{{ container_ui.ids.root }}"
+     data-container-tool-root
+     data-container-prefix="{{ container_ui.prefix|default:'' }}">
+    {% include "container_selection_tool/partials/_container_selection_tool.html" %}
+</div>
