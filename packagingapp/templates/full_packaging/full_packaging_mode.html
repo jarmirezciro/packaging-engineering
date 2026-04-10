@@ -475,7 +475,18 @@
           {% include "container_tool/partials/_transport_product_section.html" with is_workflow=True step_index=forloop.counter0 is_first_step=forloop.first product_rows=step.product_rows result=step.result auto_hide_product_catalogue=step.auto_hide_product_catalogue selected_row_index=step.config.selected_row_index product_catalogue_id=step.config.product_catalogue_id product_catalogues=product_catalogues product_items=step.products %}
         </div>
 
-        {% else %}
+        {% elif step.type == "container" %}
+        <input type="hidden" name="{{ step.container_ui.names.action }}" value="{{ step.container_values.action|default:'' }}">
+        <input type="hidden" name="{{ step.container_ui.names.selected_product_id }}" value="{{ step.container_values.selected_product_id|default:'' }}">
+        <input type="hidden" name="{{ step.container_ui.names.container_id }}" value="{{ step.container_values.container_id|default:'' }}">
+
+        <div id="containerSelectionRoot_{{ step.prefix }}">
+          {% include "container_selection_tool/partials/_container_selection_tool.html" with form=step.container_form container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material products=step.products materials=step.materials result=step.result image_url=step.image_url top5=step.container_top5_rows product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues %}
+        </div>
+
+        {% include "container_selection_tool/partials/_container_selection_scripts.html" with mode=step.mode container_ui=step.container_ui %}
+
+        {% elif step.type == "bag" %}
         <div class="tool-grid-3">
           <div class="app-card">
             <div class="app-card-body">

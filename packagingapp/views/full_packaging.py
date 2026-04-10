@@ -20,6 +20,25 @@ from ..tools.palletization.service import (
 )
 from ..tools.palletization.state import default_palletization_config
 from ..views.palletization import _build_shared_pallet_ui_contract
+from ..views.container_selection import _build_shared_container_ui_contract
+
+from ..tools.container.presenter import (
+    selected_container_summary as selected_container_summary_container,
+    selected_product_summary as selected_product_summary_container,
+)
+from ..tools.container.serializers import sanitize_container_config_for_session
+from ..tools.container.service import (
+    analyze_container_form,
+    apply_catalogue_choices as apply_container_catalogue_choices,
+    build_container_form,
+    get_materials_for_catalogue as get_container_materials_for_catalogue,
+    get_packaging_catalogues as get_container_packaging_catalogues,
+    get_product_catalogues as get_container_product_catalogues,
+    get_products_for_catalogue as get_container_products_for_catalogue,
+    get_selected_material as get_container_selected_material,
+    get_selected_product as get_container_selected_product,
+)
+from ..tools.container.state import default_container_config
 
 from ..tools.transport.presenter import (
     selected_container_summary,
@@ -491,164 +510,199 @@ def _resolve_visual_bag_box(selected_bag, inner_box):
     return (round(bag_box_length, 2), round(bag_box_width, 2), round(bh, 2))
 
 
-def _process_container_step(step, steps, idx, post):
-    cfg = step["config"]
-    messages = []
-    step["top5"] = []
-    step["result"] = None
-    step["image_url"] = None
-    step["pending_result"] = None
 
-    cfg["mode"] = post.get(f"mode_{idx}", cfg.get("mode", "single"))
+def _inflate_container_top5_rows(top5_rows):
+    hydrated = []
+    for row in top5_rows or []:
+        material = PackagingMaterial.objects.filter(
+            id=row.get("material_id") or None
+        ).select_related("catalogue").first()
+        if material is None:
+            continue
+        hydrated.append({
+            "material": material,
+            "max_qty": row.get("max_qty"),
+            "usage": row.get("usage", 0.0),
+            "container_vol": row.get("container_vol"),
+        })
+    return hydrated
+
+
+def _prepare_container_step_view_model(step, idx):
+    cfg = sanitize_container_config_for_session(step.get("config") or {})
+    if idx != 0:
+        cfg["product_source"] = "manual"
+        cfg["product_catalogue_id"] = ""
+        cfg["selected_product_id"] = ""
+        cfg = sanitize_container_config_for_session(cfg)
+
+    packaging_catalogues = get_container_packaging_catalogues()
+    product_catalogues = get_container_product_catalogues()
+
+    selected_product = get_container_selected_product(cfg) if idx == 0 else None
+    selected_material = get_container_selected_material(cfg)
+
+    products = get_container_products_for_catalogue(cfg) if idx == 0 else Product.objects.none()
+    materials = get_container_materials_for_catalogue(cfg)
+
+    request_stub = type("ContainerWorkflowGetRequest", (), {"method": "GET"})()
+    form = build_container_form(
+        request=request_stub,
+        config=cfg,
+        selected_product=selected_product,
+        selected_material=selected_material,
+    )
+    apply_container_catalogue_choices(form, packaging_catalogues, product_catalogues)
+
+    step["config"] = cfg
+    step["container_form"] = form
+    step["container_values"] = {k: cfg.get(k) for k in default_container_config().keys()}
+    step["container_ui"] = _build_shared_container_ui_contract(prefix=str(idx))
+    step["mode"] = "workflow"
+    step["prefix"] = str(idx)
+
+    step["products"] = products
+    step["materials"] = materials
+    step["selected_product"] = selected_product
+    step["selected_material"] = selected_material
+    step["selected_product_summary"] = selected_product_summary_container(
+        selected_product=selected_product,
+        data=cfg,
+        mode=cfg.get("mode") or "single",
+    )
+    step["selected_container_summary"] = selected_container_summary_container(
+        selected_material=selected_material,
+        data=cfg,
+    )
+    step["current_mode"] = cfg.get("mode") or "single"
+    step["current_product_source"] = cfg.get("product_source") or "manual"
+    step["current_container_source"] = cfg.get("container_source") or "manual"
+    step["container_top5_rows"] = _inflate_container_top5_rows(step.get("top5", []))
+
+
+def _process_container_step(step, steps, idx, post):
+    existing_cfg = step.get("config") or {}
+    cfg = default_container_config()
+    cfg.update(existing_cfg)
+
+    suffix = f"_{idx}"
+    cfg["mode"] = post.get(f"mode{suffix}", post.get(f"mode_{idx}", cfg.get("mode", "single")))
 
     if idx == 0:
-        cfg["product_source"] = post.get(f"product_source_{idx}", cfg.get("product_source", "manual"))
-        cfg["product_catalogue_id"] = post.get(f"product_catalogue_id_{idx}", cfg.get("product_catalogue_id", ""))
-        cfg["selected_product_id"] = post.get(f"selected_product_id_{idx}", cfg.get("selected_product_id", ""))
+        cfg["product_source"] = post.get(f"product_source{suffix}", post.get(f"product_source_{idx}", cfg.get("product_source", "manual")))
+        cfg["product_catalogue_id"] = post.get(f"product_catalogue_id{suffix}", post.get(f"product_catalogue_id_{idx}", cfg.get("product_catalogue_id", "")))
+        cfg["selected_product_id"] = post.get(f"selected_product_id{suffix}", post.get(f"selected_product_id_{idx}", cfg.get("selected_product_id", "")))
     else:
         cfg["product_source"] = "manual"
         cfg["product_catalogue_id"] = ""
         cfg["selected_product_id"] = ""
 
-    cfg["container_source"] = post.get(f"container_source_{idx}", cfg.get("container_source", "manual"))
-    cfg["product_l"] = post.get(f"product_l_{idx}", cfg.get("product_l", ""))
-    cfg["product_w"] = post.get(f"product_w_{idx}", cfg.get("product_w", ""))
-    cfg["product_h"] = post.get(f"product_h_{idx}", cfg.get("product_h", ""))
-    cfg["product_weight"] = post.get(f"product_weight_{idx}", cfg.get("product_weight", ""))
-    cfg["desired_qty"] = _to_int(post.get(f"desired_qty_{idx}"), cfg.get("desired_qty", 1)) or 1
-    cfg["r1"] = _as_bool(post, f"r1_{idx}", cfg.get("r1", True))
-    cfg["r2"] = _as_bool(post, f"r2_{idx}", cfg.get("r2", True))
-    cfg["r3"] = _as_bool(post, f"r3_{idx}", cfg.get("r3", True))
-    cfg["catalogue_id"] = post.get(f"catalogue_id_{idx}", cfg.get("catalogue_id", ""))
-    cfg["container_id"] = post.get(f"container_id_{idx}", cfg.get("container_id", ""))
-    cfg["box_l"] = post.get(f"box_l_{idx}", cfg.get("box_l", ""))
-    cfg["box_w"] = post.get(f"box_w_{idx}", cfg.get("box_w", ""))
-    cfg["box_h"] = post.get(f"box_h_{idx}", cfg.get("box_h", ""))
+    cfg["container_source"] = post.get(f"container_source{suffix}", post.get(f"container_source_{idx}", cfg.get("container_source", "manual")))
+    cfg["product_l"] = post.get(f"product_l{suffix}", post.get(f"product_l_{idx}", cfg.get("product_l", "")))
+    cfg["product_w"] = post.get(f"product_w{suffix}", post.get(f"product_w_{idx}", cfg.get("product_w", "")))
+    cfg["product_h"] = post.get(f"product_h{suffix}", post.get(f"product_h_{idx}", cfg.get("product_h", "")))
+    cfg["product_weight"] = post.get(f"product_weight{suffix}", post.get(f"product_weight_{idx}", cfg.get("product_weight", "")))
+    cfg["desired_qty"] = post.get(f"desired_qty{suffix}", post.get(f"desired_qty_{idx}", cfg.get("desired_qty", "1")))
+    cfg["r1"] = post.get(f"r1{suffix}") is not None if f"r1{suffix}" in post or f"r2{suffix}" in post or f"r3{suffix}" in post else _as_bool(post, f"r1_{idx}", cfg.get("r1", True))
+    cfg["r2"] = post.get(f"r2{suffix}") is not None if f"r1{suffix}" in post or f"r2{suffix}" in post or f"r3{suffix}" in post else _as_bool(post, f"r2_{idx}", cfg.get("r2", True))
+    cfg["r3"] = post.get(f"r3{suffix}") is not None if f"r1{suffix}" in post or f"r2{suffix}" in post or f"r3{suffix}" in post else _as_bool(post, f"r3_{idx}", cfg.get("r3", True))
+    cfg["catalogue_id"] = post.get(f"catalogue_id{suffix}", post.get(f"catalogue_id_{idx}", cfg.get("catalogue_id", "")))
+    cfg["container_id"] = post.get(f"container_id{suffix}", post.get(f"container_id_{idx}", cfg.get("container_id", "")))
+    cfg["box_l"] = post.get(f"box_l{suffix}", post.get(f"box_l_{idx}", cfg.get("box_l", "")))
+    cfg["box_w"] = post.get(f"box_w{suffix}", post.get(f"box_w_{idx}", cfg.get("box_w", "")))
+    cfg["box_h"] = post.get(f"box_h{suffix}", post.get(f"box_h_{idx}", cfg.get("box_h", "")))
+    cfg["action"] = post.get(f"action{suffix}", post.get(f"step_action_{idx}", cfg.get("action", "refresh")))
 
-    action = post.get(f"step_action_{idx}", "refresh")
-
-    if action == "browse_product" and idx == 0:
+    if idx != 0:
+        cfg["product_source"] = "manual"
+        cfg["product_catalogue_id"] = ""
         cfg["selected_product_id"] = ""
-    elif action == "clear_product" and idx == 0:
-        cfg["selected_product_id"] = ""
-    elif action == "select_product" and idx == 0:
-        cfg["selected_product_id"] = post.get(f"selected_product_id_{idx}", "")
-    elif action == "browse_packaging":
-        cfg["container_id"] = ""
-    elif action == "clear_packaging":
-        cfg["container_id"] = ""
-    elif action in ("select_container", "select_candidate"):
-        cfg["container_id"] = post.get(f"container_id_{idx}", cfg.get("container_id", ""))
 
-    mode = cfg["mode"]
-    product_source = cfg["product_source"]
-    container_source = cfg["container_source"]
+    cfg = sanitize_container_config_for_session(cfg)
 
-    selected_product = Product.objects.filter(id=cfg.get("selected_product_id") or None).select_related("catalogue").first()
-    selected_material = PackagingMaterial.objects.filter(id=cfg.get("container_id") or None).select_related("catalogue").first()
+    selected_product = get_container_selected_product(cfg) if idx == 0 else None
+    selected_material = get_container_selected_material(cfg)
+    materials = get_container_materials_for_catalogue(cfg)
 
-    product, r1, r2, r3 = _resolve_product_for_container(cfg, selected_product)
+    request_stub = type("ContainerWorkflowPostRequest", (), {"method": "POST", "POST": post})()
+    form = build_container_form(
+        request=request_stub,
+        config=cfg,
+        selected_product=selected_product,
+        selected_material=selected_material,
+    )
+    apply_container_catalogue_choices(
+        form,
+        get_container_packaging_catalogues(),
+        get_container_product_catalogues(),
+    )
 
-    if mode == "optimal" and product_source == "catalogue" and selected_product:
-        desired_qty = int(selected_product.desired_qty or 1)
-    else:
-        desired_qty = int(cfg.get("desired_qty") or 1)
+    result_payload = None
+    image_url = None
+    top5_payload = []
+    messages = []
+    pending_result = None
 
-    if r1 == 0 and r2 == 0 and r3 == 0:
-        messages.append("Please enable at least one rotation option.")
-
-    if mode == "single" and action in ("run_single", "select_container") and not messages:
-        container = None
-        if product_source == "catalogue" and not selected_product:
-            messages.append("Please select a product from the product catalogue.")
-        elif product_source == "manual" and (not product or None in product):
-            messages.append("Please enter product dimensions.")
-
-        if not messages:
-            if container_source == "manual":
-                container = (_to_float(cfg.get("box_l")), _to_float(cfg.get("box_w")), _to_float(cfg.get("box_h")))
-                if None in container:
-                    messages.append("Please enter all manual container dimensions (L/W/H).")
-            else:
-                if not selected_material:
-                    messages.append("Please select a packaging item from the catalogue table.")
-                else:
-                    container = (
-                        float(selected_material.part_length),
-                        float(selected_material.part_width),
-                        float(selected_material.part_height),
-                    )
-
-        if not messages and container and product:
-            result = run_mode1_and_render(product, container, r1, r2, r3, settings.MEDIA_ROOT)
-            step["image_url"] = settings.MEDIA_URL + result.image_rel_path
-            step["result"] = {"kind": "container", "max_quantity": result.max_quantity}
-            label = selected_material.part_number if selected_material else "Manual Container"
-            base_units = desired_qty if desired_qty else 1
-            step["pending_result"] = {
-                "label": label,
-                "length": round(container[0], 2),
-                "width": round(container[1], 2),
-                "height": round(container[2], 2),
-                "units_per_parent": desired_qty,
-                "total_base_units": base_units,
+    if form.is_valid():
+        analysis = analyze_container_form(
+            form=form,
+            config=cfg,
+            selected_product=selected_product,
+            selected_material=selected_material,
+            materials=materials,
+        )
+        messages = list(analysis.get("messages") or [])
+        render_result = analysis.get("result")
+        image_url = analysis.get("image_url")
+        top5_payload = [
+            {
+                "material_id": str(row["material"].id),
+                "max_qty": row.get("max_qty"),
+                "usage": row.get("usage", 0.0),
+                "container_vol": row.get("container_vol"),
             }
+            for row in (analysis.get("top5") or [])
+            if row.get("material") is not None
+        ]
 
-    if mode == "optimal" and action in ("find_top5", "select_candidate") and not messages:
-        if product_source == "catalogue" and not selected_product:
-            messages.append("Please select a product from the product catalogue.")
-        elif product_source == "manual" and (not product or None in product):
-            messages.append("Please enter product dimensions.")
-        elif not cfg.get("catalogue_id"):
-            messages.append("Please select a packaging catalogue.")
+        if render_result is not None:
+            result_payload = {
+                "kind": "container",
+                "max_quantity": getattr(render_result, "max_quantity", None),
+            }
+            desired_qty = int(form.cleaned_data.get("desired_qty") or 1)
+            if cfg.get("product_source") == "catalogue" and selected_product and cfg.get("mode") == "optimal":
+                desired_qty = int(getattr(selected_product, "desired_qty", 1) or 1)
 
-        materials = PackagingMaterial.objects.filter(catalogue_id=cfg.get("catalogue_id")).select_related("catalogue").order_by("part_number") if cfg.get("catalogue_id") else PackagingMaterial.objects.none()
-        if not messages:
-            product_vol = product[0] * product[1] * product[2]
-            scored = []
-            for m in materials:
-                container = (float(m.part_length), float(m.part_width), float(m.part_height))
-                max_qty = compute_max_quantity_only(product, container, r1, r2, r3)
-                if max_qty >= desired_qty:
-                    container_vol = float(m.part_volume) if m.part_volume is not None else (container[0] * container[1] * container[2])
-                    usage = (desired_qty * product_vol) / container_vol if container_vol > 0 else 0.0
-                    scored.append({"material": m, "max_qty": max_qty, "usage": usage, "container_vol": container_vol})
+            if selected_material is not None:
+                length = float(selected_material.part_length)
+                width = float(selected_material.part_width)
+                height = float(selected_material.part_height)
+                label = selected_material.part_number
+            else:
+                length = _to_float(cfg.get("box_l"), 0.0) or 0.0
+                width = _to_float(cfg.get("box_w"), 0.0) or 0.0
+                height = _to_float(cfg.get("box_h"), 0.0) or 0.0
+                label = "Manual Container"
 
-            scored.sort(key=lambda x: (-x["usage"], x["container_vol"]))
-            step["top5"] = [{
-                "id": str(row["material"].id),
-                "part_number": row["material"].part_number,
-                "length": round(float(row["material"].part_length), 2),
-                "width": round(float(row["material"].part_width), 2),
-                "height": round(float(row["material"].part_height), 2),
-                "max_qty": row["max_qty"],
-                "usage_pct": round(row["usage"] * 100, 2),
-            } for row in scored[:5]]
+            pending_result = {
+                "label": label,
+                "length": round(length, 2),
+                "width": round(width, 2),
+                "height": round(height, 2),
+                "units_per_parent": desired_qty,
+                "total_base_units": desired_qty,
+            }
+    else:
+        messages = [str(err) for err in form.non_field_errors()]
 
-            if action == "select_candidate":
-                if not selected_material:
-                    messages.append("Please select one of the Top 5 containers.")
-                else:
-                    container = (
-                        float(selected_material.part_length),
-                        float(selected_material.part_width),
-                        float(selected_material.part_height),
-                    )
-                    result = run_mode1_and_render(product, container, r1, r2, r3, settings.MEDIA_ROOT, draw_limit=desired_qty)
-                    step["image_url"] = settings.MEDIA_URL + result.image_rel_path
-                    step["result"] = {"kind": "container", "max_quantity": result.max_quantity}
-                    step["pending_result"] = {
-                        "label": selected_material.part_number,
-                        "length": round(container[0], 2),
-                        "width": round(container[1], 2),
-                        "height": round(container[2], 2),
-                        "units_per_parent": desired_qty,
-                        "total_base_units": desired_qty,
-                    }
-
+    step["config"] = cfg
+    step["result"] = result_payload
+    step["image_url"] = image_url
+    step["top5"] = top5_payload
+    step["pending_result"] = pending_result
     step["messages"] = messages
     step["expanded"] = True
-
 
 def _process_bag_step(step, steps, idx, post):
     cfg = step["config"]
@@ -1246,16 +1300,7 @@ def full_packaging_mode(request):
 
             _compute_pallet_view_model(step, steps, idx)
         else:
-            step["materials"] = PackagingMaterial.objects.filter(
-                catalogue_id=cfg.get("catalogue_id") or None
-            ).select_related("catalogue").order_by("part_number") if cfg.get("catalogue_id") else PackagingMaterial.objects.none()
-            step["selected_material"] = PackagingMaterial.objects.filter(
-                id=cfg.get("container_id") or None
-            ).select_related("catalogue").first()
-            if step["selected_material"] is not None:
-                cfg["container_l"] = float(step["selected_material"].part_length)
-                cfg["container_w"] = float(step["selected_material"].part_width)
-                cfg["container_h"] = float(step["selected_material"].part_height)
+            _prepare_container_step_view_model(step, idx)
 
     return render(request, "full_packaging/full_packaging_mode.html", {
         "steps": steps,

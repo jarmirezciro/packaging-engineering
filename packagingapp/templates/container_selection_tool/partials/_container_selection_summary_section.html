@@ -1,0 +1,9 @@
+<div class="tool-summary-strip compact">
+    <div class="tool-summary-main">
+        <strong>{{ selected_container_summary.title }}</strong>
+    </div>
+    <div class="tool-summary-meta">
+        {{ selected_container_summary.dims }}
+        {% if selected_container_summary.meta %} | {{ selected_container_summary.meta }}{% endif %}
+    </div>
+</div>
