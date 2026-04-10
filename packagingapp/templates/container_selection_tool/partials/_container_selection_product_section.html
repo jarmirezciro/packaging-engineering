@@ -7,7 +7,7 @@
             <label class="form-label">Mode</label>
             {% if mode == "workflow" %}
                 <select name="{{ container_ui.names.mode }}" class="form-select">
-                    <option value="single" {% if container_values.mode == "single" %}selected{% endif %}>Single container</option>
+                    <option value="single" {% if container_values.mode == "single" %}selected{% endif %}>Single container analysis</option>
                     <option value="optimal" {% if container_values.mode == "optimal" %}selected{% endif %}>Optimal container (Top 5)</option>
                 </select>
             {% else %}
@@ -20,17 +20,11 @@
             <div class="tool-radio-group">
                 {% if mode == "workflow" %}
                     <label class="tool-radio-option">
-                        <input type="radio"
-                               name="{{ container_ui.names.product_source }}"
-                               value="manual"
-                               {% if container_values.product_source|default:"manual" == "manual" %}checked{% endif %}>
+                        <input type="radio" name="{{ container_ui.names.product_source }}" value="manual" {% if container_values.product_source == "manual" %}checked{% endif %}>
                         <span>Manual</span>
                     </label>
                     <label class="tool-radio-option">
-                        <input type="radio"
-                               name="{{ container_ui.names.product_source }}"
-                               value="catalogue"
-                               {% if container_values.product_source == "catalogue" %}checked{% endif %}>
+                        <input type="radio" name="{{ container_ui.names.product_source }}" value="catalogue" {% if container_values.product_source == "catalogue" %}checked{% endif %}>
                         <span>From catalogue</span>
                     </label>
                 {% else %}
@@ -44,17 +38,13 @@
             </div>
         </div>
 
-        <div id="{% if mode == 'workflow' %}{{ container_ui.ids.product_catalogue_section }}{% else %}productCatalogueChooser{% endif %}"
-             class="tool-field-group tool-tight-gap">
+        <div id="{% if mode == 'workflow' %}productCatalogueChooser_{{ container_ui.prefix }}{% else %}productCatalogueChooser{% endif %}" class="tool-field-group tool-tight-gap">
             <label class="form-label">Product Catalogue</label>
             {% if mode == "workflow" %}
                 <select name="{{ container_ui.names.product_catalogue_id }}" class="form-select">
                     <option value="">— Select —</option>
                     {% for c in product_catalogues %}
-                        <option value="{{ c.id }}"
-                                {% if container_values.product_catalogue_id == c.id|stringformat:"s" %}selected{% endif %}>
-                            {{ c.name }}
-                        </option>
+                        <option value="{{ c.id }}" {% if container_values.product_catalogue_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
                     {% endfor %}
                 </select>
             {% else %}
@@ -62,91 +52,25 @@
             {% endif %}
         </div>
 
-        <div id="{% if mode == 'workflow' %}{{ container_ui.ids.manual_product_fields }}{% else %}manualProductFields{% endif %}">
+        <div id="{% if mode == 'workflow' %}manualProductFields_{{ container_ui.prefix }}{% else %}manualProductFields{% endif %}">
             <div class="tool-compact-grid-three">
-                <div class="tool-field-group mb-0">
-                    <label class="form-label">Length</label>
-                    {% if mode == "workflow" %}
-                        <input type="number"
-                               step="any"
-                               name="{{ container_ui.names.product_l }}"
-                               value="{{ container_values.product_l|default:'' }}"
-                               class="form-control">
-                    {% else %}
-                        {{ form.product_l }}
-                    {% endif %}
-                </div>
-                <div class="tool-field-group mb-0">
-                    <label class="form-label">Width</label>
-                    {% if mode == "workflow" %}
-                        <input type="number"
-                               step="any"
-                               name="{{ container_ui.names.product_w }}"
-                               value="{{ container_values.product_w|default:'' }}"
-                               class="form-control">
-                    {% else %}
-                        {{ form.product_w }}
-                    {% endif %}
-                </div>
-                <div class="tool-field-group mb-0">
-                    <label class="form-label">Height</label>
-                    {% if mode == "workflow" %}
-                        <input type="number"
-                               step="any"
-                               name="{{ container_ui.names.product_h }}"
-                               value="{{ container_values.product_h|default:'' }}"
-                               class="form-control">
-                    {% else %}
-                        {{ form.product_h }}
-                    {% endif %}
-                </div>
+                <div class="tool-field-group mb-0"><label class="form-label">Length</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_l }}" value="{{ container_values.product_l|default:'' }}">{% else %}{{ form.product_l }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Width</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_w }}" value="{{ container_values.product_w|default:'' }}">{% else %}{{ form.product_w }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Height</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_h }}" value="{{ container_values.product_h|default:'' }}">{% else %}{{ form.product_h }}{% endif %}</div>
             </div>
 
             <div class="tool-compact-grid-two tool-tight-gap">
-                <div class="tool-field-group mb-0">
-                    <label class="form-label">Weight</label>
-                    {% if mode == "workflow" %}
-                        <input type="number"
-                               step="any"
-                               name="{{ container_ui.names.product_weight }}"
-                               value="{{ container_values.product_weight|default:'' }}"
-                               class="form-control">
-                    {% else %}
-                        {{ form.product_weight }}
-                    {% endif %}
-                </div>
-                <div id="{% if mode == 'workflow' %}manualDesiredQtyWrap_{{ container_ui.prefix }}{% else %}manualDesiredQtyWrap{% endif %}"
-                     class="tool-field-group mb-0">
-                    <label class="form-label">Units needed</label>
-                    {% if mode == "workflow" %}
-                        <input type="number"
-                               step="1"
-                               min="1"
-                               name="{{ container_ui.names.desired_qty }}"
-                               value="{{ container_values.desired_qty|default:'1' }}"
-                               class="form-control">
-                    {% else %}
-                        {{ form.desired_qty }}
-                    {% endif %}
-                </div>
+                <div class="tool-field-group mb-0"><label class="form-label">Weight</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_weight }}" value="{{ container_values.product_weight|default:'' }}">{% else %}{{ form.product_weight }}{% endif %}</div>
+                <div id="{% if mode == 'workflow' %}manualDesiredQtyWrap_{{ container_ui.prefix }}{% else %}manualDesiredQtyWrap{% endif %}" class="tool-field-group mb-0"><label class="form-label">Units needed</label>{% if mode == "workflow" %}<input type="number" step="1" min="1" class="form-control" name="{{ container_ui.names.desired_qty }}" value="{{ container_values.desired_qty|default:'1' }}">{% else %}{{ form.desired_qty }}{% endif %}</div>
             </div>
 
             <div class="tool-field-group tool-tight-gap">
                 <label class="form-label">Rotation permissions</label>
                 <div class="tool-checkbox-group tool-checkbox-group--inline">
                     {% if mode == "workflow" %}
-                        <label class="tool-check-option">
-                            <input type="checkbox" name="{{ container_ui.names.r1 }}" {% if container_values.r1 %}checked{% endif %}>
-                            <span>R1</span>
-                        </label>
-                        <label class="tool-check-option">
-                            <input type="checkbox" name="{{ container_ui.names.r2 }}" {% if container_values.r2 %}checked{% endif %}>
-                            <span>R2</span>
-                        </label>
-                        <label class="tool-check-option">
-                            <input type="checkbox" name="{{ container_ui.names.r3 }}" {% if container_values.r3 %}checked{% endif %}>
-                            <span>R3</span>
-                        </label>
+                        <label class="tool-check-option"><input type="checkbox" name="{{ container_ui.names.r1 }}" {% if container_values.r1 %}checked{% endif %}> <span>R1</span></label>
+                        <label class="tool-check-option"><input type="checkbox" name="{{ container_ui.names.r2 }}" {% if container_values.r2 %}checked{% endif %}> <span>R2</span></label>
+                        <label class="tool-check-option"><input type="checkbox" name="{{ container_ui.names.r3 }}" {% if container_values.r3 %}checked{% endif %}> <span>R3</span></label>
                     {% else %}
                         <label class="tool-check-option">{{ form.r1 }} <span>R1</span></label>
                         <label class="tool-check-option">{{ form.r2 }} <span>R2</span></label>
@@ -158,10 +82,7 @@
 
         {% if selected_product %}
             <div class="tool-summary-strip">
-                <div class="tool-summary-main">
-                    <strong>{{ selected_product.product_id }}</strong>
-                    {% if selected_product.product_name %} — {{ selected_product.product_name }}{% endif %}
-                </div>
+                <div class="tool-summary-main"><strong>{{ selected_product.product_id }}</strong>{% if selected_product.product_name %} — {{ selected_product.product_name }}{% endif %}</div>
                 <div class="tool-summary-meta">
                     {{ selected_product.product_length }} × {{ selected_product.product_width }} × {{ selected_product.product_height }}
                     {% if selected_product.weight %} | Wt: {{ selected_product.weight }}{% endif %}
@@ -173,17 +94,9 @@
         {% if current_product_source == "catalogue" %}
             <div class="app-form-actions tool-card-actions">
                 {% if selected_product %}
-                    <button type="button"
-                            class="btn btn-app-outline btn-sm"
-                            onclick="{% if mode == 'workflow' %}containerSelectionClearSelectedProduct('{{ container_ui.prefix }}'){% else %}clearSelectedProduct(){% endif %}">
-                        <i class="bi bi-arrow-repeat me-2"></i>Change Product
-                    </button>
+                    <button type="button" class="btn btn-app-outline btn-sm" onclick="containerSelectionClearSelectedProduct('{{ container_ui.prefix }}')"><i class="bi bi-arrow-repeat me-2"></i>Change Product</button>
                 {% else %}
-                    <button type="button"
-                            class="btn btn-app-outline btn-sm"
-                            onclick="{% if mode == 'workflow' %}containerSelectionBrowseProductCatalogue('{{ container_ui.prefix }}'){% else %}browseProductCatalogue(){% endif %}">
-                        <i class="bi bi-search me-2"></i>Browse Catalogue
-                    </button>
+                    <button type="button" class="btn btn-app-outline btn-sm" onclick="containerSelectionBrowseProductCatalogue('{{ container_ui.prefix }}')"><i class="bi bi-search me-2"></i>Browse Catalogue</button>
                 {% endif %}
             </div>
         {% endif %}

@@ -580,6 +580,7 @@ def _prepare_container_step_view_model(step, idx):
     step["container_top5_rows"] = _inflate_container_top5_rows(step.get("top5", []))
 
 
+
 def _process_container_step(step, steps, idx, post):
     existing_cfg = step.get("config") or {}
     cfg = default_container_config()
@@ -589,29 +590,66 @@ def _process_container_step(step, steps, idx, post):
     cfg["mode"] = post.get(f"mode{suffix}", post.get(f"mode_{idx}", cfg.get("mode", "single")))
 
     if idx == 0:
-        cfg["product_source"] = post.get(f"product_source{suffix}", post.get(f"product_source_{idx}", cfg.get("product_source", "manual")))
-        cfg["product_catalogue_id"] = post.get(f"product_catalogue_id{suffix}", post.get(f"product_catalogue_id_{idx}", cfg.get("product_catalogue_id", "")))
-        cfg["selected_product_id"] = post.get(f"selected_product_id{suffix}", post.get(f"selected_product_id_{idx}", cfg.get("selected_product_id", "")))
+        cfg["product_source"] = post.get(
+            f"product_source{suffix}",
+            post.get(f"product_source_{idx}", cfg.get("product_source", "manual"))
+        )
+        cfg["product_catalogue_id"] = post.get(
+            f"product_catalogue_id{suffix}",
+            post.get(f"product_catalogue_id_{idx}", cfg.get("product_catalogue_id", ""))
+        )
+        cfg["selected_product_id"] = post.get(
+            f"selected_product_id{suffix}",
+            post.get(f"selected_product_id_{idx}", cfg.get("selected_product_id", ""))
+        )
     else:
         cfg["product_source"] = "manual"
         cfg["product_catalogue_id"] = ""
         cfg["selected_product_id"] = ""
 
-    cfg["container_source"] = post.get(f"container_source{suffix}", post.get(f"container_source_{idx}", cfg.get("container_source", "manual")))
+    cfg["container_source"] = post.get(
+        f"container_source{suffix}",
+        post.get(f"container_source_{idx}", cfg.get("container_source", "manual"))
+    )
     cfg["product_l"] = post.get(f"product_l{suffix}", post.get(f"product_l_{idx}", cfg.get("product_l", "")))
     cfg["product_w"] = post.get(f"product_w{suffix}", post.get(f"product_w_{idx}", cfg.get("product_w", "")))
     cfg["product_h"] = post.get(f"product_h{suffix}", post.get(f"product_h_{idx}", cfg.get("product_h", "")))
-    cfg["product_weight"] = post.get(f"product_weight{suffix}", post.get(f"product_weight_{idx}", cfg.get("product_weight", "")))
-    cfg["desired_qty"] = post.get(f"desired_qty{suffix}", post.get(f"desired_qty_{idx}", cfg.get("desired_qty", "1")))
-    cfg["r1"] = post.get(f"r1{suffix}") is not None if f"r1{suffix}" in post or f"r2{suffix}" in post or f"r3{suffix}" in post else _as_bool(post, f"r1_{idx}", cfg.get("r1", True))
-    cfg["r2"] = post.get(f"r2{suffix}") is not None if f"r1{suffix}" in post or f"r2{suffix}" in post or f"r3{suffix}" in post else _as_bool(post, f"r2_{idx}", cfg.get("r2", True))
-    cfg["r3"] = post.get(f"r3{suffix}") is not None if f"r1{suffix}" in post or f"r2{suffix}" in post or f"r3{suffix}" in post else _as_bool(post, f"r3_{idx}", cfg.get("r3", True))
-    cfg["catalogue_id"] = post.get(f"catalogue_id{suffix}", post.get(f"catalogue_id_{idx}", cfg.get("catalogue_id", "")))
-    cfg["container_id"] = post.get(f"container_id{suffix}", post.get(f"container_id_{idx}", cfg.get("container_id", "")))
+    cfg["product_weight"] = post.get(
+        f"product_weight{suffix}",
+        post.get(f"product_weight_{idx}", cfg.get("product_weight", ""))
+    )
+    cfg["desired_qty"] = post.get(
+        f"desired_qty{suffix}",
+        post.get(f"desired_qty_{idx}", cfg.get("desired_qty", "1"))
+    )
+
+    has_prefixed_rotation_inputs = (
+        f"r1{suffix}" in post or f"r2{suffix}" in post or f"r3{suffix}" in post
+    )
+    if has_prefixed_rotation_inputs:
+        cfg["r1"] = post.get(f"r1{suffix}") is not None
+        cfg["r2"] = post.get(f"r2{suffix}") is not None
+        cfg["r3"] = post.get(f"r3{suffix}") is not None
+    else:
+        cfg["r1"] = _as_bool(post, f"r1_{idx}", cfg.get("r1", True))
+        cfg["r2"] = _as_bool(post, f"r2_{idx}", cfg.get("r2", True))
+        cfg["r3"] = _as_bool(post, f"r3_{idx}", cfg.get("r3", True))
+
+    cfg["catalogue_id"] = post.get(
+        f"catalogue_id{suffix}",
+        post.get(f"catalogue_id_{idx}", cfg.get("catalogue_id", ""))
+    )
+    cfg["container_id"] = post.get(
+        f"container_id{suffix}",
+        post.get(f"container_id_{idx}", cfg.get("container_id", ""))
+    )
     cfg["box_l"] = post.get(f"box_l{suffix}", post.get(f"box_l_{idx}", cfg.get("box_l", "")))
     cfg["box_w"] = post.get(f"box_w{suffix}", post.get(f"box_w_{idx}", cfg.get("box_w", "")))
     cfg["box_h"] = post.get(f"box_h{suffix}", post.get(f"box_h_{idx}", cfg.get("box_h", "")))
-    cfg["action"] = post.get(f"action{suffix}", post.get(f"step_action_{idx}", cfg.get("action", "refresh")))
+    cfg["action"] = post.get(
+        f"action{suffix}",
+        post.get(f"step_action_{idx}", cfg.get("action", "refresh"))
+    )
 
     if idx != 0:
         cfg["product_source"] = "manual"
@@ -624,7 +662,37 @@ def _process_container_step(step, steps, idx, post):
     selected_material = get_container_selected_material(cfg)
     materials = get_container_materials_for_catalogue(cfg)
 
-    request_stub = type("ContainerWorkflowPostRequest", (), {"method": "POST", "POST": post})()
+    normalized_post = {
+        "mode": cfg.get("mode", "single"),
+        "action": cfg.get("action", "refresh"),
+        "product_source": cfg.get("product_source", "manual"),
+        "product_catalogue_id": cfg.get("product_catalogue_id", ""),
+        "selected_product_id": cfg.get("selected_product_id", ""),
+        "product_l": cfg.get("product_l", ""),
+        "product_w": cfg.get("product_w", ""),
+        "product_h": cfg.get("product_h", ""),
+        "product_weight": cfg.get("product_weight", ""),
+        "desired_qty": cfg.get("desired_qty", "1"),
+        "container_source": cfg.get("container_source", "manual"),
+        "catalogue_id": cfg.get("catalogue_id", ""),
+        "container_id": cfg.get("container_id", ""),
+        "box_l": cfg.get("box_l", ""),
+        "box_w": cfg.get("box_w", ""),
+        "box_h": cfg.get("box_h", ""),
+    }
+    if cfg.get("r1"):
+        normalized_post["r1"] = "on"
+    if cfg.get("r2"):
+        normalized_post["r2"] = "on"
+    if cfg.get("r3"):
+        normalized_post["r3"] = "on"
+
+    request_stub = type(
+        "ContainerWorkflowPostRequest",
+        (),
+        {"method": "POST", "POST": normalized_post}
+    )()
+
     form = build_container_form(
         request=request_stub,
         config=cfg,
@@ -670,6 +738,7 @@ def _process_container_step(step, steps, idx, post):
                 "kind": "container",
                 "max_quantity": getattr(render_result, "max_quantity", None),
             }
+
             desired_qty = int(form.cleaned_data.get("desired_qty") or 1)
             if cfg.get("product_source") == "catalogue" and selected_product and cfg.get("mode") == "optimal":
                 desired_qty = int(getattr(selected_product, "desired_qty", 1) or 1)
@@ -703,6 +772,7 @@ def _process_container_step(step, steps, idx, post):
     step["pending_result"] = pending_result
     step["messages"] = messages
     step["expanded"] = True
+
 
 def _process_bag_step(step, steps, idx, post):
     cfg = step["config"]

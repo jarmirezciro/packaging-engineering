@@ -1,276 +1,186 @@
 <script>
-    (function () {
-        function suffix(prefix) {
-            return prefix ? "_" + prefix : "";
+(function () {
+    function getForm(prefix) {
+        if (prefix) {
+            const root = document.getElementById("containerSelectionRoot_" + prefix);
+            if (root) return root.closest("form");
         }
-    
-        function getForm(prefix) {
-            if (prefix) {
-                const root = document.getElementById("containerSelectionRoot_" + prefix);
-                if (root) return root.closest("form");
-            }
-            return document.querySelector("form");
+        return document.querySelector("form");
+    }
+    function getById(baseId, prefix) {
+        return document.getElementById(prefix ? (baseId + "_" + prefix) : baseId);
+    }
+    function getField(nameBase, prefix) {
+        const form = getForm(prefix);
+        if (!form) return null;
+        const fullName = prefix ? (nameBase + "_" + prefix) : nameBase;
+        return form.querySelector('[name="' + fullName + '"]');
+    }
+    function getCheckedValue(nameBase, prefix, fallbackValue) {
+        const form = getForm(prefix);
+        if (!form) return fallbackValue;
+        const fullName = prefix ? (nameBase + "_" + prefix) : nameBase;
+        const checked = form.querySelector('input[name="' + fullName + '"]:checked');
+        return checked ? checked.value : fallbackValue;
+    }
+    function setAction(prefix, value) {
+        const field = getField("action", prefix);
+        if (field) field.value = value;
+    }
+    function setHidden(prefix, nameBase, value) {
+        const field = getField(nameBase, prefix);
+        if (field) field.value = value;
+    }
+    function submitForm(prefix) {
+        const form = getForm(prefix);
+        if (form) form.submit();
+    }
+    function updateUI(prefix) {
+        const modeField = getField("mode", prefix);
+        const mode = modeField ? modeField.value : "single";
+        const productSource = getCheckedValue("product_source", prefix, "manual");
+        const containerSource = getCheckedValue("container_source", prefix, "manual");
+
+        const manualProductFields = getById("manualProductFields", prefix);
+        const productCatalogueChooser = getById("productCatalogueChooser", prefix);
+        const manualDesiredQtyWrap = getById("manualDesiredQtyWrap", prefix);
+
+        const singleContainerControls = getById("singleContainerControls", prefix);
+        const optimalContainerControls = getById("optimalContainerControls", prefix);
+        const manualContainerFields = getById("manualContainerFields", prefix);
+        const globalCatalogueChooser = getById("globalCatalogueChooser", prefix);
+
+        if (productSource === "catalogue") {
+            if (productCatalogueChooser) productCatalogueChooser.style.display = "block";
+            if (manualProductFields) manualProductFields.style.display = "none";
+        } else {
+            if (productCatalogueChooser) productCatalogueChooser.style.display = "none";
+            if (manualProductFields) manualProductFields.style.display = "block";
         }
-    
-        function getById(baseId, prefix) {
-            const id = prefix ? (baseId + "_" + prefix) : baseId;
-            return document.getElementById(id);
+
+        if (manualDesiredQtyWrap) {
+            manualDesiredQtyWrap.style.display = (mode === "optimal" && productSource === "manual") ? "block" : "none";
         }
-    
-        function getActionField(prefix) {
-            const form = getForm(prefix);
-            if (!form) return null;
-            const name = prefix ? ("action_" + prefix) : "action";
-            return form.querySelector(`input[name="${name}"]`);
-        }
-    
-        function getHiddenField(nameBase, prefix) {
-            const form = getForm(prefix);
-            if (!form) return null;
-            const name = prefix ? (nameBase + "_" + prefix) : nameBase;
-            return form.querySelector(`input[name="${name}"]`);
-        }
-    
-        function getSelectField(nameBase, prefix) {
-            const form = getForm(prefix);
-            if (!form) return null;
-            const name = prefix ? (nameBase + "_" + prefix) : nameBase;
-            return form.querySelector(`[name="${name}"]`);
-        }
-    
-        function getCheckedRadioValue(nameBase, prefix, fallbackValue) {
-            const form = getForm(prefix);
-            if (!form) return fallbackValue;
-            const name = prefix ? (nameBase + "_" + prefix) : nameBase;
-            const checked = form.querySelector(`input[name="${name}"]:checked`);
-            return checked ? checked.value : fallbackValue;
-        }
-    
-        function setActionValue(prefix, value) {
-            const field = getActionField(prefix);
-            if (field) field.value = value;
-        }
-    
-        function setHiddenValue(nameBase, prefix, value) {
-            const field = getHiddenField(nameBase, prefix);
-            if (field) field.value = value;
-        }
-    
-        function submitToolForm(prefix) {
-            const form = getForm(prefix);
-            if (form) form.submit();
-        }
-    
-        function updateUI(prefix) {
-            const modeField = getSelectField("mode", prefix);
-            const mode = modeField ? modeField.value : "single";
-    
-            const productSource = getCheckedRadioValue("product_source", prefix, "manual");
-            const containerSource = getCheckedRadioValue("container_source", prefix, "manual");
-    
-            const manualProductFields = getById("manualProductFields", prefix);
-            const productCatalogueChooser = getById("productCatalogueChooser", prefix);
-            const manualDesiredQtyWrap = getById("manualDesiredQtyWrap", prefix);
-    
-            const singleContainerControls = getById("singleContainerControls", prefix);
-            const optimalContainerControls = getById("optimalContainerControls", prefix);
-            const manualContainerFields = getById("manualContainerFields", prefix);
-            const globalCatalogueChooser = getById("globalCatalogueChooser", prefix);
-    
-            if (productSource === "catalogue") {
-                if (productCatalogueChooser) productCatalogueChooser.style.display = "block";
-                if (manualProductFields) manualProductFields.style.display = "none";
-            } else {
-                if (productCatalogueChooser) productCatalogueChooser.style.display = "none";
-                if (manualProductFields) manualProductFields.style.display = "block";
-            }
-    
-            if (manualDesiredQtyWrap) {
-                manualDesiredQtyWrap.style.display = (mode === "optimal" && productSource === "manual") ? "block" : "none";
-            }
-    
-            if (mode === "single") {
-                if (singleContainerControls) singleContainerControls.style.display = "block";
-                if (optimalContainerControls) optimalContainerControls.style.display = "none";
-    
-                if (containerSource === "catalogue") {
-                    if (globalCatalogueChooser) globalCatalogueChooser.style.display = "block";
-                    if (manualContainerFields) manualContainerFields.style.display = "none";
-                } else {
-                    if (globalCatalogueChooser) globalCatalogueChooser.style.display = "none";
-                    if (manualContainerFields) manualContainerFields.style.display = "block";
-                }
-            } else {
-                if (singleContainerControls) singleContainerControls.style.display = "none";
-                if (optimalContainerControls) optimalContainerControls.style.display = "block";
+
+        if (mode === "single") {
+            if (singleContainerControls) singleContainerControls.style.display = "block";
+            if (optimalContainerControls) optimalContainerControls.style.display = "none";
+            if (containerSource === "catalogue") {
                 if (globalCatalogueChooser) globalCatalogueChooser.style.display = "block";
+                if (manualContainerFields) manualContainerFields.style.display = "none";
+            } else {
+                if (globalCatalogueChooser) globalCatalogueChooser.style.display = "none";
+                if (manualContainerFields) manualContainerFields.style.display = "block";
             }
+        } else {
+            if (singleContainerControls) singleContainerControls.style.display = "none";
+            if (optimalContainerControls) optimalContainerControls.style.display = "block";
+            if (globalCatalogueChooser) globalCatalogueChooser.style.display = "block";
         }
-    
-        window.browseProductCatalogue = function () {
-            setHiddenValue("selected_product_id", "", "");
-            setActionValue("", "refresh");
-            submitToolForm("");
-        };
-    
-        window.clearSelectedProduct = function () {
-            setHiddenValue("selected_product_id", "", "");
-            setActionValue("", "refresh");
-            submitToolForm("");
-        };
-    
-        window.selectProduct = function (productId) {
-            setHiddenValue("selected_product_id", "", productId);
-            setActionValue("", "select_product");
-            submitToolForm("");
-        };
-    
-        window.browsePackagingCatalogue = function () {
-            setHiddenValue("container_id", "", "");
-            setActionValue("", "refresh");
-            submitToolForm("");
-        };
-    
-        window.clearSelectedContainer = function () {
-            setHiddenValue("container_id", "", "");
-            setActionValue("", "refresh");
-            submitToolForm("");
-        };
-    
-        window.selectContainerSingle = function (containerId) {
-            setHiddenValue("container_id", "", containerId);
-            setActionValue("", "select_container");
-            submitToolForm("");
-        };
-    
-        window.findTop5 = function () {
-            setActionValue("", "find_top5");
-            submitToolForm("");
-        };
-    
-        window.selectCandidate = function (containerId) {
-            setHiddenValue("container_id", "", containerId);
-            setActionValue("", "select_candidate");
-            submitToolForm("");
-        };
-    
-        window.containerSelectionBrowseProductCatalogue = function (prefix) {
-            setHiddenValue("selected_product_id", prefix, "");
-            setActionValue(prefix, "refresh");
-            submitToolForm(prefix);
-        };
-    
-        window.containerSelectionClearSelectedProduct = function (prefix) {
-            setHiddenValue("selected_product_id", prefix, "");
-            setActionValue(prefix, "refresh");
-            submitToolForm(prefix);
-        };
-    
-        window.containerSelectionSelectProduct = function (prefix, productId) {
-            setHiddenValue("selected_product_id", prefix, productId);
-            setActionValue(prefix, "select_product");
-            submitToolForm(prefix);
-        };
-    
-        window.containerSelectionBrowsePackagingCatalogue = function (prefix) {
-            setHiddenValue("container_id", prefix, "");
-            setActionValue(prefix, "refresh");
-            submitToolForm(prefix);
-        };
-    
-        window.containerSelectionClearSelectedContainer = function (prefix) {
-            setHiddenValue("container_id", prefix, "");
-            setActionValue(prefix, "refresh");
-            submitToolForm(prefix);
-        };
-    
-        window.containerSelectionSelectContainer = function (prefix, containerId) {
-            setHiddenValue("container_id", prefix, containerId);
-            setActionValue(prefix, "select_container");
-            submitToolForm(prefix);
-        };
-    
-        window.containerSelectionRunSingle = function (prefix) {
-            setActionValue(prefix, "run_single");
-            submitToolForm(prefix);
-        };
-    
-        window.containerSelectionFindTop5 = function (prefix) {
-            setActionValue(prefix, "find_top5");
-            submitToolForm(prefix);
-        };
-    
-        window.containerSelectionSelectCandidate = function (prefix, containerId) {
-            setHiddenValue("container_id", prefix, containerId);
-            setActionValue(prefix, "select_candidate");
-            submitToolForm(prefix);
-        };
-    
-        function bindTool(prefix) {
-            updateUI(prefix);
-    
-            const modeField = getSelectField("mode", prefix);
-            if (modeField) {
-                modeField.addEventListener("change", function () {
-                    setActionValue(prefix, "refresh");
-                    submitToolForm(prefix);
-                });
-            }
-    
-            const form = getForm(prefix);
-            if (!form) return;
-    
-            const productSourceName = prefix ? ("product_source_" + prefix) : "product_source";
-            const containerSourceName = prefix ? ("container_source_" + prefix) : "container_source";
-            const productCatalogueName = prefix ? ("product_catalogue_id_" + prefix) : "product_catalogue_id";
-            const packagingCatalogueName = prefix ? ("catalogue_id_" + prefix) : "catalogue_id";
-    
-            form.querySelectorAll(`input[name="${productSourceName}"]`).forEach(function (el) {
-                el.addEventListener("change", function () {
-                    setHiddenValue("selected_product_id", prefix, "");
-                    setActionValue(prefix, "refresh");
-                    submitToolForm(prefix);
-                });
-            });
-    
-            form.querySelectorAll(`input[name="${containerSourceName}"]`).forEach(function (el) {
-                el.addEventListener("change", function () {
-                    setHiddenValue("container_id", prefix, "");
-                    setActionValue(prefix, "refresh");
-                    submitToolForm(prefix);
-                });
-            });
-    
-            const productCatalogueField = form.querySelector(`[name="${productCatalogueName}"]`);
-            if (productCatalogueField) {
-                productCatalogueField.addEventListener("change", function () {
-                    setHiddenValue("selected_product_id", prefix, "");
-                    setActionValue(prefix, "refresh");
-                    submitToolForm(prefix);
-                });
-            }
-    
-            const packagingCatalogueField = form.querySelector(`[name="${packagingCatalogueName}"]`);
-            if (packagingCatalogueField) {
-                packagingCatalogueField.addEventListener("change", function () {
-                    setHiddenValue("container_id", prefix, "");
-                    setActionValue(prefix, "refresh");
-                    submitToolForm(prefix);
-                });
-            }
-    
-            form.querySelectorAll(".tool-clickable-row").forEach(function (row) {
-                row.addEventListener("keydown", function (e) {
-                    if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        row.click();
-                    }
-                });
+    }
+
+    window.containerSelectionBrowseProductCatalogue = function (prefix) {
+        setHidden(prefix, "selected_product_id", "");
+        setAction(prefix, "refresh");
+        submitForm(prefix);
+    };
+    window.containerSelectionClearSelectedProduct = function (prefix) {
+        setHidden(prefix, "selected_product_id", "");
+        setAction(prefix, "refresh");
+        submitForm(prefix);
+    };
+    window.containerSelectionSelectProduct = function (prefix, productId) {
+        setHidden(prefix, "selected_product_id", productId);
+        setAction(prefix, "select_product");
+        submitForm(prefix);
+    };
+    window.containerSelectionBrowsePackagingCatalogue = function (prefix) {
+        setHidden(prefix, "container_id", "");
+        setAction(prefix, "refresh");
+        submitForm(prefix);
+    };
+    window.containerSelectionClearSelectedContainer = function (prefix) {
+        setHidden(prefix, "container_id", "");
+        setAction(prefix, "refresh");
+        submitForm(prefix);
+    };
+    window.containerSelectionSelectContainer = function (prefix, containerId) {
+        setHidden(prefix, "container_id", containerId);
+        setAction(prefix, "select_container");
+        submitForm(prefix);
+    };
+    window.containerSelectionRunSingle = function (prefix) {
+        setAction(prefix, "run_single");
+        submitForm(prefix);
+    };
+    window.containerSelectionFindTop5 = function (prefix) {
+        setAction(prefix, "find_top5");
+        submitForm(prefix);
+    };
+    window.containerSelectionSelectCandidate = function (prefix, containerId) {
+        setHidden(prefix, "container_id", containerId);
+        setAction(prefix, "select_candidate");
+        submitForm(prefix);
+    };
+
+    function bindEvents(prefix) {
+        updateUI(prefix);
+        const form = getForm(prefix);
+        if (!form) return;
+        const modeField = getField("mode", prefix);
+        if (modeField) {
+            modeField.addEventListener("change", function () {
+                setAction(prefix, "refresh");
+                submitForm(prefix);
             });
         }
-    
-        document.addEventListener("DOMContentLoaded", function () {
-            bindTool("{% if mode == 'workflow' %}{{ container_ui.prefix }}{% else %}{% endif %}");
+        const productSourceName = prefix ? ("product_source_" + prefix) : "product_source";
+        const containerSourceName = prefix ? ("container_source_" + prefix) : "container_source";
+        const productCatalogueName = prefix ? ("product_catalogue_id_" + prefix) : "product_catalogue_id";
+        const packagingCatalogueName = prefix ? ("catalogue_id_" + prefix) : "catalogue_id";
+
+        form.querySelectorAll('input[name="' + productSourceName + '"]').forEach(function (el) {
+            el.addEventListener("change", function () {
+                setHidden(prefix, "selected_product_id", "");
+                setAction(prefix, "refresh");
+                submitForm(prefix);
+            });
         });
-    })();
-    </script>
+        form.querySelectorAll('input[name="' + containerSourceName + '"]').forEach(function (el) {
+            el.addEventListener("change", function () {
+                setHidden(prefix, "container_id", "");
+                setAction(prefix, "refresh");
+                submitForm(prefix);
+            });
+        });
+        const productCatalogueField = form.querySelector('[name="' + productCatalogueName + '"]');
+        if (productCatalogueField) {
+            productCatalogueField.addEventListener("change", function () {
+                setHidden(prefix, "selected_product_id", "");
+                setAction(prefix, "refresh");
+                submitForm(prefix);
+            });
+        }
+        const packagingCatalogueField = form.querySelector('[name="' + packagingCatalogueName + '"]');
+        if (packagingCatalogueField) {
+            packagingCatalogueField.addEventListener("change", function () {
+                setHidden(prefix, "container_id", "");
+                setAction(prefix, "refresh");
+                submitForm(prefix);
+            });
+        }
+        form.querySelectorAll(".tool-clickable-row").forEach(function (row) {
+            row.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    row.click();
+                }
+            });
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        bindEvents("{{ container_ui.prefix|default:'' }}");
+    });
+})();
+</script>

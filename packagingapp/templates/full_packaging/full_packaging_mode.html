@@ -135,7 +135,6 @@
         <input type="hidden" name="action" id="form_action_{{ forloop.counter0 }}" value="run_step">
         <input type="hidden" name="index" value="{{ forloop.counter0 }}">
         <input type="hidden" name="step_action_{{ forloop.counter0 }}" id="step_action_{{ forloop.counter0 }}" value="refresh">
-        <input type="hidden" name="selected_product_id_{{ forloop.counter0 }}" id="selected_product_id_{{ forloop.counter0 }}" value="{{ step.config.selected_product_id|default:'' }}">
         {% if step.type == 'bag' %}
           <input type="hidden" name="bag_id_{{ forloop.counter0 }}" id="bag_id_{{ forloop.counter0 }}" value="{{ step.config.bag_id|default:'' }}">
         {% elif step.type == 'pallet' %}
@@ -147,7 +146,9 @@
           <input type="hidden" name="container_id_{{ forloop.counter0 }}" id="container_id_{{ forloop.counter0 }}" value="{{ step.config.container_id|default:'' }}">
           <input type="hidden" name="transport_selected_row_index_{{ forloop.counter0 }}" id="transport_selected_row_index_{{ forloop.counter0 }}" value="{{ step.config.selected_row_index|default:'' }}">
           <input type="hidden" name="transport_product_id_to_fill_{{ forloop.counter0 }}" id="transport_product_id_to_fill_{{ forloop.counter0 }}" value="">
+        {% elif step.type == 'container' %}
         {% else %}
+          <input type="hidden" name="selected_product_id_{{ forloop.counter0 }}" id="selected_product_id_{{ forloop.counter0 }}" value="{{ step.config.selected_product_id|default:'' }}">
           <input type="hidden" name="container_id_{{ forloop.counter0 }}" id="container_id_{{ forloop.counter0 }}" value="{{ step.config.container_id|default:'' }}">
         {% endif %}
 
@@ -477,16 +478,26 @@
 
         {% elif step.type == "container" %}
         <input type="hidden" name="{{ step.container_ui.names.action }}" value="{{ step.container_values.action|default:'' }}">
-        <input type="hidden" name="{{ step.container_ui.names.selected_product_id }}" value="{{ step.container_values.selected_product_id|default:'' }}">
-        <input type="hidden" name="{{ step.container_ui.names.container_id }}" value="{{ step.container_values.container_id|default:'' }}">
+        <input type="hidden" name="{{ step.container_ui.names.selected_product_id }}" id="{{ step.container_ui.ids.selected_product_id }}" value="{{ step.container_values.selected_product_id|default:'' }}">
+        <input type="hidden" name="{{ step.container_ui.names.container_id }}" id="{{ step.container_ui.ids.container_id }}" value="{{ step.container_values.container_id|default:'' }}">
 
-        <div id="containerSelectionRoot_{{ step.prefix }}">
-          {% include "container_selection_tool/partials/_container_selection_tool.html" with form=step.container_form container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material products=step.products materials=step.materials result=step.result image_url=step.image_url top5=step.container_top5_rows product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues %}
+        <div id="{{ step.container_ui.ids.root }}"
+             data-container-tool-root
+             data-container-prefix="{{ step.container_ui.prefix }}">
+          <div class="tool-grid-3">
+            {% include "container_selection_tool/partials/_container_selection_product_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues %}
+            {% include "container_selection_tool/partials/_container_selection_container_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues %}
+            {% include "container_selection_tool/partials/_container_selection_result_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix result=step.result image_url=step.image_url current_mode=step.current_mode %}
+          </div>
+
+          {% include "container_selection_tool/partials/_container_selection_product_catalogue_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix products=step.products current_product_source=step.current_product_source selected_product=step.selected_product %}
+          {% include "container_selection_tool/partials/_container_selection_packaging_catalogue_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix materials=step.materials current_mode=step.current_mode current_container_source=step.current_container_source selected_material=step.selected_material %}
+          {% include "container_selection_tool/partials/_container_selection_top5_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix top5=step.container_top5_rows current_mode=step.current_mode selected_material=step.selected_material %}
         </div>
 
-        {% include "container_selection_tool/partials/_container_selection_scripts.html" with mode=step.mode container_ui=step.container_ui %}
+        {% include "container_selection_tool/partials/_container_selection_scripts.html" with container_ui=step.container_ui %}
 
-        {% elif step.type == "bag" %}
+        {% else %}
         <div class="tool-grid-3">
           <div class="app-card">
             <div class="app-card-body">

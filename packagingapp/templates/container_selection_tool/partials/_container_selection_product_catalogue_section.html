@@ -1,73 +1,71 @@
 {% if current_product_source == "catalogue" and not selected_product %}
-    <div class="app-card">
-        <div class="app-card-body">
-            <div class="app-section-title">Product Catalogue Selection</div>
-            <div class="app-section-subtitle">Select a product from the chosen catalogue.</div>
+<div class="app-card">
+    <div class="app-card-body">
+        <div class="app-section-title">Product Catalogue Selection</div>
+        <div class="app-section-subtitle">Select a product from the chosen catalogue.</div>
 
-            <div class="app-table-wrap">
-                <table class="table table-hover app-table align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="tool-select-col"></th>
-                            <th>Picture</th>
-                            <th>Product ID</th>
-                            <th>Name</th>
-                            <th>L (mm)</th>
-                            <th>W (mm)</th>
-                            <th>H (mm)</th>
-                            <th>Rotation 1</th>
-                            <th>Rotation 2</th>
-                            <th>Rotation 3</th>
-                            <th>Weight (kg)</th>
-                            <th>Desired Qty</th>
-                            <th>Volume</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for product in products %}
-                        <tr class="tool-clickable-row"
-                            onclick="{% if mode == 'workflow' %}containerSelectionSelectProduct('{{ container_ui.prefix }}', '{{ product.id }}'){% else %}selectProduct('{{ product.id }}'){% endif %}"
-                            tabindex="0"
-                            role="button">
-                            <td class="tool-select-col">
-                                <button type="button"
-                                        class="btn btn-sm btn-app-outline"
-                                        onclick="event.stopPropagation(); {% if mode == 'workflow' %}containerSelectionSelectProduct('{{ container_ui.prefix }}', '{{ product.id }}'){% else %}selectProduct('{{ product.id }}'){% endif %}">
-                                    Select
-                                </button>
-                            </td>
-                            <td>
-                                {% if product.product_picture %}
-                                    <img src="{{ product.product_picture.url }}"
-                                         alt="{{ product.product_name|default:product.product_id }}"
-                                         class="app-thumb"
-                                         style="width:48px;height:48px;">
-                                {% else %}
-                                    <div class="app-thumb-placeholder app-thumb-placeholder--small" style="width:48px;height:48px;font-size:1rem;">
-                                        <i class="bi bi-box"></i>
-                                    </div>
-                                {% endif %}
-                            </td>
-                            <td>{{ product.product_id }}</td>
-                            <td>{{ product.product_name|default:"—" }}</td>
-                            <td>{{ product.product_length }}</td>
-                            <td>{{ product.product_width }}</td>
-                            <td>{{ product.product_height }}</td>
-                            <td>{{ product.rotation_1|yesno:"Yes,No" }}</td>
-                            <td>{{ product.rotation_2|yesno:"Yes,No" }}</td>
-                            <td>{{ product.rotation_3|yesno:"Yes,No" }}</td>
-                            <td>{{ product.weight|default:"—" }}</td>
-                            <td>{{ product.desired_qty }}</td>
-                            <td>{{ product.product_volume }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="13" class="text-center text-muted">No products found.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        <div class="app-table-wrap">
+            <table class="table table-hover app-table align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th class="tool-select-col"></th>
+                        <th>Picture</th>
+                        <th>Product ID</th>
+                        <th>Name</th>
+                        <th>L (mm)</th>
+                        <th>W (mm)</th>
+                        <th>H (mm)</th>
+                        <th>Rotation 1</th>
+                        <th>Rotation 2</th>
+                        <th>Rotation 3</th>
+                        <th>Weight (kg)</th>
+                        <th>Desired Qty</th>
+                        <th>Volume</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr class="tool-clickable-row"
+                        onclick="containerSelectionSelectProduct('{{ container_ui.prefix|default:'' }}', '{{ product.id }}')"
+                        tabindex="0"
+                        role="button">
+                        <td class="tool-select-col">
+                            <button type="button"
+                                    class="btn btn-sm btn-app-outline"
+                                    onclick="event.stopPropagation(); containerSelectionSelectProduct('{{ container_ui.prefix|default:'' }}', '{{ product.id }}')">
+                                Select
+                            </button>
+                        </td>
+                        <td>
+                            {% if product.product_picture %}
+                                <img src="{{ product.product_picture.url }}"
+                                     alt="{{ product.product_name|default:product.product_id }}"
+                                     class="app-thumb"
+                                     style="width:48px;height:48px;">
+                            {% else %}
+                                <div class="app-thumb-placeholder app-thumb-placeholder--small" style="width:48px;height:48px;font-size:1rem;">
+                                    <i class="bi bi-box"></i>
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>{{ product.product_id }}</td>
+                        <td>{{ product.product_name|default:"—" }}</td>
+                        <td>{{ product.product_length }}</td>
+                        <td>{{ product.product_width }}</td>
+                        <td>{{ product.product_height }}</td>
+                        <td>{{ product.rotation_1|yesno:"Yes,No" }}</td>
+                        <td>{{ product.rotation_2|yesno:"Yes,No" }}</td>
+                        <td>{{ product.rotation_3|yesno:"Yes,No" }}</td>
+                        <td>{{ product.weight|default:"—" }}</td>
+                        <td>{{ product.desired_qty }}</td>
+                        <td>{{ product.product_volume }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="13" class="text-center text-muted">No products found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
+</div>
 {% endif %}
