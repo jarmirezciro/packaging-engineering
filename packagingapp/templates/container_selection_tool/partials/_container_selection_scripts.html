@@ -1,10 +1,16 @@
 <script>
 (function () {
-    function getForm(prefix) {
-        if (prefix) {
-            const root = document.getElementById("containerSelectionRoot_" + prefix);
-            if (root) return root.closest("form");
+    function getRoot(prefix) {
+        if (prefix !== undefined && prefix !== null && prefix !== "") {
+            return document.getElementById("containerSelectionRoot_" + prefix);
         }
+        return document.querySelector('[data-container-tool-root][data-container-prefix=""]')
+            || document.getElementById("containerSelectionRoot")
+            || document.querySelector('[data-container-tool-root]');
+    }
+    function getForm(prefix) {
+        const root = getRoot(prefix);
+        if (root) return root.closest("form");
         return document.querySelector("form");
     }
     function getById(baseId, prefix) {
@@ -127,6 +133,9 @@
         updateUI(prefix);
         const form = getForm(prefix);
         if (!form) return;
+        if (form.dataset.containerSelectionBound === (prefix || "__standalone__")) return;
+        form.dataset.containerSelectionBound = (prefix || "__standalone__");
+
         const modeField = getField("mode", prefix);
         if (modeField) {
             modeField.addEventListener("change", function () {
@@ -179,8 +188,17 @@
         });
     }
 
-    document.addEventListener("DOMContentLoaded", function () {
-        bindEvents("{{ container_ui.prefix|default:'' }}");
-    });
+    function bindAllRoots() {
+        const roots = document.querySelectorAll('[data-container-tool-root]');
+        if (!roots.length) {
+            bindEvents("");
+            return;
+        }
+        roots.forEach(function (root) {
+            bindEvents(root.dataset.containerPrefix || "");
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", bindAllRoots);
 })();
 </script>
