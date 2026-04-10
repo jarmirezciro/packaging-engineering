@@ -482,13 +482,10 @@
         <input type="hidden" name="{{ step.container_ui.names.container_id }}" id="{{ step.container_ui.ids.container_id }}" value="{{ step.container_values.container_id|default:'' }}">
 
         <div id="{{ step.container_ui.ids.root }}"
-             data-container-tool-root
-             data-container-prefix="{{ step.container_ui.prefix }}">
-          <div class="tool-grid-3">
-            {% include "container_selection_tool/partials/_container_selection_product_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues %}
-            {% include "container_selection_tool/partials/_container_selection_container_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues %}
-            {% include "container_selection_tool/partials/_container_selection_result_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix result=step.result image_url=step.image_url current_mode=step.current_mode %}
-          </div>
+            data-container-tool-root
+            data-container-prefix="{{ step.container_ui.prefix }}">
+          {% include "container_selection_tool/partials/_container_selection_tool.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url products=step.products materials=step.materials top5=step.container_top5_rows %}
+        </div>
 
           {% include "container_selection_tool/partials/_container_selection_product_catalogue_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix products=step.products current_product_source=step.current_product_source selected_product=step.selected_product %}
           {% include "container_selection_tool/partials/_container_selection_packaging_catalogue_section.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix materials=step.materials current_mode=step.current_mode current_container_source=step.current_container_source selected_material=step.selected_material %}
@@ -1465,7 +1462,7 @@ function fpUpdateUI(idx){
   if(stepType === 'bag') fpUpdateBagUI(idx);
   else if(stepType === 'pallet') fpUpdatePalletUI(idx);
   else if(stepType === 'transport') fpTransportUpdateContainerSourceUI(idx);
-  else fpUpdateContainerUI(idx);
+  else return;
 }
 
 document.addEventListener('DOMContentLoaded', function(){
