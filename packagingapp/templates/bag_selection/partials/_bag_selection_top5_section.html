@@ -21,15 +21,15 @@
                 </thead>
                 <tbody>
                     {% for row in top5 %}
-                    <tr class="tool-clickable-row {% if selected_material and selected_material.id == row.material.id %}table-active{% endif %}"
-                        onclick="bagSelectionSelectCandidate('{{ bag_ui.prefix }}', '{{ row.material.id }}')"
+                    <tr class="tool-clickable-row {% if selected_material and selected_material.id|stringformat:'s' == row.id|stringformat:'s' %}table-active{% endif %}"
+                        onclick="bagSelectionSelectCandidate('{{ bag_ui.prefix }}', '{{ row.id }}')"
                         tabindex="0"
                         role="button">
-                        <td class="tool-select-col"><button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); bagSelectionSelectCandidate('{{ bag_ui.prefix }}', '{{ row.material.id }}')">Select</button></td>
+                        <td class="tool-select-col"><button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); bagSelectionSelectCandidate('{{ bag_ui.prefix }}', '{{ row.id }}')">Select</button></td>
                         <td>{{ forloop.counter }}</td>
-                        <td>{{ row.material.part_number }}</td>
-                        <td>{{ row.material.part_description }}</td>
-                        <td>{{ row.material.branding }}</td>
+                        <td>{{ row.part_number }}</td>
+                        <td>{{ row.description }}</td>
+                        <td>{{ row.branding }}</td>
                         <td>{{ row.bag_len }}</td>
                         <td>{{ row.bag_w }}</td>
                         <td>{{ row.usage|floatformat:4 }}</td>

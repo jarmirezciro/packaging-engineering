@@ -26,7 +26,7 @@
 
             {% if mode == "workflow" and pending_result %}
                 <div class="app-form-actions tool-card-actions mt-3">
-                    <button type="submit" class="btn btn-app-primary btn-sm" onclick="document.getElementById('form_action_{{ bag_ui.prefix }}').value='use_result';"><i class="bi bi-check2-circle me-2"></i>Use this result in workflow</button>
+                    <button type="submit" class="btn btn-app-primary btn-sm" onclick="document.getElementById('form_action_{{ bag_ui.prefix }}').value='use_step_result';"><i class="bi bi-check2-circle me-2"></i>Use this result in workflow</button>
                 </div>
             {% endif %}
         {% else %}

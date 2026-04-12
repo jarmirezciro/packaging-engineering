@@ -280,7 +280,10 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                 if best is None:
                     continue
                 scored.append({
-                    "material": m,
+                    "id": str(m.id),
+                    "part_number": m.part_number,
+                    "description": m.part_description,
+                    "branding": m.branding,
                     "bag_len": round(bag_len, 2),
                     "bag_w": round(bag_w, 2),
                     "usage": best["usage"],
