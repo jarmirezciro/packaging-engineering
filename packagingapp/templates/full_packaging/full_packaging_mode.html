@@ -135,9 +135,7 @@
         <input type="hidden" name="action" id="form_action_{{ forloop.counter0 }}" value="run_step">
         <input type="hidden" name="index" value="{{ forloop.counter0 }}">
         <input type="hidden" name="step_action_{{ forloop.counter0 }}" id="step_action_{{ forloop.counter0 }}" value="refresh">
-        {% if step.type == 'bag' %}
-          <input type="hidden" name="bag_id_{{ forloop.counter0 }}" id="bag_id_{{ forloop.counter0 }}" value="{{ step.config.bag_id|default:'' }}">
-        {% elif step.type == 'pallet' %}
+        {% if step.type == 'pallet' %}
           <input type="hidden" name="selected_box_id_{{ forloop.counter0 }}" id="selected_box_id_{{ forloop.counter0 }}" value="{{ step.config.selected_box_id|default:'' }}">
           <input type="hidden" name="pallet_id_{{ forloop.counter0 }}" id="pallet_id_{{ forloop.counter0 }}" value="{{ step.config.pallet_id|default:'' }}">
           <input type="hidden" name="selected_result_key_{{ forloop.counter0 }}" id="selected_result_key_{{ forloop.counter0 }}" value="{{ step.selected_result_key|default:'' }}">
@@ -724,53 +722,6 @@ function fpUpdateContainerUI(idx){
   }
 }
 
-function fpUpdateBagUI(idx){
-  const form = fpForm(idx); if(!form) return;
-  const mode = form.querySelector('[name="mode_' + idx + '"]')?.value || 'single';
-  const productSource = form.querySelector('input[name="product_source_' + idx + '"]:checked')?.value || 'manual';
-  const bagSource = form.querySelector('input[name="bag_source_' + idx + '"]:checked')?.value || 'manual';
-
-  const manualProductFields = document.getElementById('manualProductFields_' + idx);
-  const productCatalogueChooser = document.getElementById('productCatalogueChooser_' + idx);
-  const manualDesiredQtyWrap = document.getElementById('manualDesiredQtyWrap_' + idx);
-  const singleBagControls = document.getElementById('singleBagControls_' + idx);
-  const optimalBagControls = document.getElementById('optimalBagControls_' + idx);
-  const manualBagFields = document.getElementById('manualBagFields_' + idx);
-  const globalCatalogueChooser = document.getElementById('globalCatalogueChooser_' + idx);
-
-  if(productCatalogueChooser){
-    if(productSource === 'catalogue'){
-      productCatalogueChooser.style.display='block';
-      if(manualProductFields) manualProductFields.style.display='none';
-    } else {
-      productCatalogueChooser.style.display='none';
-      if(manualProductFields) manualProductFields.style.display='block';
-    }
-  } else {
-    if(manualProductFields) manualProductFields.style.display='block';
-  }
-
-  if(manualDesiredQtyWrap){
-    manualDesiredQtyWrap.style.display = 'block';
-  }
-
-  if(mode === 'single'){
-    if(singleBagControls) singleBagControls.style.display='block';
-    if(optimalBagControls) optimalBagControls.style.display='none';
-    if(bagSource === 'catalogue'){
-      if(globalCatalogueChooser) globalCatalogueChooser.style.display='block';
-      if(manualBagFields) manualBagFields.style.display='none';
-    } else {
-      if(globalCatalogueChooser) globalCatalogueChooser.style.display='none';
-      if(manualBagFields) manualBagFields.style.display='block';
-    }
-  } else {
-    if(singleBagControls) singleBagControls.style.display='none';
-    if(optimalBagControls) optimalBagControls.style.display='block';
-    if(globalCatalogueChooser) globalCatalogueChooser.style.display='block';
-  }
-}
-
 function fpUpdatePalletUI(idx){
   const form = fpForm(idx); if(!form) return;
   const boxSource = form.querySelector('input[name="box_source_' + idx + '"]:checked')?.value || 'manual';
@@ -924,8 +875,7 @@ function fpTransportContainerSourceChanged(idx){
 function fpUpdateUI(idx){
   const form = fpForm(idx); if(!form) return;
   const stepType = form.dataset.stepType || 'container';
-  if(stepType === 'bag') fpUpdateBagUI(idx);
-  else if(stepType === 'pallet') fpUpdatePalletUI(idx);
+  if(stepType === 'pallet') fpUpdatePalletUI(idx);
   else if(stepType === 'transport') fpTransportUpdateContainerSourceUI(idx);
   else return;
 }
