@@ -1,0 +1,73 @@
+<div class="app-card">
+    <div class="app-card-body">
+        <div class="app-section-title">Bag</div>
+        <div class="app-section-subtitle">Manual size or packaging catalogue selection.</div>
+
+        <div class="tool-field-group">
+            <label class="form-label">Bag Source</label>
+            <div class="tool-radio-group">
+                {% if mode == "workflow" %}
+                    <label class="tool-radio-option"><input type="radio" name="{{ bag_ui.names.bag_source }}" value="manual" {% if bag_values.bag_source == "manual" %}checked{% endif %}><span>Manual</span></label>
+                    <label class="tool-radio-option"><input type="radio" name="{{ bag_ui.names.bag_source }}" value="catalogue" {% if bag_values.bag_source == "catalogue" %}checked{% endif %}><span>From catalogue</span></label>
+                {% else %}
+                    {% for radio in form.bag_source %}
+                        <label class="tool-radio-option">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="{{ bag_ui.ids.global_catalogue_chooser }}" class="tool-field-group tool-tight-gap">
+            <label class="form-label">Packaging Catalogue</label>
+            {% if mode == "workflow" %}
+                <select name="{{ bag_ui.names.catalogue_id }}" class="form-select">
+                    <option value="">— Select —</option>
+                    {% for c in packaging_catalogues %}
+                        <option value="{{ c.id }}" {% if bag_values.catalogue_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            {% else %}
+                {{ form.catalogue_id }}
+            {% endif %}
+        </div>
+
+        <div id="{{ bag_ui.ids.single_bag_controls }}">
+            <div id="{{ bag_ui.ids.manual_bag_fields }}">
+                <div class="tool-compact-grid-two">
+                    <div class="tool-field-group mb-0"><label class="form-label">Bag length</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.bag_length }}" value="{{ bag_values.bag_length|default:'' }}">{% else %}{{ form.bag_length }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Bag width</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.bag_width }}" value="{{ bag_values.bag_width|default:'' }}">{% else %}{{ form.bag_width }}{% endif %}</div>
+                </div>
+            </div>
+
+            {% if selected_material and current_mode == "single" %}
+                <div class="tool-summary-strip">
+                    <div class="tool-summary-main"><strong>{{ selected_material.part_number }}</strong> — {{ selected_material.part_description }}</div>
+                    <div class="tool-summary-meta">
+                        {{ selected_material.part_length }} × {{ selected_material.part_width }}
+                        {% if selected_material.part_weight %} | Wt: {{ selected_material.part_weight }}{% endif %}
+                        | {{ selected_material.packaging_type }}
+                        | {{ selected_material.branding }}
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="app-form-actions tool-card-actions">
+                {% if current_bag_source == "catalogue" %}
+                    {% if selected_material %}
+                        <button type="button" class="btn btn-app-outline btn-sm" onclick="bagSelectionClearSelectedBag('{{ bag_ui.prefix }}')"><i class="bi bi-arrow-repeat me-2"></i>Change Bag</button>
+                    {% else %}
+                        <button type="button" class="btn btn-app-outline btn-sm" onclick="bagSelectionBrowsePackagingCatalogue('{{ bag_ui.prefix }}')"><i class="bi bi-search me-2"></i>Browse Catalogue</button>
+                    {% endif %}
+                {% endif %}
+                <button type="button" class="btn btn-app-primary btn-sm" onclick="bagSelectionRunSingle('{{ bag_ui.prefix }}')"><i class="bi bi-play-circle me-2"></i>Run Analysis</button>
+            </div>
+        </div>
+
+        <div id="{{ bag_ui.ids.optimal_bag_controls }}">
+            <div class="app-form-actions tool-card-actions">
+                <button type="button" class="btn btn-app-primary btn-sm" onclick="bagSelectionFindTop5('{{ bag_ui.prefix }}')"><i class="bi bi-stars me-2"></i>Find Top 5</button>
+            </div>
+            <p class="app-form-note mt-2 mb-0">3D rendering is generated only after selecting one Top 5 candidate.</p>
+        </div>
+    </div>
+</div>

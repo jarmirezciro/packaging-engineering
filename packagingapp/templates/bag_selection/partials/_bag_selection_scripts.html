@@ -1,0 +1,205 @@
+<script>
+(function () {
+    function getRoot(prefix) {
+        if (!prefix) return document.querySelector('[data-bag-tool-root]');
+        return document.getElementById('bagSelectionRoot_' + prefix);
+    }
+
+    function getForm(prefix) {
+        const root = getRoot(prefix);
+        if (root && root.closest('form')) return root.closest('form');
+        if (!prefix) return document.querySelector('form');
+        return document.getElementById('step-form-' + prefix);
+    }
+
+    function getField(name, prefix) {
+        const actual = prefix ? (name + '_' + prefix) : name;
+        const form = getForm(prefix);
+        if (!form) return null;
+        return form.querySelector('[name="' + actual + '"]');
+    }
+
+    function setAction(prefix, value) {
+        const field = getField('action', prefix) || document.getElementById(prefix ? ('step_action_' + prefix) : 'action');
+        if (field) field.value = value;
+    }
+
+    function setHidden(prefix, name, value) {
+        const field = getField(name, prefix) || document.getElementById(prefix ? (name + '_' + prefix) : name);
+        if (field) field.value = value;
+    }
+
+    function submitForm(prefix) {
+        const form = getForm(prefix);
+        if (form) form.submit();
+    }
+
+    function updateUI(prefix) {
+        const form = getForm(prefix);
+        if (!form) return;
+        const root = getRoot(prefix);
+        const allowProductCatalogue = root?.dataset.allowProductCatalogue !== '0';
+        const mode = form.querySelector('[name="' + (prefix ? ('mode_' + prefix) : 'mode') + '"]')?.value || 'single';
+        const productSource = form.querySelector('input[name="' + (prefix ? ('product_source_' + prefix) : 'product_source') + '"]:checked')?.value || 'manual';
+        const bagSource = form.querySelector('input[name="' + (prefix ? ('bag_source_' + prefix) : 'bag_source') + '"]:checked')?.value || 'manual';
+
+        const manualProductFields = document.getElementById(prefix ? ('manualProductFields_' + prefix) : 'manualProductFields');
+        const productCatalogueChooser = document.getElementById(prefix ? ('productCatalogueChooser_' + prefix) : 'productCatalogueChooser');
+        const manualDesiredQtyWrap = document.getElementById(prefix ? ('manualDesiredQtyWrap_' + prefix) : 'manualDesiredQtyWrap');
+        const singleBagControls = document.getElementById(prefix ? ('singleBagControls_' + prefix) : 'singleBagControls');
+        const optimalBagControls = document.getElementById(prefix ? ('optimalBagControls_' + prefix) : 'optimalBagControls');
+        const manualBagFields = document.getElementById(prefix ? ('manualBagFields_' + prefix) : 'manualBagFields');
+        const globalCatalogueChooser = document.getElementById(prefix ? ('globalCatalogueChooser_' + prefix) : 'globalCatalogueChooser');
+
+        if (allowProductCatalogue && productCatalogueChooser) {
+            if (productSource === 'catalogue') {
+                productCatalogueChooser.style.display = 'block';
+                if (manualProductFields) manualProductFields.style.display = 'none';
+            } else {
+                productCatalogueChooser.style.display = 'none';
+                if (manualProductFields) manualProductFields.style.display = 'block';
+            }
+        } else {
+            if (productCatalogueChooser) productCatalogueChooser.style.display = 'none';
+            if (manualProductFields) manualProductFields.style.display = 'block';
+        }
+
+        if (manualDesiredQtyWrap) manualDesiredQtyWrap.style.display = 'block';
+
+        if (mode === 'single') {
+            if (singleBagControls) singleBagControls.style.display = 'block';
+            if (optimalBagControls) optimalBagControls.style.display = 'none';
+            if (bagSource === 'catalogue') {
+                if (globalCatalogueChooser) globalCatalogueChooser.style.display = 'block';
+                if (manualBagFields) manualBagFields.style.display = 'none';
+            } else {
+                if (globalCatalogueChooser) globalCatalogueChooser.style.display = 'none';
+                if (manualBagFields) manualBagFields.style.display = 'block';
+            }
+        } else {
+            if (singleBagControls) singleBagControls.style.display = 'none';
+            if (optimalBagControls) optimalBagControls.style.display = 'block';
+            if (globalCatalogueChooser) globalCatalogueChooser.style.display = 'block';
+        }
+    }
+
+    window.bagSelectionBrowseProductCatalogue = function (prefix) {
+        setHidden(prefix, 'selected_product_id', '');
+        setAction(prefix, 'refresh');
+        submitForm(prefix);
+    };
+    window.bagSelectionClearSelectedProduct = function (prefix) {
+        setHidden(prefix, 'selected_product_id', '');
+        setAction(prefix, 'refresh');
+        submitForm(prefix);
+    };
+    window.bagSelectionSelectProduct = function (prefix, productId) {
+        setHidden(prefix, 'selected_product_id', productId);
+        setAction(prefix, 'select_product');
+        submitForm(prefix);
+    };
+    window.bagSelectionBrowsePackagingCatalogue = function (prefix) {
+        setHidden(prefix, 'bag_id', '');
+        setAction(prefix, 'refresh');
+        submitForm(prefix);
+    };
+    window.bagSelectionClearSelectedBag = function (prefix) {
+        setHidden(prefix, 'bag_id', '');
+        setAction(prefix, 'refresh');
+        submitForm(prefix);
+    };
+    window.bagSelectionSelectBag = function (prefix, bagId) {
+        setHidden(prefix, 'bag_id', bagId);
+        setAction(prefix, 'select_bag');
+        submitForm(prefix);
+    };
+    window.bagSelectionRunSingle = function (prefix) {
+        setAction(prefix, 'run_single');
+        submitForm(prefix);
+    };
+    window.bagSelectionFindTop5 = function (prefix) {
+        setAction(prefix, 'find_top5');
+        submitForm(prefix);
+    };
+    window.bagSelectionSelectCandidate = function (prefix, bagId) {
+        setHidden(prefix, 'bag_id', bagId);
+        setAction(prefix, 'select_candidate');
+        submitForm(prefix);
+    };
+
+    function bindEvents(prefix) {
+        updateUI(prefix);
+        const form = getForm(prefix);
+        if (!form) return;
+        if (form.dataset.bagSelectionBound === (prefix || '__standalone__')) return;
+        form.dataset.bagSelectionBound = (prefix || '__standalone__');
+
+        const modeField = getField('mode', prefix);
+        if (modeField) {
+            modeField.addEventListener('change', function () {
+                setAction(prefix, 'refresh');
+                submitForm(prefix);
+            });
+        }
+
+        const productSourceName = prefix ? ('product_source_' + prefix) : 'product_source';
+        const bagSourceName = prefix ? ('bag_source_' + prefix) : 'bag_source';
+        const productCatalogueName = prefix ? ('product_catalogue_id_' + prefix) : 'product_catalogue_id';
+        const packagingCatalogueName = prefix ? ('catalogue_id_' + prefix) : 'catalogue_id';
+
+        form.querySelectorAll('input[name="' + productSourceName + '"]').forEach(function (el) {
+            el.addEventListener('change', function () {
+                setHidden(prefix, 'selected_product_id', '');
+                setAction(prefix, 'refresh');
+                submitForm(prefix);
+            });
+        });
+        form.querySelectorAll('input[name="' + bagSourceName + '"]').forEach(function (el) {
+            el.addEventListener('change', function () {
+                setHidden(prefix, 'bag_id', '');
+                setAction(prefix, 'refresh');
+                submitForm(prefix);
+            });
+        });
+
+        const productCatalogueField = form.querySelector('[name="' + productCatalogueName + '"]');
+        if (productCatalogueField) {
+            productCatalogueField.addEventListener('change', function () {
+                setHidden(prefix, 'selected_product_id', '');
+                setAction(prefix, 'refresh');
+                submitForm(prefix);
+            });
+        }
+        const packagingCatalogueField = form.querySelector('[name="' + packagingCatalogueName + '"]');
+        if (packagingCatalogueField) {
+            packagingCatalogueField.addEventListener('change', function () {
+                setHidden(prefix, 'bag_id', '');
+                setAction(prefix, 'refresh');
+                submitForm(prefix);
+            });
+        }
+
+        form.querySelectorAll('.tool-clickable-row').forEach(function (row) {
+            row.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    row.click();
+                }
+            });
+        });
+    }
+
+    function bindAllRoots() {
+        const roots = document.querySelectorAll('[data-bag-tool-root]');
+        if (!roots.length) {
+            bindEvents('');
+            return;
+        }
+        roots.forEach(function (root) {
+            bindEvents(root.dataset.bagPrefix || '');
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', bindAllRoots);
+})();
+</script>

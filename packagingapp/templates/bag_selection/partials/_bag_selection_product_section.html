@@ -1,0 +1,81 @@
+<div class="app-card">
+    <div class="app-card-body">
+        <div class="app-section-title">Product</div>
+        <div class="app-section-subtitle">Manual dimensions or product catalogue selection.</div>
+
+        <div class="tool-field-group mb-0">
+            <label class="form-label">Mode</label>
+            {% if mode == "workflow" %}
+                <select name="{{ bag_ui.names.mode }}" class="form-select">
+                    <option value="single" {% if bag_values.mode == "single" %}selected{% endif %}>Single bag analysis</option>
+                    <option value="optimal" {% if bag_values.mode == "optimal" %}selected{% endif %}>Optimal bag (Top 5)</option>
+                </select>
+            {% else %}
+                {{ form.mode }}
+            {% endif %}
+        </div>
+
+        {% if allow_product_catalogue %}
+        <div class="tool-field-group">
+            <label class="form-label">Product Source</label>
+            <div class="tool-radio-group">
+                {% if mode == "workflow" %}
+                    <label class="tool-radio-option"><input type="radio" name="{{ bag_ui.names.product_source }}" value="manual" {% if bag_values.product_source == "manual" %}checked{% endif %}><span>Manual</span></label>
+                    <label class="tool-radio-option"><input type="radio" name="{{ bag_ui.names.product_source }}" value="catalogue" {% if bag_values.product_source == "catalogue" %}checked{% endif %}><span>From catalogue</span></label>
+                {% else %}
+                    {% for radio in form.product_source %}
+                        <label class="tool-radio-option">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="{{ bag_ui.ids.product_catalogue_chooser }}" class="tool-field-group tool-tight-gap">
+            <label class="form-label">Product Catalogue</label>
+            {% if mode == "workflow" %}
+                <select name="{{ bag_ui.names.product_catalogue_id }}" class="form-select">
+                    <option value="">— Select —</option>
+                    {% for c in product_catalogues %}
+                        <option value="{{ c.id }}" {% if bag_values.product_catalogue_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            {% else %}
+                {{ form.product_catalogue_id }}
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div id="{{ bag_ui.ids.manual_product_fields }}">
+            <div class="tool-compact-grid-three">
+                <div class="tool-field-group mb-0"><label class="form-label">Length</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.product_l }}" value="{{ bag_values.product_l|default:'' }}">{% else %}{{ form.product_l }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Width</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.product_w }}" value="{{ bag_values.product_w|default:'' }}">{% else %}{{ form.product_w }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Height</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.product_h }}" value="{{ bag_values.product_h|default:'' }}">{% else %}{{ form.product_h }}{% endif %}</div>
+            </div>
+
+            <div class="tool-compact-grid-two tool-tight-gap">
+                <div id="{{ bag_ui.ids.manual_desired_qty_wrap }}" class="tool-field-group mb-0"><label class="form-label">Units needed</label>{% if mode == "workflow" %}<input type="number" step="1" min="1" class="form-control" name="{{ bag_ui.names.desired_qty }}" value="{{ bag_values.desired_qty|default:'1' }}">{% else %}{{ form.desired_qty }}{% endif %}</div>
+            </div>
+        </div>
+
+        {% if selected_product %}
+            <div class="tool-summary-strip">
+                <div class="tool-summary-main"><strong>{{ selected_product.product_id }}</strong>{% if selected_product.product_name %} — {{ selected_product.product_name }}{% endif %}</div>
+                <div class="tool-summary-meta">
+                    {{ selected_product.product_length }} × {{ selected_product.product_width }} × {{ selected_product.product_height }}
+                    {% if selected_product.weight %} | Wt: {{ selected_product.weight }}{% endif %}
+                    {% if current_mode == "optimal" %} | Desired Qty: {{ selected_product.desired_qty }}{% endif %}
+                </div>
+            </div>
+        {% endif %}
+
+        {% if allow_product_catalogue and current_product_source == "catalogue" %}
+            <div class="app-form-actions tool-card-actions">
+                {% if selected_product %}
+                    <button type="button" class="btn btn-app-outline btn-sm" onclick="bagSelectionClearSelectedProduct('{{ bag_ui.prefix }}')"><i class="bi bi-arrow-repeat me-2"></i>Change Product</button>
+                {% else %}
+                    <button type="button" class="btn btn-app-outline btn-sm" onclick="bagSelectionBrowseProductCatalogue('{{ bag_ui.prefix }}')"><i class="bi bi-search me-2"></i>Browse Catalogue</button>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>

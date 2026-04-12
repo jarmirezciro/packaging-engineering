@@ -1,0 +1,39 @@
+<div class="app-card">
+    <div class="app-card-body">
+        <div class="app-section-title">Result</div>
+        <div class="app-section-subtitle">3D bag preview and bag requirement summary.</div>
+
+        {% if result %}
+            <div class="tool-stat-card mb-3">
+                <div class="tool-stat-label">Smooth qty</div>
+                <div class="tool-stat-value">{{ result.smooth_qty }}</div>
+            </div>
+
+            <div class="tool-summary-strip mb-3">
+                <div class="tool-summary-main"><strong>Bag:</strong> {{ result.bag_len }} × {{ result.bag_w }}</div>
+                <div class="tool-summary-meta">
+                    Fits: {{ result.fits|yesno:"Yes,No" }}
+                    {% if result.best_required %} | Best required: {{ result.best_required.0 }} × {{ result.best_required.1 }}{% endif %}
+                    {% if result.usage %} | Usage: {{ result.usage|floatformat:4 }}{% endif %}
+                </div>
+            </div>
+
+            {% if image_url %}
+                <div class="tool-render-wrap">
+                    <img src="{{ image_url }}" alt="Bag result" class="tool-render-image">
+                </div>
+            {% endif %}
+
+            {% if mode == "workflow" and pending_result %}
+                <div class="app-form-actions tool-card-actions mt-3">
+                    <button type="submit" class="btn btn-app-primary btn-sm" onclick="document.getElementById('form_action_{{ bag_ui.prefix }}').value='use_result';"><i class="bi bi-check2-circle me-2"></i>Use this result in workflow</button>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="app-empty-state">
+                <i class="bi bi-handbag fs-2 d-block mb-2"></i>
+                <div>Run a single analysis or select one Top 5 candidate to generate the result.</div>
+            </div>
+        {% endif %}
+    </div>
+</div>

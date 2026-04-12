@@ -1,0 +1,33 @@
+{% if bag_ui.render_action_hidden %}
+<input type="hidden"
+       name="{{ bag_ui.names.action }}"
+       id="{{ bag_ui.ids.action }}"
+       value="{{ bag_values.action|default:'' }}">
+{% endif %}
+
+<input type="hidden"
+       name="{{ bag_ui.names.selected_product_id }}"
+       id="{{ bag_ui.ids.selected_product_id }}"
+       value="{{ bag_values.selected_product_id|default:'' }}">
+
+<input type="hidden"
+       name="{{ bag_ui.names.bag_id }}"
+       id="{{ bag_ui.ids.bag_id }}"
+       value="{{ bag_values.bag_id|default:'' }}">
+
+{% if form and form.non_field_errors %}
+    <div class="alert alert-danger mb-0">
+        {{ form.non_field_errors }}
+    </div>
+{% elif messages %}
+    <div class="alert alert-danger mb-0">
+        {% for m in messages %}<div>{{ m }}</div>{% endfor %}
+    </div>
+{% endif %}
+
+<div id="{{ bag_ui.ids.root }}"
+     data-bag-tool-root
+     data-bag-prefix="{{ bag_ui.prefix|default:'' }}"
+     data-allow-product-catalogue="{% if allow_product_catalogue %}1{% else %}0{% endif %}">
+    {% include "bag_selection/partials/_bag_selection_tool.html" %}
+</div>
