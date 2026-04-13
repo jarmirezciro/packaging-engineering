@@ -135,12 +135,7 @@
         <input type="hidden" name="action" id="form_action_{{ forloop.counter0 }}" value="run_step">
         <input type="hidden" name="index" value="{{ forloop.counter0 }}">
         <input type="hidden" name="step_action_{{ forloop.counter0 }}" id="step_action_{{ forloop.counter0 }}" value="refresh">
-        {% if step.type == 'pallet' %}
-          <input type="hidden" name="selected_box_id_{{ forloop.counter0 }}" id="selected_box_id_{{ forloop.counter0 }}" value="{{ step.config.selected_box_id|default:'' }}">
-          <input type="hidden" name="pallet_id_{{ forloop.counter0 }}" id="pallet_id_{{ forloop.counter0 }}" value="{{ step.config.pallet_id|default:'' }}">
-          <input type="hidden" name="selected_result_key_{{ forloop.counter0 }}" id="selected_result_key_{{ forloop.counter0 }}" value="{{ step.selected_result_key|default:'' }}">
-          <input type="hidden" name="show_advanced_{{ forloop.counter0 }}" id="show_advanced_{{ forloop.counter0 }}" value="{% if step.config.show_advanced %}1{% else %}0{% endif %}">
-        {% elif step.type == 'transport' %}
+        {% if step.type == 'transport' %}
           <input type="hidden" name="container_id_{{ forloop.counter0 }}" id="container_id_{{ forloop.counter0 }}" value="{{ step.config.container_id|default:'' }}">
           <input type="hidden" name="transport_selected_row_index_{{ forloop.counter0 }}" id="transport_selected_row_index_{{ forloop.counter0 }}" value="{{ step.config.selected_row_index|default:'' }}">
           <input type="hidden" name="transport_product_id_to_fill_{{ forloop.counter0 }}" id="transport_product_id_to_fill_{{ forloop.counter0 }}" value="">
@@ -157,316 +152,9 @@
         {% endif %}
 
         {% if step.type == "pallet" %}
-        <div class="tool-grid-3">
-          <div class="app-card">
-            <div class="app-card-body">
-              <div class="app-section-title">Box / Load</div>
-              <div class="app-section-subtitle">Manual box dimensions or box selection from a packaging catalogue.</div>
-
-              {% if forloop.first %}
-              <div class="tool-field-group">
-                <label class="form-label">Box Source</label>
-                <div class="tool-radio-group">
-                  <label class="tool-radio-option"><input type="radio" name="box_source_{{ forloop.counter0 }}" value="manual" {% if step.config.box_source == 'manual' %}checked{% endif %} onchange="fpClearAndRefreshPallet({{ forloop.counter0 }}, 'box')"><span>Manual</span></label>
-                  <label class="tool-radio-option"><input type="radio" name="box_source_{{ forloop.counter0 }}" value="catalogue" {% if step.config.box_source == 'catalogue' %}checked{% endif %} onchange="fpClearAndRefreshPallet({{ forloop.counter0 }}, 'box')"><span>From Catalogue</span></label>
-                </div>
-              </div>
-
-              <div id="boxCatalogueChooser_{{ forloop.counter0 }}" class="tool-field-group tool-tight-gap">
-                <label class="form-label">Box Catalogue</label>
-                <select name="box_catalogue_id_{{ forloop.counter0 }}" class="form-select" onchange="fpClearAndRefreshPallet({{ forloop.counter0 }}, 'box')">
-                  <option value="">— Select —</option>
-                  {% for c in packaging_catalogues %}
-                    <option value="{{ c.id }}" {% if step.config.box_catalogue_id|stringformat:'s' == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              {% endif %}
-
-              <div id="manualBoxFields_{{ forloop.counter0 }}">
-                <div class="tool-compact-grid-three">
-                  <div class="tool-field-group mb-0"><label class="form-label">Length</label><input type="number" step="any" class="form-control" name="box_l_{{ forloop.counter0 }}" value="{{ step.config.box_l|default:'' }}"></div>
-                  <div class="tool-field-group mb-0"><label class="form-label">Width</label><input type="number" step="any" class="form-control" name="box_w_{{ forloop.counter0 }}" value="{{ step.config.box_w|default:'' }}"></div>
-                  <div class="tool-field-group mb-0"><label class="form-label">Height</label><input type="number" step="any" class="form-control" name="box_h_{{ forloop.counter0 }}" value="{{ step.config.box_h|default:'' }}"></div>
-                </div>
-              </div>
-
-
-              {% if step.selected_box_material %}
-                <div class="tool-summary-strip">
-                  <div class="tool-summary-main"><strong>{{ step.selected_box_material.part_number }}</strong> — {{ step.selected_box_material.part_description }}</div>
-                  <div class="tool-summary-meta">{{ step.selected_box_material.external_length|default:step.selected_box_material.part_length }} × {{ step.selected_box_material.external_width|default:step.selected_box_material.part_width }} × {{ step.selected_box_material.external_height|default:step.selected_box_material.part_height }}{% if step.selected_box_material.part_weight %} | Wt: {{ step.selected_box_material.part_weight }}{% endif %} | {{ step.selected_box_material.branding }}</div>
-                </div>
-              {% endif %}
-
-              {% if forloop.first and step.config.box_source == 'catalogue' %}
-              <div class="app-form-actions tool-card-actions">
-                {% if step.selected_box_material %}
-                  <button type="button" class="btn btn-app-outline btn-sm" onclick="fpClearPalletBoxPackaging({{ forloop.counter0 }})"><i class="bi bi-arrow-repeat me-2"></i>Change Box</button>
-                {% else %}
-                  <button type="button" class="btn btn-app-outline btn-sm" onclick="fpBrowsePalletBoxPackaging({{ forloop.counter0 }})"><i class="bi bi-search me-2"></i>Browse Catalogue</button>
-                {% endif %}
-              </div>
-              {% endif %}
-            </div>
-          </div>
-
-          <div class="app-card">
-            <div class="app-card-body">
-              <div class="app-section-title">Pallet</div>
-              <div class="app-section-subtitle">Manual pallet dimensions or pallet selection from a packaging catalogue.</div>
-
-              <div class="tool-field-group">
-                <label class="form-label">Pallet Source</label>
-                <div class="tool-radio-group">
-                  <label class="tool-radio-option"><input type="radio" name="pallet_source_{{ forloop.counter0 }}" value="manual" {% if step.config.pallet_source == 'manual' %}checked{% endif %} onchange="fpClearAndRefreshPallet({{ forloop.counter0 }}, 'pallet')"><span>Manual</span></label>
-                  <label class="tool-radio-option"><input type="radio" name="pallet_source_{{ forloop.counter0 }}" value="catalogue" {% if step.config.pallet_source == 'catalogue' %}checked{% endif %} onchange="fpClearAndRefreshPallet({{ forloop.counter0 }}, 'pallet')"><span>From Catalogue</span></label>
-                </div>
-              </div>
-
-              <div id="palletCatalogueChooser_{{ forloop.counter0 }}" class="tool-field-group tool-tight-gap">
-                <label class="form-label">Pallet Catalogue</label>
-                <select name="pallet_catalogue_id_{{ forloop.counter0 }}" class="form-select" onchange="fpClearAndRefreshPallet({{ forloop.counter0 }}, 'pallet')">
-                  <option value="">— Select —</option>
-                  {% for c in packaging_catalogues %}
-                    <option value="{{ c.id }}" {% if step.config.pallet_catalogue_id|stringformat:'s' == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-
-              <div id="manualPalletFields_{{ forloop.counter0 }}">
-                <div class="tool-compact-grid-three">
-                  <div class="tool-field-group mb-0"><label class="form-label">Pallet length</label><input type="number" step="any" class="form-control" name="pallet_l_{{ forloop.counter0 }}" value="{{ step.config.pallet_l|default:'' }}"></div>
-                  <div class="tool-field-group mb-0"><label class="form-label">Pallet width</label><input type="number" step="any" class="form-control" name="pallet_w_{{ forloop.counter0 }}" value="{{ step.config.pallet_w|default:'' }}"></div>
-                  <div class="tool-field-group mb-0"><label class="form-label">Max stack height</label><input type="number" step="any" class="form-control" name="max_stack_height_{{ forloop.counter0 }}" value="{{ step.config.max_stack_height|default:'' }}"></div>
-                </div>
-              </div>
-
-              <div id="cataloguePalletMainFields_{{ forloop.counter0 }}" style="display:none;">
-                <div class="tool-compact-grid-one">
-                  <div class="tool-field-group mb-0"><label class="form-label">Max stack height</label><input type="number" step="any" class="form-control" name="max_stack_height_{{ forloop.counter0 }}" value="{{ step.config.max_stack_height|default:'' }}"></div>
-                </div>
-              </div>
-
-              {% if step.selected_pallet_material %}
-                <div class="tool-summary-strip">
-                  <div class="tool-summary-main"><strong>{{ step.selected_pallet_material.part_number }}</strong> — {{ step.selected_pallet_material.part_description }}</div>
-                  <div class="tool-summary-meta">{{ step.selected_pallet_material.external_length|default:step.selected_pallet_material.part_length }} × {{ step.selected_pallet_material.external_width|default:step.selected_pallet_material.part_width }} × {{ step.selected_pallet_material.external_height|default:step.selected_pallet_material.part_height }}{% if step.selected_pallet_material.part_weight %} | Wt: {{ step.selected_pallet_material.part_weight }}{% endif %} | {{ step.selected_pallet_material.branding }}</div>
-                </div>
-              {% endif %}
-
-              {% if step.config.pallet_source == 'catalogue' %}
-              <div class="app-form-actions tool-card-actions">
-                {% if step.selected_pallet_material %}
-                  <button type="button" class="btn btn-app-outline btn-sm" onclick="fpClearPalletPackaging({{ forloop.counter0 }})"><i class="bi bi-arrow-repeat me-2"></i>Change Pallet</button>
-                {% else %}
-                  <button type="button" class="btn btn-app-outline btn-sm" onclick="fpBrowsePalletPackaging({{ forloop.counter0 }})"><i class="bi bi-search me-2"></i>Browse Catalogue</button>
-                {% endif %}
-              </div>
-              {% endif %}
-
-              <div class="tool-field-group tool-tight-gap">
-                <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                  <label class="form-label mb-0">Advanced Parameters</label>
-                  <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTogglePalletAdvanced({{ forloop.counter0 }})">
-                    <i id="toggleConstraintsIcon_{{ forloop.counter0 }}" class="bi {% if step.config.show_advanced %}bi-chevron-up{% else %}bi-chevron-down{% endif %} me-2"></i>
-                    <span id="toggleConstraintsText_{{ forloop.counter0 }}">{% if step.config.show_advanced %}Hide Advanced{% else %}Show Advanced{% endif %}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div id="stackingConstraintsSection_{{ forloop.counter0 }}" {% if not step.config.show_advanced %}style="display:none;"{% endif %}>
-                <div class="tool-compact-grid-two">
-                  <div class="tool-field-group mb-0"><label class="form-label">Box weight</label><input type="number" step="any" class="form-control" name="box_weight_{{ forloop.counter0 }}" value="{{ step.config.box_weight|default:'' }}"></div>
-                  <div class="tool-field-group mb-0"><label class="form-label">Max weight for bottom box</label><input type="number" step="any" class="form-control" name="max_weight_on_bottom_box_{{ forloop.counter0 }}" value="{{ step.config.max_weight_on_bottom_box|default:'' }}"></div>
-                </div>
-                <div class="tool-compact-grid-two tool-tight-gap">
-                  <div class="tool-field-group mb-0"><label class="form-label">Max width stickout</label><input type="number" step="any" class="form-control" name="max_width_stickout_{{ forloop.counter0 }}" value="{{ step.config.max_width_stickout|default:0 }}"></div>
-                  <div class="tool-field-group mb-0"><label class="form-label">Max length stickout</label><input type="number" step="any" class="form-control" name="max_length_stickout_{{ forloop.counter0 }}" value="{{ step.config.max_length_stickout|default:0 }}"></div>
-                </div>
-              </div>
-
-              <div class="app-form-actions tool-card-actions">
-                <button type="button" class="btn btn-app-primary w-100" onclick="fpSetActionAndSubmit({{ forloop.counter0 }}, 'run_analysis')"><i class="bi bi-play-circle me-2"></i>Run Analysis</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="app-card">
-            <div class="app-card-body">
-              <div class="app-section-title">Result</div>
-              <div class="app-section-subtitle">Ranked palletization patterns and 3D visualization for the selected result.</div>
-              {% if step.result %}
-                <div class="tool-summary-strip">
-                  <div class="tool-summary-main"><strong>{{ step.result.pattern }}</strong> — {{ step.result.stacking }}</div>
-                  <div class="tool-summary-meta">Pallet: {{ step.result.pallet_l }} × {{ step.result.pallet_w }} | Total height: {{ step.result.total_height_mm }} mm | Boxes: {{ step.result.total_boxes }}</div>
-                </div>
-                <div class="tool-compact-grid-two mt-3">
-                  <div class="tool-stat-card"><span>Total Boxes</span><strong>{{ step.result.total_boxes }}</strong></div>
-                  <div class="tool-stat-card"><span>Layers</span><strong>{{ step.result.layers }}</strong></div>
-                  <div class="tool-stat-card"><span>Footprint %</span><strong>{{ step.result.layer_footprint_util_pct }}</strong></div>
-                  <div class="tool-stat-card"><span>Volume %</span><strong>{{ step.result.volumetric_util_pct }}</strong></div>
-                </div>
-                <div class="tool-meta-stack mt-3">
-                  <div><strong>Layer A:</strong> {{ step.result.boxes_layer_A }}</div>
-                  <div><strong>Layer B:</strong> {{ step.result.boxes_layer_B }}</div>
-                  <div><strong>Weight OK:</strong> {{ step.result.feasible_weight }}</div>
-                  <div><strong>Max Bottom Load:</strong> {{ step.result.max_bottom_load_kg }}</div>
-                </div>
-                {% if step.image_url %}
-                  <div class="tool-render-wrap mt-3">
-                    <img src="{{ step.image_url }}" alt="Palletization result" class="tool-render-image">
-                  </div>
-                {% endif %}
-                {% if step.pending_result %}
-                <div class="app-form-actions tool-card-actions">
-                  <button type="button" class="btn btn-app-primary w-100" onclick="fpUseStepResult({{ forloop.counter0 }})"><i class="bi bi-check2-circle me-2"></i>Use this result in workflow</button>
-                </div>
-                {% endif %}
-              {% else %}
-                <div class="tool-empty-state">Run the analysis to rank palletization options and draw the selected result.</div>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-{% if step.type == 'pallet' and forloop.first and step.config.box_source == 'catalogue' and step.config.box_catalogue_id %}
-        {% if step.show_box_catalogue or not step.selected_box_material %}
-        <div class="app-card">
-          <div class="app-card-body">
-            <div class="app-section-title">Box Catalogue Selection</div>
-            <div class="app-section-subtitle">Select one box or crate from the chosen catalogue.</div>
-            <div class="app-table-wrap">
-              <table class="table table-hover app-table align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th class="tool-select-col"></th>
-                    <th>Part Number</th>
-                    <th>Description</th>
-                    <th>Type</th>
-                    <th>Brand</th>
-                    <th>Ext. L</th>
-                    <th>Ext. W</th>
-                    <th>Ext. H</th>
-                    <th>Weight</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for m in step.box_materials %}
-                  <tr class="tool-clickable-row" onclick="fpSelectPalletBox({{ forloop.parentloop.counter0 }}, '{{ m.id }}')" tabindex="0" role="button">
-                    <td class="tool-select-col"><button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); fpSelectPalletBox({{ forloop.parentloop.counter0 }}, '{{ m.id }}')">Select</button></td>
-                    <td>{{ m.part_number }}</td>
-                    <td>{{ m.part_description }}</td>
-                    <td>{{ m.packaging_type }}</td>
-                    <td>{{ m.branding }}</td>
-                    <td>{{ m.external_length|default:m.part_length }}</td>
-                    <td>{{ m.external_width|default:m.part_width }}</td>
-                    <td>{{ m.external_height|default:m.part_height }}</td>
-                    <td>{{ m.part_weight|default:'—' }}</td>
-                  </tr>
-                  {% empty %}
-                  <tr><td colspan="9" class="text-center text-muted">No BOX or CRATE materials found in this catalogue.</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        {% endif %}
-        {% endif %}
-
-        {% if step.type == 'pallet' and step.config.pallet_source == 'catalogue' and step.config.pallet_catalogue_id %}
-        {% if step.show_pallet_catalogue or not step.selected_pallet_material %}
-        <div class="app-card">
-          <div class="app-card-body">
-            <div class="app-section-title">Pallet Catalogue Selection</div>
-            <div class="app-section-subtitle">Select one pallet from the chosen catalogue.</div>
-            <div class="app-table-wrap">
-              <table class="table table-hover app-table align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th class="tool-select-col"></th>
-                    <th>Part Number</th>
-                    <th>Description</th>
-                    <th>Type</th>
-                    <th>Brand</th>
-                    <th>Ext. L</th>
-                    <th>Ext. W</th>
-                    <th>Ext. H</th>
-                    <th>Weight</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for m in step.pallet_materials %}
-                  <tr class="tool-clickable-row" onclick="fpSelectPalletPackaging({{ forloop.parentloop.counter0 }}, '{{ m.id }}')" tabindex="0" role="button">
-                    <td class="tool-select-col"><button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); fpSelectPalletPackaging({{ forloop.parentloop.counter0 }}, '{{ m.id }}')">Select</button></td>
-                    <td>{{ m.part_number }}</td>
-                    <td>{{ m.part_description }}</td>
-                    <td>{{ m.packaging_type }}</td>
-                    <td>{{ m.branding }}</td>
-                    <td>{{ m.external_length|default:m.part_length }}</td>
-                    <td>{{ m.external_width|default:m.part_width }}</td>
-                    <td>{{ m.external_height|default:m.part_height }}</td>
-                    <td>{{ m.part_weight|default:'—' }}</td>
-                  </tr>
-                  {% empty %}
-                  <tr><td colspan="9" class="text-center text-muted">No PALLET materials found in this catalogue.</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        {% endif %}
-        {% endif %}
-
-        {% if step.type == 'pallet' and step.results_table %}
-        <div class="app-card">
-          <div class="app-card-body">
-            <div class="app-section-title">Palletization Results</div>
-            <div class="app-section-subtitle">Select a row to draw another result in 3D.</div>
-            <div class="app-table-wrap">
-              <table class="table table-hover app-table align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th class="tool-select-col"></th>
-                    <th>Rank</th>
-                    <th>Pattern</th>
-                    <th>Stacking</th>
-                    <th>Layer A</th>
-                    <th>Layer B</th>
-                    <th>Layers</th>
-                    <th>Total Boxes</th>
-                    <th>Footprint %</th>
-                    <th>Volume %</th>
-                    <th>Weight OK</th>
-                    <th>Max Bottom Load</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for row in step.results_table %}
-                  <tr class="tool-clickable-row {% if step.result and step.result.pattern == row.pattern and step.result.stacking == row.stacking %}table-active{% endif %}" onclick="fpSelectPalletResult({{ forloop.parentloop.counter0 }}, '{{ row.pattern }}__{{ row.stacking }}')" tabindex="0" role="button">
-                    <td class="tool-select-col"><button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); fpSelectPalletResult({{ forloop.parentloop.counter0 }}, '{{ row.pattern }}__{{ row.stacking }}')">Select</button></td>
-                    <td>{{ forloop.counter }}</td>
-                    <td>{{ row.pattern }}</td>
-                    <td>{{ row.stacking }}</td>
-                    <td>{{ row.boxes_layer_A }}</td>
-                    <td>{{ row.boxes_layer_B }}</td>
-                    <td>{{ row.layers }}</td>
-                    <td>{{ row.total_boxes }}</td>
-                    <td>{{ row.layer_footprint_util_pct }}</td>
-                    <td>{{ row.volumetric_util_pct }}</td>
-                    <td>{{ row.feasible_weight }}</td>
-                    <td>{{ row.max_bottom_load_kg }}</td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
-
+        {% with pallet_ui=step.pallet_ui pallet_values=step.pallet_values current_box_source=step.current_box_source current_pallet_source=step.current_pallet_source show_advanced=step.show_advanced selected_box_material=step.selected_box_material selected_pallet_material=step.selected_pallet_material results_table=step.results_table selected_result=step.selected_result result_image_url=step.image_url packaging_catalogues=packaging_catalogues %}
+          {% include "palletization/palletization_wrapper.html" %}
+        {% endwith %}
         {% elif step.type == "transport" %}
         <div class="transport-tool-form">
           {% include "container_tool/partials/_transport_container_section.html" with is_workflow=True step_index=forloop.counter0 step=step current_container_source=step.config.container_source selected_material=step.selected_material container_summary=step.container_summary current_catalogue_id=step.config.catalogue_id materials=step.materials packaging_catalogues=packaging_catalogues %}
@@ -515,6 +203,8 @@
 {% endblock %}
 
 {% block extra_js %}
+{% include "palletization/partials/_palletization_scripts.html" %}
+
 <script>
 function fpForm(idx){ return document.getElementById('step-form-' + idx); }
 function fpSetFormAction(idx, value){ const el = document.getElementById('form_action_' + idx); if(el) el.value = value; }
@@ -527,91 +217,14 @@ function fpGetPackagingField(idx){
   return document.getElementById('container_id_' + idx) || document.getElementById('bag_id_' + idx);
 }
 
-function fpBrowsePalletBoxPackaging(idx){
-  fpSetFormAction(idx, 'run_step');
-  const el = document.getElementById('selected_box_id_' + idx);
-  if(el) el.value='';
-  fpSetAction(idx, 'browse_box_packaging');
-  fpForm(idx).submit();
-}
 
-function fpClearPalletBoxPackaging(idx){
-  fpSetFormAction(idx, 'run_step');
-  const el = document.getElementById('selected_box_id_' + idx);
-  if(el) el.value='';
-  fpSetAction(idx, 'clear_box_packaging');
-  fpForm(idx).submit();
-}
 
-function fpSelectPalletBox(idx, itemId){
-  fpSetFormAction(idx, 'run_step');
-  const el = document.getElementById('selected_box_id_' + idx);
-  if(el) el.value=itemId;
-  fpSetAction(idx, 'select_box');
-  fpForm(idx).submit();
-}
 
-function fpBrowsePalletPackaging(idx){
-  fpSetFormAction(idx, 'run_step');
-  const el = document.getElementById('pallet_id_' + idx);
-  if(el) el.value='';
-  fpSetAction(idx, 'browse_pallet_packaging');
-  fpForm(idx).submit();
-}
 
-function fpClearPalletPackaging(idx){
-  fpSetFormAction(idx, 'run_step');
-  const el = document.getElementById('pallet_id_' + idx);
-  if(el) el.value='';
-  fpSetAction(idx, 'clear_pallet_packaging');
-  fpForm(idx).submit();
-}
 
-function fpSelectPalletPackaging(idx, itemId){
-  fpSetFormAction(idx, 'run_step');
-  const el = document.getElementById('pallet_id_' + idx);
-  if(el) el.value=itemId;
-  fpSetAction(idx, 'select_pallet');
-  fpForm(idx).submit();
-}
 
-function fpSelectPalletResult(idx, resultKey){
-  fpSetFormAction(idx, 'run_step');
-  const el = document.getElementById('selected_result_key_' + idx);
-  if(el) el.value=resultKey;
-  fpSetAction(idx, 'select_result');
-  fpForm(idx).submit();
-}
 
-function fpClearAndRefreshPallet(idx, target){
-  fpSetFormAction(idx, 'run_step');
-  if(target === 'box'){
-    const el = document.getElementById('selected_box_id_' + idx);
-    if(el) el.value='';
-  }
-  if(target === 'pallet'){
-    const el = document.getElementById('pallet_id_' + idx);
-    if(el) el.value='';
-  }
-  fpSetAction(idx, 'refresh');
-  fpForm(idx).submit();
-}
 
-function fpTogglePalletAdvanced(idx, forceOpen = null){
-  const section = document.getElementById('stackingConstraintsSection_' + idx);
-  const text = document.getElementById('toggleConstraintsText_' + idx);
-  const icon = document.getElementById('toggleConstraintsIcon_' + idx);
-  const hidden = document.getElementById('show_advanced_' + idx);
-  if(!section) return;
-  let shouldOpen;
-  if(forceOpen === true) shouldOpen = true;
-  else if(forceOpen === false) shouldOpen = false;
-  else shouldOpen = section.style.display === 'none';
-  section.style.display = shouldOpen ? 'block' : 'none';
-  if(text) text.textContent = shouldOpen ? 'Hide Advanced' : 'Show Advanced';
-  if(icon) icon.className = shouldOpen ? 'bi bi-chevron-up me-2' : 'bi bi-chevron-down me-2';
-  if(hidden) hidden.value = shouldOpen ? '1' : '0';
-}
 
 function fpBrowseProduct(idx){
   fpSetFormAction(idx, 'run_step');
@@ -722,40 +335,6 @@ function fpUpdateContainerUI(idx){
   }
 }
 
-function fpUpdatePalletUI(idx){
-  const form = fpForm(idx); if(!form) return;
-  const boxSource = form.querySelector('input[name="box_source_' + idx + '"]:checked')?.value || 'manual';
-  const palletSource = form.querySelector('input[name="pallet_source_' + idx + '"]:checked')?.value || 'manual';
-  const boxCatalogueChooser = document.getElementById('boxCatalogueChooser_' + idx);
-  const manualBoxFields = document.getElementById('manualBoxFields_' + idx);
-  const palletCatalogueChooser = document.getElementById('palletCatalogueChooser_' + idx);
-  const manualPalletFields = document.getElementById('manualPalletFields_' + idx);
-  const cataloguePalletMainFields = document.getElementById('cataloguePalletMainFields_' + idx);
-  const advancedHidden = document.getElementById('show_advanced_' + idx);
-
-  if(boxCatalogueChooser){
-    if(boxSource === 'catalogue'){
-      boxCatalogueChooser.style.display='block';
-      if(manualBoxFields) manualBoxFields.style.display='none';
-    } else {
-      boxCatalogueChooser.style.display='none';
-      if(manualBoxFields) manualBoxFields.style.display='block';
-    }
-  } else if(manualBoxFields){
-    manualBoxFields.style.display='block';
-  }
-
-  if(palletSource === 'catalogue'){
-    if(palletCatalogueChooser) palletCatalogueChooser.style.display='block';
-    if(manualPalletFields) manualPalletFields.style.display='none';
-    if(cataloguePalletMainFields) cataloguePalletMainFields.style.display='block';
-  } else {
-    if(palletCatalogueChooser) palletCatalogueChooser.style.display='none';
-    if(manualPalletFields) manualPalletFields.style.display='block';
-    if(cataloguePalletMainFields) cataloguePalletMainFields.style.display='none';
-  }
-  fpTogglePalletAdvanced(idx, advancedHidden && advancedHidden.value === '1');
-}
 
 
 function fpTransportSyncCheckboxHidden(checkbox){
@@ -875,8 +454,7 @@ function fpTransportContainerSourceChanged(idx){
 function fpUpdateUI(idx){
   const form = fpForm(idx); if(!form) return;
   const stepType = form.dataset.stepType || 'container';
-  if(stepType === 'pallet') fpUpdatePalletUI(idx);
-  else if(stepType === 'transport') fpTransportUpdateContainerSourceUI(idx);
+  if(stepType === 'transport') fpTransportUpdateContainerSourceUI(idx);
   else return;
 }
 
