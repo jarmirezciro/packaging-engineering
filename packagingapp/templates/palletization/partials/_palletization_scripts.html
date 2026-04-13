@@ -41,6 +41,11 @@
         if (!form) return;
         const field = form.querySelector(`[name="${palletToolName(baseName, prefix)}"]`);
         if (field) field.value = value;
+
+        if (baseName === "action" && prefix !== "") {
+            const workflowField = form.querySelector(`[name="step_action_${prefix}"]`);
+            if (workflowField) workflowField.value = value;
+        }
     }
 
     function palletToolGetCheckedValue(baseName, prefix, fallbackValue) {
