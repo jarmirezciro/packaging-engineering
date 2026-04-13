@@ -1,0 +1,17 @@
+{% with current_box_source=current_box_source|default:pallet_values.box_source current_pallet_source=current_pallet_source|default:pallet_values.pallet_source %}
+<input type="hidden" name="{{ pallet_ui.names.action }}" value="">
+<input type="hidden" name="{{ pallet_ui.names.selected_box_id }}" value="{{ pallet_values.selected_box_id|default:'' }}">
+<input type="hidden" name="{{ pallet_ui.names.pallet_id }}" value="{{ pallet_values.pallet_id|default:'' }}">
+<input type="hidden" name="{{ pallet_ui.names.selected_result_key }}" id="{{ pallet_ui.ids.selected_result_key }}" value="{{ pallet_values.selected_result_key|default:'' }}">
+<input type="hidden" name="{{ pallet_ui.names.show_advanced }}" id="{{ pallet_ui.ids.show_advanced }}" value="{% if show_advanced|default:pallet_values.show_advanced %}1{% else %}0{% endif %}">
+
+{% if form.non_field_errors %}
+    <div class="alert alert-danger mb-0">
+        {{ form.non_field_errors }}
+    </div>
+{% endif %}
+
+<div id="{{ pallet_ui.ids.root }}" data-pallet-tool-root data-pallet-prefix="{{ pallet_ui.prefix }}">
+    {% include "palletization/partials/_palletization_tool.html" %}
+</div>
+{% endwith %}

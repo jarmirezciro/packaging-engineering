@@ -1,0 +1,42 @@
+<div class="app-card">
+    <div class="app-card-body">
+        <div class="app-section-title">Result</div>
+        <div class="app-section-subtitle">Best ranked result, same presentation style as the other tools.</div>
+
+        {% if selected_result %}
+            <div class="tool-top-pair">
+                <div class="tool-stat-card">
+                    <div class="tool-stat-label">Total boxes</div>
+                    <div class="tool-stat-value">{{ selected_result.total_boxes }}</div>
+                </div>
+                <div class="tool-stat-card">
+                    <div class="tool-stat-label">Layers</div>
+                    <div class="tool-stat-value">{{ selected_result.layers }}</div>
+                </div>
+            </div>
+
+            <div class="tool-summary-strip mb-3">
+                <div class="tool-summary-main">
+                    <strong>{{ selected_result.pattern }}</strong> — {{ selected_result.stacking|title }}
+                </div>
+                <div class="tool-summary-meta">
+                    Footprint: {{ selected_result.layer_footprint_util_pct }}%
+                    | Volume: {{ selected_result.volumetric_util_pct }}%
+                    | Weight OK: {{ selected_result.feasible_weight }}
+                    | Max bottom load: {{ selected_result.max_bottom_load_kg }}
+                </div>
+            </div>
+
+            {% if result_image_url %}
+                <div class="tool-render-wrap">
+                    <img src="{{ result_image_url }}" alt="Palletization result" class="tool-render-image">
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="app-empty-state">
+                <i class="bi bi-boxes fs-2 d-block mb-2"></i>
+                <div>Run analysis to generate the best palletization result and 3D view.</div>
+            </div>
+        {% endif %}
+    </div>
+</div>
