@@ -88,6 +88,7 @@ def _new_container_step():
         "messages": [],
         "result": None,
         "image_url": None,
+        "selected_result": None,
         "top5": [],
         "pending_result": None,
         "config": {
@@ -276,6 +277,7 @@ def _read_prefixed_pallet_post(step, idx, post):
 def _run_pallet_analysis_shared(step, steps, idx):
     step["result"] = None
     step["image_url"] = None
+    step["selected_result"] = None
     step["pending_result"] = None
     step["results_table"] = []
 
@@ -311,6 +313,7 @@ def _run_pallet_analysis_shared(step, steps, idx):
     step["image_url"] = settings.MEDIA_URL + image_rel_path if image_rel_path else None
 
     selected_row = serialized.get("selected_result")
+    step["selected_result"] = selected_row
     if not selected_row:
         return
 
