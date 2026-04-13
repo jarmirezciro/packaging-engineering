@@ -152,7 +152,7 @@
         {% endif %}
 
         {% if step.type == "pallet" %}
-        {% with pallet_ui=step.pallet_ui pallet_values=step.pallet_values current_box_source=step.current_box_source current_pallet_source=step.current_pallet_source show_advanced=step.show_advanced selected_box_material=step.selected_box_material selected_pallet_material=step.selected_pallet_material results_table=step.results_table selected_result=step.selected_result result_image_url=step.image_url packaging_catalogues=packaging_catalogues %}
+        {% with pallet_ui=step.pallet_ui pallet_values=step.pallet_values current_box_source=step.current_box_source current_pallet_source=step.current_pallet_source show_advanced=step.show_advanced selected_box_material=step.selected_box_material selected_pallet_material=step.selected_pallet_material box_materials=step.box_materials pallet_materials=step.pallet_materials results_table=step.results_table selected_result=step.selected_result result_image_url=step.image_url packaging_catalogues=packaging_catalogues %}
           {% include "palletization/palletization_wrapper.html" %}
         {% endwith %}
         {% elif step.type == "transport" %}
