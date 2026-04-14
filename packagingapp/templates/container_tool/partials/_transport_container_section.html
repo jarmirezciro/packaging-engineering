@@ -52,13 +52,6 @@
             <div class="tool-summary-meta">{{ selected_material.part_length }} × {{ selected_material.part_width }} × {{ selected_material.part_height }}{% if selected_material.part_weight %} | Wt: {{ selected_material.part_weight }}{% endif %} | {{ selected_material.packaging_type }} | {{ selected_material.branding }}</div>
           </div>
         {% endif %}
-
-        <div class="container-tool-fields-4 mt-3">
-          <div class="tool-field-group mb-0"><label class="form-label">Internal length</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_l_{{ step_index }}" value="{{ step.config.container_l|default:'' }}">{% else %}{{ form.container_l }}{% endif %}</div>
-          <div class="tool-field-group mb-0"><label class="form-label">Internal width</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_w_{{ step_index }}" value="{{ step.config.container_w|default:'' }}">{% else %}{{ form.container_w }}{% endif %}</div>
-          <div class="tool-field-group mb-0"><label class="form-label">Internal height</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_h_{{ step_index }}" value="{{ step.config.container_h|default:'' }}">{% else %}{{ form.container_h }}{% endif %}</div>
-          <div class="tool-field-group mb-0"><label class="form-label">Max weight</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="max_weight_{{ step_index }}" value="{{ step.config.max_weight|default:'' }}">{% else %}{{ form.max_weight }}{% endif %}</div>
-        </div>
       </div>
     </div>
   </div>

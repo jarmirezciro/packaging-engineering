@@ -280,12 +280,12 @@
       const catalogueCard = document.getElementById('fpTransportCatalogueSectionCard_' + idx);
       const hasSelected = !!(document.getElementById('container_id_' + idx)?.value);
     
+      if (manualFields) manualFields.style.display = 'block';
+
       if (source === 'catalogue') {
-        if (manualFields) manualFields.style.display = 'none';
         if (catalogueSummary) catalogueSummary.style.display = 'block';
         if (catalogueCard) catalogueCard.style.display = hasSelected ? 'none' : 'block';
       } else {
-        if (manualFields) manualFields.style.display = 'block';
         if (catalogueSummary) catalogueSummary.style.display = 'none';
         if (catalogueCard) catalogueCard.style.display = 'none';
       }
