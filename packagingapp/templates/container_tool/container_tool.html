@@ -13,7 +13,7 @@
 
   <form method="post" id="container-tool-form" class="container-tool-form">
     {% csrf_token %}
-    {% include "container_tool/transport_wrapper.html" with mode="standalone" is_workflow=False prefix="" form=form messages=row_errors current_container_source=current_container_source selected_material=selected_material container_summary=container_summary current_catalogue_id=current_catalogue_id materials=materials packaging_catalogues=packaging_catalogues result=result image_url=image_url product_rows=product_rows auto_hide_product_catalogue=auto_hide_product_catalogue selected_row_index=selected_row_index product_catalogue_id=product_catalogue_id product_catalogues=product_catalogues product_items=product_items product_id_to_fill="" scroll_target=scroll_target is_first_step=True %}
+    {% include "container_tool/transport_wrapper.html" with mode="standalone" is_workflow=False prefix="0" form=form messages=row_errors current_container_source=current_container_source selected_material=selected_material container_summary=container_summary current_catalogue_id=current_catalogue_id materials=materials packaging_catalogues=packaging_catalogues result=result image_url=image_url product_rows=product_rows auto_hide_product_catalogue=auto_hide_product_catalogue selected_row_index=selected_row_index product_catalogue_id=product_catalogue_id product_catalogues=product_catalogues product_items=product_items product_id_to_fill="" scroll_target=scroll_target is_first_step=True %}
   </form>
 </div>
 {% endblock %}

@@ -29,5 +29,5 @@
      data-transport-tool-root
      data-transport-prefix="{{ prefix|default:'' }}"
      data-transport-mode="{{ mode|default:'standalone' }}">
-  {% include "container_tool/partials/_transport_tool.html" %}
+  {% include "container_tool/partials/_transport_tool.html" with step_index=prefix %}
 </div>
