@@ -13,44 +13,13 @@
 
   <form method="post" id="container-tool-form" class="container-tool-form">
     {% csrf_token %}
-    {{ form.action }}
-    {{ form.container_id }}
-    <input type="hidden" name="selected_row_index" id="selected_row_index" value="{{ selected_row_index }}">
-    <input type="hidden" name="product_id_to_fill" id="product_id_to_fill" value="">
-    <input type="hidden" name="scroll_target" id="scroll_target" value="">
-
-    {% if form.non_field_errors %}<div class="alert alert-danger mb-0">{{ form.non_field_errors }}</div>{% endif %}
-    {% if row_errors %}<div class="alert alert-danger mb-0"><strong>Please fix the following:</strong><ul class="mb-0 mt-2">{% for err in row_errors %}<li>{{ err }}</li>{% endfor %}</ul></div>{% endif %}
-
-    {% include "container_tool/partials/_transport_container_section.html" with is_workflow=False current_container_source=current_container_source selected_material=selected_material container_summary=container_summary current_catalogue_id=current_catalogue_id materials=materials packaging_catalogues=packaging_catalogues form=form %}
-    {% include "container_tool/partials/_transport_result_section.html" with result=result image_url=image_url %}
-    {% include "container_tool/partials/_transport_product_section.html" with is_workflow=False product_rows=product_rows result=result auto_hide_product_catalogue=auto_hide_product_catalogue selected_row_index=selected_row_index product_catalogue_id=product_catalogue_id product_catalogues=product_catalogues product_items=product_items %}
+    {% include "container_tool/transport_wrapper.html" with mode="standalone" is_workflow=False prefix="" form=form messages=row_errors current_container_source=current_container_source selected_material=selected_material container_summary=container_summary current_catalogue_id=current_catalogue_id materials=materials packaging_catalogues=packaging_catalogues result=result image_url=image_url product_rows=product_rows auto_hide_product_catalogue=auto_hide_product_catalogue selected_row_index=selected_row_index product_catalogue_id=product_catalogue_id product_catalogues=product_catalogues product_items=product_items product_id_to_fill="" scroll_target=scroll_target is_first_step=True %}
   </form>
 </div>
 {% endblock %}
 
 {% block extra_css %}
-<style>
-  .container-tool-form { display:flex; flex-direction:column; gap:1.1rem; }
-  .container-tool-card-head, .container-tool-table-header { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
-  .container-tool-top { display:grid; grid-template-columns:1.8fr 1fr; gap:1.1rem; align-items:start; }
-  .container-tool-summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; }
-  .container-tool-fields-4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:0.9rem; }
-  .container-tool-catalogue-row { display:grid; grid-template-columns:minmax(320px,420px) auto; gap:1rem; align-items:end; }
-  .container-tool-catalogue-row-single { grid-template-columns:minmax(320px,420px); }
-  .container-tool-table-wrap { border:1px solid var(--app-border); border-radius:1rem; overflow:auto; }
-  .container-tool-table, .container-tool-table td, .container-tool-table th { white-space:nowrap; vertical-align:middle; }
-  .container-tool-table input.form-control { min-width:88px; }
-  .container-tool-render-wrap { min-height:300px; display:flex; align-items:center; justify-content:center; }
-  .container-tool-render-image { width:100%; max-height:300px; object-fit:contain; }
-  .container-tool-empty { min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .container-tool-fields-4 .form-control, .container-tool-catalogue-row .form-select { border-radius:14px; }
-  .section-collapsed { display:none; }
-  .container-collapsed-summary .tool-summary-strip.compact { padding:0.65rem 0.9rem; }
-  @media (max-width:1200px){ .container-tool-top{grid-template-columns:1fr;} .container-tool-fields-4{grid-template-columns:1fr 1fr;} }
-  @media (max-width:991px){ .container-tool-summary-grid, .container-tool-catalogue-row{grid-template-columns:1fr;} }
-  @media (max-width:767px){ .container-tool-fields-4, .container-tool-summary-grid{grid-template-columns:1fr;} .container-tool-table-header, .container-tool-card-head{flex-direction:column; align-items:stretch;} }
-</style>
+{% include "container_tool/partials/_transport_styles.html" %}
 {% endblock %}
 
 {% block extra_js %}

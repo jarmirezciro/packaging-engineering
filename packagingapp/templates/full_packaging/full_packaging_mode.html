@@ -2,6 +2,7 @@
 {% block title %}Full Packaging Module{% endblock %}
 
 {% block extra_css %}
+{% include "container_tool/partials/_transport_styles.html" %}
 <style>
 .fp-page{display:grid;gap:1rem;}
 .fp-shell-card{background:var(--app-surface);border:1px solid var(--app-border);border-radius:var(--app-radius-lg);box-shadow:var(--app-shadow-sm);}
@@ -19,19 +20,6 @@
 .fp-add-inline select{min-width:240px;}
 .fp-compact-gap{margin-bottom:.5rem !important;}
 .fp-hidden{display:none !important;}
-.transport-tool-form,.container-tool-form{display:flex;flex-direction:column;gap:1.1rem;}
-.transport-tool-card-head,.transport-tool-table-header,.container-tool-card-head,.container-tool-table-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem;}
-.transport-tool-top,.container-tool-top{display:grid;grid-template-columns:1.8fr 1fr;gap:1.1rem;align-items:start;}
-.transport-tool-summary-grid,.container-tool-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
-.transport-tool-fields-4,.container-tool-fields-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.9rem;}
-.transport-tool-catalogue-row,.container-tool-catalogue-row{display:grid;grid-template-columns:minmax(320px,420px);gap:1rem;align-items:end;}
-.transport-tool-table-wrap,.container-tool-table-wrap{border:1px solid var(--app-border);border-radius:1rem;overflow:auto;}
-.transport-tool-render-wrap,.container-tool-render-wrap{min-height:300px;display:flex;align-items:center;justify-content:center;}
-.transport-tool-render-image,.container-tool-render-image{width:100%;max-height:300px;object-fit:contain;}
-.transport-tool-empty,.container-tool-empty{min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.section-collapsed{display:none;}
-@media (max-width:1200px){.transport-tool-top,.container-tool-top{grid-template-columns:1fr;}.transport-tool-fields-4,.container-tool-fields-4{grid-template-columns:1fr 1fr;}}
-@media (max-width:767px){.transport-tool-fields-4,.transport-tool-summary-grid,.container-tool-fields-4,.container-tool-summary-grid{grid-template-columns:1fr;}.transport-tool-table-header,.transport-tool-card-head,.container-tool-table-header,.container-tool-card-head{flex-direction:column;align-items:stretch;}}
 @media (max-width:991px){.fp-shell-head{padding:.85rem}.fp-summary,.fp-add-row{padding:0 .85rem .85rem .85rem;}}
 </style>
 {% endblock %}
@@ -135,17 +123,12 @@
         <input type="hidden" name="action" id="form_action_{{ forloop.counter0 }}" value="run_step">
         <input type="hidden" name="index" value="{{ forloop.counter0 }}">
         <input type="hidden" name="step_action_{{ forloop.counter0 }}" id="step_action_{{ forloop.counter0 }}" value="refresh">
-        {% if step.type == 'transport' %}
-          <input type="hidden" name="container_id_{{ forloop.counter0 }}" id="container_id_{{ forloop.counter0 }}" value="{{ step.config.container_id|default:'' }}">
-          <input type="hidden" name="transport_selected_row_index_{{ forloop.counter0 }}" id="transport_selected_row_index_{{ forloop.counter0 }}" value="{{ step.config.selected_row_index|default:'' }}">
-          <input type="hidden" name="transport_product_id_to_fill_{{ forloop.counter0 }}" id="transport_product_id_to_fill_{{ forloop.counter0 }}" value="">
-        {% elif step.type == 'container' %}
-        {% else %}
+        {% if step.type == 'bag' or step.type == 'pallet' %}
           <input type="hidden" name="selected_product_id_{{ forloop.counter0 }}" id="selected_product_id_{{ forloop.counter0 }}" value="{{ step.config.selected_product_id|default:'' }}">
           <input type="hidden" name="container_id_{{ forloop.counter0 }}" id="container_id_{{ forloop.counter0 }}" value="{{ step.config.container_id|default:'' }}">
         {% endif %}
 
-        {% if step.messages and step.type != 'bag' %}
+        {% if step.messages and step.type != 'bag' and step.type != 'transport' %}
           <div class="alert alert-danger mb-0">
             {% for m in step.messages %}<div>{{ m }}</div>{% endfor %}
           </div>
@@ -156,11 +139,7 @@
           {% include "palletization/palletization_wrapper.html" %}
         {% endwith %}
         {% elif step.type == "transport" %}
-        <div class="transport-tool-form">
-          {% include "container_tool/partials/_transport_container_section.html" with is_workflow=True step_index=forloop.counter0 step=step current_container_source=step.config.container_source selected_material=step.selected_material container_summary=step.container_summary current_catalogue_id=step.config.catalogue_id materials=step.materials packaging_catalogues=packaging_catalogues %}
-          {% include "container_tool/partials/_transport_result_section.html" with result=step.result image_url=step.image_url %}
-          {% include "container_tool/partials/_transport_product_section.html" with is_workflow=True step_index=forloop.counter0 is_first_step=forloop.first product_rows=step.product_rows result=step.result auto_hide_product_catalogue=step.auto_hide_product_catalogue selected_row_index=step.config.selected_row_index product_catalogue_id=step.config.product_catalogue_id product_catalogues=product_catalogues product_items=step.products %}
-        </div>
+        {% include "container_tool/transport_wrapper.html" with mode="workflow" is_workflow=True prefix=forloop.counter0 container_id=step.config.container_id selected_row_index=step.config.selected_row_index product_id_to_fill=step.config.product_id_to_fill messages=step.messages current_container_source=step.config.container_source selected_material=step.selected_material container_summary=step.container_summary current_catalogue_id=step.config.catalogue_id materials=step.materials packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url product_rows=step.product_rows auto_hide_product_catalogue=step.auto_hide_product_catalogue product_catalogue_id=step.config.product_catalogue_id product_catalogues=product_catalogues product_items=step.products is_first_step=forloop.first %}
 
         {% elif step.type == "container" %}
 {% include "container_selection_tool/container_selection_wrapper.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url products=step.products materials=step.materials top5=step.container_top5_rows %}
@@ -335,120 +314,6 @@ function fpUpdateContainerUI(idx){
   }
 }
 
-
-
-function fpTransportSyncCheckboxHidden(checkbox){
-  const hidden = checkbox.parentElement.querySelector('input[type="hidden"]');
-  if(hidden) hidden.value = checkbox.checked ? '1' : '0';
-}
-
-function fpTransportAddProductRow(idx){
-  const tpl = document.getElementById('fpTransportProductRowTemplate_' + idx);
-  const tbody = document.getElementById('fpTransportProductsTbody_' + idx);
-  if(!tpl || !tbody) return;
-  tbody.appendChild(tpl.content.cloneNode(true));
-}
-
-function fpTransportRemoveProductRow(btn, idx){
-  const tbody = document.getElementById('fpTransportProductsTbody_' + idx);
-  if(!tbody) return;
-  const rows = tbody.querySelectorAll('tr');
-  if(rows.length <= 1) return;
-  btn.closest('tr').remove();
-}
-
-function fpTransportSelectContainerFromCatalogue(idx, containerId){
-  const el = document.getElementById('container_id_' + idx);
-  if(el) el.value = containerId;
-  fpSetAction(idx, 'select_container');
-  fpForm(idx).submit();
-}
-
-function fpTransportShowPackagingCatalogue(idx){
-  const el = document.getElementById('container_id_' + idx);
-  if(el) el.value = '';
-  fpSetAction(idx, 'browse_packaging');
-  fpForm(idx).submit();
-}
-
-function fpTransportPackagingCatalogueChanged(idx){
-  const el = document.getElementById('container_id_' + idx);
-  if(el) el.value = '';
-  fpSetAction(idx, 'refresh');
-  fpForm(idx).submit();
-}
-
-function fpTransportProductCatalogueChanged(idx){
-  fpSetAction(idx, 'refresh');
-  fpForm(idx).submit();
-}
-
-function fpTransportSelectProduct(idx, productId){
-  const el = document.getElementById('transport_product_id_to_fill_' + idx);
-  if(el) el.value = productId;
-  fpSetAction(idx, 'select_product');
-  fpForm(idx).submit();
-}
-
-function fpTransportOpenProductCatalogueForRow(idx, rowIndex){
-  const field = document.getElementById('transport_selected_row_index_' + idx);
-  if(field) field.value = String(rowIndex - 1);
-  const card = document.getElementById('fpTransportProductCatalogueCard_' + idx);
-  if(card) card.style.display = 'block';
-  const label = document.getElementById('fpTransportSelectedRowLabel_' + idx);
-  if(label) label.textContent = rowIndex;
-}
-
-function fpTransportOpenProductCatalogueForRowFromButton(button, idx){
-  const row = button.closest('tr');
-  const rows = Array.from(document.querySelectorAll('#fpTransportProductsTbody_' + idx + ' tr'));
-  const rowIndex = rows.indexOf(row);
-  fpTransportOpenProductCatalogueForRow(idx, rowIndex + 1);
-}
-
-function fpTransportHideProductCatalogueSection(idx){
-  const field = document.getElementById('transport_selected_row_index_' + idx);
-  if(field) field.value = '';
-  const card = document.getElementById('fpTransportProductCatalogueCard_' + idx);
-  if(card) card.style.display = 'none';
-}
-
-function fpTransportToggleSection(idx, sectionKey){
-  const section = document.getElementById('fpTransportContainerSectionBody_' + idx);
-  const summary = document.getElementById('fpTransportContainerCollapsedSummary_' + idx);
-  const icon = document.getElementById('fpTransportContainerIcon_' + idx);
-  if(!section) return;
-  const collapsed = section.classList.toggle('section-collapsed');
-  if(summary) summary.style.display = collapsed ? 'block' : 'none';
-  if(icon) icon.className = collapsed ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
-}
-
-function fpTransportUpdateContainerSourceUI(idx){
-  const form = fpForm(idx); if(!form) return;
-  const source = form.querySelector('input[name="container_source_' + idx + '"]:checked')?.value || 'manual';
-  const manualFields = document.getElementById('fpTransportManualContainerFields_' + idx);
-  const catalogueSummary = document.getElementById('fpTransportCatalogueContainerSummary_' + idx);
-  const catalogueCard = document.getElementById('fpTransportCatalogueSectionCard_' + idx);
-  const hasSelected = !!(document.getElementById('container_id_' + idx)?.value);
-
-  if(source === 'catalogue'){
-    if(manualFields) manualFields.style.display = 'none';
-    if(catalogueSummary) catalogueSummary.style.display = 'block';
-    if(catalogueCard) catalogueCard.style.display = hasSelected ? 'none' : 'block';
-  } else {
-    if(manualFields) manualFields.style.display = 'block';
-    if(catalogueSummary) catalogueSummary.style.display = 'none';
-    if(catalogueCard) catalogueCard.style.display = 'none';
-  }
-}
-
-function fpTransportContainerSourceChanged(idx){
-  if(document.getElementById('container_id_' + idx)){
-    document.getElementById('container_id_' + idx).value = '';
-  }
-  fpSetAction(idx, 'refresh');
-  fpForm(idx).submit();
-}
 
 
 function fpUpdateUI(idx){

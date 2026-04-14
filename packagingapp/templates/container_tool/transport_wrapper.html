@@ -1,0 +1,33 @@
+{% if is_workflow %}
+<input type="hidden" name="container_id_{{ prefix }}" id="container_id_{{ prefix }}" value="{{ container_id|default:'' }}">
+<input type="hidden" name="transport_selected_row_index_{{ prefix }}" id="transport_selected_row_index_{{ prefix }}" value="{{ selected_row_index|default:'' }}">
+<input type="hidden" name="transport_product_id_to_fill_{{ prefix }}" id="transport_product_id_to_fill_{{ prefix }}" value="{{ product_id_to_fill|default:'' }}">
+{% else %}
+{{ form.action }}
+{{ form.container_id }}
+<input type="hidden" name="selected_row_index" id="selected_row_index" value="{{ selected_row_index|default:'' }}">
+<input type="hidden" name="product_id_to_fill" id="product_id_to_fill" value="{{ product_id_to_fill|default:'' }}">
+<input type="hidden" name="scroll_target" id="scroll_target" value="{{ scroll_target|default:'' }}">
+{% endif %}
+
+{% if form and form.non_field_errors %}
+<div class="alert alert-danger mb-0">{{ form.non_field_errors }}</div>
+{% endif %}
+{% if messages %}
+<div class="alert alert-danger mb-0">
+  {% if is_workflow %}
+    {% for m in messages %}<div>{{ m }}</div>{% endfor %}
+  {% else %}
+    <strong>Please fix the following:</strong>
+    <ul class="mb-0 mt-2">{% for err in messages %}<li>{{ err }}</li>{% endfor %}</ul>
+  {% endif %}
+</div>
+{% endif %}
+
+<div id="{% if is_workflow %}fpTransportRoot_{{ prefix }}{% else %}containerToolTransportRoot{% endif %}"
+     class="container-tool-form"
+     data-transport-tool-root
+     data-transport-prefix="{{ prefix|default:'' }}"
+     data-transport-mode="{{ mode|default:'standalone' }}">
+  {% include "container_tool/partials/_transport_tool.html" %}
+</div>
