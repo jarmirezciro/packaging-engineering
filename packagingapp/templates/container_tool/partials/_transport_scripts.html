@@ -1,4 +1,18 @@
 <script>
+    if (typeof window.setAction !== "function") {
+      window.setAction = function(value) {
+        const actionInput = document.querySelector('input[name="action"]');
+        if (actionInput) actionInput.value = value;
+      };
+    }
+
+    if (typeof window.setHidden !== "function") {
+      window.setHidden = function(name, value) {
+        const field = document.querySelector(`[name="${name}"]`);
+        if (field) field.value = value;
+      };
+    }
+
     function syncCheckboxHidden(checkbox) {
       const hidden = checkbox.parentElement.querySelector('input[type="hidden"]');
       if (hidden) hidden.value = checkbox.checked ? "1" : "0";
@@ -283,4 +297,58 @@
       fpSetAction(idx, 'refresh');
       fpForm(idx).submit();
     }
+
+    function initStandaloneTransportUI(root) {
+      if (!root) return;
+      root.querySelectorAll('#products-tbody input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
+      root.querySelectorAll('input[name="container_source"]').forEach(el => {
+        el.addEventListener('change', updateContainerSourceUI);
+      });
+      const packagingCatalogueSelect = root.querySelector('#id_catalogue_id');
+      if (packagingCatalogueSelect) {
+        packagingCatalogueSelect.addEventListener('change', onPackagingCatalogueChange);
+      }
+      updateContainerSourceUI();
+
+      const scrollTargetField = root.querySelector('#scroll_target');
+      const scrollTarget = scrollTargetField ? scrollTargetField.value : '';
+      if (scrollTarget === 'product_catalogue') {
+        const productCatalogueCard = root.querySelector('#productCatalogueCard');
+        if (productCatalogueCard && productCatalogueCard.style.display !== 'none') {
+          setTimeout(function () {
+            productCatalogueCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 120);
+        }
+      }
+
+      const autoHideField = root.querySelector('[data-transport-auto-hide-product-catalogue]');
+      const autoHideProductCatalogue = !!(autoHideField && autoHideField.value === '1');
+      if (autoHideProductCatalogue) {
+        const productCatalogueCard = root.querySelector('#productCatalogueCard');
+        if (productCatalogueCard) productCatalogueCard.style.display = 'none';
+        const productsSection = root.querySelector('#productsSectionCard');
+        if (productsSection) {
+          setTimeout(function () {
+            productsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 120);
+        }
+      }
+    }
+
+    function initWorkflowTransportUI(root) {
+      if (!root) return;
+      const idx = root.dataset.transportPrefix;
+      root.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
+      if (idx !== undefined && idx !== null && idx !== '') {
+        fpTransportUpdateContainerSourceUI(idx);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('[data-transport-tool-root]').forEach(function(root) {
+        const mode = root.dataset.transportMode || 'standalone';
+        if (mode === 'workflow') initWorkflowTransportUI(root);
+        else initStandaloneTransportUI(root);
+      });
+    });
     </script>

@@ -316,18 +316,8 @@ function fpUpdateContainerUI(idx){
 
 
 
-function fpUpdateUI(idx){
-  const form = fpForm(idx); if(!form) return;
-  const stepType = form.dataset.stepType || 'container';
-  if(stepType === 'transport') fpTransportUpdateContainerSourceUI(idx);
-  else return;
-}
 
 document.addEventListener('DOMContentLoaded', function(){
-  {% for step in steps %}
-    fpUpdateUI({{ forloop.counter0 }});
-  {% endfor %}
-
   document.querySelectorAll('.tool-clickable-row').forEach(function(row){
     row.addEventListener('keydown', function(e){
       if(e.key === 'Enter' || e.key === ' '){

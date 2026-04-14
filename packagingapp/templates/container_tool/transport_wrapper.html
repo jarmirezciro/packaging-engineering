@@ -29,5 +29,6 @@
      data-transport-tool-root
      data-transport-prefix="{{ prefix|default:'' }}"
      data-transport-mode="{{ mode|default:'standalone' }}">
+  <input type="hidden" data-transport-auto-hide-product-catalogue value="{% if auto_hide_product_catalogue %}1{% else %}0{% endif %}">
   {% include "container_tool/partials/_transport_tool.html" with step_index=prefix %}
 </div>
