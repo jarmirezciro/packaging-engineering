@@ -252,6 +252,27 @@
                     <span>Full Packaging Module</span>
                 </a>
             </div>
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Account</div>
+                {% if user.is_authenticated %}
+                <div class="app-nav-link" style="background:#f8fafc; cursor:default;">
+                    <i class="bi bi-person-circle"></i>
+                    <span>{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="app-nav-link w-100 border-0 bg-transparent text-start">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>Sign out</span>
+                    </button>
+                </form>
+                {% else %}
+                <a href="{% url 'login' %}?next={{ request.path|urlencode }}" class="app-nav-link">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    <span>Sign in</span>
+                </a>
+                {% endif %}
+            </div>
 
         </nav>
     </aside>

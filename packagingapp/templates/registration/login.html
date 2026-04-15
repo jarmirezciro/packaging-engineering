@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 520px;">
+    <div class="app-card">
+        <div class="app-card-body p-4">
+            <div class="app-section-title mb-2">Sign in</div>
+            <p class="app-section-subtitle">Sign in to create and manage your private product and packaging catalogues.</p>
+
+            {% if form.errors %}
+            <div class="alert alert-danger">Your username and password did not match. Please try again.</div>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label" for="id_username">Username</label>
+                    <input type="text" name="username" autofocus autocapitalize="none" autocomplete="username" maxlength="150" class="form-control" required id="id_username">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="id_password">Password</label>
+                    <input type="password" name="password" autocomplete="current-password" class="form-control" required id="id_password">
+                </div>
+                {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+                <button type="submit" class="btn btn-app-primary w-100">Sign in</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

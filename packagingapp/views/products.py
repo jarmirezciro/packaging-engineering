@@ -2,12 +2,19 @@ from io import BytesIO
 import zipfile
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from openpyxl import Workbook
 
+from packagingapp.access import (
+    can_manage_product_catalogue,
+    get_manageable_product_catalogue_or_404,
+    get_visible_product_catalogue_or_404,
+    visible_product_catalogues,
+)
 from packagingapp.forms import (
     ProductCatalogueForm,
     ProductForm,
@@ -15,12 +22,12 @@ from packagingapp.forms import (
     ProductImagesZipUploadForm,
     ProductFilterForm,
 )
-from packagingapp.models import ProductCatalogue, Product
+from packagingapp.models import Product
 from packagingapp.services.product_excel_import import import_product_excel
 
 
 def product_catalogues(request):
-    catalogues = ProductCatalogue.objects.all().order_by("-created_at")
+    catalogues = visible_product_catalogues(request.user).order_by("-created_at")
     return render(
         request,
         "product_catalogue/catalogues.html",
@@ -28,12 +35,16 @@ def product_catalogues(request):
     )
 
 
+@login_required
 def create_product_catalogue(request):
     if request.method == "POST":
         form = ProductCatalogueForm(request.POST, request.FILES)
         if form.is_valid():
-            catalogue = form.save()
-            messages.success(request, "Product catalogue created successfully.")
+            catalogue = form.save(commit=False)
+            catalogue.owner = request.user
+            catalogue.is_public = False
+            catalogue.save()
+            messages.success(request, "Private product catalogue created successfully.")
             return redirect("product_catalogue_detail", catalogue_id=catalogue.pk)
     else:
         form = ProductCatalogueForm()
@@ -45,13 +56,17 @@ def create_product_catalogue(request):
     )
 
 
+@login_required
 def edit_product_catalogue(request, catalogue_id):
-    catalogue = get_object_or_404(ProductCatalogue, pk=catalogue_id)
+    catalogue = get_manageable_product_catalogue_or_404(request.user, pk=catalogue_id)
 
     if request.method == "POST":
         form = ProductCatalogueForm(request.POST, request.FILES, instance=catalogue)
         if form.is_valid():
-            form.save()
+            updated = form.save(commit=False)
+            updated.owner = catalogue.owner
+            updated.is_public = catalogue.is_public
+            updated.save()
             messages.success(request, "Product catalogue updated successfully.")
             return redirect("product_catalogue_detail", catalogue_id=catalogue.pk)
     else:
@@ -67,8 +82,9 @@ def edit_product_catalogue(request, catalogue_id):
     )
 
 
+@login_required
 def delete_product_catalogue(request, catalogue_id):
-    catalogue = get_object_or_404(ProductCatalogue, id=catalogue_id)
+    catalogue = get_manageable_product_catalogue_or_404(request.user, pk=catalogue_id)
     if request.method == "POST":
         catalogue.delete()
         messages.success(request, "Product catalogue deleted successfully.")
@@ -76,8 +92,9 @@ def delete_product_catalogue(request, catalogue_id):
     return redirect("product_catalogues")
 
 
+
 def product_catalogue_detail(request, catalogue_id):
-    catalogue = get_object_or_404(ProductCatalogue, id=catalogue_id)
+    catalogue = get_visible_product_catalogue_or_404(request.user, pk=catalogue_id)
     products = catalogue.products.all().order_by("product_id")
 
     form = ProductFilterForm(request.GET or None)
@@ -131,12 +148,14 @@ def product_catalogue_detail(request, catalogue_id):
             "catalogue": catalogue,
             "form": form,
             "page_obj": page_obj,
+            "can_manage_catalogue": can_manage_product_catalogue(request.user, catalogue),
         },
     )
 
 
+@login_required
 def add_product(request, catalogue_id):
-    catalogue = get_object_or_404(ProductCatalogue, id=catalogue_id)
+    catalogue = get_manageable_product_catalogue_or_404(request.user, pk=catalogue_id)
 
     if request.method == "POST":
         form = ProductForm(request.POST, request.FILES)
@@ -156,8 +175,9 @@ def add_product(request, catalogue_id):
     )
 
 
+@login_required
 def upload_products_excel(request, catalogue_id):
-    catalogue = get_object_or_404(ProductCatalogue, id=catalogue_id)
+    catalogue = get_manageable_product_catalogue_or_404(request.user, pk=catalogue_id)
 
     if request.method == "POST":
         form = ProductExcelUploadForm(request.POST, request.FILES)
@@ -189,8 +209,9 @@ def upload_products_excel(request, catalogue_id):
     )
 
 
+
 def download_product_excel_template(request, catalogue_id):
-    catalogue = get_object_or_404(ProductCatalogue, pk=catalogue_id)
+    catalogue = get_visible_product_catalogue_or_404(request.user, pk=catalogue_id)
 
     wb = Workbook()
 
@@ -250,8 +271,9 @@ def download_product_excel_template(request, catalogue_id):
     return response
 
 
+
 def export_product_catalogue_excel(request, catalogue_id):
-    catalogue = get_object_or_404(ProductCatalogue, pk=catalogue_id)
+    catalogue = get_visible_product_catalogue_or_404(request.user, pk=catalogue_id)
     products = catalogue.products.all().order_by("product_id")
 
     wb = Workbook()
@@ -303,8 +325,9 @@ def export_product_catalogue_excel(request, catalogue_id):
     return response
 
 
+@login_required
 def upload_product_images_zip(request, catalogue_id):
-    catalogue = get_object_or_404(ProductCatalogue, id=catalogue_id)
+    catalogue = get_manageable_product_catalogue_or_404(request.user, pk=catalogue_id)
 
     if request.method == "POST":
         form = ProductImagesZipUploadForm(request.POST, request.FILES)

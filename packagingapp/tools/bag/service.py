@@ -1,5 +1,6 @@
 from django.conf import settings
 
+from ...access import visible_packaging_catalogues, visible_product_catalogues
 from ...forms import BagSelectionForm
 from ...models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
 from ...utils.bag_selection.engine import (
@@ -27,12 +28,12 @@ def _to_int(value, default=1):
         return default
 
 
-def get_packaging_catalogues():
-    return PackagingCatalogue.objects.all().order_by("name")
+def get_packaging_catalogues(user=None):
+    return visible_packaging_catalogues(user).order_by("name")
 
 
-def get_product_catalogues():
-    return ProductCatalogue.objects.all().order_by("name")
+def get_product_catalogues(user=None):
+    return visible_product_catalogues(user).order_by("name")
 
 
 def get_products_for_catalogue(config):

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 
 import io
 from typing import Dict, List
@@ -36,7 +37,7 @@ def _product_label(p: Product) -> str:
 
 
 def _serialize_product_catalogues() -> List[Dict]:
-    catalogues = ProductCatalogue.objects.all().order_by("name")
+    catalogues = visible_product_catalogues(request.user).order_by("name")
     payload = []
 
     for c in catalogues:
@@ -72,7 +73,7 @@ def _serialize_product_catalogues() -> List[Dict]:
 
 
 def _serialize_packaging_catalogues() -> List[Dict]:
-    catalogues = PackagingCatalogue.objects.all().order_by("name")
+    catalogues = visible_packaging_catalogues(request.user).order_by("name")
     payload = []
 
     for c in catalogues:
@@ -155,8 +156,8 @@ def _rank_top5_for_product(product: Product, materials: List[PackagingMaterial])
 @require_GET
 def multi_product_container_selection(request: HttpRequest) -> HttpResponse:
     context = {
-        "product_catalogues": ProductCatalogue.objects.all().order_by("name"),
-        "packaging_catalogues": PackagingCatalogue.objects.all().order_by("name"),
+        "product_catalogues": visible_product_catalogues(request.user).order_by("name"),
+        "packaging_catalogues": visible_packaging_catalogues(request.user).order_by("name"),
         "product_catalogues_payload": _serialize_product_catalogues(),
         "packaging_catalogues_payload": _serialize_packaging_catalogues(),
     }
@@ -171,8 +172,8 @@ def multi_product_container_run(request: HttpRequest) -> JsonResponse:
     if not product_catalogue_id or not packaging_catalogue_id:
         return JsonResponse({"ok": False, "error": "Missing catalogue selection."}, status=400)
 
-    product_catalogue = get_object_or_404(ProductCatalogue, id=product_catalogue_id)
-    packaging_catalogue = get_object_or_404(PackagingCatalogue, id=packaging_catalogue_id)
+    product_catalogue = get_visible_product_catalogue_or_404(request.user, pk=product_catalogue_id)
+    packaging_catalogue = get_visible_packaging_catalogue_or_404(request.user, pk=packaging_catalogue_id)
 
     products = list(product_catalogue.products.all().order_by("-created_at"))
     materials = list(PackagingMaterial.objects.filter(catalogue_id=packaging_catalogue.id).order_by("part_number"))
@@ -256,8 +257,8 @@ def multi_product_container_export_excel(request: HttpRequest) -> HttpResponse:
     if not product_catalogue_id or not packaging_catalogue_id:
         return HttpResponse("Missing catalogue selection.", status=400)
 
-    product_catalogue = get_object_or_404(ProductCatalogue, id=product_catalogue_id)
-    packaging_catalogue = get_object_or_404(PackagingCatalogue, id=packaging_catalogue_id)
+    product_catalogue = get_visible_product_catalogue_or_404(request.user, pk=product_catalogue_id)
+    packaging_catalogue = get_visible_packaging_catalogue_or_404(request.user, pk=packaging_catalogue_id)
 
     products = list(product_catalogue.products.all().order_by("-created_at"))
     materials = list(PackagingMaterial.objects.filter(catalogue_id=packaging_catalogue.id).order_by("part_number"))

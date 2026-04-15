@@ -1,3 +1,4 @@
+from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
 from django.shortcuts import render, redirect
 
@@ -1263,8 +1264,8 @@ def full_packaging_mode(request):
                     _save_workflow(request, workflow)
             return redirect("full_packaging_mode")
 
-    product_catalogues = ProductCatalogue.objects.all().order_by("name")
-    packaging_catalogues = PackagingCatalogue.objects.all().order_by("name")
+    product_catalogues = visible_product_catalogues(request.user).order_by("name")
+    packaging_catalogues = visible_packaging_catalogues(request.user).order_by("name")
 
     for idx, step in enumerate(steps):
         _apply_chained_defaults(step, steps, idx)

@@ -1,5 +1,6 @@
 from django.conf import settings
 
+from ...access import visible_packaging_catalogues, visible_product_catalogues
 from ...forms import ContainerSelectionMode1Form
 from ...models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
 from ...utils.box_selection.engine import run_mode1_and_render, compute_max_quantity_only
@@ -7,12 +8,12 @@ from ...utils.box_selection.engine import run_mode1_and_render, compute_max_quan
 from .serializers import sanitize_container_config_for_session
 
 
-def get_packaging_catalogues():
-    return PackagingCatalogue.objects.all().order_by("name")
+def get_packaging_catalogues(user=None):
+    return visible_packaging_catalogues(user).order_by("name")
 
 
-def get_product_catalogues():
-    return ProductCatalogue.objects.all().order_by("name")
+def get_product_catalogues(user=None):
+    return visible_product_catalogues(user).order_by("name")
 
 
 def get_products_for_catalogue(config):

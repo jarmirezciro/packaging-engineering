@@ -1,3 +1,4 @@
+from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
 from django.shortcuts import render
 
@@ -10,8 +11,8 @@ from ..tools.transport.state import default_product_rows
 
 
 def container_tool(request):
-    packaging_catalogues = PackagingCatalogue.objects.all().order_by("name")
-    product_catalogues = ProductCatalogue.objects.all().order_by("name")
+    packaging_catalogues = visible_packaging_catalogues(request.user).order_by("name")
+    product_catalogues = visible_product_catalogues(request.user).order_by("name")
 
     raw_action = request.POST.get("action") if request.method == "POST" else request.GET.get("action", "refresh")
     raw_catalogue_id = request.POST.get("catalogue_id") if request.method == "POST" else request.GET.get("catalogue_id", "")
@@ -44,7 +45,7 @@ def container_tool(request):
     selected_product_catalogue = None
 
     if raw_catalogue_id:
-        selected_catalogue = PackagingCatalogue.objects.filter(id=raw_catalogue_id).first()
+        selected_catalogue = visible_packaging_catalogues(request.user).filter(id=raw_catalogue_id).first()
 
     if raw_container_id:
         selected_material = (
@@ -56,7 +57,7 @@ def container_tool(request):
             selected_catalogue = selected_material.catalogue
 
     if raw_product_catalogue_id:
-        selected_product_catalogue = ProductCatalogue.objects.filter(id=raw_product_catalogue_id).first()
+        selected_product_catalogue = visible_product_catalogues(request.user).filter(id=raw_product_catalogue_id).first()
 
     if raw_action == "select_product":
         selected_product = Product.objects.filter(id=raw_product_id_to_fill or None).first()

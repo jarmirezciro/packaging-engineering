@@ -85,8 +85,8 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
 
 
 def bag_selection_mode1(request):
-    packaging_catalogues = get_packaging_catalogues()
-    product_catalogues = get_product_catalogues()
+    packaging_catalogues = get_packaging_catalogues(request.user)
+    product_catalogues = get_product_catalogues(request.user)
 
     config = _read_raw_bag_config(request)
 

@@ -20,9 +20,11 @@
             </div>
 
             <div class="app-toolbar">
-                <a href="{% url 'create_catalogue' %}" class="btn btn-light">
-                    <i class="bi bi-plus-circle me-2"></i>Create Catalogue
-                </a>
+                {% if user.is_authenticated %}<a href="{% url 'create_catalogue' %}" class="btn btn-light">
+                    <i class="bi bi-plus-circle me-2"></i>Create Private Catalogue
+                </a>{% else %}<a href="{% url 'login' %}?next={% url 'create_catalogue' %}" class="btn btn-light">
+                    <i class="bi bi-lock me-2"></i>Sign in to create a private catalogue
+                </a>{% endif %}
             </div>
         </div>
     </div>
@@ -41,6 +43,7 @@
 
                 <div class="app-grid-card-body">
                     <h5 class="app-grid-card-title">{{ catalogue.name }}</h5>
+                    <div class="mb-2">{% if catalogue.is_public %}<span class="app-meta-badge"><i class="bi bi-globe"></i> Public</span>{% else %}<span class="app-meta-badge"><i class="bi bi-person-lock"></i> Private</span>{% endif %}</div>
                     <p class="app-grid-card-text">
                         {{ catalogue.description|default:"No description available." }}
                     </p>
@@ -56,16 +59,17 @@
                                 View Materials
                             </a>
                         
+                            {% if user.is_authenticated and catalogue.owner_id == user.id or user.is_staff %}
                             <a href="{% url 'edit_catalogue' catalogue.pk %}" class="btn btn-app-outline btn-sm">
                                 <i class="bi bi-pencil-square"></i>
                             </a>
-                        
                             <button type="button"
                                     class="btn btn-outline-danger btn-sm"
                                     data-bs-toggle="modal"
                                     data-bs-target="#deleteModal{{ catalogue.pk }}">
                                 <i class="bi bi-trash"></i>
                             </button>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -112,9 +116,11 @@
                     <p class="app-section-subtitle">
                         Create your first packaging catalogue to start loading packaging engineering data.
                     </p>
-                    <a href="{% url 'create_catalogue' %}" class="btn btn-app-primary">
-                        <i class="bi bi-plus-circle me-2"></i>Create Catalogue
-                    </a>
+                    {% if user.is_authenticated %}<a href="{% url 'create_catalogue' %}" class="btn btn-app-primary">
+                        <i class="bi bi-plus-circle me-2"></i>Create Private Catalogue
+                    </a>{% else %}<a href="{% url 'login' %}?next={% url 'create_catalogue' %}" class="btn btn-app-primary">
+                        <i class="bi bi-lock me-2"></i>Sign in to create private catalogues
+                    </a>{% endif %}
                 </div>
             </div>
         </div>

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 import uuid
 
@@ -10,6 +11,14 @@ import uuid
 
 class PackagingCatalogue(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="packaging_catalogues",
+        blank=True,
+        null=True,
+    )
+    is_public = models.BooleanField(default=True)
     description = models.TextField(blank=True)
     picture = models.ImageField(
         upload_to="catalogue_pictures/",
@@ -20,6 +29,10 @@ class PackagingCatalogue(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_platform_catalogue(self):
+        return self.owner_id is None and self.is_public
 
 
 class PackagingMaterial(models.Model):
@@ -100,6 +113,14 @@ def product_image_upload_path(instance, filename):
 
 class ProductCatalogue(models.Model):
     name = models.CharField(max_length=120, unique=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="product_catalogues",
+        blank=True,
+        null=True,
+    )
+    is_public = models.BooleanField(default=True)
     description = models.TextField(blank=True)
     picture = models.ImageField(
         upload_to=product_catalogue_picture_upload_path,

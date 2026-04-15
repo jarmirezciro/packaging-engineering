@@ -105,8 +105,8 @@ def _build_shared_container_ui_contract(prefix=""):
 
 
 def container_selection_mode1(request):
-    packaging_catalogues = get_packaging_catalogues()
-    product_catalogues = get_product_catalogues()
+    packaging_catalogues = get_packaging_catalogues(request.user)
+    product_catalogues = get_product_catalogues(request.user)
 
     config = _read_raw_container_config(request)
 

@@ -1,3 +1,4 @@
+from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
 from django.shortcuts import render
 
@@ -192,7 +193,7 @@ def _build_shared_pallet_ui_contract(prefix=""):
     }
 
 def palletization_mode1(request):
-    packaging_catalogues = PackagingCatalogue.objects.all().order_by("name")
+    packaging_catalogues = visible_packaging_catalogues(request.user).order_by("name")
 
     config = _read_raw_palletization_config(request)
 
