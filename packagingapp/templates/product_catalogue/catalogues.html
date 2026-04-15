@@ -59,12 +59,13 @@
                                 View Products
                             </a>
 
-                            <a href="{% url 'edit_product_catalogue' catalogue.pk %}" class="btn btn-app-outline btn-sm">
-                                <i class="bi bi-pencil-square"></i>
-                            </a>
-
                             <a href="{% url 'export_product_catalogue_excel' catalogue.pk %}" class="btn btn-app-outline btn-sm">
                                 <i class="bi bi-box-arrow-down"></i>
+                            </a>
+
+                            {% if user.is_staff or user.is_authenticated and catalogue.owner_id == user.id %}
+                            <a href="{% url 'edit_product_catalogue' catalogue.pk %}" class="btn btn-app-outline btn-sm">
+                                <i class="bi bi-pencil-square"></i>
                             </a>
 
                             <button type="button"
@@ -80,6 +81,7 @@
             </div>
         </div>
 
+        {% if user.is_staff or user.is_authenticated and catalogue.owner_id == user.id %}
         <div class="modal fade" id="deleteModal{{ catalogue.pk }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content rounded-4 border-0 shadow">
@@ -108,6 +110,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
         {% empty %}
         <div class="col-12">
