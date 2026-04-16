@@ -36,8 +36,8 @@ def _product_label(p: Product) -> str:
     return str(p)
 
 
-def _serialize_product_catalogues() -> List[Dict]:
-    catalogues = visible_product_catalogues(request.user).order_by("name")
+def _serialize_product_catalogues(user) -> List[Dict]:
+    catalogues = visible_product_catalogues(user).order_by("name")
     payload = []
 
     for c in catalogues:
@@ -72,8 +72,8 @@ def _serialize_product_catalogues() -> List[Dict]:
     return payload
 
 
-def _serialize_packaging_catalogues() -> List[Dict]:
-    catalogues = visible_packaging_catalogues(request.user).order_by("name")
+def _serialize_packaging_catalogues(user) -> List[Dict]:
+    catalogues = visible_packaging_catalogues(user).order_by("name")
     payload = []
 
     for c in catalogues:
@@ -158,8 +158,8 @@ def multi_product_container_selection(request: HttpRequest) -> HttpResponse:
     context = {
         "product_catalogues": visible_product_catalogues(request.user).order_by("name"),
         "packaging_catalogues": visible_packaging_catalogues(request.user).order_by("name"),
-        "product_catalogues_payload": _serialize_product_catalogues(),
-        "packaging_catalogues_payload": _serialize_packaging_catalogues(),
+        "product_catalogues_payload":  _serialize_product_catalogues(request.user),
+        "packaging_catalogues_payload": _serialize_packaging_catalogues(request.user),
     }
     return render(request, "multi_product_container/multi_product_container_selection.html", context)
 
