@@ -135,3 +135,5 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 TAILWIND_APP_NAME = 'theme'
+
+LOGOUT_REDIRECT_URL = "home"
