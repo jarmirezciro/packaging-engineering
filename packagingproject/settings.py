@@ -41,6 +41,7 @@ def env_list(name: str, default: str = "") -> list[str]:
 # -----------------------------------------------------------------------------
 
 DEBUG = env_bool("DEBUG", default=False)
+SERVE_MEDIA_FILES = env_bool("SERVE_MEDIA_FILES", default=DEBUG)
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
@@ -60,7 +61,6 @@ elif not DEBUG and not ALLOWED_HOSTS:
     )
 
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
-SERVE_MEDIA_FILES = env_bool("SERVE_MEDIA_FILES", default=DEBUG)
 
 
 # -----------------------------------------------------------------------------
@@ -186,7 +186,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
