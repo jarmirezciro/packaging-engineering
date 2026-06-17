@@ -42,6 +42,11 @@ def env_list(name: str, default: str = "") -> list[str]:
 
 DEBUG = env_bool("DEBUG", default=False)
 
+# Serve files under MEDIA_ROOT only when explicitly enabled.
+# With DEBUG=True this remains enabled by default for local development;
+# in production DEBUG=False keeps it off unless SERVE_MEDIA_FILES=True.
+SERVE_MEDIA_FILES = env_bool("SERVE_MEDIA_FILES", default=DEBUG)
+
 SECRET_KEY = os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
     if DEBUG:
