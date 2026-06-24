@@ -4,7 +4,7 @@ import zipfile
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from openpyxl import Workbook
@@ -28,6 +28,7 @@ from packagingapp.forms import (
 from packagingapp.services.excel_import import import_packaging_excel
 from packagingapp.services.drawing_import import import_drawings_zip
 from packagingapp.services.material_image_import import import_material_images_zip
+from packagingapp.models import PackagingMaterial
 
 
 def catalogue_list(request):
@@ -166,6 +167,40 @@ def add_material(request, pk):
         "packaging_catalogue/add_material.html",
         {"catalogue": catalogue, "form": form},
     )
+
+
+@login_required
+def edit_material(request, pk, material_id):
+    catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
+    material = get_object_or_404(PackagingMaterial, pk=material_id, catalogue=catalogue)
+
+    if request.method == "POST":
+        form = PackagingMaterialForm(request.POST, request.FILES, instance=material)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Packaging material updated successfully.")
+            return redirect("catalogue_detail", pk=catalogue.pk)
+    else:
+        form = PackagingMaterialForm(instance=material)
+
+    return render(
+        request,
+        "packaging_catalogue/edit_material.html",
+        {"catalogue": catalogue, "material": material, "form": form},
+    )
+
+
+@login_required
+@require_POST
+def delete_material(request, pk, material_id):
+    catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
+    material = get_object_or_404(PackagingMaterial, pk=material_id, catalogue=catalogue)
+    part_number = material.part_number
+
+    material.delete()
+
+    messages.success(request, f"Packaging material '{part_number}' deleted successfully.")
+    return redirect("catalogue_detail", pk=catalogue.pk)
 
 
 @login_required

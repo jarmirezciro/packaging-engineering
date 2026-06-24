@@ -187,6 +187,9 @@
                             <th>Weight (kg)</th>
                             <th>Volume</th>
                             <th>Drawing</th>
+                            {% if can_manage_catalogue %}
+                            <th>Actions</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -223,10 +226,26 @@
                                     <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
+                            {% if can_manage_catalogue %}
+                            <td>
+                                <a href="{% url 'edit_material' catalogue.pk material.pk %}" class="btn btn-sm btn-app-outline me-1">
+                                    <i class="bi bi-pencil-square me-1"></i>Edit
+                                </a>
+                                <form method="post"
+                                      action="{% url 'delete_material' catalogue.pk material.pk %}"
+                                      class="d-inline"
+                                      onsubmit="return confirm('Delete packaging material {{ material.part_number|escapejs }}?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash me-1"></i>Delete
+                                    </button>
+                                </form>
+                            </td>
+                            {% endif %}
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="15" class="text-center text-muted">No materials found.</td>
+                            <td colspan="{% if can_manage_catalogue %}16{% else %}15{% endif %}" class="text-center text-muted">No materials found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

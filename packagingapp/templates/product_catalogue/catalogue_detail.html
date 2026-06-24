@@ -178,6 +178,9 @@
                             <th>Weight (kg)</th>
                             <th>Desired Qty</th>
                             <th>Volume</th>
+                            {% if can_manage_catalogue %}
+                            <th>Actions</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -203,10 +206,26 @@
                             <td>{{ product.weight|default:"—" }}</td>
                             <td>{{ product.desired_qty|default:"1" }}</td>
                             <td>{{ product.product_volume|default:"—" }}</td>
+                            {% if can_manage_catalogue %}
+                            <td>
+                                <a href="{% url 'edit_product' catalogue.pk product.pk %}" class="btn btn-sm btn-app-outline me-1">
+                                    <i class="bi bi-pencil-square me-1"></i>Edit
+                                </a>
+                                <form method="post"
+                                      action="{% url 'delete_product' catalogue.pk product.pk %}"
+                                      class="d-inline"
+                                      onsubmit="return confirm('Delete product {{ product.product_id|default:product.product_name|escapejs }}?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash me-1"></i>Delete
+                                    </button>
+                                </form>
+                            </td>
+                            {% endif %}
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="12" class="text-center text-muted">No products found.</td>
+                            <td colspan="{% if can_manage_catalogue %}13{% else %}12{% endif %}" class="text-center text-muted">No products found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

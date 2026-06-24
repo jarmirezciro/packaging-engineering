@@ -6,8 +6,9 @@ from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.http import HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from openpyxl import Workbook
+from django.views.decorators.http import require_POST
 
 from packagingapp.access import (
     can_manage_product_catalogue,
@@ -206,6 +207,40 @@ def add_product(request, catalogue_id):
         "product_catalogue/add_product.html",
         {"catalogue": catalogue, "form": form},
     )
+
+
+@login_required
+def edit_product(request, catalogue_id, product_id):
+    catalogue = get_manageable_product_catalogue_or_404(request.user, pk=catalogue_id)
+    product = get_object_or_404(Product, pk=product_id, catalogue=catalogue)
+
+    if request.method == "POST":
+        form = ProductForm(request.POST, request.FILES, instance=product)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Product updated successfully.")
+            return redirect("product_catalogue_detail", catalogue_id=catalogue.pk)
+    else:
+        form = ProductForm(instance=product)
+
+    return render(
+        request,
+        "product_catalogue/edit_product.html",
+        {"catalogue": catalogue, "product": product, "form": form},
+    )
+
+
+@login_required
+@require_POST
+def delete_product(request, catalogue_id, product_id):
+    catalogue = get_manageable_product_catalogue_or_404(request.user, pk=catalogue_id)
+    product = get_object_or_404(Product, pk=product_id, catalogue=catalogue)
+    product_label = product.product_id or product.product_name or str(product.pk)
+
+    product.delete()
+
+    messages.success(request, f"Product '{product_label}' deleted successfully.")
+    return redirect("product_catalogue_detail", catalogue_id=catalogue.pk)
 
 
 @login_required

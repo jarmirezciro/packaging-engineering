@@ -3,7 +3,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import PackagingCatalogue, PackagingMaterial, ProductCatalogue
+from .models import PackagingCatalogue, PackagingMaterial, Product, ProductCatalogue
 
 
 class CatalogueAdministrationRightsTests(TestCase):
@@ -177,3 +177,187 @@ class PackagingMaterialPictureTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Upload Pictures")
+
+
+class CatalogueRowDeletionTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.owner = User.objects.create_user(username="row-owner", password="password-123")
+        self.other_user = User.objects.create_user(username="row-other", password="password-123")
+
+        self.packaging_catalogue = PackagingCatalogue.objects.create(
+            name="Row Delete Packaging",
+            owner=self.owner,
+            is_public=False,
+        )
+        self.material = PackagingMaterial.objects.create(
+            catalogue=self.packaging_catalogue,
+            part_number="PKG-DEL-100",
+            part_description="Delete test box",
+            packaging_type="BOX",
+            branding="Brand1",
+            packaging_materials="Corrugated board",
+            part_length=100,
+            part_width=80,
+            part_height=60,
+        )
+
+        self.product_catalogue = ProductCatalogue.objects.create(
+            name="Row Delete Products",
+            owner=self.owner,
+            is_public=False,
+        )
+        self.product = Product.objects.create(
+            catalogue=self.product_catalogue,
+            product_id="PROD-DEL-100",
+            product_name="Delete test product",
+            product_length=100,
+            product_width=80,
+            product_height=60,
+        )
+
+    def test_owner_can_delete_packaging_material_row(self):
+        self.client.login(username="row-owner", password="password-123")
+
+        response = self.client.post(
+            reverse("delete_material", args=[self.packaging_catalogue.pk, self.material.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(PackagingMaterial.objects.filter(pk=self.material.pk).exists())
+
+    def test_other_user_cannot_delete_packaging_material_row(self):
+        self.client.login(username="row-other", password="password-123")
+
+        response = self.client.post(
+            reverse("delete_material", args=[self.packaging_catalogue.pk, self.material.pk])
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(PackagingMaterial.objects.filter(pk=self.material.pk).exists())
+
+    def test_owner_can_delete_product_row(self):
+        self.client.login(username="row-owner", password="password-123")
+
+        response = self.client.post(
+            reverse("delete_product", args=[self.product_catalogue.pk, self.product.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Product.objects.filter(pk=self.product.pk).exists())
+
+    def test_other_user_cannot_delete_product_row(self):
+        self.client.login(username="row-other", password="password-123")
+
+        response = self.client.post(
+            reverse("delete_product", args=[self.product_catalogue.pk, self.product.pk])
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Product.objects.filter(pk=self.product.pk).exists())
+
+class CatalogueRowEditingTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.owner = User.objects.create_user(username="edit-owner", password="password-123")
+        self.other_user = User.objects.create_user(username="edit-other", password="password-123")
+
+        self.packaging_catalogue = PackagingCatalogue.objects.create(
+            name="Row Edit Packaging",
+            owner=self.owner,
+            is_public=False,
+        )
+        self.material = PackagingMaterial.objects.create(
+            catalogue=self.packaging_catalogue,
+            part_number="PKG-EDIT-100",
+            part_description="Original box",
+            packaging_type="BOX",
+            branding="Brand1",
+            packaging_materials="Corrugated board",
+            part_length=100,
+            part_width=80,
+            part_height=60,
+        )
+
+        self.product_catalogue = ProductCatalogue.objects.create(
+            name="Row Edit Products",
+            owner=self.owner,
+            is_public=False,
+        )
+        self.product = Product.objects.create(
+            catalogue=self.product_catalogue,
+            product_id="PROD-EDIT-100",
+            product_name="Original product",
+            product_length=100,
+            product_width=80,
+            product_height=60,
+        )
+
+    def test_owner_can_edit_packaging_material_row(self):
+        self.client.login(username="edit-owner", password="password-123")
+
+        response = self.client.post(
+            reverse("edit_material", args=[self.packaging_catalogue.pk, self.material.pk]),
+            {
+                "part_number": "PKG-EDIT-100",
+                "part_description": "Updated container",
+                "packaging_type": "CONTAINER",
+                "branding": "Brand2",
+                "packaging_materials": "Steel",
+                "part_length": "120.00",
+                "part_width": "90.00",
+                "part_height": "70.00",
+                "external_length": "130.00",
+                "external_width": "100.00",
+                "external_height": "80.00",
+                "part_weight": "12.500",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.material.refresh_from_db()
+        self.assertEqual(self.material.part_description, "Updated container")
+        self.assertEqual(self.material.packaging_type, "CONTAINER")
+        self.assertEqual(self.material.branding, "Brand2")
+
+    def test_other_user_cannot_edit_packaging_material_row(self):
+        self.client.login(username="edit-other", password="password-123")
+
+        response = self.client.get(
+            reverse("edit_material", args=[self.packaging_catalogue.pk, self.material.pk])
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_owner_can_edit_product_row(self):
+        self.client.login(username="edit-owner", password="password-123")
+
+        response = self.client.post(
+            reverse("edit_product", args=[self.product_catalogue.pk, self.product.pk]),
+            {
+                "product_id": "PROD-EDIT-100",
+                "product_name": "Updated product",
+                "product_length": "110.000",
+                "product_width": "85.000",
+                "product_height": "65.000",
+                "rotation_1": "on",
+                "rotation_2": "on",
+                "weight": "2.500",
+                "desired_qty": "8",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.product_name, "Updated product")
+        self.assertTrue(self.product.rotation_2)
+        self.assertEqual(self.product.desired_qty, 8)
+
+    def test_other_user_cannot_edit_product_row(self):
+        self.client.login(username="edit-other", password="password-123")
+
+        response = self.client.get(
+            reverse("edit_product", args=[self.product_catalogue.pk, self.product.pk])
+        )
+
+        self.assertEqual(response.status_code, 404)

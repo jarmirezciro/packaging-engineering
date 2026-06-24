@@ -34,6 +34,8 @@ urlpatterns = [
     path("catalogues/<int:pk>/", packaging_catalogue.catalogue_detail, name="catalogue_detail"),
     path("catalogues/<int:pk>/delete/", packaging_catalogue.delete_catalogue, name="delete_catalogue"),
     path("catalogues/<int:pk>/add-material/", packaging_catalogue.add_material, name="add_material"),
+    path("catalogues/<int:pk>/materials/<int:material_id>/edit/", packaging_catalogue.edit_material, name="edit_material"),
+    path("catalogues/<int:pk>/materials/<int:material_id>/delete/", packaging_catalogue.delete_material, name="delete_material"),
     path("catalogues/<int:pk>/upload-excel/", packaging_catalogue.upload_excel, name="upload_excel"),
     path("catalogues/<int:pk>/download-excel-template/", packaging_catalogue.download_excel_template, name="download_excel_template"),
     path(
@@ -64,6 +66,8 @@ urlpatterns = [
     path("product-catalogues/<int:catalogue_id>/", products.product_catalogue_detail, name="product_catalogue_detail"),
     path("product-catalogues/<int:catalogue_id>/delete/", products.delete_product_catalogue, name="delete_product_catalogue"),
     path("product-catalogues/<int:catalogue_id>/add/", products.add_product, name="add_product"),
+    path("product-catalogues/<int:catalogue_id>/products/<int:product_id>/edit/", products.edit_product, name="edit_product"),
+    path("product-catalogues/<int:catalogue_id>/products/<int:product_id>/delete/", products.delete_product, name="delete_product"),
     path("product-catalogues/<int:catalogue_id>/upload-excel/", products.upload_products_excel, name="upload_products_excel"),
     path("product-catalogues/<int:catalogue_id>/download-excel-template/", products.download_product_excel_template, name="download_product_excel_template"),
     path("product-catalogues/<int:catalogue_id>/upload-images-zip/", products.upload_product_images_zip, name="upload_product_images_zip"),
