@@ -1,4 +1,5 @@
 from io import BytesIO
+import zipfile
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -21,14 +22,16 @@ from packagingapp.forms import (
     PackagingMaterialForm,
     ExcelUploadForm,
     DrawingUploadForm,
+    PackagingMaterialImagesZipUploadForm,
     PackagingMaterialFilterForm,
 )
 from packagingapp.services.excel_import import import_packaging_excel
 from packagingapp.services.drawing_import import import_drawings_zip
+from packagingapp.services.material_image_import import import_material_images_zip
 
 
 def catalogue_list(request):
-    catalogues = visible_packaging_catalogues(request.user).order_by("-created_at")
+    catalogues = visible_packaging_catalogues(request.user).order_by("is_public", "-created_at")
     return render(
         request,
         "packaging_catalogue/catalogue_list.html",
@@ -229,6 +232,47 @@ def upload_drawings_for_catalogue(request, pk):
     )
 
 
+@login_required
+def upload_material_images_for_catalogue(request, pk):
+    catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
+
+    if request.method == "POST":
+        form = PackagingMaterialImagesZipUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                imported, not_matched, skipped = import_material_images_zip(
+                    request.FILES["zip_file"],
+                    catalogue,
+                )
+                return render(
+                    request,
+                    "packaging_catalogue/upload_material_images.html",
+                    {
+                        "form": PackagingMaterialImagesZipUploadForm(),
+                        "catalogue": catalogue,
+                        "success": f"Done. Imported: {imported}. Not matched: {not_matched}. Skipped: {skipped}.",
+                    },
+                )
+            except zipfile.BadZipFile:
+                return render(
+                    request,
+                    "packaging_catalogue/upload_material_images.html",
+                    {
+                        "form": form,
+                        "catalogue": catalogue,
+                        "error": "Invalid ZIP file.",
+                    },
+                )
+    else:
+        form = PackagingMaterialImagesZipUploadForm()
+
+    return render(
+        request,
+        "packaging_catalogue/upload_material_images.html",
+        {"form": form, "catalogue": catalogue},
+    )
+
+
 def download_excel_template(request, pk):
     catalogue = get_visible_packaging_catalogue_or_404(request.user, pk=pk)
 
@@ -358,6 +402,7 @@ def export_catalogue_excel(request, pk):
         "part_weight",
         "part_volume",
         "drawing",
+        "picture",
     ])
 
     for m in materials:
@@ -376,6 +421,7 @@ def export_catalogue_excel(request, pk):
             float(m.part_weight) if m.part_weight is not None else None,
             float(m.part_volume) if m.part_volume is not None else None,
             m.drawing.url if m.drawing else "",
+            m.picture.url if m.picture else "",
         ])
 
     output = BytesIO()

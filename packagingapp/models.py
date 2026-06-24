@@ -35,6 +35,10 @@ class PackagingCatalogue(models.Model):
         return self.owner_id is None and self.is_public
 
 
+def packaging_material_picture_upload_path(instance, filename):
+    return f"packaging_material_pictures/{instance.catalogue_id}/{filename}"
+
+
 class PackagingMaterial(models.Model):
 
     PACKAGING_TYPES = [
@@ -81,6 +85,12 @@ class PackagingMaterial(models.Model):
 
     drawing = models.FileField(
         upload_to='drawings/',
+        blank=True,
+        null=True
+    )
+
+    picture = models.ImageField(
+        upload_to=packaging_material_picture_upload_path,
         blank=True,
         null=True
     )

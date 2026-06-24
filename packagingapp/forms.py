@@ -89,6 +89,7 @@ class PackagingMaterialForm(forms.ModelForm):
             "external_height",
             "part_weight",
             "drawing",
+            "picture",
         ]
 
 
@@ -98,6 +99,13 @@ class ExcelUploadForm(forms.Form):
 
 class DrawingUploadForm(forms.Form):
     zip_file = forms.FileField(label="ZIP File (.zip)")
+
+
+class PackagingMaterialImagesZipUploadForm(forms.Form):
+    zip_file = forms.FileField(
+        label="ZIP File (.zip)",
+        help_text="Upload a .zip containing packaging material pictures."
+    )
 
 ###
 # Container Selection Form

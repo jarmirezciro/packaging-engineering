@@ -48,6 +48,10 @@
                     <i class="bi bi-folder me-2"></i>Upload Drawings
                 </a>
 
+                <a href="{% url 'upload_material_images_for_catalogue' catalogue.pk %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-image me-2"></i>Upload Pictures
+                </a>
+
                 {% endif %}
                 <a href="{% url 'export_catalogue_excel' catalogue.pk %}" class="btn btn-outline-light btn-sm">
                         <i class="bi bi-box-arrow-down me-2"></i>Export Catalogue
@@ -168,6 +172,7 @@
                 <table class="table table-hover app-table align-middle">
                     <thead class="table-light">
                         <tr>
+                            <th>Picture</th>
                             <th>Part Number</th>
                             <th>Description</th>
                             <th>Type</th>
@@ -187,6 +192,15 @@
                     <tbody>
                         {% for material in page_obj %}
                         <tr>
+                            <td>
+                                {% if material.picture %}
+                                    <img src="{{ material.picture.url }}"
+                                         alt="{{ material.part_description|default:material.part_number }}"
+                                         class="app-table-thumb">
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
                             <td>{{ material.part_number }}</td>
                             <td>{{ material.part_description }}</td>
                             <td>{{ material.packaging_type }}</td>
@@ -212,7 +226,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="14" class="text-center text-muted">No materials found.</td>
+                            <td colspan="15" class="text-center text-muted">No materials found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

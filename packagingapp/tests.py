@@ -1,8 +1,9 @@
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import PackagingCatalogue, ProductCatalogue
+from .models import PackagingCatalogue, PackagingMaterial, ProductCatalogue
 
 
 class CatalogueAdministrationRightsTests(TestCase):
@@ -135,3 +136,44 @@ class CatalogueAdministrationRightsTests(TestCase):
         catalogue.refresh_from_db()
         self.assertTrue(catalogue.is_public)
         self.assertIsNone(catalogue.owner)
+
+
+class PackagingMaterialPictureTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="picture-user", password="password-123")
+        self.catalogue = PackagingCatalogue.objects.create(
+            name="Picture Test Packaging",
+            owner=self.user,
+            is_public=False,
+        )
+        self.material = PackagingMaterial.objects.create(
+            catalogue=self.catalogue,
+            part_number="PKG-100",
+            part_description="Picture test box",
+            packaging_type="BOX",
+            branding="Brand1",
+            packaging_materials="Corrugated board",
+            part_length=100,
+            part_width=80,
+            part_height=60,
+        )
+
+    def test_packaging_material_picture_can_be_saved(self):
+        self.material.picture.save(
+            "PKG-100.jpg",
+            SimpleUploadedFile("PKG-100.jpg", b"fake-image-content", content_type="image/jpeg"),
+            save=True,
+        )
+
+        self.material.refresh_from_db()
+        self.assertTrue(self.material.picture.name)
+        self.assertIn("packaging_material_pictures", self.material.picture.name)
+
+    def test_packaging_material_picture_upload_page_requires_owner_access(self):
+        self.client.login(username="picture-user", password="password-123")
+
+        response = self.client.get(reverse("upload_material_images_for_catalogue", args=[self.catalogue.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Upload Pictures")

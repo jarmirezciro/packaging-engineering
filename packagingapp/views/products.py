@@ -28,7 +28,7 @@ from packagingapp.services.product_excel_import import import_product_excel
 
 
 def product_catalogues(request):
-    catalogues = visible_product_catalogues(request.user).order_by("-created_at")
+    catalogues = visible_product_catalogues(request.user).order_by("is_public", "-created_at")
     return render(
         request,
         "product_catalogue/catalogues.html",

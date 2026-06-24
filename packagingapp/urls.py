@@ -41,6 +41,11 @@ urlpatterns = [
         packaging_catalogue.upload_drawings_for_catalogue,
         name="upload_drawings_for_catalogue",
     ),
+    path(
+        "catalogues/<int:pk>/upload-images/",
+        packaging_catalogue.upload_material_images_for_catalogue,
+        name="upload_material_images_for_catalogue",
+    ),
     path("catalogues/<int:pk>/edit/", packaging_catalogue.edit_catalogue, name="edit_catalogue"),
 
     # Container Selection
