@@ -21,10 +21,14 @@ PACKAGING_TYPE_MAP = {
     "pallet": "PALLET",
     "crate": "CRATE",
     "bag": "BAG",
+    "container": "CONTAINER",
+    "trailer": "TRAILER",
     "BOX": "BOX",
     "PALLET": "PALLET",
     "CRATE": "CRATE",
     "BAG": "BAG",
+    "CONTAINER": "CONTAINER",
+    "TRAILER": "TRAILER",
 }
 
 def _clean_header(columns):
@@ -55,7 +59,7 @@ def import_packaging_excel(excel_file, catalogue):
 
         if not packaging_type:
             raise ValueError(
-                f"Invalid packaging_type '{raw_type}'. Allowed values: BOX, PALLET, CRATE, BAG."
+                f"Invalid packaging_type '{raw_type}'. Allowed values: BOX, PALLET, CRATE, BAG, CONTAINER, TRAILER."
             )
 
         _, created = PackagingMaterial.objects.update_or_create(

@@ -320,7 +320,7 @@ def download_excel_template(request, pk):
     info["A5"] = "Weight"
     info["B5"] = "part_weight in kg"
     info["A6"] = "Allowed packaging_type"
-    info["B6"] = "BOX, PALLET, CRATE, BAG"
+    info["B6"] = "BOX, PALLET, CRATE, BAG, CONTAINER, TRAILER"
     info["A7"] = "Catalogue"
     info["B7"] = catalogue.name
 

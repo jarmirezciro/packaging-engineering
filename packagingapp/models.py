@@ -42,10 +42,12 @@ def packaging_material_picture_upload_path(instance, filename):
 class PackagingMaterial(models.Model):
 
     PACKAGING_TYPES = [
-        ('BOX', 'BOX'),
-        ('PALLET', 'PALLET'),
-        ('CRATE', 'CRATE'),
-        ('BAG', 'BAG'),
+    ('BOX', 'BOX'),
+    ('PALLET', 'PALLET'),
+    ('CRATE', 'CRATE'),
+    ('BAG', 'BAG'),
+    ('CONTAINER', 'CONTAINER'),
+    ('TRAILER', 'TRAILER'),
     ]
 
     BRANDS = [
