@@ -13,6 +13,7 @@ from packagingapp.access import (
     can_manage_product_catalogue,
     get_manageable_product_catalogue_or_404,
     get_visible_product_catalogue_or_404,
+    user_can_administer_catalogues,
     visible_product_catalogues,
 )
 from packagingapp.forms import (
@@ -31,46 +32,77 @@ def product_catalogues(request):
     return render(
         request,
         "product_catalogue/catalogues.html",
-        {"catalogues": catalogues},
+        {
+            "catalogues": catalogues,
+            "can_administer_catalogues": user_can_administer_catalogues(request.user),
+        },
     )
 
 
 @login_required
 def create_product_catalogue(request):
+    can_administer_catalogues = user_can_administer_catalogues(request.user)
+
     if request.method == "POST":
-        form = ProductCatalogueForm(request.POST, request.FILES)
+        form = ProductCatalogueForm(
+            request.POST,
+            request.FILES,
+            allow_public_management=can_administer_catalogues,
+        )
         if form.is_valid():
             catalogue = form.save(commit=False)
-            catalogue.owner = request.user
-            catalogue.is_public = False
+
+            if not can_administer_catalogues:
+                catalogue.owner = request.user
+                catalogue.is_public = False
+            elif not catalogue.is_public and catalogue.owner_id is None:
+                catalogue.owner = request.user
+
             catalogue.save()
-            messages.success(request, "Private product catalogue created successfully.")
+            messages.success(request, "Product catalogue created successfully.")
             return redirect("product_catalogue_detail", catalogue_id=catalogue.pk)
     else:
-        form = ProductCatalogueForm()
+        form = ProductCatalogueForm(allow_public_management=can_administer_catalogues)
 
     return render(
         request,
         "product_catalogue/create_catalogue.html",
-        {"form": form},
+        {
+            "form": form,
+            "can_administer_catalogues": can_administer_catalogues,
+        },
     )
 
 
 @login_required
 def edit_product_catalogue(request, catalogue_id):
     catalogue = get_manageable_product_catalogue_or_404(request.user, pk=catalogue_id)
+    can_administer_catalogues = user_can_administer_catalogues(request.user)
 
     if request.method == "POST":
-        form = ProductCatalogueForm(request.POST, request.FILES, instance=catalogue)
+        form = ProductCatalogueForm(
+            request.POST,
+            request.FILES,
+            instance=catalogue,
+            allow_public_management=can_administer_catalogues,
+        )
         if form.is_valid():
             updated = form.save(commit=False)
-            updated.owner = catalogue.owner
-            updated.is_public = catalogue.is_public
+
+            if not can_administer_catalogues:
+                updated.owner = catalogue.owner
+                updated.is_public = catalogue.is_public
+            elif not updated.is_public and updated.owner_id is None:
+                updated.owner = request.user
+
             updated.save()
             messages.success(request, "Product catalogue updated successfully.")
             return redirect("product_catalogue_detail", catalogue_id=catalogue.pk)
     else:
-        form = ProductCatalogueForm(instance=catalogue)
+        form = ProductCatalogueForm(
+            instance=catalogue,
+            allow_public_management=can_administer_catalogues,
+        )
 
     return render(
         request,
@@ -78,6 +110,7 @@ def edit_product_catalogue(request, catalogue_id):
         {
             "catalogue": catalogue,
             "form": form,
+            "can_administer_catalogues": can_administer_catalogues,
         },
     )
 

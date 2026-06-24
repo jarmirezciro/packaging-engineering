@@ -21,7 +21,7 @@
 
             <div class="app-toolbar">
                 {% if user.is_authenticated %}<a href="{% url 'create_product_catalogue' %}" class="btn btn-light">
-                    <i class="bi bi-plus-circle me-2"></i>Create Private Catalogue
+                    <i class="bi bi-plus-circle me-2"></i>{% if can_administer_catalogues %}Create Catalogue{% else %}Create Private Catalogue{% endif %}
                 </a>{% else %}<a href="{% url 'login' %}?next={% url 'create_product_catalogue' %}" class="btn btn-light">
                     <i class="bi bi-lock me-2"></i>Sign in to create a private catalogue
                 </a>{% endif %}
@@ -63,7 +63,7 @@
                                 <i class="bi bi-box-arrow-down"></i>
                             </a>
 
-                            {% if user.is_staff or user.is_authenticated and catalogue.owner_id == user.id %}
+                            {% if user.is_staff or user.is_superuser or user.is_authenticated and catalogue.owner_id == user.id %}
                             <a href="{% url 'edit_product_catalogue' catalogue.pk %}" class="btn btn-app-outline btn-sm">
                                 <i class="bi bi-pencil-square"></i>
                             </a>
@@ -81,7 +81,7 @@
             </div>
         </div>
 
-        {% if user.is_staff or user.is_authenticated and catalogue.owner_id == user.id %}
+        {% if user.is_staff or user.is_superuser or user.is_authenticated and catalogue.owner_id == user.id %}
         <div class="modal fade" id="deleteModal{{ catalogue.pk }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content rounded-4 border-0 shadow">
@@ -123,9 +123,11 @@
                     <p class="app-section-subtitle">
                         Create your first product catalogue to start loading product master data.
                     </p>
-                    <a href="{% url 'create_product_catalogue' %}" class="btn btn-app-primary">
-                        <i class="bi bi-plus-circle me-2"></i>Create Catalogue
-                    </a>
+                    {% if user.is_authenticated %}<a href="{% url 'create_product_catalogue' %}" class="btn btn-app-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{% if can_administer_catalogues %}Create Catalogue{% else %}Create Private Catalogue{% endif %}
+                    </a>{% else %}<a href="{% url 'login' %}?next={% url 'create_product_catalogue' %}" class="btn btn-app-primary">
+                        <i class="bi bi-lock me-2"></i>Sign in to create private catalogues
+                    </a>{% endif %}
                 </div>
             </div>
         </div>

@@ -1,4 +1,6 @@
 from django import forms
+from django.contrib.auth import get_user_model
+
 from .models import PackagingCatalogue, PackagingMaterial
 from .models import ProductCatalogue, Product
 
@@ -34,10 +36,40 @@ class PackagingMaterialFilterForm(forms.Form):
     max_volume = forms.DecimalField(required=False, label="Max Volume")
 
 
-class PackagingCatalogueForm(forms.ModelForm):
+class CatalogueAdministrationFormMixin:
+    """Expose visibility/ownership fields only to catalogue administrators."""
+
+    def __init__(self, *args, allow_public_management=False, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if not allow_public_management:
+            self.fields.pop("is_public", None)
+            self.fields.pop("owner", None)
+            return
+
+        is_public_field = self.fields.get("is_public")
+        if is_public_field is not None:
+            is_public_field.required = False
+            is_public_field.label = "Public catalogue"
+            is_public_field.help_text = "Enable this to make the catalogue visible to all users."
+            is_public_field.widget.attrs.update({"class": "form-check-input"})
+
+        owner_field = self.fields.get("owner")
+        if owner_field is not None:
+            owner_field.required = False
+            owner_field.queryset = get_user_model().objects.order_by("username")
+            owner_field.empty_label = "No owner / platform catalogue"
+            owner_field.help_text = (
+                "Leave blank for a platform public catalogue. "
+                "Private catalogues without an owner will be assigned to you."
+            )
+            owner_field.widget.attrs.update({"class": "form-select"})
+
+
+class PackagingCatalogueForm(CatalogueAdministrationFormMixin, forms.ModelForm):
     class Meta:
         model = PackagingCatalogue
-        fields = ["name", "description", "picture"]
+        fields = ["name", "description", "picture", "is_public", "owner"]
 
 
 class PackagingMaterialForm(forms.ModelForm):
@@ -207,10 +239,10 @@ class ProductFilterForm(forms.Form):
     max_volume = forms.DecimalField(required=False, label="Max Volume")
 
 
-class ProductCatalogueForm(forms.ModelForm):
+class ProductCatalogueForm(CatalogueAdministrationFormMixin, forms.ModelForm):
     class Meta:
         model = ProductCatalogue
-        fields = ["name", "description", "picture"]
+        fields = ["name", "description", "picture", "is_public", "owner"]
 
 
 class ProductForm(forms.ModelForm):

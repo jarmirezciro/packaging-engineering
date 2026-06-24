@@ -13,6 +13,7 @@ from packagingapp.access import (
     can_manage_packaging_catalogue,
     get_manageable_packaging_catalogue_or_404,
     get_visible_packaging_catalogue_or_404,
+    user_can_administer_catalogues,
     visible_packaging_catalogues,
 )
 from packagingapp.forms import (
@@ -31,28 +32,45 @@ def catalogue_list(request):
     return render(
         request,
         "packaging_catalogue/catalogue_list.html",
-        {"catalogues": catalogues},
+        {
+            "catalogues": catalogues,
+            "can_administer_catalogues": user_can_administer_catalogues(request.user),
+        },
     )
 
 
 @login_required
 def create_catalogue(request):
+    can_administer_catalogues = user_can_administer_catalogues(request.user)
+
     if request.method == "POST":
-        form = PackagingCatalogueForm(request.POST, request.FILES)
+        form = PackagingCatalogueForm(
+            request.POST,
+            request.FILES,
+            allow_public_management=can_administer_catalogues,
+        )
         if form.is_valid():
             catalogue = form.save(commit=False)
-            catalogue.owner = request.user
-            catalogue.is_public = False
+
+            if not can_administer_catalogues:
+                catalogue.owner = request.user
+                catalogue.is_public = False
+            elif not catalogue.is_public and catalogue.owner_id is None:
+                catalogue.owner = request.user
+
             catalogue.save()
-            messages.success(request, "Private packaging catalogue created successfully.")
+            messages.success(request, "Packaging catalogue created successfully.")
             return redirect("catalogue_detail", pk=catalogue.pk)
     else:
-        form = PackagingCatalogueForm()
+        form = PackagingCatalogueForm(allow_public_management=can_administer_catalogues)
 
     return render(
         request,
         "packaging_catalogue/create_catalogue.html",
-        {"form": form},
+        {
+            "form": form,
+            "can_administer_catalogues": can_administer_catalogues,
+        },
     )
 
 
@@ -279,18 +297,32 @@ def download_excel_template(request, pk):
 @login_required
 def edit_catalogue(request, pk):
     catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
+    can_administer_catalogues = user_can_administer_catalogues(request.user)
 
     if request.method == "POST":
-        form = PackagingCatalogueForm(request.POST, request.FILES, instance=catalogue)
+        form = PackagingCatalogueForm(
+            request.POST,
+            request.FILES,
+            instance=catalogue,
+            allow_public_management=can_administer_catalogues,
+        )
         if form.is_valid():
             updated = form.save(commit=False)
-            updated.owner = catalogue.owner
-            updated.is_public = catalogue.is_public
+
+            if not can_administer_catalogues:
+                updated.owner = catalogue.owner
+                updated.is_public = catalogue.is_public
+            elif not updated.is_public and updated.owner_id is None:
+                updated.owner = request.user
+
             updated.save()
             messages.success(request, "Packaging catalogue updated successfully.")
             return redirect("catalogue_detail", pk=catalogue.pk)
     else:
-        form = PackagingCatalogueForm(instance=catalogue)
+        form = PackagingCatalogueForm(
+            instance=catalogue,
+            allow_public_management=can_administer_catalogues,
+        )
 
     return render(
         request,
@@ -298,6 +330,7 @@ def edit_catalogue(request, pk):
         {
             "catalogue": catalogue,
             "form": form,
+            "can_administer_catalogues": can_administer_catalogues,
         },
     )
 

@@ -41,6 +41,40 @@
                         <label class="form-label">Description</label>
                         {{ form.description }}
                     </div>
+
+                    {% if can_administer_catalogues %}
+                    <div class="col-12">
+                        <hr class="app-divider">
+                        <div class="app-form-section-title">Administration</div>
+                        <div class="app-section-subtitle">
+                            Superusers can create platform public catalogues or assign private catalogues to a user.
+                        </div>
+                    </div>
+
+                    {% if form.is_public %}
+                    <div class="col-md-4">
+                        <div class="form-check mt-4">
+                            {{ form.is_public }}
+                            <label class="form-check-label" for="{{ form.is_public.id_for_label }}">
+                                Public catalogue
+                            </label>
+                        </div>
+                        {% if form.is_public.help_text %}
+                        <div class="form-text">{{ form.is_public.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if form.owner %}
+                    <div class="col-md-8">
+                        <label class="form-label">Owner</label>
+                        {{ form.owner }}
+                        {% if form.owner.help_text %}
+                        <div class="form-text">{{ form.owner.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endif %}
                 </div>
 
                 <div class="app-form-actions">

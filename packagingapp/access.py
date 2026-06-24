@@ -28,7 +28,14 @@ def can_manage_product_catalogue(user, catalogue):
     return catalogue.owner_id == user.id
 
 
+def user_can_administer_catalogues(user):
+    return bool(getattr(user, "is_authenticated", False) and getattr(user, "is_superuser", False))
+
+
 def visible_packaging_catalogues(user):
+    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+        return PackagingCatalogue.objects.all().distinct().order_by("name")
+
     qs = PackagingCatalogue.objects.filter(is_public=True)
     if getattr(user, "is_authenticated", False):
         qs = PackagingCatalogue.objects.filter(Q(is_public=True) | Q(owner=user))
@@ -36,6 +43,9 @@ def visible_packaging_catalogues(user):
 
 
 def visible_product_catalogues(user):
+    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+        return ProductCatalogue.objects.all().distinct().order_by("name")
+
     qs = ProductCatalogue.objects.filter(is_public=True)
     if getattr(user, "is_authenticated", False):
         qs = ProductCatalogue.objects.filter(Q(is_public=True) | Q(owner=user))
