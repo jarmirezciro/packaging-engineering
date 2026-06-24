@@ -481,3 +481,108 @@ body {
         grid-template-columns: 1fr;
     }
 }
+/* =========================================================
+   Catalogue add/edit forms
+   ========================================================= */
+
+.app-styled-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.app-form-panel {
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-surface-soft);
+    padding: 1.15rem;
+}
+
+.app-form-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.app-form-panel-icon {
+    color: var(--app-primary);
+    font-size: 1.25rem;
+    line-height: 1;
+    margin-top: 0.15rem;
+}
+
+.app-form-grid input:not([type="checkbox"]):not([type="radio"]),
+.app-form-grid select,
+.app-form-grid textarea {
+    display: block;
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--app-text);
+    background-color: #ffffff;
+    background-clip: padding-box;
+    border: 1px solid var(--app-border);
+    border-radius: 0.75rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.app-form-grid input:not([type="checkbox"]):not([type="radio"]):focus,
+.app-form-grid select:focus,
+.app-form-grid textarea:focus {
+    border-color: var(--app-primary);
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(16, 163, 127, 0.14);
+}
+
+.app-form-grid input[type="file"] {
+    padding: 0.45rem 0.75rem;
+}
+
+.app-checkbox-card {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 48px;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: #ffffff;
+}
+
+.app-checkbox-card input[type="checkbox"] {
+    width: 1.05rem;
+    height: 1.05rem;
+    accent-color: var(--app-primary);
+}
+
+.app-current-file-card {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.75rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: #ffffff;
+}
+
+.app-current-file-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    color: var(--app-primary);
+    background: #ecfdf5;
+    border: 1px solid #cceee3;
+    font-size: 1.3rem;
+}
+
+.app-current-file-title {
+    font-weight: 700;
+    color: var(--app-text);
+    margin-bottom: 0.1rem;
+}

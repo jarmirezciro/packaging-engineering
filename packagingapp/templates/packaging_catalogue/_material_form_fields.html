@@ -1,0 +1,161 @@
+{% if form.non_field_errors %}
+<div class="alert alert-danger" role="alert">
+    {{ form.non_field_errors }}
+</div>
+{% endif %}
+
+<div class="app-form-panel">
+    <div class="app-form-panel-header">
+        <div>
+            <div class="app-form-section-title mb-1">Material identity</div>
+            <div class="app-section-subtitle mb-0">Main catalogue identifiers and classification.</div>
+        </div>
+        <i class="bi bi-tag app-form-panel-icon"></i>
+    </div>
+
+    <div class="row g-3 app-form-grid">
+        <div class="col-md-4">
+            <label class="form-label" for="{{ form.part_number.id_for_label }}">Part Number</label>
+            {{ form.part_number }}
+            {% if form.part_number.errors %}<div class="invalid-feedback d-block">{{ form.part_number.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-8">
+            <label class="form-label" for="{{ form.part_description.id_for_label }}">Description</label>
+            {{ form.part_description }}
+            {% if form.part_description.errors %}<div class="invalid-feedback d-block">{{ form.part_description.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label" for="{{ form.packaging_type.id_for_label }}">Packaging Type</label>
+            {{ form.packaging_type }}
+            {% if form.packaging_type.errors %}<div class="invalid-feedback d-block">{{ form.packaging_type.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label" for="{{ form.branding.id_for_label }}">Brand</label>
+            {{ form.branding }}
+            {% if form.branding.errors %}<div class="invalid-feedback d-block">{{ form.branding.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label" for="{{ form.packaging_materials.id_for_label }}">Packaging Materials</label>
+            {{ form.packaging_materials }}
+            {% if form.packaging_materials.errors %}<div class="invalid-feedback d-block">{{ form.packaging_materials.errors|join:", " }}</div>{% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="app-form-panel">
+    <div class="app-form-panel-header">
+        <div>
+            <div class="app-form-section-title mb-1">Internal dimensions</div>
+            <div class="app-section-subtitle mb-0">Usable internal packaging space in millimetres.</div>
+        </div>
+        <i class="bi bi-rulers app-form-panel-icon"></i>
+    </div>
+
+    <div class="row g-3 app-form-grid">
+        <div class="col-md-4">
+            <label class="form-label" for="{{ form.part_length.id_for_label }}">Length (mm)</label>
+            {{ form.part_length }}
+            {% if form.part_length.errors %}<div class="invalid-feedback d-block">{{ form.part_length.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label" for="{{ form.part_width.id_for_label }}">Width (mm)</label>
+            {{ form.part_width }}
+            {% if form.part_width.errors %}<div class="invalid-feedback d-block">{{ form.part_width.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label" for="{{ form.part_height.id_for_label }}">Height (mm)</label>
+            {{ form.part_height }}
+            {% if form.part_height.errors %}<div class="invalid-feedback d-block">{{ form.part_height.errors|join:", " }}</div>{% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="app-form-panel">
+    <div class="app-form-panel-header">
+        <div>
+            <div class="app-form-section-title mb-1">External dimensions and weight</div>
+            <div class="app-section-subtitle mb-0">Outer dimensions are optional but useful for logistics calculations.</div>
+        </div>
+        <i class="bi bi-box-seam app-form-panel-icon"></i>
+    </div>
+
+    <div class="row g-3 app-form-grid">
+        <div class="col-md-3">
+            <label class="form-label" for="{{ form.external_length.id_for_label }}">External Length (mm)</label>
+            {{ form.external_length }}
+            {% if form.external_length.errors %}<div class="invalid-feedback d-block">{{ form.external_length.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label" for="{{ form.external_width.id_for_label }}">External Width (mm)</label>
+            {{ form.external_width }}
+            {% if form.external_width.errors %}<div class="invalid-feedback d-block">{{ form.external_width.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label" for="{{ form.external_height.id_for_label }}">External Height (mm)</label>
+            {{ form.external_height }}
+            {% if form.external_height.errors %}<div class="invalid-feedback d-block">{{ form.external_height.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label" for="{{ form.part_weight.id_for_label }}">Weight (kg)</label>
+            {{ form.part_weight }}
+            {% if form.part_weight.errors %}<div class="invalid-feedback d-block">{{ form.part_weight.errors|join:", " }}</div>{% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="app-form-panel">
+    <div class="app-form-panel-header">
+        <div>
+            <div class="app-form-section-title mb-1">Files and visual references</div>
+            <div class="app-section-subtitle mb-0">Attach a technical drawing and a catalogue picture.</div>
+        </div>
+        <i class="bi bi-images app-form-panel-icon"></i>
+    </div>
+
+    <div class="row g-3 app-form-grid">
+        {% if material.drawing %}
+        <div class="col-md-6">
+            <div class="app-current-file-card">
+                <div class="app-current-file-icon"><i class="bi bi-file-earmark-pdf"></i></div>
+                <div>
+                    <div class="app-current-file-title">Current drawing</div>
+                    <a href="{{ material.drawing.url }}" target="_blank" rel="noopener">Open current drawing</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if material.picture %}
+        <div class="col-md-6">
+            <div class="app-current-file-card">
+                <img src="{{ material.picture.url }}" alt="{{ material.part_description|default:material.part_number }}" class="app-table-thumb">
+                <div>
+                    <div class="app-current-file-title">Current picture</div>
+                    <span class="text-muted">Shown in catalogue table thumbnails.</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="col-md-6">
+            <label class="form-label" for="{{ form.drawing.id_for_label }}">Drawing</label>
+            {{ form.drawing }}
+            {% if form.drawing.errors %}<div class="invalid-feedback d-block">{{ form.drawing.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label" for="{{ form.picture.id_for_label }}">Picture</label>
+            {{ form.picture }}
+            {% if form.picture.errors %}<div class="invalid-feedback d-block">{{ form.picture.errors|join:", " }}</div>{% endif %}
+        </div>
+    </div>
+</div>

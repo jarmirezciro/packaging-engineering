@@ -1,0 +1,125 @@
+{% if form.non_field_errors %}
+<div class="alert alert-danger" role="alert">
+    {{ form.non_field_errors }}
+</div>
+{% endif %}
+
+<div class="app-form-panel">
+    <div class="app-form-panel-header">
+        <div>
+            <div class="app-form-section-title mb-1">Product identity</div>
+            <div class="app-section-subtitle mb-0">Main product identifiers and optional catalogue image.</div>
+        </div>
+        <i class="bi bi-tag app-form-panel-icon"></i>
+    </div>
+
+    <div class="row g-3 app-form-grid">
+        <div class="col-md-4">
+            <label class="form-label" for="{{ form.product_id.id_for_label }}">Product ID</label>
+            {{ form.product_id }}
+            {% if form.product_id.errors %}<div class="invalid-feedback d-block">{{ form.product_id.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-8">
+            <label class="form-label" for="{{ form.product_name.id_for_label }}">Product Name</label>
+            {{ form.product_name }}
+            {% if form.product_name.errors %}<div class="invalid-feedback d-block">{{ form.product_name.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        {% if product.product_picture %}
+        <div class="col-12">
+            <div class="app-current-file-card">
+                <img src="{{ product.product_picture.url }}" alt="{{ product.product_name|default:product.product_id }}" class="app-table-thumb">
+                <div>
+                    <div class="app-current-file-title">Current product picture</div>
+                    <span class="text-muted">Shown in catalogue table thumbnails.</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="col-md-6">
+            <label class="form-label" for="{{ form.product_picture.id_for_label }}">Product Picture</label>
+            {{ form.product_picture }}
+            {% if form.product_picture.errors %}<div class="invalid-feedback d-block">{{ form.product_picture.errors|join:", " }}</div>{% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="app-form-panel">
+    <div class="app-form-panel-header">
+        <div>
+            <div class="app-form-section-title mb-1">Dimensions and demand</div>
+            <div class="app-section-subtitle mb-0">Product dimensions are in millimetres. Weight is in kg.</div>
+        </div>
+        <i class="bi bi-rulers app-form-panel-icon"></i>
+    </div>
+
+    <div class="row g-3 app-form-grid">
+        <div class="col-md-3">
+            <label class="form-label" for="{{ form.product_length.id_for_label }}">Length (mm)</label>
+            {{ form.product_length }}
+            {% if form.product_length.errors %}<div class="invalid-feedback d-block">{{ form.product_length.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label" for="{{ form.product_width.id_for_label }}">Width (mm)</label>
+            {{ form.product_width }}
+            {% if form.product_width.errors %}<div class="invalid-feedback d-block">{{ form.product_width.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label" for="{{ form.product_height.id_for_label }}">Height (mm)</label>
+            {{ form.product_height }}
+            {% if form.product_height.errors %}<div class="invalid-feedback d-block">{{ form.product_height.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label" for="{{ form.weight.id_for_label }}">Weight (kg)</label>
+            {{ form.weight }}
+            {% if form.weight.errors %}<div class="invalid-feedback d-block">{{ form.weight.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label" for="{{ form.desired_qty.id_for_label }}">Desired Quantity</label>
+            {{ form.desired_qty }}
+            {% if form.desired_qty.errors %}<div class="invalid-feedback d-block">{{ form.desired_qty.errors|join:", " }}</div>{% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="app-form-panel">
+    <div class="app-form-panel-header">
+        <div>
+            <div class="app-form-section-title mb-1">Allowed rotations</div>
+            <div class="app-section-subtitle mb-0">Control how this product may rotate during packaging calculations.</div>
+        </div>
+        <i class="bi bi-arrow-repeat app-form-panel-icon"></i>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="app-checkbox-card">
+                {{ form.rotation_1 }}
+                <label class="form-check-label" for="{{ form.rotation_1.id_for_label }}">Rotation 1</label>
+            </div>
+            {% if form.rotation_1.errors %}<div class="invalid-feedback d-block">{{ form.rotation_1.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <div class="app-checkbox-card">
+                {{ form.rotation_2 }}
+                <label class="form-check-label" for="{{ form.rotation_2.id_for_label }}">Rotation 2</label>
+            </div>
+            {% if form.rotation_2.errors %}<div class="invalid-feedback d-block">{{ form.rotation_2.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <div class="app-checkbox-card">
+                {{ form.rotation_3 }}
+                <label class="form-check-label" for="{{ form.rotation_3.id_for_label }}">Rotation 3</label>
+            </div>
+            {% if form.rotation_3.errors %}<div class="invalid-feedback d-block">{{ form.rotation_3.errors|join:", " }}</div>{% endif %}
+        </div>
+    </div>
+</div>
