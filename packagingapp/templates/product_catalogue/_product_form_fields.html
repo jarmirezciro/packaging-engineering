@@ -1,125 +1,150 @@
 {% if form.non_field_errors %}
-<div class="alert alert-danger" role="alert">
-    {{ form.non_field_errors }}
+<div class="alert alert-danger catalogue-form-alert" role="alert">
+    <i class="bi bi-exclamation-triangle me-2"></i>{{ form.non_field_errors }}
 </div>
 {% endif %}
 
-<div class="app-form-panel">
-    <div class="app-form-panel-header">
-        <div>
-            <div class="app-form-section-title mb-1">Product identity</div>
-            <div class="app-section-subtitle mb-0">Main product identifiers and optional catalogue image.</div>
-        </div>
-        <i class="bi bi-tag app-form-panel-icon"></i>
-    </div>
-
-    <div class="row g-3 app-form-grid">
-        <div class="col-md-4">
-            <label class="form-label" for="{{ form.product_id.id_for_label }}">Product ID</label>
-            {{ form.product_id }}
-            {% if form.product_id.errors %}<div class="invalid-feedback d-block">{{ form.product_id.errors|join:", " }}</div>{% endif %}
-        </div>
-
-        <div class="col-md-8">
-            <label class="form-label" for="{{ form.product_name.id_for_label }}">Product Name</label>
-            {{ form.product_name }}
-            {% if form.product_name.errors %}<div class="invalid-feedback d-block">{{ form.product_name.errors|join:", " }}</div>{% endif %}
-        </div>
-
-        {% if product.product_picture %}
-        <div class="col-12">
-            <div class="app-current-file-card">
-                <img src="{{ product.product_picture.url }}" alt="{{ product.product_name|default:product.product_id }}" class="app-table-thumb">
+<div class="catalogue-form-layout catalogue-form-layout--product">
+    <div class="catalogue-form-main">
+        <section class="catalogue-form-card catalogue-form-card--primary">
+            <div class="catalogue-form-card-header">
+                <div class="catalogue-form-card-kicker">Step 1</div>
                 <div>
-                    <div class="app-current-file-title">Current product picture</div>
-                    <span class="text-muted">Shown in catalogue table thumbnails.</span>
+                    <h2>Product identity</h2>
+                    <p>Main product identifiers and optional catalogue image.</p>
                 </div>
             </div>
-        </div>
-        {% endif %}
 
-        <div class="col-md-6">
-            <label class="form-label" for="{{ form.product_picture.id_for_label }}">Product Picture</label>
-            {{ form.product_picture }}
-            {% if form.product_picture.errors %}<div class="invalid-feedback d-block">{{ form.product_picture.errors|join:", " }}</div>{% endif %}
-        </div>
-    </div>
-</div>
+            <div class="catalogue-field-grid catalogue-field-grid--identity">
+                <div class="catalogue-field catalogue-field--strong">
+                    <label for="{{ form.product_id.id_for_label }}">Product ID</label>
+                    {{ form.product_id }}
+                    {% if form.product_id.errors %}<div class="catalogue-field-error">{{ form.product_id.errors|join:", " }}</div>{% endif %}
+                </div>
 
-<div class="app-form-panel">
-    <div class="app-form-panel-header">
-        <div>
-            <div class="app-form-section-title mb-1">Dimensions and demand</div>
-            <div class="app-section-subtitle mb-0">Product dimensions are in millimetres. Weight is in kg.</div>
-        </div>
-        <i class="bi bi-rulers app-form-panel-icon"></i>
-    </div>
-
-    <div class="row g-3 app-form-grid">
-        <div class="col-md-3">
-            <label class="form-label" for="{{ form.product_length.id_for_label }}">Length (mm)</label>
-            {{ form.product_length }}
-            {% if form.product_length.errors %}<div class="invalid-feedback d-block">{{ form.product_length.errors|join:", " }}</div>{% endif %}
-        </div>
-
-        <div class="col-md-3">
-            <label class="form-label" for="{{ form.product_width.id_for_label }}">Width (mm)</label>
-            {{ form.product_width }}
-            {% if form.product_width.errors %}<div class="invalid-feedback d-block">{{ form.product_width.errors|join:", " }}</div>{% endif %}
-        </div>
-
-        <div class="col-md-3">
-            <label class="form-label" for="{{ form.product_height.id_for_label }}">Height (mm)</label>
-            {{ form.product_height }}
-            {% if form.product_height.errors %}<div class="invalid-feedback d-block">{{ form.product_height.errors|join:", " }}</div>{% endif %}
-        </div>
-
-        <div class="col-md-3">
-            <label class="form-label" for="{{ form.weight.id_for_label }}">Weight (kg)</label>
-            {{ form.weight }}
-            {% if form.weight.errors %}<div class="invalid-feedback d-block">{{ form.weight.errors|join:", " }}</div>{% endif %}
-        </div>
-
-        <div class="col-md-3">
-            <label class="form-label" for="{{ form.desired_qty.id_for_label }}">Desired Quantity</label>
-            {{ form.desired_qty }}
-            {% if form.desired_qty.errors %}<div class="invalid-feedback d-block">{{ form.desired_qty.errors|join:", " }}</div>{% endif %}
-        </div>
-    </div>
-</div>
-
-<div class="app-form-panel">
-    <div class="app-form-panel-header">
-        <div>
-            <div class="app-form-section-title mb-1">Allowed rotations</div>
-            <div class="app-section-subtitle mb-0">Control how this product may rotate during packaging calculations.</div>
-        </div>
-        <i class="bi bi-arrow-repeat app-form-panel-icon"></i>
-    </div>
-
-    <div class="row g-3">
-        <div class="col-md-4">
-            <div class="app-checkbox-card">
-                {{ form.rotation_1 }}
-                <label class="form-check-label" for="{{ form.rotation_1.id_for_label }}">Rotation 1</label>
+                <div class="catalogue-field catalogue-field--wide">
+                    <label for="{{ form.product_name.id_for_label }}">Product name</label>
+                    {{ form.product_name }}
+                    {% if form.product_name.errors %}<div class="catalogue-field-error">{{ form.product_name.errors|join:", " }}</div>{% endif %}
+                </div>
             </div>
-            {% if form.rotation_1.errors %}<div class="invalid-feedback d-block">{{ form.rotation_1.errors|join:", " }}</div>{% endif %}
-        </div>
+        </section>
 
-        <div class="col-md-4">
-            <div class="app-checkbox-card">
-                {{ form.rotation_2 }}
-                <label class="form-check-label" for="{{ form.rotation_2.id_for_label }}">Rotation 2</label>
+        <section class="catalogue-form-card">
+            <div class="catalogue-form-card-header catalogue-form-card-header--compact">
+                <div class="catalogue-form-card-icon"><i class="bi bi-rulers"></i></div>
+                <div>
+                    <h2>Dimensions and demand</h2>
+                    <p>Dimensions are used by box, bag, palletization, container, and transport tools.</p>
+                </div>
             </div>
-            {% if form.rotation_2.errors %}<div class="invalid-feedback d-block">{{ form.rotation_2.errors|join:", " }}</div>{% endif %}
-        </div>
 
-        <div class="col-md-4">
-            <div class="app-checkbox-card">
-                {{ form.rotation_3 }}
-                <label class="form-check-label" for="{{ form.rotation_3.id_for_label }}">Rotation 3</label>
+            <div class="catalogue-dimension-grid catalogue-dimension-grid--five">
+                <div class="catalogue-field">
+                    <label for="{{ form.product_length.id_for_label }}">Length</label>
+                    <div class="catalogue-input-with-unit">{{ form.product_length }}<span>mm</span></div>
+                    {% if form.product_length.errors %}<div class="catalogue-field-error">{{ form.product_length.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="catalogue-field">
+                    <label for="{{ form.product_width.id_for_label }}">Width</label>
+                    <div class="catalogue-input-with-unit">{{ form.product_width }}<span>mm</span></div>
+                    {% if form.product_width.errors %}<div class="catalogue-field-error">{{ form.product_width.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="catalogue-field">
+                    <label for="{{ form.product_height.id_for_label }}">Height</label>
+                    <div class="catalogue-input-with-unit">{{ form.product_height }}<span>mm</span></div>
+                    {% if form.product_height.errors %}<div class="catalogue-field-error">{{ form.product_height.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="catalogue-field">
+                    <label for="{{ form.weight.id_for_label }}">Weight</label>
+                    <div class="catalogue-input-with-unit">{{ form.weight }}<span>kg</span></div>
+                    {% if form.weight.errors %}<div class="catalogue-field-error">{{ form.weight.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="catalogue-field">
+                    <label for="{{ form.desired_qty.id_for_label }}">Quantity</label>
+                    <div class="catalogue-input-with-unit">{{ form.desired_qty }}<span>pcs</span></div>
+                    {% if form.desired_qty.errors %}<div class="catalogue-field-error">{{ form.desired_qty.errors|join:", " }}</div>{% endif %}
+                </div>
             </div>
-            {% if form.rotation_3.errors %}<div class="invalid-feedback d-block">{{ form.rotation_3.errors|join:", " }}</div>{% endif %}
-        </div>
+        </section>
+
+        <section class="catalogue-form-card">
+            <div class="catalogue-form-card-header catalogue-form-card-header--compact">
+                <div class="catalogue-form-card-icon"><i class="bi bi-arrow-repeat"></i></div>
+                <div>
+                    <h2>Allowed rotations</h2>
+                    <p>Control how this product may rotate during packaging calculations.</p>
+                </div>
+            </div>
+
+            <div class="catalogue-rotation-grid">
+                <label class="catalogue-toggle-card" for="{{ form.rotation_1.id_for_label }}">
+                    {{ form.rotation_1 }}
+                    <span class="catalogue-toggle-visual"><i class="bi bi-arrow-left-right"></i></span>
+                    <span>
+                        <strong>Rotation 1</strong>
+                        <small>Default orientation</small>
+                    </span>
+                </label>
+
+                <label class="catalogue-toggle-card" for="{{ form.rotation_2.id_for_label }}">
+                    {{ form.rotation_2 }}
+                    <span class="catalogue-toggle-visual"><i class="bi bi-arrow-down-up"></i></span>
+                    <span>
+                        <strong>Rotation 2</strong>
+                        <small>Alternative orientation</small>
+                    </span>
+                </label>
+
+                <label class="catalogue-toggle-card" for="{{ form.rotation_3.id_for_label }}">
+                    {{ form.rotation_3 }}
+                    <span class="catalogue-toggle-visual"><i class="bi bi-arrow-clockwise"></i></span>
+                    <span>
+                        <strong>Rotation 3</strong>
+                        <small>Additional orientation</small>
+                    </span>
+                </label>
+            </div>
+
+            {% if form.rotation_1.errors %}<div class="catalogue-field-error mt-2">{{ form.rotation_1.errors|join:", " }}</div>{% endif %}
+            {% if form.rotation_2.errors %}<div class="catalogue-field-error mt-2">{{ form.rotation_2.errors|join:", " }}</div>{% endif %}
+            {% if form.rotation_3.errors %}<div class="catalogue-field-error mt-2">{{ form.rotation_3.errors|join:", " }}</div>{% endif %}
+        </section>
     </div>
+
+    <aside class="catalogue-form-side">
+        <section class="catalogue-form-card catalogue-form-card--side">
+            <div class="catalogue-form-card-header catalogue-form-card-header--compact">
+                <div class="catalogue-form-card-icon"><i class="bi bi-image"></i></div>
+                <div>
+                    <h2>Picture</h2>
+                    <p>Optional thumbnail for catalogue browsing.</p>
+                </div>
+            </div>
+
+            {% if product.product_picture %}
+            <div class="catalogue-current-media-card catalogue-current-media-card--large">
+                <img src="{{ product.product_picture.url }}" alt="{{ product.product_name|default:product.product_id }}">
+                <div>
+                    <strong>Current product picture</strong>
+                    <span>Visible in catalogue tables.</span>
+                </div>
+            </div>
+            {% else %}
+            <div class="catalogue-empty-media-card">
+                <i class="bi bi-image"></i>
+                <span>No picture uploaded yet</span>
+            </div>
+            {% endif %}
+
+            <div class="catalogue-upload-field mt-3">
+                <label for="{{ form.product_picture.id_for_label }}">
+                    <i class="bi bi-cloud-arrow-up me-2"></i>Upload picture
+                </label>
+                {{ form.product_picture }}
+                {% if form.product_picture.errors %}<div class="catalogue-field-error">{{ form.product_picture.errors|join:", " }}</div>{% endif %}
+                <div class="catalogue-field-hint">Use a clean product image for best catalogue browsing.</div>
+            </div>
+        </section>
+    </aside>
 </div>

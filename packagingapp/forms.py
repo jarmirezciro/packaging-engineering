@@ -92,6 +92,45 @@ class PackagingMaterialForm(forms.ModelForm):
             "picture",
         ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        for field_name in [
+            "part_number",
+            "part_description",
+            "packaging_materials",
+            "part_length",
+            "part_width",
+            "part_height",
+            "external_length",
+            "external_width",
+            "external_height",
+            "part_weight",
+        ]:
+            self.fields[field_name].widget.attrs.update({"class": "form-control"})
+
+        for field_name in ["packaging_type", "branding"]:
+            self.fields[field_name].widget.attrs.update({"class": "form-select"})
+
+        for field_name in [
+            "part_length",
+            "part_width",
+            "part_height",
+            "external_length",
+            "external_width",
+            "external_height",
+            "part_weight",
+        ]:
+            self.fields[field_name].widget.attrs.update({"step": "any", "placeholder": "0"})
+
+        self.fields["part_number"].widget.attrs.update({"placeholder": "e.g. BOX-001"})
+        self.fields["part_description"].widget.attrs.update({"placeholder": "Short material description"})
+        self.fields["packaging_materials"].widget.attrs.update({"placeholder": "e.g. Corrugated board, wood, plastic"})
+
+        # Use a clean file input. Current files are shown by the template in modern preview cards.
+        self.fields["drawing"].widget = forms.FileInput(attrs={"class": "form-control"})
+        self.fields["picture"].widget = forms.FileInput(attrs={"class": "form-control", "accept": "image/*"})
+
 
 class ExcelUploadForm(forms.Form):
     file = forms.FileField(label="Excel File (.xlsx)")
@@ -269,6 +308,33 @@ class ProductForm(forms.ModelForm):
             "desired_qty",
             "product_picture",
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        for field_name in [
+            "product_id",
+            "product_name",
+            "product_length",
+            "product_width",
+            "product_height",
+            "weight",
+            "desired_qty",
+        ]:
+            self.fields[field_name].widget.attrs.update({"class": "form-control"})
+
+        for field_name in ["product_length", "product_width", "product_height", "weight"]:
+            self.fields[field_name].widget.attrs.update({"step": "any", "placeholder": "0"})
+
+        self.fields["desired_qty"].widget.attrs.update({"min": "1", "placeholder": "1"})
+        self.fields["product_id"].widget.attrs.update({"placeholder": "e.g. P-10001"})
+        self.fields["product_name"].widget.attrs.update({"placeholder": "Short product name"})
+
+        for field_name in ["rotation_1", "rotation_2", "rotation_3"]:
+            self.fields[field_name].widget.attrs.update({"class": "catalogue-toggle-input"})
+
+        # Use a clean file input. Current pictures are shown by the template in modern preview cards.
+        self.fields["product_picture"].widget = forms.FileInput(attrs={"class": "form-control", "accept": "image/*"})
 
 
 class ProductExcelUploadForm(forms.Form):
