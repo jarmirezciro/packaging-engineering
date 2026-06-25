@@ -1,7 +1,7 @@
 <div class="app-card">
     <div class="app-card-body">
         <div class="app-section-title">Container</div>
-        <div class="app-section-subtitle">Manual dimensions or packaging catalogue selection.</div>
+        <div class="app-section-subtitle">Manual dimensions in mm or catalogue selection from BOX, CRATE, CONTAINER, or TRAILER types.</div>
 
         <div id="{% if mode == 'workflow' %}globalCatalogueChooser_{{ container_ui.prefix }}{% else %}globalCatalogueChooser{% endif %}" class="tool-field-group tool-tight-gap">
             <label class="form-label">Packaging Catalogue</label>
@@ -34,9 +34,9 @@
 
             <div id="{% if mode == 'workflow' %}manualContainerFields_{{ container_ui.prefix }}{% else %}manualContainerFields{% endif %}">
                 <div class="tool-compact-grid-three">
-                    <div class="tool-field-group mb-0"><label class="form-label">Length</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_l }}" value="{{ container_values.box_l|default:'' }}">{% else %}{{ form.box_l }}{% endif %}</div>
-                    <div class="tool-field-group mb-0"><label class="form-label">Width</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_w }}" value="{{ container_values.box_w|default:'' }}">{% else %}{{ form.box_w }}{% endif %}</div>
-                    <div class="tool-field-group mb-0"><label class="form-label">Height</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_h }}" value="{{ container_values.box_h|default:'' }}">{% else %}{{ form.box_h }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Length <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_l }}" value="{{ container_values.box_l|default:'' }}">{% else %}{{ form.box_l }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Width <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_w }}" value="{{ container_values.box_w|default:'' }}">{% else %}{{ form.box_w }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Height <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_h }}" value="{{ container_values.box_h|default:'' }}">{% else %}{{ form.box_h }}{% endif %}</div>
                 </div>
             </div>
 
@@ -44,8 +44,8 @@
                 <div class="tool-summary-strip">
                     <div class="tool-summary-main"><strong>{{ selected_material.part_number }}</strong> — {{ selected_material.part_description }}</div>
                     <div class="tool-summary-meta">
-                        {{ selected_material.part_length }} × {{ selected_material.part_width }} × {{ selected_material.part_height }}
-                        {% if selected_material.part_weight %} | Wt: {{ selected_material.part_weight }}{% endif %}
+                        {{ selected_material.part_length }} × {{ selected_material.part_width }} × {{ selected_material.part_height }} mm
+                        {% if selected_material.part_weight %} | Wt: {{ selected_material.part_weight }} g{% endif %}
                         | {{ selected_material.packaging_type }}
                         | {{ selected_material.branding }}
                     </div>

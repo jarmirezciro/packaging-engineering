@@ -20,8 +20,8 @@
                         <th>Ext. L (mm)</th>
                         <th>Ext. W (mm)</th>
                         <th>Ext. H (mm)</th>
-                        <th>Weight (kg)</th>
-                        <th>Volume</th>
+                        <th>Weight (g)</th>
+                        <th>Volume (mm³)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -52,7 +52,7 @@
                         <td>{{ material.part_volume }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="14" class="text-center text-muted">No packaging materials found.</td></tr>
+                    <tr><td colspan="14" class="text-center text-muted">No BOX, CRATE, CONTAINER, or TRAILER materials found in this catalogue.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

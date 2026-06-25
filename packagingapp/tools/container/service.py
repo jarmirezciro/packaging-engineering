@@ -8,6 +8,11 @@ from ...utils.box_selection.engine import run_mode1_and_render, compute_max_quan
 from .serializers import sanitize_container_config_for_session
 
 
+# Packaging types that behave like rectangular/cuboid containers in this module.
+# BAG is handled by Bag Selection; PALLET is handled by Palletization.
+CONTAINER_SELECTION_ALLOWED_PACKAGING_TYPES = ("BOX", "CRATE", "CONTAINER", "TRAILER")
+
+
 def get_packaging_catalogues(user=None):
     return visible_packaging_catalogues(user).order_by("name")
 
@@ -32,8 +37,9 @@ def get_materials_for_catalogue(config):
         return PackagingMaterial.objects.none()
 
     return PackagingMaterial.objects.filter(
-        catalogue_id=catalogue_id
-    ).select_related("catalogue").order_by("part_number")
+        catalogue_id=catalogue_id,
+        packaging_type__in=CONTAINER_SELECTION_ALLOWED_PACKAGING_TYPES,
+    ).select_related("catalogue").order_by("packaging_type", "part_number")
 
 
 def get_selected_product(config):
@@ -52,7 +58,8 @@ def get_selected_material(config):
         return None
 
     return PackagingMaterial.objects.filter(
-        id=container_id
+        id=container_id,
+        packaging_type__in=CONTAINER_SELECTION_ALLOWED_PACKAGING_TYPES,
     ).select_related("catalogue").first()
 
 
