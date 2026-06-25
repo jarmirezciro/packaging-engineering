@@ -1,3 +1,66 @@
+<style>
+    .container-rotation-option {
+        gap: 0.5rem;
+        align-items: center;
+        min-height: 52px;
+    }
+
+    .container-rotation-icon {
+        width: 48px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+    }
+
+    .container-rotation-icon svg {
+        width: 48px;
+        height: 36px;
+        display: block;
+    }
+
+    .container-rotation-icon .box-top {
+        fill: #f4efe8;
+        stroke: #6c757d;
+        stroke-width: 1.1;
+    }
+
+    .container-rotation-icon .box-left {
+        fill: #e8dccb;
+        stroke: #6c757d;
+        stroke-width: 1.1;
+    }
+
+    .container-rotation-icon .box-right {
+        fill: #d7c2a8;
+        stroke: #6c757d;
+        stroke-width: 1.1;
+    }
+
+    .container-rotation-icon .accent-line {
+        stroke: #0d6efd;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+    }
+
+    .container-rotation-icon .accent-dot {
+        fill: #0d6efd;
+    }
+
+    .container-rotation-text {
+        display: inline-flex;
+        flex-direction: column;
+        line-height: 1.05;
+    }
+
+    .container-rotation-text small {
+        color: #6c757d;
+        font-size: 0.74rem;
+        white-space: nowrap;
+    }
+</style>
+
 <div class="app-card">
     <div class="app-card-body">
         <div class="app-section-title">Product</div>
@@ -68,15 +131,88 @@
                 <label class="form-label">Rotation permissions</label>
                 <div class="tool-checkbox-group tool-checkbox-group--inline">
                     {% if mode == "workflow" %}
-                        <label class="tool-check-option"><input type="checkbox" name="{{ container_ui.names.r1 }}" {% if container_values.r1 %}checked{% endif %}> <span>R1</span></label>
-                        <label class="tool-check-option"><input type="checkbox" name="{{ container_ui.names.r2 }}" {% if container_values.r2 %}checked{% endif %}> <span>R2</span></label>
-                        <label class="tool-check-option"><input type="checkbox" name="{{ container_ui.names.r3 }}" {% if container_values.r3 %}checked{% endif %}> <span>R3</span></label>
+                        <label class="tool-check-option container-rotation-option" title="R1 allows the original product length to be placed vertically.">
+                            <input type="checkbox" name="{{ container_ui.names.r1 }}" {% if container_values.r1 %}checked{% endif %}>
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="19,8 27,5 36,10 28,13" class="box-top"></polygon>
+                                    <polygon points="19,8 28,13 28,31 19,26" class="box-left"></polygon>
+                                    <polygon points="28,13 36,10 36,28 28,31" class="box-right"></polygon>
+                                    <line x1="17" y1="28" x2="17" y2="8" class="accent-line"></line>
+                                    <circle cx="17" cy="8" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                            <span class="container-rotation-text"><strong>R1</strong><small>Length vertical</small></span>
+                        </label>
+                        <label class="tool-check-option container-rotation-option" title="R2 allows the original product width to be placed vertically.">
+                            <input type="checkbox" name="{{ container_ui.names.r2 }}" {% if container_values.r2 %}checked{% endif %}>
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="14,11 29,6 38,11 23,16" class="box-top"></polygon>
+                                    <polygon points="14,11 23,16 23,28 14,23" class="box-left"></polygon>
+                                    <polygon points="23,16 38,11 38,23 23,28" class="box-right"></polygon>
+                                    <line x1="26" y1="28" x2="26" y2="10" class="accent-line"></line>
+                                    <circle cx="26" cy="10" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                            <span class="container-rotation-text"><strong>R2</strong><small>Width vertical</small></span>
+                        </label>
+                        <label class="tool-check-option container-rotation-option" title="R3 allows the original product height to be placed vertically.">
+                            <input type="checkbox" name="{{ container_ui.names.r3 }}" {% if container_values.r3 %}checked{% endif %}>
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="10,13 28,7 39,13 21,19" class="box-top"></polygon>
+                                    <polygon points="10,13 21,19 21,25 10,19" class="box-left"></polygon>
+                                    <polygon points="21,19 39,13 39,19 21,25" class="box-right"></polygon>
+                                    <line x1="24" y1="24" x2="24" y2="16" class="accent-line"></line>
+                                    <circle cx="24" cy="16" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                            <span class="container-rotation-text"><strong>R3</strong><small>Height vertical</small></span>
+                        </label>
                     {% else %}
-                        <label class="tool-check-option">{{ form.r1 }} <span>R1</span></label>
-                        <label class="tool-check-option">{{ form.r2 }} <span>R2</span></label>
-                        <label class="tool-check-option">{{ form.r3 }} <span>R3</span></label>
+                        <label class="tool-check-option container-rotation-option" title="R1 allows the original product length to be placed vertically.">
+                            {{ form.r1 }}
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="19,8 27,5 36,10 28,13" class="box-top"></polygon>
+                                    <polygon points="19,8 28,13 28,31 19,26" class="box-left"></polygon>
+                                    <polygon points="28,13 36,10 36,28 28,31" class="box-right"></polygon>
+                                    <line x1="17" y1="28" x2="17" y2="8" class="accent-line"></line>
+                                    <circle cx="17" cy="8" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                            <span class="container-rotation-text"><strong>R1</strong><small>Length vertical</small></span>
+                        </label>
+                        <label class="tool-check-option container-rotation-option" title="R2 allows the original product width to be placed vertically.">
+                            {{ form.r2 }}
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="14,11 29,6 38,11 23,16" class="box-top"></polygon>
+                                    <polygon points="14,11 23,16 23,28 14,23" class="box-left"></polygon>
+                                    <polygon points="23,16 38,11 38,23 23,28" class="box-right"></polygon>
+                                    <line x1="26" y1="28" x2="26" y2="10" class="accent-line"></line>
+                                    <circle cx="26" cy="10" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                            <span class="container-rotation-text"><strong>R2</strong><small>Width vertical</small></span>
+                        </label>
+                        <label class="tool-check-option container-rotation-option" title="R3 allows the original product height to be placed vertically.">
+                            {{ form.r3 }}
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="10,13 28,7 39,13 21,19" class="box-top"></polygon>
+                                    <polygon points="10,13 21,19 21,25 10,19" class="box-left"></polygon>
+                                    <polygon points="21,19 39,13 39,19 21,25" class="box-right"></polygon>
+                                    <line x1="24" y1="24" x2="24" y2="16" class="accent-line"></line>
+                                    <circle cx="24" cy="16" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                            <span class="container-rotation-text"><strong>R3</strong><small>Height vertical</small></span>
+                        </label>
                     {% endif %}
                 </div>
+                <div class="app-form-note mt-2">Restriction means which original product dimension may be placed vertically.</div>
             </div>
         </div>
 

@@ -487,6 +487,7 @@ def analyze_container_form(
                     r2,
                     r3,
                     media_root or settings.MEDIA_ROOT,
+                    render_style="clean",
                 )
                 result = render_result
                 analysis_report = build_container_analysis_report(
@@ -542,6 +543,7 @@ def analyze_container_form(
                             r3,
                             media_root or settings.MEDIA_ROOT,
                             draw_limit=desired_qty,
+                            render_style="clean",
                         )
                         result = render_result
                         analysis_report = build_container_analysis_report(
