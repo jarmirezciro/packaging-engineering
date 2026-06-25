@@ -239,6 +239,180 @@ def _score_top5_candidates(product, materials, desired_qty, r1, r2, r3):
     return scored[:5]
 
 
+
+def _safe_float(value):
+    if value in (None, "", "None"):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _round_or_none(value, digits=2):
+    if value is None:
+        return None
+    return round(float(value), digits)
+
+
+def _round_int_or_none(value):
+    if value is None:
+        return None
+    return int(round(float(value)))
+
+
+def _format_percent(value):
+    if value is None:
+        return "Not available"
+    return f"{_round_int_or_none(value)}%"
+
+
+def _format_weight(value):
+    """
+    Weight inputs in this tool are stored in grams. Keep the report compact:
+    show grams for smaller values and whole kilograms for larger values.
+    """
+    numeric_value = _safe_float(value)
+    if numeric_value is None:
+        return "Not available"
+
+    if abs(numeric_value) >= 1000:
+        return f"{int(round(numeric_value / 1000))} kg"
+
+    return f"{int(round(numeric_value))} g"
+
+
+def _first_available_numeric_attr(obj, attr_names):
+    if obj is None:
+        return None
+
+    for attr_name in attr_names:
+        value = getattr(obj, attr_name, None)
+        numeric_value = _safe_float(value)
+        if numeric_value is not None:
+            return numeric_value
+
+    return None
+
+
+def _resolve_product_weight(form, product_source, selected_product):
+    if product_source == "catalogue" and selected_product is not None:
+        return _safe_float(getattr(selected_product, "weight", None))
+
+    return _safe_float(form.cleaned_data.get("product_weight"))
+
+
+def _resolve_container_tare(selected_material):
+    return _safe_float(getattr(selected_material, "part_weight", None))
+
+
+def _resolve_payload_capacity(selected_material):
+    """
+    PackagingMaterial currently stores tare as part_weight, but no payload field.
+    Keep this future-safe and JSON-safe: if a payload-like field is added later,
+    the report will start using it without changing the template contract.
+    """
+    return _first_available_numeric_attr(
+        selected_material,
+        [
+            "max_payload",
+            "payload_capacity",
+            "max_payload_kg",
+            "max_load",
+            "max_load_kg",
+            "max_weight",
+            "max_weight_kg",
+        ],
+    )
+
+
+def build_container_analysis_report(
+    *,
+    form,
+    result,
+    product,
+    container,
+    desired_qty,
+    product_source,
+    mode="single",
+    selected_product=None,
+    selected_material=None,
+):
+    """
+    Build a compact, JSON-safe report used by both the standalone Container
+    Selection Tool and the full packaging workflow.
+    """
+    if result is None or product is None or container is None:
+        return None
+
+    max_quantity = int(getattr(result, "max_quantity", 0) or 0)
+    requested_qty = max_quantity if mode == "single" else int(desired_qty or 1)
+
+    product_volume = float(product[0]) * float(product[1]) * float(product[2])
+    container_volume = float(container[0]) * float(container[1]) * float(container[2])
+    current_product_volume = product_volume * requested_qty
+    max_product_volume = product_volume * max_quantity
+
+    current_efficiency_pct = None
+    max_efficiency_pct = None
+    if container_volume > 0:
+        current_efficiency_pct = (current_product_volume / container_volume) * 100
+        max_efficiency_pct = (max_product_volume / container_volume) * 100
+
+    product_weight = _resolve_product_weight(form, product_source, selected_product)
+    container_tare = _resolve_container_tare(selected_material)
+    payload_capacity = _resolve_payload_capacity(selected_material)
+
+    net_weight = None
+    total_weight_current = None
+    payload_usage_pct = None
+
+    if product_weight is not None:
+        net_weight = product_weight * requested_qty
+        if container_tare is not None:
+            total_weight_current = net_weight + container_tare
+        if payload_capacity and payload_capacity > 0:
+            payload_usage_pct = (net_weight / payload_capacity) * 100
+
+    remaining_capacity = max(max_quantity - requested_qty, 0)
+
+    return {
+        "requested_qty": requested_qty,
+        "max_quantity": max_quantity,
+        "remaining_capacity": remaining_capacity,
+        "volumetric_efficiency_current_pct": _round_int_or_none(current_efficiency_pct),
+        "volumetric_efficiency_max_pct": _round_int_or_none(max_efficiency_pct),
+        "unused_volume_current_pct": _round_int_or_none(
+            100 - current_efficiency_pct if current_efficiency_pct is not None else None
+        ),
+        "product_volume": _round_or_none(product_volume, 2),
+        "container_volume": _round_or_none(container_volume, 2),
+        "current_product_volume": _round_or_none(current_product_volume, 2),
+        "max_product_volume": _round_or_none(max_product_volume, 2),
+        "product_weight": _round_or_none(product_weight, 3),
+        "container_tare": _round_or_none(container_tare, 3),
+        "payload_capacity": _round_or_none(payload_capacity, 3),
+        "net_weight": _round_or_none(net_weight, 3),
+        "total_weight_current": _round_or_none(total_weight_current, 3),
+        "payload_usage_pct": _round_int_or_none(payload_usage_pct),
+        "volumetric_efficiency_current_display": _format_percent(current_efficiency_pct),
+        "volumetric_efficiency_max_display": _format_percent(max_efficiency_pct),
+        "unused_volume_current_display": _format_percent(
+            100 - current_efficiency_pct if current_efficiency_pct is not None else None
+        ),
+        "product_weight_display": _format_weight(product_weight),
+        "container_tare_display": _format_weight(container_tare),
+        "payload_capacity_display": _format_weight(payload_capacity),
+        "net_weight_display": _format_weight(net_weight),
+        "total_weight_current_display": _format_weight(total_weight_current),
+        "payload_usage_display": _format_percent(payload_usage_pct),
+        "has_product_weight": product_weight is not None,
+        "has_container_tare": container_tare is not None,
+        "has_payload_capacity": payload_capacity is not None,
+        "has_total_weight_current": total_weight_current is not None,
+        "has_payload_usage": payload_usage_pct is not None,
+    }
+
 def analyze_container_form(
     form,
     config,
@@ -251,6 +425,7 @@ def analyze_container_form(
     image_url = None
     top5 = []
     messages = []
+    analysis_report = None
 
     mode = form.cleaned_data.get("mode") or "single"
     action = form.cleaned_data.get("action") or ""
@@ -307,6 +482,17 @@ def analyze_container_form(
                     media_root or settings.MEDIA_ROOT,
                 )
                 result = render_result
+                analysis_report = build_container_analysis_report(
+                    form=form,
+                    result=render_result,
+                    product=product,
+                    container=container,
+                    desired_qty=desired_qty,
+                    product_source=product_source,
+                    mode=mode,
+                    selected_product=selected_product,
+                    selected_material=selected_material,
+                )
                 if getattr(render_result, "image_rel_path", None):
                     image_url = settings.MEDIA_URL + render_result.image_rel_path
 
@@ -351,6 +537,17 @@ def analyze_container_form(
                             draw_limit=desired_qty,
                         )
                         result = render_result
+                        analysis_report = build_container_analysis_report(
+                            form=form,
+                            result=render_result,
+                            product=product,
+                            container=container,
+                            desired_qty=desired_qty,
+                            product_source=product_source,
+                            mode=mode,
+                            selected_product=selected_product,
+                            selected_material=selected_material,
+                        )
                         if getattr(render_result, "image_rel_path", None):
                             image_url = settings.MEDIA_URL + render_result.image_rel_path
 
@@ -359,5 +556,6 @@ def analyze_container_form(
         "messages": messages,
         "result": result,
         "image_url": image_url,
+        "analysis_report": analysis_report,
         "top5": top5,
     }

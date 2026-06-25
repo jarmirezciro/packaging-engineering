@@ -89,6 +89,7 @@ def _new_container_step():
         "messages": [],
         "result": None,
         "image_url": None,
+        "analysis_report": None,
         "selected_result": None,
         "top5": [],
         "pending_result": None,
@@ -582,6 +583,7 @@ def _prepare_container_step_view_model(step, idx):
     step["current_product_source"] = cfg.get("product_source") or "manual"
     step["current_container_source"] = cfg.get("container_source") or "manual"
     step["container_top5_rows"] = _inflate_container_top5_rows(step.get("top5", []))
+    step["analysis_report"] = step.get("analysis_report") or (step.get("result") or {}).get("analysis_report")
 
 
 
@@ -714,6 +716,7 @@ def _process_container_step(step, steps, idx, post):
     top5_payload = []
     messages = []
     pending_result = None
+    analysis_report = None
 
     if form.is_valid():
         analysis = analyze_container_form(
@@ -726,6 +729,7 @@ def _process_container_step(step, steps, idx, post):
         messages = list(analysis.get("messages") or [])
         render_result = analysis.get("result")
         image_url = analysis.get("image_url")
+        analysis_report = analysis.get("analysis_report")
         top5_payload = [
             {
                 "material_id": str(row["material"].id),
@@ -741,6 +745,7 @@ def _process_container_step(step, steps, idx, post):
             result_payload = {
                 "kind": "container",
                 "max_quantity": getattr(render_result, "max_quantity", None),
+                "analysis_report": analysis_report,
             }
 
             desired_qty = int(form.cleaned_data.get("desired_qty") or 1)
@@ -772,6 +777,7 @@ def _process_container_step(step, steps, idx, post):
     step["config"] = cfg
     step["result"] = result_payload
     step["image_url"] = image_url
+    step["analysis_report"] = analysis_report
     step["top5"] = top5_payload
     step["pending_result"] = pending_result
     step["messages"] = messages

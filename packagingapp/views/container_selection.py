@@ -127,6 +127,7 @@ def container_selection_mode1(request):
     result = None
     image_url = None
     top5 = []
+    analysis_report = None
 
     if request.method == "POST" and form.is_valid():
         analysis = analyze_container_form(
@@ -140,6 +141,7 @@ def container_selection_mode1(request):
         result = analysis["result"]
         image_url = analysis["image_url"]
         top5 = analysis["top5"]
+        analysis_report = analysis.get("analysis_report")
 
         for message in analysis["messages"]:
             form.add_error(None, message)
@@ -161,6 +163,7 @@ def container_selection_mode1(request):
 
         "result": result,
         "image_url": image_url,
+        "analysis_report": analysis_report,
         "top5": top5,
 
         "products": products,
