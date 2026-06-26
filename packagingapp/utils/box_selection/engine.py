@@ -73,35 +73,54 @@ def draw_rsc_top_flaps(ax, lc, ac, hc,
                        color="#c9a66b",
                        edge_color="black",
                        alpha=0.26,
-                       alpha_edges=0.45):
+                       alpha_edges=0.45,
+                       opening_angle_deg=130.0):
     """
     Draw a simplified regular slotted container (RSC) top closure.
 
-    Visual intent only:
+    Visual intent:
       - 2 major flaps: L x (W/2)
       - 2 minor flaps: attached to the width panels
 
-    The flaps are slightly opened so the packed products remain visible.
+    opening_angle_deg is used as a visual opening control.
+    130° gives a much more opened look than the previous flatter version.
     """
     edge_color = to_rgba(edge_color, alpha=alpha_edges)
 
-    major_depth = max(ac * 0.5, 1.0)
-    minor_depth = max(min(lc * 0.22, ac * 0.48), 1.0)
-    lift = max(hc * 0.05, 1.0)
+    # Major flaps: L x (W/2)
+    major_len = max(ac * 0.5, 1.0)
+
+    # Minor flaps: visually shorter, attached to the width sides
+    minor_len = max(min(lc * 0.22, ac * 0.48), 1.0)
+
+    # Convert the desired visual opening into an upward/outward tilt.
+    # 130° opening -> 50° tilt above the top rim plane.
+    tilt_deg = max(5.0, min(opening_angle_deg - 80.0, 75.0))
+    theta = np.deg2rad(tilt_deg)
+
+    major_run = major_len * np.cos(theta)
+    major_rise = major_len * np.sin(theta)
+
+    minor_run = minor_len * np.cos(theta)
+    minor_rise = minor_len * np.sin(theta)
 
     flaps = [
-        # major front flap: L x W/2
-        [(0, 0, hc), (lc, 0, hc), (lc, major_depth, hc + lift), (0, major_depth, hc + lift)],
-        # major back flap: L x W/2
-        [(0, ac, hc), (lc, ac, hc), (lc, ac - major_depth, hc + lift), (0, ac - major_depth, hc + lift)],
-        # minor left flap: attached to width side
-        [(0, 0, hc), (0, ac, hc), (minor_depth, ac, hc + lift * 0.6), (minor_depth, 0, hc + lift * 0.6)],
-        # minor right flap: attached to width side
-        [(lc, 0, hc), (lc, ac, hc), (lc - minor_depth, ac, hc + lift * 0.6), (lc - minor_depth, 0, hc + lift * 0.6)],
+        # Front major flap (hinge at y = 0, opens outward to negative y)
+        [(0, 0, hc), (lc, 0, hc), (lc, -major_run, hc + major_rise), (0, -major_run, hc + major_rise)],
+
+        # Back major flap (hinge at y = ac, opens outward to positive y)
+        [(0, ac, hc), (lc, ac, hc), (lc, ac + major_run, hc + major_rise), (0, ac + major_run, hc + major_rise)],
+
+        # Left minor flap (hinge at x = 0, opens outward to negative x)
+        [(0, 0, hc), (0, ac, hc), (-minor_run, ac, hc + minor_rise), (-minor_run, 0, hc + minor_rise)],
+
+        # Right minor flap (hinge at x = lc, opens outward to positive x)
+        [(lc, 0, hc), (lc, ac, hc), (lc + minor_run, ac, hc + minor_rise), (lc + minor_run, 0, hc + minor_rise)],
     ]
 
     poly3d = Poly3DCollection(flaps, facecolors=color, edgecolors=edge_color, alpha=alpha)
     ax.add_collection3d(poly3d)
+
 
 
 def fill_subbox(ax,
@@ -290,7 +309,7 @@ def run_mode1_and_render(product: Dims,
     ax = fig.add_subplot(111, projection="3d")
     ax.set_box_aspect([lc, ac, hc])
 
-    flap_margin = max(min(lc, ac) * 0.12, 1.0) if clean_render else 0.0
+    flap_margin = max(min(lc, ac) * 0.35, 1.0) if clean_render else 0.0
 
     if clean_render:
         draw_open_box_shell(ax, lc, ac, hc)
@@ -326,11 +345,25 @@ def run_mode1_and_render(product: Dims,
 
     ax.set_xlim([-flap_margin, lc + flap_margin])
     ax.set_ylim([-flap_margin, ac + flap_margin])
-    ax.set_zlim([0, hc])
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
+    ax.set_zlim([0, hc + flap_margin])
     ax.view_init(elev=28, azim=30)
+
+    if clean_render:
+        # Final product view: remove matplotlib chart elements and keep only
+        # the packaging/product representation.
+        ax.set_axis_off()
+        ax.grid(False)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_zticks([])
+        for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+            axis.pane.set_alpha(0.0)
+            axis.line.set_alpha(0.0)
+    else:
+        # Development/debug view keeps axes and grid for visual analysis.
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
 
     rel_dir = "box_selection"
     file_name = f"mode1_{uuid.uuid4().hex}.png"
