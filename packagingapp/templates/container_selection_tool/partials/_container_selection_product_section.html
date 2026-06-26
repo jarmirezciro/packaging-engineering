@@ -1,13 +1,34 @@
 <style>
-    .container-rotation-option {
+    .container-rotation-group {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 0.5rem;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .container-rotation-option {
+        align-items: stretch;
+        gap: 0;
+        min-height: 0;
+        padding: 0.55rem 0.45rem;
+        flex-direction: column;
+        min-width: 0;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .container-rotation-visual-row {
+        display: flex;
         align-items: center;
-        min-height: 52px;
+        justify-content: center;
+        gap: 0.4rem;
+        width: 100%;
     }
 
     .container-rotation-icon {
-        width: 48px;
-        height: 36px;
+        width: 42px;
+        height: 32px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -15,8 +36,8 @@
     }
 
     .container-rotation-icon svg {
-        width: 48px;
-        height: 36px;
+        width: 42px;
+        height: 32px;
         display: block;
     }
 
@@ -51,13 +72,28 @@
     .container-rotation-text {
         display: inline-flex;
         flex-direction: column;
+        align-items: center;
+        gap: 0.12rem;
         line-height: 1.05;
+        margin-top: 0.35rem;
+        text-align: center;
+        width: 100%;
+    }
+
+    .container-rotation-text strong {
+        font-size: 0.9rem;
     }
 
     .container-rotation-text small {
         color: #6c757d;
-        font-size: 0.74rem;
+        font-size: 0.68rem;
         white-space: nowrap;
+    }
+
+    .container-rotation-option {
+        border-radius: 0.55rem !important;
+        min-height: 82px;
+        aspect-ratio: 1.45 / 1;
     }
 </style>
 
@@ -129,10 +165,11 @@
 
             <div class="tool-field-group tool-tight-gap">
                 <label class="form-label">Rotation permissions</label>
-                <div class="tool-checkbox-group tool-checkbox-group--inline">
+                <div class="tool-checkbox-group tool-checkbox-group--inline container-rotation-group">
                     {% if mode == "workflow" %}
                         <label class="tool-check-option container-rotation-option" title="R1 allows the original product length to be placed vertically.">
-                            <input type="checkbox" name="{{ container_ui.names.r1 }}" {% if container_values.r1 %}checked{% endif %}>
+                            <span class="container-rotation-visual-row">
+                                <input type="checkbox" name="{{ container_ui.names.r1 }}" {% if container_values.r1 %}checked{% endif %}>
                             <span class="container-rotation-icon" aria-hidden="true">
                                 <svg viewBox="0 0 48 36" focusable="false">
                                     <polygon points="19,8 27,5 36,10 28,13" class="box-top"></polygon>
@@ -142,10 +179,12 @@
                                     <circle cx="17" cy="8" r="2.2" class="accent-dot"></circle>
                                 </svg>
                             </span>
+                                                        </span>
                             <span class="container-rotation-text"><strong>R1</strong><small>Length vertical</small></span>
                         </label>
                         <label class="tool-check-option container-rotation-option" title="R2 allows the original product width to be placed vertically.">
-                            <input type="checkbox" name="{{ container_ui.names.r2 }}" {% if container_values.r2 %}checked{% endif %}>
+                            <span class="container-rotation-visual-row">
+                                <input type="checkbox" name="{{ container_ui.names.r2 }}" {% if container_values.r2 %}checked{% endif %}>
                             <span class="container-rotation-icon" aria-hidden="true">
                                 <svg viewBox="0 0 48 36" focusable="false">
                                     <polygon points="14,11 29,6 38,11 23,16" class="box-top"></polygon>
@@ -155,10 +194,12 @@
                                     <circle cx="26" cy="10" r="2.2" class="accent-dot"></circle>
                                 </svg>
                             </span>
+                                                        </span>
                             <span class="container-rotation-text"><strong>R2</strong><small>Width vertical</small></span>
                         </label>
                         <label class="tool-check-option container-rotation-option" title="R3 allows the original product height to be placed vertically.">
-                            <input type="checkbox" name="{{ container_ui.names.r3 }}" {% if container_values.r3 %}checked{% endif %}>
+                            <span class="container-rotation-visual-row">
+                                <input type="checkbox" name="{{ container_ui.names.r3 }}" {% if container_values.r3 %}checked{% endif %}>
                             <span class="container-rotation-icon" aria-hidden="true">
                                 <svg viewBox="0 0 48 36" focusable="false">
                                     <polygon points="10,13 28,7 39,13 21,19" class="box-top"></polygon>
@@ -168,11 +209,13 @@
                                     <circle cx="24" cy="16" r="2.2" class="accent-dot"></circle>
                                 </svg>
                             </span>
+                                                        </span>
                             <span class="container-rotation-text"><strong>R3</strong><small>Height vertical</small></span>
                         </label>
                     {% else %}
                         <label class="tool-check-option container-rotation-option" title="R1 allows the original product length to be placed vertically.">
-                            {{ form.r1 }}
+                            <span class="container-rotation-visual-row">
+                                {{ form.r1 }}
                             <span class="container-rotation-icon" aria-hidden="true">
                                 <svg viewBox="0 0 48 36" focusable="false">
                                     <polygon points="19,8 27,5 36,10 28,13" class="box-top"></polygon>
@@ -182,10 +225,12 @@
                                     <circle cx="17" cy="8" r="2.2" class="accent-dot"></circle>
                                 </svg>
                             </span>
+                                                        </span>
                             <span class="container-rotation-text"><strong>R1</strong><small>Length vertical</small></span>
                         </label>
                         <label class="tool-check-option container-rotation-option" title="R2 allows the original product width to be placed vertically.">
-                            {{ form.r2 }}
+                            <span class="container-rotation-visual-row">
+                                {{ form.r2 }}
                             <span class="container-rotation-icon" aria-hidden="true">
                                 <svg viewBox="0 0 48 36" focusable="false">
                                     <polygon points="14,11 29,6 38,11 23,16" class="box-top"></polygon>
@@ -195,10 +240,12 @@
                                     <circle cx="26" cy="10" r="2.2" class="accent-dot"></circle>
                                 </svg>
                             </span>
+                                                        </span>
                             <span class="container-rotation-text"><strong>R2</strong><small>Width vertical</small></span>
                         </label>
                         <label class="tool-check-option container-rotation-option" title="R3 allows the original product height to be placed vertically.">
-                            {{ form.r3 }}
+                            <span class="container-rotation-visual-row">
+                                {{ form.r3 }}
                             <span class="container-rotation-icon" aria-hidden="true">
                                 <svg viewBox="0 0 48 36" focusable="false">
                                     <polygon points="10,13 28,7 39,13 21,19" class="box-top"></polygon>
@@ -208,6 +255,7 @@
                                     <circle cx="24" cy="16" r="2.2" class="accent-dot"></circle>
                                 </svg>
                             </span>
+                                                        </span>
                             <span class="container-rotation-text"><strong>R3</strong><small>Height vertical</small></span>
                         </label>
                     {% endif %}
