@@ -309,16 +309,25 @@ def _resolve_product_weight(form, product_source, selected_product):
     return _safe_float(form.cleaned_data.get("product_weight"))
 
 
-def _resolve_container_tare(selected_material):
+def _resolve_container_tare(form, container_source, selected_material):
+    if container_source == "manual":
+        return _safe_float(form.cleaned_data.get("box_weight"))
+
     return _safe_float(getattr(selected_material, "part_weight", None))
 
 
-def _resolve_payload_capacity(selected_material):
+def _resolve_payload_capacity(form, container_source, selected_material):
     """
-    PackagingMaterial currently stores tare as part_weight, but no payload field.
-    Keep this future-safe and JSON-safe: if a payload-like field is added later,
-    the report will start using it without changing the template contract.
+    Manual containers can provide max payload directly in grams.
+
+    PackagingMaterial currently stores tare as part_weight, but no confirmed
+    payload field. Keep the catalogue side future-safe: if a payload-like
+    field is added later, the report will start using it without changing
+    the template contract.
     """
+    if container_source == "manual":
+        return _safe_float(form.cleaned_data.get("box_max_payload"))
+
     return _first_available_numeric_attr(
         selected_material,
         [
@@ -367,8 +376,9 @@ def build_container_analysis_report(
         max_efficiency_pct = (max_product_volume / container_volume) * 100
 
     product_weight = _resolve_product_weight(form, product_source, selected_product)
-    container_tare = _resolve_container_tare(selected_material)
-    payload_capacity = _resolve_payload_capacity(selected_material)
+    container_source = form.cleaned_data.get("container_source") or "manual"
+    container_tare = _resolve_container_tare(form, container_source, selected_material)
+    payload_capacity = _resolve_payload_capacity(form, container_source, selected_material)
 
     net_weight = None
     total_weight_current = None

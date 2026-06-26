@@ -259,6 +259,20 @@ class ContainerSelectionMode1Form(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
 
+    box_weight = forms.FloatField(
+        min_value=0,
+        required=False,
+        label="Packaging weight",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "min": "0"})
+    )
+
+    box_max_payload = forms.FloatField(
+        min_value=0,
+        required=False,
+        label="Max payload",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "min": "0"})
+    )
+
     action = forms.CharField(required=False, widget=forms.HiddenInput())
 
 ###

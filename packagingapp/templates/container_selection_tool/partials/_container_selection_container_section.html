@@ -38,6 +38,12 @@
                     <div class="tool-field-group mb-0"><label class="form-label">Width <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_w }}" value="{{ container_values.box_w|default:'' }}">{% else %}{{ form.box_w }}{% endif %}</div>
                     <div class="tool-field-group mb-0"><label class="form-label">Height <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_h }}" value="{{ container_values.box_h|default:'' }}">{% else %}{{ form.box_h }}{% endif %}</div>
                 </div>
+
+                <div class="tool-compact-grid-two tool-tight-gap">
+                    <div class="tool-field-group mb-0"><label class="form-label">Packaging weight <span class="text-muted">(g)</span></label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ container_ui.names.box_weight }}" value="{{ container_values.box_weight|default:'' }}">{% else %}{{ form.box_weight }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Max payload <span class="text-muted">(g)</span></label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ container_ui.names.box_max_payload }}" value="{{ container_values.box_max_payload|default:'' }}">{% else %}{{ form.box_max_payload }}{% endif %}</div>
+                </div>
+                <div class="app-form-note mt-2">Packaging weight and max payload are optional. They are used only for the weight and payload report.</div>
             </div>
 
             {% if selected_material and current_mode == "single" %}

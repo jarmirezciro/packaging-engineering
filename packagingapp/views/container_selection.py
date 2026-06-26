@@ -53,6 +53,8 @@ def _read_raw_container_config(request):
         "box_l": source.get("box_l", cfg["box_l"]),
         "box_w": source.get("box_w", cfg["box_w"]),
         "box_h": source.get("box_h", cfg["box_h"]),
+        "box_weight": source.get("box_weight", cfg["box_weight"]),
+        "box_max_payload": source.get("box_max_payload", cfg["box_max_payload"]),
     })
 
     return sanitize_container_config_for_session(cfg)
@@ -83,6 +85,8 @@ def _build_shared_container_ui_contract(prefix=""):
             "box_l": f"box_l{suffix}",
             "box_w": f"box_w{suffix}",
             "box_h": f"box_h{suffix}",
+            "box_weight": f"box_weight{suffix}",
+            "box_max_payload": f"box_max_payload{suffix}",
         },
         "ids": {
             "root": f"containerSelectionRoot{suffix}",

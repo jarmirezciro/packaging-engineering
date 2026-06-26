@@ -652,6 +652,14 @@ def _process_container_step(step, steps, idx, post):
     cfg["box_l"] = post.get(f"box_l{suffix}", post.get(f"box_l_{idx}", cfg.get("box_l", "")))
     cfg["box_w"] = post.get(f"box_w{suffix}", post.get(f"box_w_{idx}", cfg.get("box_w", "")))
     cfg["box_h"] = post.get(f"box_h{suffix}", post.get(f"box_h_{idx}", cfg.get("box_h", "")))
+    cfg["box_weight"] = post.get(
+        f"box_weight{suffix}",
+        post.get(f"box_weight_{idx}", cfg.get("box_weight", ""))
+    )
+    cfg["box_max_payload"] = post.get(
+        f"box_max_payload{suffix}",
+        post.get(f"box_max_payload_{idx}", cfg.get("box_max_payload", ""))
+    )
     cfg["action"] = post.get(
         f"action{suffix}",
         post.get(f"step_action_{idx}", cfg.get("action", "refresh"))
@@ -685,6 +693,8 @@ def _process_container_step(step, steps, idx, post):
         "box_l": cfg.get("box_l", ""),
         "box_w": cfg.get("box_w", ""),
         "box_h": cfg.get("box_h", ""),
+        "box_weight": cfg.get("box_weight", ""),
+        "box_max_payload": cfg.get("box_max_payload", ""),
     }
     if cfg.get("r1"):
         normalized_post["r1"] = "on"

@@ -8,7 +8,6 @@
             <table class="table table-hover app-table align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th class="tool-select-col"></th>
                         <th>Picture</th>
                         <th>Product ID</th>
                         <th>Name</th>
@@ -29,13 +28,6 @@
                         onclick="containerSelectionSelectProduct('{{ container_ui.prefix|default:'' }}', '{{ product.id }}')"
                         tabindex="0"
                         role="button">
-                        <td class="tool-select-col">
-                            <button type="button"
-                                    class="btn btn-sm btn-app-outline"
-                                    onclick="event.stopPropagation(); containerSelectionSelectProduct('{{ container_ui.prefix|default:'' }}', '{{ product.id }}')">
-                                Select
-                            </button>
-                        </td>
                         <td>
                             {% if product.product_picture %}
                                 <img src="{{ product.product_picture.url }}"
@@ -61,7 +53,7 @@
                         <td>{{ product.product_volume }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="13" class="text-center text-muted">No products found.</td></tr>
+                    <tr><td colspan="12" class="text-center text-muted">No products found.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
