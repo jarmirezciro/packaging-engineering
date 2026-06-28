@@ -47,6 +47,13 @@
                 </div>
             {% endif %}
 
+            {% if mode == "standalone" and current_mode == "single" and analysis_report %}
+                <div class="app-form-actions tool-card-actions mt-3">
+                    <a href="{% url 'container_selection_export_pdf' %}" class="btn btn-app-outline btn-sm">
+                        <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF report
+                    </a>
+                </div>
+            {% endif %}
             {% if analysis_report %}
                 <details class="tool-summary-strip mt-3 mb-0">
                     <summary class="tool-summary-main" style="cursor: pointer;">

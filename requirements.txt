@@ -20,3 +20,4 @@ Pillow==12.2.0
 
 # Safer parsing of uploaded XML-based Excel files
 defusedxml==0.7.1
+reportlab==4.2.5
