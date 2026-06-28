@@ -3,11 +3,10 @@
     <div class="app-card-body">
         <div class="app-section-title">Top 5 Most Suitable Containers</div>
         <div class="app-section-subtitle">Ranked by highest volume usage and then by smaller container volume.</div>
-        <div class="app-table-wrap">
+<div class="app-table-wrap">
             <table class="table table-hover app-table align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th class="tool-select-col"></th>
                         <th>Rank</th>
                         <th>Part Number</th>
                         <th>Description</th>
@@ -33,10 +32,7 @@
                         onclick="containerSelectionSelectCandidate('{{ container_ui.prefix|default:'' }}', '{{ material.id }}')"
                         tabindex="0"
                         role="button">
-                        <td class="tool-select-col">
-                            <button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); containerSelectionSelectCandidate('{{ container_ui.prefix|default:'' }}', '{{ material.id }}')">Select</button>
-                        </td>
-                        <td>{{ forloop.counter }}</td>
+<td>{{ forloop.counter }}</td>
                         <td>{{ material.part_number }}</td>
                         <td>{{ material.part_description }}</td>
                         <td>{{ material.packaging_type }}</td>

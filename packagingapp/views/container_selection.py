@@ -193,6 +193,7 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
         payload_capacity = form.cleaned_data.get("box_max_payload")
 
     return {
+        "report_type": "single",
         "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
         "product": {
             "source": "Catalogue" if product_source == "catalogue" else "Manual",
@@ -215,6 +216,118 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
         },
         "analysis_report": analysis_report,
         "image_rel_path": getattr(result, "image_rel_path", ""),
+    }
+
+
+def _format_usage(value):
+    if value in (None, "", "None"):
+        return "Not available"
+    try:
+        return f"{float(value) * 100:.0f}%"
+    except (TypeError, ValueError):
+        return "Not available"
+
+
+def _format_part_volume(value):
+    if value in (None, "", "None"):
+        return "-"
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "-"
+    return f"{int(round(numeric))} mm3"
+
+
+def _catalogue_name_from_choice(form, field_name):
+    value = str(form.cleaned_data.get(field_name) or "")
+    for option_value, label in form.fields[field_name].choices:
+        if str(option_value) == value:
+            return str(label)
+    return "Selected catalogue"
+
+
+def _top5_export_rows(top5):
+    rows = []
+    for idx, row in enumerate(top5 or [], start=1):
+        material = row.get("material")
+        if material is None:
+            continue
+
+        rows.append({
+            "rank": idx,
+            "part_number": material.part_number,
+            "description": material.part_description,
+            "type": material.packaging_type,
+            "brand": material.branding,
+            "material": material.packaging_materials,
+            "dimensions": _format_dims(material.part_length, material.part_width, material.part_height),
+            "weight": _format_optional_weight(getattr(material, "part_weight", None)),
+            "volume": _format_part_volume(getattr(material, "part_volume", None)),
+            "max_qty": row.get("max_qty"),
+            "usage_display": _format_usage(row.get("usage")),
+        })
+
+    return rows
+
+
+def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None, selected_material=None):
+    if not top5:
+        return None
+
+    product_source = form.cleaned_data.get("product_source") or "manual"
+
+    if selected_product:
+        product_id = selected_product.product_id
+        product_name = selected_product.product_name
+        product_l = selected_product.product_length
+        product_w = selected_product.product_width
+        product_h = selected_product.product_height
+        product_weight = getattr(selected_product, "weight", None)
+        r1 = bool(getattr(selected_product, "rotation_1", False))
+        r2 = bool(getattr(selected_product, "rotation_2", False))
+        r3 = bool(getattr(selected_product, "rotation_3", False))
+    else:
+        product_id = "Manual product"
+        product_name = "Manual input"
+        product_l = form.cleaned_data.get("product_l")
+        product_w = form.cleaned_data.get("product_w")
+        product_h = form.cleaned_data.get("product_h")
+        product_weight = form.cleaned_data.get("product_weight")
+        r1 = bool(form.cleaned_data.get("r1"))
+        r2 = bool(form.cleaned_data.get("r2"))
+        r3 = bool(form.cleaned_data.get("r3"))
+
+    desired_qty = form.cleaned_data.get("desired_qty") or 1
+
+    result = (analysis or {}).get("result")
+    analysis_report = (analysis or {}).get("analysis_report") or {}
+
+    selected_candidate = None
+    if selected_material is not None:
+        selected_candidate = {
+            "part_number": selected_material.part_number,
+            "description": selected_material.part_description,
+            "type": selected_material.packaging_type,
+            "dimensions": _format_dims(selected_material.part_length, selected_material.part_width, selected_material.part_height),
+        }
+
+    return {
+        "report_type": "optimal",
+        "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
+        "catalogue_name": _catalogue_name_from_choice(form, "catalogue_id"),
+        "image_rel_path": getattr(result, "image_rel_path", "") if result else "",
+        "selected_candidate": selected_candidate,
+        "analysis_report": analysis_report,
+        "product": {
+            "source": "Catalogue" if product_source == "catalogue" else "Manual",
+            "id": product_id,
+            "name": product_name or "-",
+            "dimensions": _format_dims(product_l, product_w, product_h),
+            "weight": _format_optional_weight(product_weight),
+            "desired_qty": f"{desired_qty} pcs",
+            "rotations": _rotation_display(r1, r2, r3),
+        },
+        "top5": _top5_export_rows(top5),
     }
 
 def container_selection_mode1(request):
@@ -256,9 +369,11 @@ def container_selection_mode1(request):
         top5 = analysis["top5"]
         analysis_report = analysis.get("analysis_report")
 
+        current_form_mode = form.cleaned_data.get("mode") or "single"
+
         if (
             analysis.get("ok")
-            and (form.cleaned_data.get("mode") or "single") == "single"
+            and current_form_mode == "single"
             and analysis_report
             and result
         ):
@@ -270,6 +385,19 @@ def container_selection_mode1(request):
             )
             if export_payload:
                 request.session["container_selection_last_export"] = export_payload
+                request.session["container_selection_single_export"] = export_payload
+                request.session.modified = True
+
+        if analysis.get("ok") and current_form_mode == "optimal" and top5:
+            optimal_export_payload = _build_optimal_export_payload(
+                form=form,
+                top5=top5,
+                selected_product=selected_product,
+                analysis=analysis,
+                selected_material=selected_material,
+            )
+            if optimal_export_payload:
+                request.session["container_selection_optimal_export"] = optimal_export_payload
                 request.session.modified = True
 
         for message in analysis["messages"]:
@@ -320,7 +448,10 @@ def container_selection_mode1(request):
     )
 
 def container_selection_export_pdf(request):
-    export_payload = request.session.get("container_selection_last_export")
+    export_payload = (
+        request.session.get("container_selection_single_export")
+        or request.session.get("container_selection_last_export")
+    )
 
     if not export_payload:
         return HttpResponse(
@@ -329,9 +460,30 @@ def container_selection_export_pdf(request):
             content_type="text/plain",
         )
 
+    export_payload["report_type"] = "single"
     pdf_buffer = build_container_selection_pdf(export_payload)
     timestamp = timezone.now().strftime("%Y%m%d_%H%M")
-    filename = f"container_selection_report_{timestamp}.pdf"
+    filename = f"container_selection_single_report_{timestamp}.pdf"
+
+    response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+def container_selection_export_optimal_pdf(request):
+    export_payload = request.session.get("container_selection_optimal_export")
+
+    if not export_payload:
+        return HttpResponse(
+            "Please run an Optimal container search before exporting a PDF report.",
+            status=400,
+            content_type="text/plain",
+        )
+
+    export_payload["report_type"] = "optimal"
+    pdf_buffer = build_container_selection_pdf(export_payload)
+    timestamp = timezone.now().strftime("%Y%m%d_%H%M")
+    filename = f"container_selection_optimal_report_{timestamp}.pdf"
 
     response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
