@@ -421,10 +421,17 @@ class BagSelectionForm(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
 
+    product_weight = forms.FloatField(
+        min_value=0,
+        label="Product weight (g)",
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+
     desired_qty = forms.IntegerField(
         min_value=1,
         initial=1,
-        label="Units needed",
+        label="Target quantity",
         required=False,
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"})
     )
@@ -454,6 +461,20 @@ class BagSelectionForm(forms.Form):
         min_value=0.0001,
         required=False,
         label="Bag width",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+
+    bag_weight = forms.FloatField(
+        min_value=0,
+        required=False,
+        label="Packaging weight (g)",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+
+    bag_max_payload = forms.FloatField(
+        min_value=0,
+        required=False,
+        label="Max payload (g)",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
 

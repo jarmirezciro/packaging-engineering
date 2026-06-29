@@ -89,6 +89,16 @@ urlpatterns = [
     # Bag Selection
     path("bag-selection/", bag_selection.bag_selection_mode1, name="bag_selection"),
     path("bag-selection/mode1/", bag_selection.bag_selection_mode1, name="bag_selection_mode1"),
+    path(
+        "bag-selection/mode1/export/pdf/",
+        bag_selection.bag_selection_export_pdf,
+        name="bag_selection_export_pdf",
+    ),
+    path(
+        "bag-selection/mode1/export/optimal/pdf/",
+        bag_selection.bag_selection_export_optimal_pdf,
+        name="bag_selection_export_optimal_pdf",
+    ),
 
     # Multi Product Bag
     path("multi-product-bag/", multi_product_bag_selection, name="multi_product_bag_selection"),

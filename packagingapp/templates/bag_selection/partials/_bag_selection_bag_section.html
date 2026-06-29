@@ -1,7 +1,7 @@
 <div class="app-card">
     <div class="app-card-body">
-        <div class="app-section-title">Bag</div>
-        <div class="app-section-subtitle">Manual size or packaging catalogue selection.</div>
+        <div class="app-section-title">Packaging / Bag</div>
+        <div class="app-section-subtitle">Manual size or packaging catalogue selection. Bag dimensions are flat dimensions in mm.</div>
 
         <div class="tool-field-group">
             <label class="form-label">Bag Source</label>
@@ -34,17 +34,20 @@
         <div id="{{ bag_ui.ids.single_bag_controls }}">
             <div id="{{ bag_ui.ids.manual_bag_fields }}">
                 <div class="tool-compact-grid-two">
-                    <div class="tool-field-group mb-0"><label class="form-label">Bag length</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.bag_length }}" value="{{ bag_values.bag_length|default:'' }}">{% else %}{{ form.bag_length }}{% endif %}</div>
-                    <div class="tool-field-group mb-0"><label class="form-label">Bag width</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.bag_width }}" value="{{ bag_values.bag_width|default:'' }}">{% else %}{{ form.bag_width }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Bag length <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.bag_length }}" value="{{ bag_values.bag_length|default:'' }}">{% else %}{{ form.bag_length }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Bag width <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.bag_width }}" value="{{ bag_values.bag_width|default:'' }}">{% else %}{{ form.bag_width }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Packaging weight <span class="text-muted">(g)</span></label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ bag_ui.names.bag_weight }}" value="{{ bag_values.bag_weight|default:'' }}">{% else %}{{ form.bag_weight }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Max payload <span class="text-muted">(g)</span></label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ bag_ui.names.bag_max_payload }}" value="{{ bag_values.bag_max_payload|default:'' }}">{% else %}{{ form.bag_max_payload }}{% endif %}</div>
                 </div>
+                <div class="app-form-note mt-2">Packaging weight and max payload are optional. They are used only for weight and payload calculations.</div>
             </div>
 
             {% if selected_material and current_mode == "single" %}
                 <div class="tool-summary-strip">
                     <div class="tool-summary-main"><strong>{{ selected_material.part_number }}</strong> — {{ selected_material.part_description }}</div>
                     <div class="tool-summary-meta">
-                        {{ selected_material.part_length }} × {{ selected_material.part_width }}
-                        {% if selected_material.part_weight %} | Wt: {{ selected_material.part_weight }}{% endif %}
+                        {{ selected_material.part_length }} × {{ selected_material.part_width }} mm
+                        {% if selected_material.part_weight %} | Packaging Wt: {{ selected_material.part_weight }} g{% endif %}
                         | {{ selected_material.packaging_type }}
                         | {{ selected_material.branding }}
                     </div>

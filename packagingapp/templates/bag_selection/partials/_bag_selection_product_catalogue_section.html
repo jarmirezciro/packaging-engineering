@@ -2,20 +2,19 @@
 <div class="app-card">
     <div class="app-card-body">
         <div class="app-section-title">Product Catalogue Selection</div>
-        <div class="app-section-subtitle">Select a product from the chosen catalogue.</div>
+        <div class="app-section-subtitle">Select a product by clicking the row.</div>
 
         <div class="app-table-wrap">
             <table class="table table-hover app-table align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th class="tool-select-col"></th>
                         <th>Picture</th>
                         <th>Product ID</th>
                         <th>Name</th>
-                        <th>L</th>
-                        <th>W</th>
-                        <th>H</th>
-                        <th>Weight</th>
+                        <th>L <span class="text-muted">(mm)</span></th>
+                        <th>W <span class="text-muted">(mm)</span></th>
+                        <th>H <span class="text-muted">(mm)</span></th>
+                        <th>Weight <span class="text-muted">(g)</span></th>
                         <th>Desired Qty</th>
                         <th>Volume</th>
                     </tr>
@@ -26,9 +25,6 @@
                         onclick="bagSelectionSelectProduct('{{ bag_ui.prefix }}', '{{ product.id }}')"
                         tabindex="0"
                         role="button">
-                        <td class="tool-select-col">
-                            <button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); bagSelectionSelectProduct('{{ bag_ui.prefix }}', '{{ product.id }}')">Select</button>
-                        </td>
                         <td>
                             {% if product.product_picture %}
                                 <img src="{{ product.product_picture.url }}" alt="{{ product.product_name|default:product.product_id }}" class="app-thumb" style="width:48px;height:48px;">
@@ -49,7 +45,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10" class="text-center py-4 text-muted">No products found in this catalogue.</td>
+                        <td colspan="9" class="text-center py-4 text-muted">No products found in this catalogue.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

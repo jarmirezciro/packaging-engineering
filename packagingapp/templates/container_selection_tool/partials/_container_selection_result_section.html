@@ -47,11 +47,17 @@
                 </div>
             {% endif %}
 
-            {% if mode == "standalone" and current_mode == "single" and analysis_report %}
+            {% if mode == "standalone" and analysis_report %}
                 <div class="app-form-actions tool-card-actions mt-3">
-                    <a href="{% url 'container_selection_export_pdf' %}" class="btn btn-app-outline btn-sm">
-                        <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF report
-                    </a>
+                    {% if current_mode == "single" %}
+                        <a href="{% url 'container_selection_export_pdf' %}" class="btn btn-app-outline btn-sm">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Download one-page PDF
+                        </a>
+                    {% elif current_mode == "optimal" and image_url %}
+                        <a href="{% url 'container_selection_export_optimal_pdf' %}" class="btn btn-app-outline btn-sm">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Download one-page PDF
+                        </a>
+                    {% endif %}
                 </div>
             {% endif %}
             {% if analysis_report %}

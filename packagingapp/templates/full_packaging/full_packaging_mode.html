@@ -123,7 +123,7 @@
         <input type="hidden" name="action" id="form_action_{{ forloop.counter0 }}" value="run_step">
         <input type="hidden" name="index" value="{{ forloop.counter0 }}">
         <input type="hidden" name="step_action_{{ forloop.counter0 }}" id="step_action_{{ forloop.counter0 }}" value="refresh">
-        {% if step.type == 'bag' or step.type == 'pallet' %}
+        {% if step.type == 'pallet' %}
           <input type="hidden" name="selected_product_id_{{ forloop.counter0 }}" id="selected_product_id_{{ forloop.counter0 }}" value="{{ step.config.selected_product_id|default:'' }}">
           <input type="hidden" name="container_id_{{ forloop.counter0 }}" id="container_id_{{ forloop.counter0 }}" value="{{ step.config.container_id|default:'' }}">
         {% endif %}
@@ -145,7 +145,7 @@
 {% include "container_selection_tool/container_selection_wrapper.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url analysis_report=step.analysis_report products=step.products materials=step.materials top5=step.container_top5_rows %}
 
         {% elif step.type == "bag" %}
-{% include "bag_selection/bag_selection_wrapper.html" with bag_ui=step.bag_ui bag_values=step.bag_values mode=step.mode prefix=step.prefix current_mode=step.current_mode current_product_source=step.current_product_source current_bag_source=step.current_bag_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_bag_summary=step.selected_bag_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url products=step.products materials=step.materials top5=step.top5 pending_result=step.pending_result allow_product_catalogue=step.allow_product_catalogue messages=step.messages %}
+{% include "bag_selection/bag_selection_wrapper.html" with bag_ui=step.bag_ui bag_values=step.bag_values mode=step.mode prefix=step.prefix current_mode=step.current_mode current_product_source=step.current_product_source current_bag_source=step.current_bag_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_bag_summary=step.selected_bag_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url analysis_report=step.analysis_report products=step.products materials=step.materials top5=step.top5 pending_result=step.pending_result allow_product_catalogue=step.allow_product_catalogue messages=step.messages %}
                 {% endif %}
       </form>
       {% endif %}

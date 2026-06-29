@@ -7,7 +7,7 @@ import uuid
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 
 
 # ---------------------------
@@ -172,6 +172,86 @@ def best_usage_for_bag(bag_len: float, bag_w: float, required_bags: List[Tuple[f
     return best
 
 
+def _quantity_fits_in_bag(product_l: float, product_w: float, product_h: float, bag_len: float, bag_w: float, quantity: int) -> bool:
+    if quantity <= 0:
+        return True
+    req = build_required_bag_options(product_l, product_w, product_h, quantity)
+    return best_usage_for_bag(bag_len, bag_w, req["required"]) is not None
+
+
+def compute_max_quantity_for_bag(
+    product_l: float,
+    product_w: float,
+    product_h: float,
+    bag_len: float,
+    bag_w: float,
+    *,
+    max_search_qty: int = 10000,
+) -> Dict[str, Any]:
+    """
+    Compute the maximum quantity supported by the existing bag formula.
+
+    The bag algorithm rounds requested quantities to smooth layout quantities
+    (prime factors 2, 3 and 5). To stay consistent with the current rendering
+    and Top 5 logic, this function finds the largest smooth-layout quantity
+    that fits the selected flat bag dimensions.
+    """
+    dims = (product_l, product_w, product_h, bag_len, bag_w)
+    if any(v is None or float(v) <= 0 for v in dims):
+        return {
+            "max_quantity": 0,
+            "smooth_qty": 0,
+            "required_bags": [],
+            "solutions": [],
+            "best": None,
+            "capped": False,
+        }
+
+    product_l, product_w, product_h = float(product_l), float(product_w), float(product_h)
+    bag_len, bag_w = float(bag_len), float(bag_w)
+
+    if not _quantity_fits_in_bag(product_l, product_w, product_h, bag_len, bag_w, 1):
+        return {
+            "max_quantity": 0,
+            "smooth_qty": 0,
+            "required_bags": [],
+            "solutions": [],
+            "best": None,
+            "capped": False,
+        }
+
+    low = 1
+    high = 2
+    capped = False
+
+    while high <= max_search_qty and _quantity_fits_in_bag(product_l, product_w, product_h, bag_len, bag_w, high):
+        low = high
+        high *= 2
+
+    if high > max_search_qty:
+        high = max_search_qty
+        capped = True
+
+    while low < high:
+        mid = (low + high + 1) // 2
+        if _quantity_fits_in_bag(product_l, product_w, product_h, bag_len, bag_w, mid):
+            low = mid
+        else:
+            high = mid - 1
+
+    req = build_required_bag_options(product_l, product_w, product_h, low)
+    best = best_usage_for_bag(bag_len, bag_w, req["required"])
+
+    return {
+        "max_quantity": int(req["smooth_qty"]),
+        "smooth_qty": int(req["smooth_qty"]),
+        "required_bags": req["required"],
+        "solutions": req["solutions"],
+        "best": best,
+        "capped": capped and low >= max_search_qty,
+    }
+
+
 # ---------------------------
 # 3D rendering (bag-as-container)
 # ---------------------------
@@ -184,9 +264,8 @@ class BagRenderResult:
     required_bag: Tuple[float, float]       # req_len, req_w
 
 
-def _cuboid_faces(x, y, z, dx, dy, dz):
-    # 8 corners
-    p = [
+def _cuboid_points(x, y, z, dx, dy, dz):
+    return [
         (x, y, z),
         (x + dx, y, z),
         (x + dx, y + dy, z),
@@ -196,15 +275,29 @@ def _cuboid_faces(x, y, z, dx, dy, dz):
         (x + dx, y + dy, z + dz),
         (x, y + dy, z + dz),
     ]
-    # 6 faces
-    return [
-        [p[0], p[1], p[2], p[3]],  # bottom
-        [p[4], p[5], p[6], p[7]],  # top
-        [p[0], p[1], p[5], p[4]],  # front
-        [p[2], p[3], p[7], p[6]],  # back
-        [p[1], p[2], p[6], p[5]],  # right
-        [p[0], p[3], p[7], p[4]],  # left
-    ]
+
+
+def _cuboid_face_map(x, y, z, dx, dy, dz):
+    p = _cuboid_points(x, y, z, dx, dy, dz)
+    return {
+        "bottom": [p[0], p[1], p[2], p[3]],
+        "top": [p[4], p[5], p[6], p[7]],
+        "front": [p[0], p[1], p[5], p[4]],
+        "back": [p[2], p[3], p[7], p[6]],
+        # x_max face. In the bag render this is the open mouth: W × H.
+        "opening": [p[1], p[2], p[6], p[5]],
+        "left": [p[0], p[3], p[7], p[4]],
+    }
+
+
+def _cuboid_faces(x, y, z, dx, dy, dz, omitted_faces: Optional[Set[str]] = None):
+    omitted_faces = omitted_faces or set()
+    face_map = _cuboid_face_map(x, y, z, dx, dy, dz)
+    return [face for name, face in face_map.items() if name not in omitted_faces]
+
+
+def _face_edges(face):
+    return [[face[i], face[(i + 1) % len(face)]] for i in range(len(face))]
 
 
 def _set_axes_equal(ax):
@@ -225,6 +318,26 @@ def _set_axes_equal(ax):
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
+def _clean_3d_axes(ax):
+    ax.set_axis_off()
+    ax.grid(False)
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    ax.set_zlabel("")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+        try:
+            axis.pane.set_visible(False)
+        except Exception:
+            pass
+        try:
+            axis.line.set_visible(False)
+        except Exception:
+            pass
+
+
 def run_bag_mode1_and_render(
     product: Tuple[float, float, float],
     selected_bag: Tuple[float, float],
@@ -232,6 +345,7 @@ def run_bag_mode1_and_render(
     solutions: List[Dict[str, Any]],
     media_root: str,
     draw_limit: Optional[int] = None,
+    clean: bool = True,
 ) -> BagRenderResult:
     """
     Visualize the selected bag as ONE box.
@@ -240,7 +354,8 @@ def run_bag_mode1_and_render(
     so the rendering must also use that same sorted dimensional system.
 
     Result:
-    - one outer cuboid = visual bag box
+    - one outer cuboid = visual bag body
+    - W × H mouth/opening face removed at one L-end
     - product cuboids visible inside
     - empty space visible as remaining volume
     """
@@ -331,10 +446,26 @@ def run_bag_mode1_and_render(
     fig = plt.figure(figsize=(9, 7))
     ax = fig.add_subplot(111, projection="3d")
 
-    # Outer bag box (only one container box)
-    outer_faces = _cuboid_faces(0, 0, 0, bag_box_length, bag_box_width, bag_box_height)
+    # Outer bag box.
+    # The flat bag dimensions are L × W. Length is treated as the bag depth and
+    # width is treated as the mouth/opening direction. To make this clear for the
+    # user-facing render, the W × H face at the open end is omitted and its edge
+    # is drawn thicker as the bag opening.
+    outer_faces = _cuboid_faces(
+        0,
+        0,
+        0,
+        bag_box_length,
+        bag_box_width,
+        bag_box_height,
+        omitted_faces={"opening"},
+    )
     outer_pc = Poly3DCollection(outer_faces, alpha=0.10, edgecolor="k", linewidths=0.9)
     ax.add_collection3d(outer_pc)
+
+    opening_face = _cuboid_face_map(0, 0, 0, bag_box_length, bag_box_width, bag_box_height)["opening"]
+    opening_lip = Line3DCollection(_face_edges(opening_face), colors="k", linewidths=2.2, alpha=0.95)
+    ax.add_collection3d(opening_lip)
 
     # 4) Draw products using the sorted axis mapping
     #
@@ -371,23 +502,26 @@ def run_bag_mode1_and_render(
         if drawn >= draw_limit:
             break
 
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-
     ax.set_xlim(0, bag_box_length)
     ax.set_ylim(0, bag_box_width)
     ax.set_zlim(0, bag_box_height)
+    ax.view_init(elev=22, azim=-55)
     _set_axes_equal(ax)
 
-    ax.set_title(
-        f"Bag box: {bag_box_length:.2f} × {bag_box_width:.2f} × {bag_box_height:.2f} | "
-        f"Arrangement: {bl:.2f} × {bw:.2f} × {bh:.2f} | "
-        f"Drawn: {drawn}/{desired_qty}"
-    )
+    if clean:
+        _clean_3d_axes(ax)
+    else:
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+        ax.set_title(
+            f"Bag box: {bag_box_length:.2f} × {bag_box_width:.2f} × {bag_box_height:.2f} | "
+            f"Arrangement: {bl:.2f} × {bw:.2f} × {bh:.2f} | "
+            f"Drawn: {drawn}/{desired_qty}"
+        )
 
-    plt.tight_layout()
-    plt.savefig(abs_path, dpi=160)
+    plt.tight_layout(pad=0)
+    plt.savefig(abs_path, dpi=160, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
     image_rel_path = os.path.join(rel_dir, filename).replace("\\", "/")
