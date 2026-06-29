@@ -240,37 +240,25 @@ def _resolve_payload_capacity(config, selected_material=None):
 
 def _resolve_visual_bag_box(selected_bag, inner_box):
     bag_len, bag_w = selected_bag
-    bl, bw, bh = inner_box
+    body_length, body_width, body_height = inner_box
 
     tolerance = 2.0
     sealing_area = 10.0
 
-    candidates = []
+    # Bag L and W are physical dimensions. Length carries the sealing allowance;
+    # width is the opening side and only carries tolerance. They should not be
+    # swapped here. The engine already chooses the correct product-arrangement
+    # orientation before returning inner_box.
+    bag_box_length = bag_len - tolerance - sealing_area - body_height
+    bag_box_width = bag_w - tolerance - body_height
 
-    box_length_a = bag_len - tolerance - bh
-    box_width_a = bag_w - tolerance - sealing_area - bh
-    if box_length_a > 0 and box_width_a > 0:
-        candidates.append((box_length_a, box_width_a))
-
-    box_length_b = bag_w - tolerance - bh
-    box_width_b = bag_len - tolerance - sealing_area - bh
-    if box_length_b > 0 and box_width_b > 0:
-        candidates.append((box_length_b, box_width_b))
-
-    if not candidates:
+    if bag_box_length <= 0 or bag_box_width <= 0:
         return None
 
-    valid_candidates = [
-        (l, w) for l, w in candidates
-        if l + 1e-9 >= bl and w + 1e-9 >= bw
-    ]
+    bag_box_length = max(float(bag_box_length), float(body_length))
+    bag_box_width = max(float(bag_box_width), float(body_width))
 
-    if valid_candidates:
-        bag_box_length, bag_box_width = min(valid_candidates, key=lambda t: (t[0] * t[1], t[0] + t[1]))
-    else:
-        bag_box_length, bag_box_width = min(candidates, key=lambda t: (t[0] * t[1], t[0] + t[1]))
-
-    return (round(bag_box_length, 2), round(bag_box_width, 2), round(bh, 2))
+    return (round(bag_box_length, 2), round(bag_box_width, 2), round(float(body_height), 2))
 
 
 def build_bag_analysis_report(
@@ -473,6 +461,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                     solutions=max_info["solutions"],
                     media_root=media_root or settings.MEDIA_ROOT,
                     draw_limit=min(max_qty, BAG_DRAW_LIMIT),
+                    selected_required_bag=result.get("best_required"),
                 )
                 result["image_rel_path"] = render_res.image_rel_path
                 image_url = settings.MEDIA_URL + render_res.image_rel_path
@@ -549,6 +538,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                             solutions=req["solutions"],
                             media_root=media_root or settings.MEDIA_ROOT,
                             draw_limit=min(desired_qty, BAG_DRAW_LIMIT),
+                            selected_required_bag=result.get("best_required"),
                         )
                         result["image_rel_path"] = render_res.image_rel_path
                         image_url = settings.MEDIA_URL + render_res.image_rel_path

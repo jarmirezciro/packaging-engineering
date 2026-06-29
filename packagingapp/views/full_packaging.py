@@ -492,26 +492,16 @@ def _resolve_visual_bag_box(selected_bag, inner_box):
     tolerance = 2.0
     sealing_area = 10.0
 
-    candidates = []
+    # Bag dimensions are physical L × W values and must not be swapped.
+    # Length carries sealing; width is the opening side and carries tolerance only.
+    bag_box_length = bag_len - tolerance - sealing_area - bh
+    bag_box_width = bag_w - tolerance - bh
 
-    box_length_a = bag_len - tolerance - bh
-    box_width_a = bag_w - tolerance - sealing_area - bh
-    if box_length_a > 0 and box_width_a > 0:
-        candidates.append((box_length_a, box_width_a))
-
-    box_length_b = bag_w - tolerance - bh
-    box_width_b = bag_len - tolerance - sealing_area - bh
-    if box_length_b > 0 and box_width_b > 0:
-        candidates.append((box_length_b, box_width_b))
-
-    if not candidates:
+    if bag_box_length <= 0 or bag_box_width <= 0:
         return None
 
-    valid_candidates = [(L, W) for (L, W) in candidates if bl <= L and bw <= W]
-    if valid_candidates:
-        bag_box_length, bag_box_width = min(valid_candidates, key=lambda t: (t[0] * t[1], t[0] + t[1]))
-    else:
-        bag_box_length, bag_box_width = min(candidates, key=lambda t: (t[0] * t[1], t[0] + t[1]))
+    bag_box_length = max(float(bag_box_length), float(bl))
+    bag_box_width = max(float(bag_box_width), float(bw))
 
     return (round(bag_box_length, 2), round(bag_box_width, 2), round(bh, 2))
 

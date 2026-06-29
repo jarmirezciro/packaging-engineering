@@ -276,6 +276,7 @@ def multi_product_bag_draw(request: HttpRequest) -> JsonResponse:
         solutions=solutions,
         media_root=settings.MEDIA_ROOT,
         draw_limit=desired_qty,
+        selected_required_bag=(best["req_len"], best["req_w"]),
     )
 
     return JsonResponse(
