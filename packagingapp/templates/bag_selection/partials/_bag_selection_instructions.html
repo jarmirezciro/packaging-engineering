@@ -1,0 +1,325 @@
+<style>
+    .bag-help {
+        border: 1px solid rgba(15, 23, 42, 0.10);
+        border-radius: 1rem;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+
+    .bag-help summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 1rem 1.15rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .bag-help summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .bag-help-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 0;
+    }
+
+    .bag-help-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(13, 110, 253, 0.10);
+        color: #0d6efd;
+        flex: 0 0 auto;
+    }
+
+    .bag-help-title strong {
+        display: block;
+        font-size: 0.98rem;
+    }
+
+    .bag-help-title span {
+        display: block;
+        color: #64748b;
+        font-size: 0.84rem;
+    }
+
+    .bag-help-chevron {
+        color: #64748b;
+        transition: transform 0.18s ease;
+    }
+
+    .bag-help[open] .bag-help-chevron {
+        transform: rotate(180deg);
+    }
+
+    .bag-help-body {
+        padding: 0 1.15rem 1.15rem 1.15rem;
+        border-top: 1px solid rgba(15, 23, 42, 0.08);
+    }
+
+    .bag-help-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-top: 1rem;
+    }
+
+    .bag-help-card {
+        border: 1px solid rgba(15, 23, 42, 0.09);
+        border-radius: 0.8rem;
+        background: #ffffff;
+        padding: 0.95rem;
+        min-height: 100%;
+    }
+
+    .bag-help-card h4 {
+        font-size: 0.95rem;
+        margin: 0 0 0.45rem 0;
+        color: #0f172a;
+    }
+
+    .bag-help-card p {
+        margin-bottom: 0.55rem;
+        color: #475569;
+        font-size: 0.86rem;
+    }
+
+    .bag-help-card ul {
+        margin: 0;
+        padding-left: 1.1rem;
+        color: #475569;
+        font-size: 0.84rem;
+    }
+
+    .bag-help-mini-flow,
+    .bag-help-mode-flow,
+    .bag-help-orientation-row,
+    .bag-help-metric-grid {
+        display: flex;
+        gap: 0.55rem;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 0.65rem;
+    }
+
+    .bag-help-mini-box,
+    .bag-help-mode-chip,
+    .bag-help-orientation-chip,
+    .bag-help-metric {
+        border: 1px solid rgba(15, 23, 42, 0.10);
+        border-radius: 0.65rem;
+        background: #f8fafc;
+        padding: 0.45rem 0.55rem;
+        font-size: 0.78rem;
+        color: #334155;
+    }
+
+    .bag-help-mini-box,
+    .bag-help-orientation-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+    }
+
+    .bag-help-arrow {
+        color: #94a3b8;
+        font-weight: 700;
+    }
+
+    .bag-help-svg {
+        width: 64px;
+        height: 44px;
+        display: block;
+    }
+
+    .bag-help-svg .bag-fill {
+        fill: #eff6ff;
+        stroke: #64748b;
+        stroke-width: 1.2;
+    }
+
+    .bag-help-svg .bag-open {
+        fill: none;
+        stroke: #0d6efd;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .bag-help-svg .bag-seal {
+        fill: rgba(245, 158, 11, 0.16);
+        stroke: #f59e0b;
+        stroke-width: 1.5;
+        stroke-dasharray: 3 2;
+    }
+
+    .bag-help-svg .product {
+        fill: #f59e0b;
+        stroke: #1d4ed8;
+        stroke-width: 1.1;
+    }
+
+    .bag-help-svg .dimension-line {
+        stroke: #0d6efd;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+        marker-end: url(#bag-help-arrowhead);
+    }
+
+    .bag-help-svg .dimension-muted {
+        stroke: #64748b;
+        stroke-width: 1.4;
+        stroke-linecap: round;
+        marker-end: url(#bag-help-arrowhead-muted);
+    }
+
+    .bag-help-note {
+        margin-top: 0.85rem;
+        padding: 0.75rem 0.85rem;
+        border-radius: 0.75rem;
+        background: rgba(245, 158, 11, 0.10);
+        color: #7c2d12;
+        font-size: 0.84rem;
+    }
+
+    @media (max-width: 991.98px) {
+        .bag-help-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<details class="bag-help">
+    <summary>
+        <div class="bag-help-title">
+            <span class="bag-help-icon"><i class="bi bi-info-circle"></i></span>
+            <div>
+                <strong>How to use this tool</strong>
+                <span>Bag dimensions, sealing allowance, max quantity, Top 5 selection, and result interpretation.</span>
+            </div>
+        </div>
+        <i class="bi bi-chevron-down bag-help-chevron"></i>
+    </summary>
+
+    <div class="bag-help-body">
+        <div class="bag-help-grid">
+            <div class="bag-help-card">
+                <h4>What the tool does</h4>
+                <p>
+                    The Bag Selection Tool checks how many identical products fit inside a flat bag and estimates the required flat bag size for the arrangement.
+                </p>
+                <div class="bag-help-mini-flow" aria-hidden="true">
+                    <span class="bag-help-mini-box">
+                        <svg class="bag-help-svg" viewBox="0 0 70 46">
+                            <defs>
+                                <marker id="bag-help-arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                                    <path d="M0,0 L6,3 L0,6 Z" fill="#0d6efd"></path>
+                                </marker>
+                                <marker id="bag-help-arrowhead-muted" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                                    <path d="M0,0 L6,3 L0,6 Z" fill="#64748b"></path>
+                                </marker>
+                            </defs>
+                            <polygon points="20,12 39,6 53,15 34,23" fill="#f8fafc" stroke="#64748b" stroke-width="1.1"></polygon>
+                            <polygon points="20,12 34,23 34,35 20,25" fill="#e2e8f0" stroke="#64748b" stroke-width="1.1"></polygon>
+                            <polygon points="34,23 53,15 53,28 34,35" fill="#cbd5e1" stroke="#64748b" stroke-width="1.1"></polygon>
+                        </svg>
+                        Product
+                    </span>
+                    <span class="bag-help-arrow">→</span>
+                    <span class="bag-help-mini-box">
+                        <svg class="bag-help-svg" viewBox="0 0 70 46">
+                            <rect x="10" y="8" width="46" height="30" rx="3" class="bag-fill"></rect>
+                            <path d="M10 8 C20 14, 46 14, 56 8" class="bag-open"></path>
+                            <rect x="10" y="8" width="46" height="7" class="bag-seal"></rect>
+                        </svg>
+                        Bag
+                    </span>
+                    <span class="bag-help-arrow">→</span>
+                    <span class="bag-help-mini-box">
+                        <svg class="bag-help-svg" viewBox="0 0 70 46">
+                            <rect x="8" y="7" width="50" height="32" rx="3" class="bag-fill"></rect>
+                            <rect x="8" y="7" width="50" height="7" class="bag-seal"></rect>
+                            <rect x="21" y="20" width="22" height="12" rx="1" class="product"></rect>
+                            <path d="M8 7 C19 13, 47 13, 58 7" class="bag-open"></path>
+                        </svg>
+                        Fit result
+                    </span>
+                </div>
+            </div>
+
+            <div class="bag-help-card">
+                <h4>How to use the modes</h4>
+                <p><strong>Single bag analysis</strong> tests one selected bag and calculates the maximum quantity that fits.</p>
+                <p><strong>Optimal bag</strong> searches the packaging catalogue and ranks the Top 5 suitable bag options for the target quantity.</p>
+                <div class="bag-help-mode-flow">
+                    <span class="bag-help-mode-chip">Single: Product + 1 bag → max quantity</span>
+                    <span class="bag-help-mode-chip">Optimal: Product + target qty + catalogue → Top 5</span>
+                </div>
+                <ul class="mt-2">
+                    <li>Use Single mode when you already know which bag to test.</li>
+                    <li>Use Optimal mode when you want the tool to recommend candidate bags.</li>
+                    <li>In Optimal mode, select a Top 5 candidate to generate the bag preview and PDF report.</li>
+                </ul>
+            </div>
+
+            <div class="bag-help-card">
+                <h4>Bag dimensions and sealing</h4>
+                <p>
+                    Bag dimensions are flat dimensions in millimetres. The tool treats bag length and bag width as physical directions, not interchangeable labels.
+                </p>
+                <div class="bag-help-orientation-row">
+                    <span class="bag-help-orientation-chip">
+                        <svg class="bag-help-svg" viewBox="0 0 70 46">
+                            <rect x="10" y="8" width="46" height="30" rx="3" class="bag-fill"></rect>
+                            <rect x="10" y="8" width="46" height="7" class="bag-seal"></rect>
+                            <path d="M10 8 C20 14, 46 14, 56 8" class="bag-open"></path>
+                            <line x1="61" y1="8" x2="61" y2="38" class="dimension-line"></line>
+                        </svg>
+                        <span><strong>Length</strong><br>Includes sealing + tolerance</span>
+                    </span>
+                    <span class="bag-help-orientation-chip">
+                        <svg class="bag-help-svg" viewBox="0 0 70 46">
+                            <rect x="10" y="8" width="46" height="30" rx="3" class="bag-fill"></rect>
+                            <path d="M10 8 C20 14, 46 14, 56 8" class="bag-open"></path>
+                            <line x1="10" y1="42" x2="56" y2="42" class="dimension-muted"></line>
+                        </svg>
+                        <span><strong>Width</strong><br>Opening span + tolerance only</span>
+                    </span>
+                </div>
+                <ul class="mt-2">
+                    <li>The opening runs across the bag width.</li>
+                    <li>The free sealing area is reserved along the bag length direction.</li>
+                    <li>The graphic keeps this sealing area free; products should not visually consume it.</li>
+                </ul>
+            </div>
+
+            <div class="bag-help-card">
+                <h4>Interpreting results</h4>
+                <p>
+                    The preview is a decision-support representation of the selected arrangement. The selected bag remains the real bag size; the required dimensions explain the minimum flat bag size for the arrangement.
+                </p>
+                <div class="bag-help-metric-grid">
+                    <span class="bag-help-metric"><strong>Max qty</strong><br>Maximum units that fit</span>
+                    <span class="bag-help-metric"><strong>Bag usage</strong><br>Required bag area vs. selected bag area</span>
+                    <span class="bag-help-metric"><strong>Net weight</strong><br>Product weight × quantity</span>
+                    <span class="bag-help-metric"><strong>Total weight</strong><br>Net weight + packaging weight</span>
+                    <span class="bag-help-metric"><strong>Payload usage</strong><br>Net weight vs. max payload</span>
+                    <span class="bag-help-metric"><strong>Remaining capacity</strong><br>Extra units that could fit</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bag-help-note">
+            Use product dimensions in millimetres and weights in grams. Bag fit is based on flat bag geometry, sealing allowance, tolerance, and product orientation.
+            Final packaging choice should still be physically validated for sealing quality, product protection, handling, branding, and transport requirements.
+        </div>
+    </div>
+</details>
