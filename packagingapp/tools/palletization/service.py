@@ -9,6 +9,16 @@ from .serializers import (
 from .state import default_palletization_config
 
 
+INTERLOCK_RENDER_SUFFIX = "__interlock_preview"
+
+
+def split_pallet_result_key(selected_result_key):
+    key = str(selected_result_key or "")
+    if key.endswith(INTERLOCK_RENDER_SUFFIX):
+        return key[:-len(INTERLOCK_RENDER_SUFFIX)], True
+    return key, False
+
+
 def _to_float(value, default=None):
     try:
         if value in (None, "", "None"):
@@ -164,6 +174,8 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
 
 
 def analyze_palletization_config(config, selected_result_key="", selected_box_material=None, selected_pallet_material=None, media_root=None):
+    selected_base_result_key, render_interlock_preview = split_pallet_result_key(selected_result_key)
+
     built = build_effective_palletization_config(
         config=config,
         selected_box_material=selected_box_material,
@@ -195,10 +207,10 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
     )
 
     selected_row = None
-    if selected_result_key:
+    if selected_base_result_key:
         for row in raw_results:
             row_key = f'{row["pattern"]}__{row["stacking"]}'
-            if row_key == selected_result_key:
+            if row_key == selected_base_result_key:
                 selected_row = row
                 break
 
@@ -207,13 +219,24 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
 
     render_result = None
     image_rel_path = None
+    active_selected_result_key = ""
     if selected_row is not None:
+        can_render_interlock = bool(selected_row.get("interlock_possible") and selected_row.get("interlock_possible_layer"))
+        render_interlock_preview = bool(render_interlock_preview and can_render_interlock)
+        selected_row["interlock_render_active"] = render_interlock_preview
+
+        base_row_key = f'{selected_row["pattern"]}__{selected_row["stacking"]}'
+        active_selected_result_key = (
+            f"{base_row_key}{INTERLOCK_RENDER_SUFFIX}" if render_interlock_preview else base_row_key
+        )
+
         render_result = render_selected_result(
             selected_result=selected_row,
             pallet_l=float(eff["pallet_l"]),
             pallet_w=float(eff["pallet_w"]),
             max_stack_height=float(eff["max_stack_height"]),
             media_root=media_root or settings.MEDIA_ROOT,
+            render_interlock=render_interlock_preview,
         )
         image_rel_path = render_result.image_rel_path
 
@@ -221,6 +244,7 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
         raw_results=raw_results,
         selected_row=selected_row,
         image_rel_path=image_rel_path,
+        selected_result_key=active_selected_result_key,
     )
 
     return {

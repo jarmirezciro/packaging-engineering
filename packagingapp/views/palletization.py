@@ -214,6 +214,7 @@ def palletization_mode1(request):
     results_table = []
     selected_result = None
     result_image_url = None
+    active_selected_result_key = ""
 
     if request.method == "POST":
         action = request.POST.get("action") or "refresh"
@@ -232,6 +233,7 @@ def palletization_mode1(request):
                 serialized = analysis["serialized_result"] or {}
                 results_table = serialized.get("results_table") or []
                 selected_result = serialized.get("selected_result")
+                active_selected_result_key = serialized.get("selected_result_key") or ""
                 image_rel_path = serialized.get("image_rel_path")
 
                 if image_rel_path:
@@ -261,9 +263,13 @@ def palletization_mode1(request):
             "prefix": "",
             "packaging_catalogues": packaging_catalogues,
             "pallet_values": {
-                k: config.get(k)
-                for k in default_palletization_config().keys()
+                **{
+                    k: config.get(k)
+                    for k in default_palletization_config().keys()
+                },
+                "selected_result_key": active_selected_result_key,
             },
             "pallet_ui": _build_shared_pallet_ui_contract(prefix=""),
+            "pallet_debug": settings.DEBUG,
         },
     )

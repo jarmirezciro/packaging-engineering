@@ -16,15 +16,45 @@
             </div>
 
             <div class="tool-summary-strip mb-3">
-                <div class="tool-summary-main">
-                    <strong>{{ selected_result.pattern }}</strong> — {{ selected_result.stacking|title }}
+                <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start">
+                    <div>
+                        <div class="tool-summary-main">
+                            <strong>Recommended palletization</strong>
+                        </div>
+                        <div class="tool-summary-meta">
+                            Footprint: {{ selected_result.layer_footprint_util_pct }}%
+                            | Interlock possible: {% if selected_result.interlock_possible %}Yes{% else %}No{% endif %}
+                            | Volume: {{ selected_result.volumetric_util_pct }}%
+                            | Weight OK: {{ selected_result.feasible_weight }}
+                            | Max bottom load: {{ selected_result.max_bottom_load_kg }}
+                        </div>
+                    </div>
+                    {% if selected_result.interlock_possible %}
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Toggle interlock preview">
+                            <button type="button"
+                                    class="btn {% if not selected_result.interlock_render_active %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                                    onclick="palletToolSelectResult('{{ pallet_ui.prefix }}', '{{ selected_result.result_key|escapejs }}')">
+                                Column view
+                            </button>
+                            <button type="button"
+                                    class="btn {% if selected_result.interlock_render_active %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                                    onclick="palletToolSelectResult('{{ pallet_ui.prefix }}', '{{ selected_result.interlock_result_key|escapejs }}')">
+                                Interlock view
+                            </button>
+                        </div>
+                    {% endif %}
                 </div>
-                <div class="tool-summary-meta">
-                    Footprint: {{ selected_result.layer_footprint_util_pct }}%
-                    | Volume: {{ selected_result.volumetric_util_pct }}%
-                    | Weight OK: {{ selected_result.feasible_weight }}
-                    | Max bottom load: {{ selected_result.max_bottom_load_kg }}
-                </div>
+                {% if pallet_debug %}
+                    <div class="tool-summary-meta text-muted mt-1">
+                        Dev: {{ selected_result.pattern }} / {{ selected_result.stacking }}
+                        {% if selected_result.interlock_possible_relation %}
+                            | Interlock relation candidate: {{ selected_result.interlock_possible_relation }}
+                        {% endif %}
+                        {% if selected_result.debug_equivalent_results %}
+                            | Hidden duplicates: {{ selected_result.debug_equivalent_results|join:", " }}
+                        {% endif %}
+                    </div>
+                {% endif %}
             </div>
 
             {% if result_image_url %}

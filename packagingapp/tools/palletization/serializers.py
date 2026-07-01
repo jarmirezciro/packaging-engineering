@@ -33,9 +33,15 @@ def sanitize_palletization_config_for_session(cfg):
 
 
 def serialize_pallet_row(row):
+    pattern = str(row["pattern"])
+    stacking = str(row["stacking"])
+    base_result_key = f"{pattern}__{stacking}"
     return {
-        "pattern": str(row["pattern"]),
-        "stacking": str(row["stacking"]),
+        "pattern": pattern,
+        "stacking": stacking,
+        "result_key": base_result_key,
+        "interlock_result_key": f"{base_result_key}__interlock_preview",
+        "debug_label": f"{pattern} / {stacking}",
         "boxes_layer_A": int(row["boxes_layer_A"]),
         "boxes_layer_B": int(row["boxes_layer_B"]),
         "layers": int(row["layers"]),
@@ -47,16 +53,22 @@ def serialize_pallet_row(row):
         "max_bottom_load_kg": None if row.get("max_bottom_load_kg") is None else float(row.get("max_bottom_load_kg")),
         "avg_bottom_load_kg": None if row.get("avg_bottom_load_kg") is None else float(row.get("avg_bottom_load_kg")),
         "weight_limit_kg": None if row.get("weight_limit_kg") is None else float(row.get("weight_limit_kg")),
+        "interlock_relation": str(row.get("interlock_relation", "") or ""),
+        "interlock_possible": bool(row.get("interlock_possible", False)),
+        "interlock_possible_relation": str(row.get("interlock_possible_relation", "") or ""),
+        "interlock_render_active": bool(row.get("interlock_render_active", False)),
+        "debug_equivalent_results": [str(item) for item in (row.get("debug_equivalent_results") or [])],
     }
 
 
-def serialize_pallet_analysis_result(raw_results, selected_row=None, image_rel_path=None):
+def serialize_pallet_analysis_result(raw_results, selected_row=None, image_rel_path=None, selected_result_key=None):
     raw_results = raw_results or []
     safe_results = [serialize_pallet_row(row) for row in raw_results]
     safe_selected = serialize_pallet_row(selected_row) if selected_row else None
-    selected_result_key = ""
-    if selected_row:
-        selected_result_key = f'{selected_row["pattern"]}__{selected_row["stacking"]}'
+    if selected_result_key is None:
+        selected_result_key = ""
+        if selected_row:
+            selected_result_key = f'{selected_row["pattern"]}__{selected_row["stacking"]}'
 
     return {
         "results_table": safe_results,

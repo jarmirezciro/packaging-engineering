@@ -11,20 +11,18 @@
     <div class="app-card">
         <div class="app-card-body">
             <div class="app-section-title">Palletization Results</div>
-            <div class="app-section-subtitle">Select a row to draw another result in 3D.</div>
+            <div class="app-section-subtitle">Select a row to draw another result in 3D. Repeated visible renderings are collapsed into one option.</div>
 
             <div class="app-table-wrap">
                 <table class="table table-hover align-middle app-table">
                     <thead>
                         <tr>
-                            <th>Select</th>
-                            <th>Rank</th>
-                            <th>Pattern</th>
-                            <th>Stacking</th>
+                            <th>Option</th>
                             <th>Layer A</th>
                             <th>Layer B</th>
                             <th>Layers</th>
                             <th>Total Boxes</th>
+                            <th>Interlock possible</th>
                             <th>Footprint %</th>
                             <th>Volume %</th>
                             <th>Weight OK</th>
@@ -33,24 +31,26 @@
                     </thead>
                     <tbody>
                         {% for row in results_table %}
-                            <tr class="tool-clickable-row {% if selected_result and selected_result.pattern == row.pattern and selected_result.stacking == row.stacking %}tool-row-selected{% endif %}"
-                                onclick="{{ pallet_ui.actions.select_result }}('{{ pallet_ui.prefix }}', '{{ row.pattern }}__{{ row.stacking }}')"
+                            <tr class="tool-clickable-row {% if selected_result and selected_result.result_key == row.result_key %}tool-row-selected{% endif %}"
+                                onclick="{{ pallet_ui.actions.select_result }}('{{ pallet_ui.prefix }}', '{{ row.result_key|escapejs }}')"
                                 tabindex="0"
-                                role="button">
-                                <td class="tool-select-col">
-                                    <button type="button"
-                                            class="btn btn-sm btn-app-outline"
-                                            onclick="event.stopPropagation(); {{ pallet_ui.actions.select_result }}('{{ pallet_ui.prefix }}', '{{ row.pattern }}__{{ row.stacking }}')">
-                                        Select
-                                    </button>
-                                </td>
-                                <td>{{ forloop.counter }}</td>
-                                <td>{{ row.pattern }}</td>
-                                <td>{{ row.stacking }}</td>
+                                role="button"
+                                data-dev-pattern="{{ row.pattern }}"
+                                data-dev-stacking="{{ row.stacking }}"
+                                title="Click to render this palletization result">
+                                <td>Option {{ forloop.counter }}</td>
                                 <td>{{ row.boxes_layer_A }}</td>
                                 <td>{{ row.boxes_layer_B }}</td>
                                 <td>{{ row.layers }}</td>
                                 <td>{{ row.total_boxes }}</td>
+                                <td>
+                                    {% if row.interlock_possible %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle"
+                                              {% if row.interlock_possible_relation %}title="{{ row.interlock_possible_relation }}"{% endif %}>Yes</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">No</span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ row.layer_footprint_util_pct }}</td>
                                 <td>{{ row.volumetric_util_pct }}</td>
                                 <td>{{ row.feasible_weight }}</td>
