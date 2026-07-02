@@ -145,8 +145,8 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
     for label, value in [
         ("box weight", box_weight),
         ("max weight on bottom box", max_weight_on_bottom_box),
-        ("max width stickout", max_width_stickout),
-        ("max length stickout", max_length_stickout),
+        ("max width overhang", max_width_stickout),
+        ("max length overhang", max_length_stickout),
     ]:
         if value is not None and value < 0:
             messages.append(f"{label.capitalize()} cannot be negative.")

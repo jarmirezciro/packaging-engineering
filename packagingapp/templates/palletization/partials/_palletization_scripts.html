@@ -14,6 +14,28 @@
             align-items:stretch;
         }
     }
+
+    .tool-advanced-details{
+        margin-top:12px;
+    }
+
+    .tool-details-summary{
+        cursor:pointer;
+        list-style:none;
+    }
+
+    .tool-details-summary::-webkit-details-marker{
+        display:none;
+    }
+
+    .tool-details-toggle{
+        pointer-events:none;
+        white-space:nowrap;
+    }
+
+    .tool-advanced-details[open] .tool-details-toggle i{
+        transform:rotate(180deg);
+    }
 </style>
 
 <script>

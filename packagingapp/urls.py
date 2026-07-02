@@ -108,6 +108,11 @@ urlpatterns = [
 
     # Palletization Tool
     path("palletization/mode1/", palletization.palletization_mode1, name="palletization_mode1"),
+    path(
+        "palletization/mode1/export/pdf/",
+        palletization.palletization_export_pdf,
+        name="palletization_export_pdf",
+    ),
 
     # Transport Container Tool
     path("container-tool/", container_tool.container_tool, name="container_tool"),

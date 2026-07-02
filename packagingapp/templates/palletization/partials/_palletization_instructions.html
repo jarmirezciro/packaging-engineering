@@ -1,0 +1,254 @@
+<style>
+    .pallet-help {
+        border: 1px solid rgba(15, 23, 42, 0.10);
+        border-radius: 1rem;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+
+    .pallet-help summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 1rem 1.15rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .pallet-help summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .pallet-help-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 0;
+    }
+
+    .pallet-help-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(13, 110, 253, 0.10);
+        color: #0d6efd;
+        flex: 0 0 auto;
+    }
+
+    .pallet-help-title strong {
+        display: block;
+        font-size: 0.98rem;
+    }
+
+    .pallet-help-title span {
+        display: block;
+        color: #64748b;
+        font-size: 0.84rem;
+    }
+
+    .pallet-help-chevron {
+        color: #64748b;
+        transition: transform 0.18s ease;
+    }
+
+    .pallet-help[open] .pallet-help-chevron {
+        transform: rotate(180deg);
+    }
+
+    .pallet-help-body {
+        padding: 0 1.15rem 1.15rem 1.15rem;
+        border-top: 1px solid rgba(15, 23, 42, 0.08);
+    }
+
+    .pallet-help-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-top: 1rem;
+    }
+
+    .pallet-help-card {
+        border: 1px solid rgba(15, 23, 42, 0.09);
+        border-radius: 0.8rem;
+        background: #ffffff;
+        padding: 0.95rem;
+        min-height: 100%;
+    }
+
+    .pallet-help-card h4 {
+        font-size: 0.95rem;
+        margin: 0 0 0.45rem 0;
+        color: #0f172a;
+    }
+
+    .pallet-help-card p {
+        margin-bottom: 0.55rem;
+        color: #475569;
+        font-size: 0.86rem;
+    }
+
+    .pallet-help-card ul {
+        margin: 0;
+        padding-left: 1.1rem;
+        color: #475569;
+        font-size: 0.84rem;
+    }
+
+    .pallet-help-flow,
+    .pallet-help-metric-grid {
+        display: flex;
+        gap: 0.55rem;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 0.65rem;
+    }
+
+    .pallet-help-chip,
+    .pallet-help-metric {
+        border: 1px solid rgba(15, 23, 42, 0.10);
+        border-radius: 0.65rem;
+        background: #f8fafc;
+        padding: 0.45rem 0.55rem;
+        font-size: 0.78rem;
+        color: #334155;
+    }
+
+    .pallet-help-arrow {
+        color: #94a3b8;
+        font-weight: 700;
+    }
+
+    .pallet-help-svg {
+        width: 62px;
+        height: 46px;
+        display: block;
+        margin-bottom: 0.2rem;
+    }
+
+    .pallet-help-svg .pallet {
+        fill: #e7d8bd;
+        stroke: #64748b;
+        stroke-width: 1.1;
+    }
+
+    .pallet-help-svg .box-top {
+        fill: #dbeafe;
+        stroke: #1d4ed8;
+        stroke-width: 1;
+    }
+
+    .pallet-help-svg .box-front {
+        fill: #bfdbfe;
+        stroke: #1d4ed8;
+        stroke-width: 1;
+    }
+
+    .pallet-help-svg .box-side {
+        fill: #93c5fd;
+        stroke: #1d4ed8;
+        stroke-width: 1;
+    }
+
+    .pallet-help-note {
+        margin-top: 0.85rem;
+        padding: 0.75rem 0.85rem;
+        border-radius: 0.75rem;
+        background: rgba(245, 158, 11, 0.10);
+        color: #7c2d12;
+        font-size: 0.84rem;
+    }
+
+    @media (max-width: 991.98px) {
+        .pallet-help-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<details class="pallet-help">
+    <summary>
+        <div class="pallet-help-title">
+            <span class="pallet-help-icon"><i class="bi bi-info-circle"></i></span>
+            <div>
+                <strong>How to use this tool</strong>
+                <span>Inputs, stacking limits, result interpretation, and practical palletization checks.</span>
+            </div>
+        </div>
+        <i class="bi bi-chevron-down pallet-help-chevron"></i>
+    </summary>
+
+    <div class="pallet-help-body">
+        <div class="pallet-help-grid">
+            <div class="pallet-help-card">
+                <h4>What the tool does</h4>
+                <p>
+                    The Palletization Tool estimates how many identical cartons fit on a pallet footprint and how many layers can be stacked within the allowed height.
+                </p>
+                <div class="pallet-help-flow" aria-hidden="true">
+                    <span class="pallet-help-chip">
+                        <svg class="pallet-help-svg" viewBox="0 0 64 46">
+                            <polygon points="18,14 34,8 48,15 31,22" class="box-top"></polygon>
+                            <polygon points="18,14 31,22 31,34 18,26" class="box-front"></polygon>
+                            <polygon points="31,22 48,15 48,27 31,34" class="box-side"></polygon>
+                        </svg>
+                        Carton
+                    </span>
+                    <span class="pallet-help-arrow">→</span>
+                    <span class="pallet-help-chip">
+                        <svg class="pallet-help-svg" viewBox="0 0 64 46">
+                            <polygon points="7,31 45,20 58,27 20,39" class="pallet"></polygon>
+                            <polygon points="14,19 27,14 38,19 25,25" class="box-top"></polygon>
+                            <polygon points="14,19 25,25 25,34 14,28" class="box-front"></polygon>
+                            <polygon points="25,25 38,19 38,28 25,34" class="box-side"></polygon>
+                        </svg>
+                        Pallet
+                    </span>
+                    <span class="pallet-help-arrow">→</span>
+                    <span class="pallet-help-chip">Best stack</span>
+                </div>
+            </div>
+
+            <div class="pallet-help-card">
+                <h4>Required inputs</h4>
+                <ul>
+                    <li>Carton length, width, and height in mm.</li>
+                    <li>Pallet length and width in mm.</li>
+                    <li>Maximum allowed stack height in mm.</li>
+                    <li>Optional carton weight and max bottom-carton load in g.</li>
+                </ul>
+            </div>
+
+            <div class="pallet-help-card">
+                <h4>How to read the result</h4>
+                <div class="pallet-help-metric-grid">
+                    <span class="pallet-help-metric">Total cartons</span>
+                    <span class="pallet-help-metric">Cartons/layer</span>
+                    <span class="pallet-help-metric">Layers</span>
+                    <span class="pallet-help-metric">Pallet floor usage</span>
+                    <span class="pallet-help-metric">Stack volume usage</span>
+                </div>
+                <p class="mt-2 mb-0">
+                    The first option is the best ranked result. You can click another result row to redraw a different pallet pattern.
+                </p>
+            </div>
+
+            <div class="pallet-help-card">
+                <h4>Good engineering practice</h4>
+                <ul>
+                    <li>Use external carton dimensions when checking pallet capacity.</li>
+                    <li>Include pallet overhang only when it is explicitly allowed by handling and transport rules.</li>
+                    <li>Validate load stability, wrapping, fork handling, and customer-specific restrictions before release.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="pallet-help-note">
+            The 3D view is a clean engineering estimate. Final pallet approval should still consider real carton strength, center of gravity, transport vibration, and warehouse handling.
+        </div>
+    </div>
+</details>

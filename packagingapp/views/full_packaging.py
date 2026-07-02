@@ -1064,19 +1064,14 @@ def _process_pallet_step(step, steps, idx, post):
 
     if action in ("run_analysis", "select_result"):
         step["analysis_ran"] = True
-
-    elif action in (
-        "browse_box_packaging",
-        "clear_box_packaging",
-        "select_box",
-        "browse_pallet_packaging",
-        "clear_pallet_packaging",
-        "select_pallet",
-    ):
-        step["analysis_ran"] = step.get("analysis_ran", False)
-
-    elif action == "refresh":
-        step["analysis_ran"] = step.get("analysis_ran", False)
+    else:
+        # Catalogue browsing, row selection, source switching, and normal refreshes
+        # change the input state. Do not keep re-validating an old incomplete
+        # pallet analysis on every render, otherwise messages such as
+        # "Please enter max stack height." stay visible while the user is still
+        # selecting data.
+        step["analysis_ran"] = False
+        step["selected_result_key"] = ""
 
     step["expanded"] = True
     step["messages"] = []

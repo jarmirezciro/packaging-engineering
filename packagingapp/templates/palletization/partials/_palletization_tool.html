@@ -1,3 +1,5 @@
+{% include "palletization/partials/_palletization_instructions.html" %}
+
 <div class="tool-grid-3">
     {% include "palletization/partials/_palletization_box_section.html" %}
     {% include "palletization/partials/_palletization_pallet_section.html" %}
@@ -11,22 +13,22 @@
     <div class="app-card">
         <div class="app-card-body">
             <div class="app-section-title">Palletization Results</div>
-            <div class="app-section-subtitle">Select a row to draw another result in 3D. Repeated visible renderings are collapsed into one option.</div>
+            <div class="app-section-subtitle">Click a row to redraw another pallet layout. Repeated visible renderings are collapsed into one option.</div>
 
             <div class="app-table-wrap">
                 <table class="table table-hover align-middle app-table">
-                    <thead>
+                    <thead class="table-light">
                         <tr>
                             <th>Option</th>
-                            <th>Layer A</th>
-                            <th>Layer B</th>
+                            <th>Main layer</th>
+                            <th>Alternate layer</th>
                             <th>Layers</th>
-                            <th>Total Boxes</th>
-                            <th>Interlock possible</th>
-                            <th>Footprint %</th>
-                            <th>Volume %</th>
-                            <th>Weight OK</th>
-                            <th>Max Bottom Load</th>
+                            <th>Total cartons</th>
+                            <th>Alternate layer possible</th>
+                            <th>Floor usage</th>
+                            <th>Volume usage</th>
+                            <th>Load check</th>
+                            <th>Max bottom load</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -40,7 +42,7 @@
                                 title="Click to render this palletization result">
                                 <td>Option {{ forloop.counter }}</td>
                                 <td>{{ row.boxes_layer_A }}</td>
-                                <td>{{ row.boxes_layer_B }}</td>
+                                <td>{% if row.boxes_layer_B %}{{ row.boxes_layer_B }}{% else %}—{% endif %}</td>
                                 <td>{{ row.layers }}</td>
                                 <td>{{ row.total_boxes }}</td>
                                 <td>
@@ -51,10 +53,10 @@
                                         <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">No</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ row.layer_footprint_util_pct }}</td>
-                                <td>{{ row.volumetric_util_pct }}</td>
-                                <td>{{ row.feasible_weight }}</td>
-                                <td>{{ row.max_bottom_load_kg }}</td>
+                                <td>{{ row.layer_footprint_util_pct }}%</td>
+                                <td>{{ row.volumetric_util_pct }}%</td>
+                                <td>{% if row.weight_limit_kg is not None %}{% if row.feasible_weight %}OK{% else %}Review{% endif %}{% else %}Not checked{% endif %}</td>
+                                <td>{% if row.weight_limit_kg is not None %}{{ row.max_bottom_load_kg }} g{% else %}—{% endif %}</td>
                             </tr>
                         {% endfor %}
                     </tbody>

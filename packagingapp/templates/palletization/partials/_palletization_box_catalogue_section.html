@@ -1,22 +1,22 @@
 {% if current_box_source == "catalogue" and not selected_box_material %}
     <div class="app-card">
         <div class="app-card-body">
-            <div class="app-section-title">Box Catalogue</div>
-            <div class="app-section-subtitle">Select the box/container to palletize.</div>
+            <div class="app-section-title">Carton Catalogue</div>
+            <div class="app-section-subtitle">Select the carton, box, or crate to palletize by clicking the row.</div>
 
             <div class="app-table-wrap">
                 <table class="table table-hover align-middle app-table">
-                    <thead>
+                    <thead class="table-light">
                         <tr>
-                            <th>Select</th>
+                            <th>Picture</th>
                             <th>Part Number</th>
                             <th>Description</th>
                             <th>Type</th>
                             <th>Brand</th>
-                            <th>Ext. L</th>
-                            <th>Ext. W</th>
-                            <th>Ext. H</th>
-                            <th>Weight</th>
+                            <th>Ext. L <span class="text-muted">(mm)</span></th>
+                            <th>Ext. W <span class="text-muted">(mm)</span></th>
+                            <th>Ext. H <span class="text-muted">(mm)</span></th>
+                            <th>Weight <span class="text-muted">(g)</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -24,13 +24,19 @@
                             <tr class="tool-clickable-row"
                                 onclick="{{ pallet_ui.actions.select_box }}('{{ pallet_ui.prefix }}', '{{ material.id }}')"
                                 tabindex="0"
-                                role="button">
-                                <td class="tool-select-col">
-                                    <button type="button"
-                                            class="btn btn-sm btn-app-outline"
-                                            onclick="event.stopPropagation(); {{ pallet_ui.actions.select_box }}('{{ pallet_ui.prefix }}', '{{ material.id }}')">
-                                        Select
-                                    </button>
+                                role="button"
+                                title="Click to select this carton">
+                                <td>
+                                    {% if material.picture %}
+                                        <img src="{{ material.picture.url }}"
+                                             alt="{{ material.part_description|default:material.part_number }}"
+                                             class="app-thumb"
+                                             style="width:48px;height:48px;">
+                                    {% else %}
+                                        <div class="app-thumb-placeholder app-thumb-placeholder--small" style="width:48px;height:48px;font-size:1rem;">
+                                            <i class="bi bi-box-seam"></i>
+                                        </div>
+                                    {% endif %}
                                 </td>
                                 <td>{{ material.part_number }}</td>
                                 <td>{{ material.part_description }}</td>

@@ -1,9 +1,12 @@
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
+from django.http import HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
 
 from ..forms import PalletizationForm
 from ..models import PackagingCatalogue
+from ..tools.palletization.export import build_palletization_pdf
 from ..tools.palletization.serializers import sanitize_palletization_config_for_session
 from ..tools.palletization.service import (
     analyze_palletization_config,
@@ -140,6 +143,112 @@ def _apply_catalogue_choices(form, packaging_catalogues):
     form.fields["pallet_catalogue_id"].choices = choices
 
 
+
+
+def _clean_display(value, default="-"):
+    if value in (None, "", "None"):
+        return default
+    return str(value)
+
+
+def _format_number(value, decimals=0):
+    if value in (None, "", "None"):
+        return "-"
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if decimals == 0:
+        return str(int(round(value)))
+    return f"{value:.{decimals}f}".rstrip("0").rstrip(".")
+
+
+def _format_dims(length, width, height=None):
+    parts = [_format_number(length), _format_number(width)]
+    if height not in (None, "", "None"):
+        parts.append(_format_number(height))
+    if any(part == "-" for part in parts):
+        return "-"
+    return " x ".join(parts) + " mm"
+
+
+def _format_weight(value):
+    if value in (None, "", "None"):
+        return "Not provided"
+    return f"{_format_number(value, 2)} g"
+
+
+def _material_payload(material, fallback_part_number):
+    if material is None:
+        return {
+            "part_number": fallback_part_number,
+            "description": "Manual input",
+            "material": "Manual input",
+            "brand": "Manual",
+            "picture": "",
+        }
+
+    picture = ""
+    if getattr(material, "picture", None):
+        try:
+            picture = material.picture.name or ""
+        except ValueError:
+            picture = ""
+
+    return {
+        "part_number": _clean_display(getattr(material, "part_number", None)),
+        "description": _clean_display(getattr(material, "part_description", None)),
+        "material": _clean_display(getattr(material, "packaging_materials", None)),
+        "brand": _clean_display(getattr(material, "branding", None)),
+        "picture": picture,
+    }
+
+
+def _build_palletization_export_payload(*, config, analysis, selected_box_material=None, selected_pallet_material=None):
+    serialized = analysis.get("serialized_result") or {}
+    selected_result = serialized.get("selected_result") or {}
+    effective_config = analysis.get("effective_config") or {}
+
+    if not selected_result:
+        return None
+
+    box_base = _material_payload(selected_box_material, "Manual carton")
+    pallet_base = _material_payload(selected_pallet_material, "Manual pallet")
+
+    box_source = "Catalogue" if (config.get("box_source") == "catalogue" and selected_box_material is not None) else "Manual"
+    pallet_source = "Catalogue" if (config.get("pallet_source") == "catalogue" and selected_pallet_material is not None) else "Manual"
+
+    return {
+        "report_type": "standalone",
+        "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
+        "box": {
+            **box_base,
+            "source": box_source,
+            "dimensions": _format_dims(
+                effective_config.get("box_l"),
+                effective_config.get("box_w"),
+                effective_config.get("box_h"),
+            ),
+            "weight": _format_weight(effective_config.get("box_weight")),
+            "bottom_load_limit": _format_weight(effective_config.get("max_weight_on_bottom_box")),
+        },
+        "pallet": {
+            **pallet_base,
+            "source": pallet_source,
+            "dimensions": _format_dims(
+                effective_config.get("pallet_l"),
+                effective_config.get("pallet_w"),
+            ),
+            "max_stack_height": f"{_format_number(effective_config.get('max_stack_height'))} mm",
+            "overhang": (
+                f"{_format_number(effective_config.get('max_width_stickout'))} mm width / "
+                f"{_format_number(effective_config.get('max_length_stickout'))} mm length"
+            ),
+        },
+        "analysis_report": selected_result,
+        "image_rel_path": serialized.get("image_rel_path") or "",
+    }
+
 def _build_shared_pallet_ui_contract(prefix=""):
     suffix = f"_{prefix}" if prefix else ""
 
@@ -238,6 +347,16 @@ def palletization_mode1(request):
 
                 if image_rel_path:
                     result_image_url = settings.MEDIA_URL + image_rel_path
+
+                export_payload = _build_palletization_export_payload(
+                    config=config,
+                    analysis=analysis,
+                    selected_box_material=selected_box_material,
+                    selected_pallet_material=selected_pallet_material,
+                )
+                if export_payload:
+                    request.session["palletization_last_export"] = export_payload
+                    request.session.modified = True
             else:
                 for message in analysis["messages"]:
                     form.add_error(None, message)
@@ -273,3 +392,22 @@ def palletization_mode1(request):
             "pallet_debug": settings.DEBUG,
         },
     )
+
+
+def palletization_export_pdf(request):
+    export_payload = request.session.get("palletization_last_export")
+
+    if not export_payload:
+        return HttpResponse(
+            "Please run a palletization analysis before exporting a PDF report.",
+            status=400,
+            content_type="text/plain",
+        )
+
+    pdf_buffer = build_palletization_pdf(export_payload)
+    timestamp = timezone.now().strftime("%Y%m%d_%H%M")
+    filename = f"palletization_report_{timestamp}.pdf"
+
+    response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
