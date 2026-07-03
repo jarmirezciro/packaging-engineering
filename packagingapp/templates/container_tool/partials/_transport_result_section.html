@@ -1,30 +1,53 @@
 <div class="container-tool-top">
   <div class="app-card">
     <div class="app-card-body">
-      <div class="app-section-title">3D Result</div>
-      <div class="app-section-subtitle">Container loading arrangement preview.</div>
-      {% if image_url %}<div class="tool-render-wrap container-tool-render-wrap"><img src="{{ image_url }}" alt="Transport container loading result" class="tool-render-image container-tool-render-image"></div>{% else %}<div class="app-empty-state container-tool-empty"><i class="bi bi-box2-heart fs-2 d-block mb-2"></i><div>Run the tool to generate the 3D container loading view.</div></div>{% endif %}
+      <div class="app-section-title">3D loading result</div>
+      <div class="app-section-subtitle">Transport unit loading arrangement preview. The default main view keeps the current perspective, and the additional views help inspect the hidden side and floor usage.</div>
+      {% if image_url %}
+        {% if image_urls %}
+        <div class="transport-view-toggle">
+          <button type="button" class="btn btn-app-outline btn-sm transport-view-btn is-active" data-image-target="transportRenderImage_{{ step_index|default:'0' }}" data-image-src="{{ image_urls.main|default:image_url }}" onclick="transportSwitchView(this)">Main view</button>
+          {% if image_urls.opposite %}<button type="button" class="btn btn-app-outline btn-sm transport-view-btn" data-image-target="transportRenderImage_{{ step_index|default:'0' }}" data-image-src="{{ image_urls.opposite }}" onclick="transportSwitchView(this)">Opposite side</button>{% endif %}
+          {% if image_urls.top %}<button type="button" class="btn btn-app-outline btn-sm transport-view-btn" data-image-target="transportRenderImage_{{ step_index|default:'0' }}" data-image-src="{{ image_urls.top }}" onclick="transportSwitchView(this)">Top view</button>{% endif %}
+          {% if image_urls.side %}<button type="button" class="btn btn-app-outline btn-sm transport-view-btn" data-image-target="transportRenderImage_{{ step_index|default:'0' }}" data-image-src="{{ image_urls.side }}" onclick="transportSwitchView(this)">Side view</button>{% endif %}
+        </div>
+        {% endif %}
+        <div class="tool-render-wrap container-tool-render-wrap">
+          <img src="{{ image_url }}" id="transportRenderImage_{{ step_index|default:'0' }}" alt="Transport container loading result" class="tool-render-image container-tool-render-image">
+        </div>
+      {% else %}
+        <div class="app-empty-state container-tool-empty"><i class="bi bi-box2-heart fs-2 d-block mb-2"></i><div>Run the tool to generate the 3D transport loading view.</div></div>
+      {% endif %}
     </div>
   </div>
   <div class="app-card">
     <div class="app-card-body">
-      <div class="app-section-title">Summary</div>
-      <div class="app-section-subtitle">Loaded units, usage and occupied space.</div>
+      <div class="container-tool-card-head mb-2">
+        <div>
+          <div class="app-section-title mb-1">Summary</div>
+          <div class="app-section-subtitle mb-0">Loaded units, usage and occupied space.</div>
+        </div>
+        {% if result and not is_workflow %}
+        <a class="btn btn-app-outline btn-sm" href="{% url 'container_tool_export_pdf' %}"><i class="bi bi-file-earmark-pdf me-2"></i>PDF report</a>
+        {% endif %}
+      </div>
       {% if result %}
       <div class="container-tool-summary-grid">
         <div class="tool-stat-card"><div class="tool-stat-label">Placed units</div><div class="tool-stat-value">{{ result.summary.placed_units }}</div></div>
         <div class="tool-stat-card"><div class="tool-stat-label">Unplaced units</div><div class="tool-stat-value">{{ result.summary.unplaced_units }}</div></div>
         <div class="tool-stat-card"><div class="tool-stat-label">Volume utilization</div><div class="tool-stat-value">{{ result.summary.utilization_volume_pct|floatformat:2 }}%</div></div>
-        <div class="tool-stat-card"><div class="tool-stat-label">Weight utilization</div><div class="tool-stat-value">{{ result.summary.utilization_weight_pct|floatformat:2 }}%</div></div>
+        <div class="tool-stat-card"><div class="tool-stat-label">Payload utilization</div><div class="tool-stat-value">{% if result.summary.has_payload_limit and result.summary.utilization_weight_pct is not None %}{{ result.summary.utilization_weight_pct|floatformat:2 }}%{% else %}Not set{% endif %}</div></div>
       </div>
       <div class="tool-summary-strip mt-3">
-        <div class="tool-summary-main"><strong>Container usage details</strong></div>
-        <div class="tool-summary-meta">Packed volume: {{ result.summary.packed_volume|floatformat:2 }}</div>
-        <div class="tool-summary-meta">Container volume: {{ result.summary.container_volume|floatformat:2 }}</div>
-        <div class="tool-summary-meta">Loaded weight: {{ result.summary.loaded_weight|floatformat:2 }}</div>
-        <div class="tool-summary-meta">Max weight: {{ result.summary.container_max_weight|floatformat:2 }}</div>
-        <div class="tool-summary-meta mt-2">Occupied L × W × H: {{ result.summary.occupied_length|floatformat:2 }} × {{ result.summary.occupied_width|floatformat:2 }} × {{ result.summary.occupied_height|floatformat:2 }}</div>
-        <div class="tool-summary-meta">Residual L × W × H: {{ result.summary.residual_length|floatformat:2 }} × {{ result.summary.residual_width|floatformat:2 }} × {{ result.summary.residual_height|floatformat:2 }}</div>
+        <div class="tool-summary-main"><strong>Transport unit usage details</strong></div>
+        <div class="tool-summary-meta">Loaded volume (m³): {{ result.summary.packed_volume_m3|floatformat:3 }}</div>
+        <div class="tool-summary-meta">Transport unit volume (m³): {{ result.summary.container_volume_m3|floatformat:3 }}</div>
+        <div class="tool-summary-meta">Loaded product weight (kg): {{ result.summary.loaded_weight|floatformat:2 }}</div>
+        <div class="tool-summary-meta">Tare weight (kg): {% if result.summary.tare_weight is not None %}{{ result.summary.tare_weight|floatformat:2 }}{% else %}Not set{% endif %}</div>
+        <div class="tool-summary-meta">Gross loaded weight (kg): {{ result.summary.gross_weight|floatformat:2 }}</div>
+        <div class="tool-summary-meta">Max payload (kg): {% if result.summary.container_max_weight is not None %}{{ result.summary.container_max_weight|floatformat:2 }}{% else %}Not set{% endif %}</div>
+        <div class="tool-summary-meta mt-2">Occupied L × W × H (mm): {{ result.summary.occupied_length|floatformat:2 }} × {{ result.summary.occupied_width|floatformat:2 }} × {{ result.summary.occupied_height|floatformat:2 }}</div>
+        <div class="tool-summary-meta">Residual L × W × H (mm): {{ result.summary.residual_length|floatformat:2 }} × {{ result.summary.residual_width|floatformat:2 }} × {{ result.summary.residual_height|floatformat:2 }}</div>
       </div>
       {% else %}<div class="app-empty-state container-tool-empty"><i class="bi bi-bar-chart-line fs-2 d-block mb-2"></i><div>Summary will appear here after running the analysis.</div></div>{% endif %}
     </div>

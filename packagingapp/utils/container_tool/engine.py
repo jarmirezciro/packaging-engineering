@@ -1,5 +1,6 @@
 # packagingapp/utils/container_tool/engine.py
 
+import math
 import os
 import uuid
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from PIL import Image, ImageChops
 
 
 # =========================================================
@@ -268,6 +270,13 @@ def expand_items(products: List[Dict]) -> List[Dict]:
     return items
 
 
+def _has_payload_limit(container: Dict) -> bool:
+    try:
+        return container.get("max_weight") is not None and float(container.get("max_weight")) > 0
+    except Exception:
+        return False
+
+
 def pack_container(container: Dict, products: List[Dict]) -> Dict:
     items = expand_items(products)
 
@@ -276,10 +285,11 @@ def pack_container(container: Dict, products: List[Dict]) -> Dict:
     unplaced: List[Dict] = []
 
     loaded_weight = 0.0
+    payload_limit = float(container.get("max_weight")) if _has_payload_limit(container) else None
 
     for idx, item in enumerate(items):
-        if loaded_weight + item["weight"] > container["max_weight"]:
-            unplaced.append({**item, "reason": "Container max weight exceeded"})
+        if payload_limit is not None and loaded_weight + item["weight"] > payload_limit:
+            unplaced.append({**item, "reason": "Container max payload exceeded"})
             continue
 
         best = choose_best_placement(spaces, item)
@@ -362,13 +372,23 @@ def summarize(container: Dict, products: List[Dict], pack_result: Dict) -> Dict:
     else:
         occupied_length = occupied_width = occupied_height = 0.0
 
+    tare_weight = container.get("tare_weight")
+    payload_limit = container.get("max_weight")
+    has_payload_limit = _has_payload_limit(container)
+    gross_weight = loaded_weight + (float(tare_weight) if tare_weight is not None else 0.0)
+
     return {
         "container_volume": container_volume,
         "packed_volume": packed_volume,
+        "container_volume_m3": container_volume / 1_000_000_000.0,
+        "packed_volume_m3": packed_volume / 1_000_000_000.0,
         "utilization_volume_pct": (100.0 * packed_volume / container_volume) if container_volume > 0 else 0.0,
-        "container_max_weight": container["max_weight"],
+        "container_max_weight": float(payload_limit) if has_payload_limit else None,
+        "has_payload_limit": has_payload_limit,
         "loaded_weight": loaded_weight,
-        "utilization_weight_pct": (100.0 * loaded_weight / container["max_weight"]) if container["max_weight"] > 0 else 0.0,
+        "tare_weight": float(tare_weight) if tare_weight is not None else None,
+        "gross_weight": gross_weight,
+        "utilization_weight_pct": (100.0 * loaded_weight / float(payload_limit)) if has_payload_limit else None,
         "placed_units": len(placements),
         "unplaced_units": len(unplaced),
         "occupied_length": occupied_length,
@@ -413,11 +433,95 @@ def _color_for_index(idx: int):
     return palette[idx % len(palette)]
 
 
-def draw_container(container: Dict, placements: List[Placement], output_path: str):
+def _draw_line(ax, p1, p2, color="#333333", linewidth=1.0, alpha=1.0):
+    ax.plot(
+        [p1[0], p2[0]],
+        [p1[1], p2[1]],
+        [p1[2], p2[2]],
+        color=color,
+        linewidth=linewidth,
+        alpha=alpha,
+        solid_capstyle="round",
+    )
+
+
+def _draw_container_frame(ax, L, W, H):
+    points = {
+        "000": (0, 0, 0),
+        "100": (L, 0, 0),
+        "110": (L, W, 0),
+        "010": (0, W, 0),
+        "001": (0, 0, H),
+        "101": (L, 0, H),
+        "111": (L, W, H),
+        "011": (0, W, H),
+    }
+    edges = [
+        ("000", "100"), ("100", "110"), ("110", "010"), ("010", "000"),
+        ("001", "101"), ("101", "111"), ("111", "011"), ("011", "001"),
+        ("000", "001"), ("100", "101"), ("110", "111"), ("010", "011"),
+    ]
+    for a, b in edges:
+        _draw_line(ax, points[a], points[b], color="#202020", linewidth=1.1, alpha=0.95)
+
+
+def _draw_open_doors(ax, x_face, W, H, angle_deg=135):
+    theta = math.radians(angle_deg)
+    half_w = W / 2.0
+
+    left_outer_x = x_face + (half_w * math.sin(theta))
+    left_outer_y = half_w * math.cos(theta)
+    right_outer_x = x_face + (half_w * math.sin(theta))
+    right_outer_y = W - (half_w * math.cos(theta))
+
+    left_door = [
+        (x_face, 0, 0),
+        (left_outer_x, left_outer_y, 0),
+        (left_outer_x, left_outer_y, H),
+        (x_face, 0, H),
+    ]
+    right_door = [
+        (x_face, W, 0),
+        (right_outer_x, right_outer_y, 0),
+        (right_outer_x, right_outer_y, H),
+        (x_face, W, H),
+    ]
+
+    door_poly = Poly3DCollection(
+        [left_door, right_door],
+        facecolors=["#d8d8d8", "#d8d8d8"],
+        edgecolors="#5a5a5a",
+        linewidths=1.0,
+        alpha=0.35,
+    )
+    ax.add_collection3d(door_poly)
+
+    for door in (left_door, right_door):
+        for i in range(len(door)):
+            _draw_line(ax, door[i], door[(i + 1) % len(door)], color="#555555", linewidth=1.0, alpha=0.9)
+
+    # central opening edge for the door frame
+    _draw_line(ax, (x_face, W / 2.0, 0), (x_face, W / 2.0, H), color="#444444", linewidth=0.9, alpha=0.8)
+
+    return abs(left_outer_x - x_face), abs(left_outer_y)
+
+
+def _camera_for_view(view: str):
+    views = {
+        "main": {"elev": 18, "azim": -58, "dist": 7.5},
+        "opposite": {"elev": 18, "azim": 122, "dist": 7.5},
+        "top": {"elev": 88, "azim": -90, "dist": 8.2},
+        "side": {"elev": 12, "azim": 0, "dist": 7.8},
+    }
+    return views.get(view, views["main"])
+
+
+def draw_container(container: Dict, placements: List[Placement], output_path: str, view: str = "main"):
     scale = 1000.0  # mm -> m
 
-    fig = plt.figure(figsize=(16, 9))
-    ax = fig.add_subplot(111, projection="3d")
+    fig = plt.figure(figsize=(16, 6), facecolor="white")
+    ax = fig.add_axes([0.01, 0.01, 0.98, 0.98], projection="3d")
+    ax.set_facecolor("white")
 
     L = container["L"] / scale
     W = container["W"] / scale
@@ -442,54 +546,77 @@ def draw_container(container: Dict, placements: List[Placement], output_path: st
         poly = Poly3DCollection(
             faces,
             facecolors=color_map.get(pl.product_name, "#AAAAAA"),
-            edgecolors="black",
-            linewidths=0.2,
-            alpha=0.65,
+            edgecolors="#2c2c2c",
+            linewidths=0.35,
+            alpha=0.78,
         )
         ax.add_collection3d(poly)
 
-    container_faces = cuboid_faces(0, 0, 0, L, W, H)
-    wire = Poly3DCollection(
-        container_faces,
-        facecolors=(0, 0, 0, 0),
-        edgecolors="black",
-        linewidths=0.8,
+    # subtle floor shading for better depth perception
+    floor = Poly3DCollection(
+        [[(0, 0, 0), (L, 0, 0), (L, W, 0), (0, W, 0)]],
+        facecolors="#f2f2f2",
+        edgecolors="none",
+        alpha=0.25,
     )
-    ax.add_collection3d(wire)
+    ax.add_collection3d(floor)
 
-    ax.set_xlim(0, L)
-    ax.set_ylim(0, W)
-    ax.set_zlim(0, H)
+    _draw_container_frame(ax, L, W, H)
+    door_x_span, door_y_span = _draw_open_doors(ax, L, W, H, angle_deg=135)
 
-    ax.set_xlabel("Length (m)")
-    ax.set_ylabel("Width (m)")
-    ax.set_zlabel("Height (m)")
-    ax.set_title("Container Tool - 3D Loading Result")
+    x_pad_left = max(L * 0.015, 0.08)
+    x_pad_right = max(door_x_span + 0.08, L * 0.015)
+    y_pad = max(W * 0.03, 0.05)
+    z_pad = max(H * 0.02, 0.04)
+
+    ax.set_xlim(-x_pad_left, L + x_pad_right)
+    ax.set_ylim(-y_pad, W + y_pad)
+    ax.set_zlim(0, H + z_pad)
 
     try:
-        ax.set_box_aspect((L, W, H))
+        ax.set_box_aspect((L + x_pad_left + x_pad_right, W + 2 * y_pad, H + z_pad))
     except Exception:
         pass
 
-    legend_handles = []
-    for name, color in color_map.items():
-        legend_handles.append(
-            plt.Line2D(
-                [0], [0],
-                marker="s",
-                color="w",
-                label=name,
-                markerfacecolor=color,
-                markersize=10
-            )
-        )
-    if legend_handles:
-        ax.legend(handles=legend_handles, loc="upper right")
+    camera = _camera_for_view(view)
+    ax.view_init(elev=camera["elev"], azim=camera["azim"])
+    try:
+        ax.dist = camera["dist"]
+    except Exception:
+        pass
+    ax.set_axis_off()
+    ax.grid(False)
 
-    plt.tight_layout()
-    fig.savefig(output_path, dpi=180, bbox_inches="tight")
+    plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
+    fig.savefig(output_path, dpi=180, bbox_inches="tight", pad_inches=0.0)
     plt.close(fig)
+    _trim_and_fit_render(output_path)
 
+
+
+
+def _trim_and_fit_render(output_path: str, canvas_size=(1600, 700), margin_ratio=0.04):
+    img = Image.open(output_path).convert("RGB")
+    bg = Image.new("RGB", img.size, "white")
+    diff = ImageChops.difference(img, bg)
+    bbox = diff.getbbox()
+
+    if bbox:
+        img = img.crop(bbox)
+
+    canvas_w, canvas_h = canvas_size
+    max_w = int(canvas_w * (1 - 2 * margin_ratio))
+    max_h = int(canvas_h * (1 - 2 * margin_ratio))
+
+    scale = min(max_w / img.width, max_h / img.height)
+    new_size = (max(1, int(img.width * scale)), max(1, int(img.height * scale)))
+    img = img.resize(new_size, Image.LANCZOS)
+
+    canvas = Image.new("RGB", (canvas_w, canvas_h), "white")
+    x = (canvas_w - img.width) // 2
+    y = (canvas_h - img.height) // 2
+    canvas.paste(img, (x, y))
+    canvas.save(output_path)
 
 # =========================================================
 # MAIN WRAPPER
@@ -503,15 +630,21 @@ def run_container_tool(container: Dict, products: List[Dict], media_root: str) -
     abs_dir = os.path.join(media_root, rel_dir)
     os.makedirs(abs_dir, exist_ok=True)
 
-    file_name = f"container_tool_{uuid.uuid4().hex[:12]}.png"
-    abs_path = os.path.join(abs_dir, file_name)
-    rel_path = os.path.join(rel_dir, file_name).replace("\\", "/")
+    file_stub = f"container_tool_{uuid.uuid4().hex[:12]}"
+    view_order = ["main", "opposite", "top", "side"]
+    image_rel_paths = {}
 
-    draw_container(container, pack_result["placements"], abs_path)
+    for view_name in view_order:
+        file_name = f"{file_stub}_{view_name}.png"
+        abs_path = os.path.join(abs_dir, file_name)
+        rel_path = os.path.join(rel_dir, file_name).replace("\\", "/")
+        draw_container(container, pack_result["placements"], abs_path, view=view_name)
+        image_rel_paths[view_name] = rel_path
 
     return {
         "summary": summary,
         "placements": pack_result["placements"],
         "unplaced": pack_result["unplaced"],
-        "image_rel_path": rel_path,
+        "image_rel_path": image_rel_paths.get("main"),
+        "image_rel_paths": image_rel_paths,
     }

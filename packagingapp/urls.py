@@ -116,6 +116,11 @@ urlpatterns = [
 
     # Transport Container Tool
     path("container-tool/", container_tool.container_tool, name="container_tool"),
+    path(
+        "container-tool/export/pdf/",
+        container_tool.container_tool_export_pdf,
+        name="container_tool_export_pdf",
+    ),
 
     # Full Packaging Module
     path("full-packaging/", full_packaging_mode, name="full_packaging_mode"),

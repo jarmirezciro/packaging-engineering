@@ -597,21 +597,28 @@ class ContainerToolForm(forms.Form):
 
     container_l = forms.FloatField(
         min_value=0.0001,
-        label="Internal length",
+        label="Internal length (mm)",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
     container_w = forms.FloatField(
         min_value=0.0001,
-        label="Internal width",
+        label="Internal width (mm)",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
     container_h = forms.FloatField(
         min_value=0.0001,
-        label="Internal height",
+        label="Internal height (mm)",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
     max_weight = forms.FloatField(
+        required=False,
         min_value=0.0,
-        label="Max weight",
+        label="Max payload (kg)",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+    tare_weight = forms.FloatField(
+        required=False,
+        min_value=0.0,
+        label="Tare weight (kg)",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )

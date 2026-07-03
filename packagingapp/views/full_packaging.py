@@ -158,6 +158,7 @@ def _new_transport_step():
         "messages": [],
         "result": None,
         "image_url": None,
+        "image_urls": {},
         "top5": [],
         "pending_result": None,
         "analysis_ran": False,
@@ -170,6 +171,7 @@ def _new_transport_step():
             "container_w": 2352,
             "container_h": 2698,
             "max_weight": 26000,
+            "tare_weight": "",
             "product_catalogue_id": "",
             "product_id_to_fill": "",
             "selected_row_index": "",
@@ -410,6 +412,30 @@ def _build_summary(selected):
         f'units per parent: {selected.get("units_per_parent", 1)} | '
         f'total base units: {selected.get("total_base_units", 1)}'
     )
+
+
+def _transport_rows_from_selected(selected):
+    """Build a JSON-safe transport row from the previous workflow step."""
+    if not selected:
+        return default_product_rows()
+
+    qty = _to_int(selected.get("units_per_parent"), 1) or 1
+    qty = max(qty, 1)
+
+    return sanitize_transport_rows_for_session([
+        {
+            "name": selected.get("label") or "Previous workflow load unit",
+            "length": selected.get("length", ""),
+            "width": selected.get("width", ""),
+            "height": selected.get("height", ""),
+            "qty": qty,
+            "weight": selected.get("weight", 0) or 0,
+            "sequence": 1,
+            "r1": True,
+            "r2": True,
+            "r3": True,
+        }
+    ])
 
 
 def _apply_chained_defaults(step, steps, idx):
@@ -927,6 +953,7 @@ def _process_transport_step(step, steps, idx, post):
     cfg = step["config"]
     step["result"] = None
     step["image_url"] = None
+    step["image_urls"] = {}
     step["pending_result"] = None
     step["auto_hide_product_catalogue"] = False
 
@@ -937,6 +964,7 @@ def _process_transport_step(step, steps, idx, post):
     cfg["container_w"] = post.get(f"container_w_{idx}", cfg.get("container_w", ""))
     cfg["container_h"] = post.get(f"container_h_{idx}", cfg.get("container_h", ""))
     cfg["max_weight"] = post.get(f"max_weight_{idx}", cfg.get("max_weight", ""))
+    cfg["tare_weight"] = post.get(f"tare_weight_{idx}", cfg.get("tare_weight", ""))
 
     action = post.get(f"step_action_{idx}", "refresh")
 
@@ -1293,6 +1321,7 @@ def _run_transport_analysis(step, steps, idx):
     cfg = step["config"]
     step["result"] = None
     step["image_url"] = None
+    step["image_urls"] = {}
     step["pending_result"] = None
 
     selected_material = PackagingMaterial.objects.filter(
@@ -1323,6 +1352,7 @@ def _run_transport_analysis(step, steps, idx):
 
     step["result"] = analysis["serialized_result"]
     step["image_url"] = analysis["image_url"]
+    step["image_urls"] = analysis.get("image_urls") or {}
 
     prev = _selected_input_for_step(steps, idx)
     upstream_units = prev.get("total_base_units", 1) if prev else 1

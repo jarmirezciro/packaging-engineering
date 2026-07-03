@@ -124,14 +124,32 @@ def validate_transport_rows(raw_rows):
     return rows, errors
 
 
+def _parse_optional_non_negative(value, label, messages):
+    raw = "" if value is None else str(value).strip()
+    if raw == "":
+        return None
+    try:
+        parsed = float(raw)
+    except Exception:
+        messages.append(f"Please enter a valid {label}.")
+        return None
+    if parsed < 0:
+        messages.append(f"{label.capitalize()} cannot be negative.")
+        return None
+    return parsed
+
+
 def build_container_from_config(cfg, selected_material=None):
     messages = []
 
-    try:
-        max_weight = float(cfg.get("max_weight") or 0)
-    except Exception:
-        max_weight = None
-        messages.append("Please enter a valid max weight.")
+    max_weight = _parse_optional_non_negative(cfg.get("max_weight"), "max payload", messages)
+    tare_weight = _parse_optional_non_negative(cfg.get("tare_weight"), "tare weight", messages)
+
+    if tare_weight is None and selected_material is not None:
+        try:
+            tare_weight = float(selected_material.part_weight) if selected_material.part_weight is not None else None
+        except Exception:
+            tare_weight = None
 
     if (cfg.get("container_source") or "manual") == "catalogue":
         if not selected_material:
@@ -143,7 +161,8 @@ def build_container_from_config(cfg, selected_material=None):
                 "L": float(selected_material.part_length),
                 "W": float(selected_material.part_width),
                 "H": float(selected_material.part_height),
-                "max_weight": max_weight or 0.0,
+                "max_weight": max_weight,
+                "tare_weight": tare_weight,
             }
         except Exception:
             messages.append("Selected packaging item has invalid dimensions.")
@@ -154,17 +173,17 @@ def build_container_from_config(cfg, selected_material=None):
                 "L": float(cfg.get("container_l")),
                 "W": float(cfg.get("container_w")),
                 "H": float(cfg.get("container_h")),
-                "max_weight": float(cfg.get("max_weight")),
+                "max_weight": max_weight,
+                "tare_weight": tare_weight,
             }
         except Exception:
-            messages.append("Please enter all manual container dimensions and max weight.")
+            messages.append("Please enter all manual container dimensions.")
             return None, messages
 
     for label, value in [
         ("length", container["L"]),
         ("width", container["W"]),
         ("height", container["H"]),
-        ("max weight", container["max_weight"]),
     ]:
         if value <= 0:
             messages.append(f"Container {label} must be greater than 0.")
@@ -178,10 +197,13 @@ def run_transport_analysis(container, products, media_root=None):
         products=products,
         media_root=media_root or settings.MEDIA_ROOT,
     )
+    image_rel_paths = result.get("image_rel_paths") or {}
+    image_urls = {key: settings.MEDIA_URL + rel_path for key, rel_path in image_rel_paths.items() if rel_path}
     return {
         "result": result,
         "serialized_result": serialize_transport_result(result),
         "image_url": settings.MEDIA_URL + result["image_rel_path"],
+        "image_urls": image_urls,
     }
 
 
@@ -202,6 +224,7 @@ def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=N
             "result": None,
             "serialized_result": None,
             "image_url": None,
+            "image_urls": None,
         }
 
     analysis = run_transport_analysis(
@@ -219,4 +242,5 @@ def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=N
         "result": analysis["result"],
         "serialized_result": analysis["serialized_result"],
         "image_url": analysis["image_url"],
+        "image_urls": analysis.get("image_urls") or {},
     }

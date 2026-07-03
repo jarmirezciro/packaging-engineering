@@ -4,9 +4,9 @@
   <div class="app-card-body">
     <div class="container-tool-card-head">
       <div>
-        <div class="app-section-title mb-1">Product Catalogue</div>
+        <div class="app-section-title mb-1">Product catalogue</div>
         <div class="app-section-subtitle mb-0">
-          Select a product to fill row <span id="fpTransportSelectedRowLabel_{{ step_index }}">{{ selected_row_index }}</span>.
+          Select a product to fill row <span id="fpTransportSelectedRowLabel_{{ step_index }}">{{ selected_row_index }}</span>. Click a row to select it.
         </div>
       </div>
       <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportHideProductCatalogueSection({{ step_index }})">
@@ -16,7 +16,7 @@
 
     <div class="container-tool-catalogue-row container-tool-catalogue-row-single">
       <div class="tool-field-group mb-0">
-        <label class="form-label">Product Catalogue</label>
+        <label class="form-label">Product catalogue</label>
         <select name="transport_product_catalogue_id_{{ step_index }}"
                 id="fpTransportProductCatalogueSelect_{{ step_index }}"
                 class="form-select"
@@ -36,13 +36,13 @@
       <table class="table table-hover app-table align-middle mb-0">
         <thead class="table-light">
           <tr>
-            <th></th>
+            <th>Picture</th>
             <th>Product ID</th>
             <th>Name</th>
-            <th>L</th>
-            <th>W</th>
-            <th>H</th>
-            <th>Weight</th>
+            <th>L (mm)</th>
+            <th>W (mm)</th>
+            <th>H (mm)</th>
+            <th>Weight (kg)</th>
             <th>R1</th>
             <th>R2</th>
             <th>R3</th>
@@ -50,11 +50,16 @@
         </thead>
         <tbody>
           {% for product in product_items %}
-          <tr class="tool-clickable-row" onclick="fpTransportSelectProduct({{ step_index }}, '{{ product.id }}')">
+          <tr class="tool-clickable-row"
+              onclick="fpTransportSelectProduct({{ step_index }}, '{{ product.id }}')"
+              tabindex="0"
+              role="button">
             <td>
-              <button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); fpTransportSelectProduct({{ step_index }}, '{{ product.id }}')">
-                Select
-              </button>
+              {% if product.product_picture %}
+                <img src="{{ product.product_picture.url }}" alt="{{ product.product_name|default:product.product_id }}" class="app-thumb" style="width:48px;height:48px;">
+              {% else %}
+                <div class="app-thumb-placeholder app-thumb-placeholder--small" style="width:48px;height:48px;font-size:1rem;"><i class="bi bi-box"></i></div>
+              {% endif %}
             </td>
             <td>{{ product.product_id }}</td>
             <td>{{ product.product_name }}</td>
@@ -88,12 +93,12 @@
   <div class="app-card-body">
     <div class="container-tool-table-header">
       <div>
-        <div class="app-section-title mb-1">Products</div>
+        <div class="app-section-title mb-1">Items to load</div>
         <div class="app-section-subtitle mb-0">
           {% if is_first_step %}
-          Add products manually or use catalogue selection per row.
+          Add products, cartons, pallets, crates, or mixed load units manually or from catalogue.
           {% else %}
-          Products inherited from the previous workflow step.
+          Load unit inherited from the previous workflow step.
           {% endif %}
         </div>
       </div>
@@ -108,15 +113,15 @@
       <table class="table table-hover align-middle app-table mb-0">
         <thead class="table-light">
           <tr>
-            <th style="min-width: 160px;">Name</th>
-            <th>L</th>
-            <th>W</th>
-            <th>H</th>
+            <th style="min-width: 180px;">Name / load unit</th>
+            <th>L (mm)</th>
+            <th>W (mm)</th>
+            <th>H (mm)</th>
             <th>Pieces</th>
             <th>R1</th>
             <th>R2</th>
             <th>R3</th>
-            <th>Weight</th>
+            <th>Weight (kg)</th>
             <th>Loading seq.</th>
             {% if is_first_step %}
             <th>Catalogue</th>
@@ -151,7 +156,7 @@
 
             {% if is_first_step %}
             <td class="text-center">
-              <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueForRow({{ step_index }}, {{ forloop.counter0 }})">
+              <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueForRow({{ step_index }}, {{ forloop.counter0 }})" title="Fill this row from catalogue">
                 <i class="bi bi-box-arrow-in-down"></i>
               </button>
             </td>
@@ -178,19 +183,19 @@
 {% if result %}
 <div class="app-card">
   <div class="app-card-body">
-    <div class="app-section-title">Per-product summary</div>
-    <div class="app-section-subtitle">Requested versus packed units for each product row.</div>
+    <div class="app-section-title">Per-item summary</div>
+    <div class="app-section-subtitle">Requested versus loaded units for each product or load-unit row.</div>
     <div class="app-table-wrap">
       <table class="table table-hover align-middle app-table mb-0">
         <thead class="table-light">
           <tr>
-            <th>Product</th>
-            <th>L</th>
-            <th>W</th>
-            <th>H</th>
+            <th>Product / load unit</th>
+            <th>L (mm)</th>
+            <th>W (mm)</th>
+            <th>H (mm)</th>
             <th>Requested</th>
-            <th>Packed</th>
-            <th>Weight each</th>
+            <th>Loaded</th>
+            <th>Weight each (kg)</th>
             <th>Sequence</th>
           </tr>
         </thead>
@@ -239,7 +244,7 @@
     <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0"></td>
     <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1"></td>
     <td class="text-center">
-      <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueForRowFromButton(this, {{ step_index }})">
+      <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueForRowFromButton(this, {{ step_index }})" title="Fill this row from catalogue">
         <i class="bi bi-box-arrow-in-down"></i>
       </button>
     </td>
@@ -258,9 +263,9 @@
   <div class="app-card-body">
     <div class="container-tool-card-head">
       <div>
-        <div class="app-section-title mb-1">Product Catalogue</div>
+        <div class="app-section-title mb-1">Product catalogue</div>
         <div class="app-section-subtitle mb-0">
-          Select a product to fill row <span id="selectedRowLabel">{{ selected_row_index }}</span>.
+          Select a product to fill row <span id="selectedRowLabel">{{ selected_row_index }}</span>. Click a row to select it.
         </div>
       </div>
       <button type="button" class="btn btn-app-outline btn-sm" onclick="hideProductCatalogueSection()">
@@ -270,7 +275,7 @@
 
     <div class="container-tool-catalogue-row container-tool-catalogue-row-single">
       <div class="tool-field-group mb-0">
-        <label class="form-label">Product Catalogue</label>
+        <label class="form-label">Product catalogue</label>
         <select name="product_catalogue_id" id="product_catalogue_id" class="form-select" onchange="onProductCatalogueChange()">
           <option value="">— Select —</option>
           {% for cat in product_catalogues %}
@@ -287,13 +292,13 @@
       <table class="table table-hover app-table align-middle mb-0">
         <thead class="table-light">
           <tr>
-            <th></th>
+            <th>Picture</th>
             <th>Product ID</th>
             <th>Name</th>
-            <th>L</th>
-            <th>W</th>
-            <th>H</th>
-            <th>Weight</th>
+            <th>L (mm)</th>
+            <th>W (mm)</th>
+            <th>H (mm)</th>
+            <th>Weight (kg)</th>
             <th>R1</th>
             <th>R2</th>
             <th>R3</th>
@@ -301,11 +306,16 @@
         </thead>
         <tbody>
           {% for product in product_items %}
-          <tr class="tool-clickable-row" onclick="selectProductFromCatalogue('{{ product.id }}')">
+          <tr class="tool-clickable-row"
+              onclick="selectProductFromCatalogue('{{ product.id }}')"
+              tabindex="0"
+              role="button">
             <td>
-              <button type="button" class="btn btn-sm btn-app-outline" onclick="event.stopPropagation(); selectProductFromCatalogue('{{ product.id }}')">
-                Select
-              </button>
+              {% if product.product_picture %}
+                <img src="{{ product.product_picture.url }}" alt="{{ product.product_name|default:product.product_id }}" class="app-thumb" style="width:48px;height:48px;">
+              {% else %}
+                <div class="app-thumb-placeholder app-thumb-placeholder--small" style="width:48px;height:48px;font-size:1rem;"><i class="bi bi-box"></i></div>
+              {% endif %}
             </td>
             <td>{{ product.product_id }}</td>
             <td>{{ product.product_name }}</td>
@@ -338,8 +348,8 @@
   <div class="app-card-body">
     <div class="container-tool-table-header">
       <div>
-        <div class="app-section-title mb-1">Products</div>
-        <div class="app-section-subtitle mb-0">Add products manually or use catalogue selection per row.</div>
+        <div class="app-section-title mb-1">Items to load</div>
+        <div class="app-section-subtitle mb-0">Add products, cartons, pallets, crates, or mixed load units manually or from catalogue.</div>
       </div>
       <button type="button" class="btn btn-app-outline btn-sm" onclick="addProductRow()">
         <i class="bi bi-plus-circle me-2"></i>Add row
@@ -350,15 +360,15 @@
       <table class="table table-hover align-middle app-table container-tool-table mb-0" id="products-table">
         <thead class="table-light">
           <tr>
-            <th style="min-width: 160px;">Name</th>
-            <th>L</th>
-            <th>W</th>
-            <th>H</th>
+            <th style="min-width: 180px;">Name / load unit</th>
+            <th>L (mm)</th>
+            <th>W (mm)</th>
+            <th>H (mm)</th>
             <th>Pieces</th>
             <th>R1</th>
             <th>R2</th>
             <th>R3</th>
-            <th>Weight</th>
+            <th>Weight (kg)</th>
             <th>Loading seq.</th>
             <th>Catalogue</th>
             <th></th>
@@ -389,7 +399,7 @@
             <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}"></td>
             <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{{ row.sequence }}"></td>
             <td class="text-center">
-              <button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRow({{ forloop.counter0 }})">
+              <button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRow({{ forloop.counter0 }})" title="Fill this row from catalogue">
                 <i class="bi bi-box-arrow-in-down"></i>
               </button>
             </td>
@@ -405,7 +415,7 @@
     </div>
 
     <div class="app-form-actions">
-      <button type="submit" class="btn btn-app-primary" onclick="setAction('run_analysis')">
+      <button type="submit" name="action" value="run_analysis" class="btn btn-app-primary" onclick="setAction('run_analysis')">
         <i class="bi bi-play-circle me-2"></i>Run analysis
       </button>
     </div>
@@ -415,19 +425,19 @@
 {% if result %}
 <div class="app-card">
   <div class="app-card-body">
-    <div class="app-section-title">Per-product summary</div>
-    <div class="app-section-subtitle">Requested versus packed units for each product row.</div>
+    <div class="app-section-title">Per-item summary</div>
+    <div class="app-section-subtitle">Requested versus loaded units for each product or load-unit row.</div>
     <div class="app-table-wrap">
       <table class="table table-hover align-middle app-table mb-0">
         <thead class="table-light">
           <tr>
-            <th>Product</th>
-            <th>L</th>
-            <th>W</th>
-            <th>H</th>
+            <th>Product / load unit</th>
+            <th>L (mm)</th>
+            <th>W (mm)</th>
+            <th>H (mm)</th>
             <th>Requested</th>
-            <th>Packed</th>
-            <th>Weight each</th>
+            <th>Loaded</th>
+            <th>Weight each (kg)</th>
             <th>Sequence</th>
           </tr>
         </thead>
@@ -475,7 +485,7 @@
     <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0"></td>
     <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1"></td>
     <td class="text-center">
-      <button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRowFromButton(this)">
+      <button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRowFromButton(this)" title="Fill this row from catalogue">
         <i class="bi bi-box-arrow-in-down"></i>
       </button>
     </td>
