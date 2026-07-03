@@ -22,6 +22,36 @@ def _as_bool(value):
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
+def _to_float(value, default=None):
+    try:
+        if value in (None, "", "None"):
+            return default
+        return float(value)
+    except Exception:
+        return default
+
+
+def _catalogue_dimension(material, external_attr, part_attr):
+    """Prefer a positive external dimension, then a positive part dimension.
+
+    Some catalogue imports keep external_* as 0 even when part_* contains the
+    usable dimension. Treat 0 as missing for fallback purposes.
+    """
+    if material is None:
+        return ""
+
+    first_raw = ""
+    for attr in (external_attr, part_attr):
+        raw_value = getattr(material, attr, None)
+        numeric_value = _to_float(raw_value, None)
+        if raw_value not in (None, "", "None") and first_raw == "":
+            first_raw = raw_value
+        if numeric_value is not None and numeric_value > 0:
+            return raw_value
+
+    return first_raw
+
+
 def _read_raw_palletization_config(request):
     cfg = default_palletization_config()
 
@@ -61,16 +91,9 @@ def _build_hydrated_form(request, config, selected_box_material=None, selected_p
         post_data = request.POST.copy()
 
         if config.get("box_source") == "catalogue" and selected_box_material is not None:
-            box_l = selected_box_material.external_length
-            box_w = selected_box_material.external_width
-            box_h = selected_box_material.external_height
-
-            if box_l is None:
-                box_l = selected_box_material.part_length
-            if box_w is None:
-                box_w = selected_box_material.part_width
-            if box_h is None:
-                box_h = selected_box_material.part_height
+            box_l = _catalogue_dimension(selected_box_material, "external_length", "part_length")
+            box_w = _catalogue_dimension(selected_box_material, "external_width", "part_width")
+            box_h = _catalogue_dimension(selected_box_material, "external_height", "part_height")
 
             post_data["box_l"] = "" if box_l is None else str(box_l)
             post_data["box_w"] = "" if box_w is None else str(box_w)
@@ -83,13 +106,8 @@ def _build_hydrated_form(request, config, selected_box_material=None, selected_p
                 post_data["box_weight"] = str(selected_box_material.part_weight)
 
         if config.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
-            pallet_l = selected_pallet_material.external_length
-            pallet_w = selected_pallet_material.external_width
-
-            if pallet_l is None:
-                pallet_l = selected_pallet_material.part_length
-            if pallet_w is None:
-                pallet_w = selected_pallet_material.part_width
+            pallet_l = _catalogue_dimension(selected_pallet_material, "external_length", "part_length")
+            pallet_w = _catalogue_dimension(selected_pallet_material, "external_width", "part_width")
 
             post_data["pallet_l"] = "" if pallet_l is None else str(pallet_l)
             post_data["pallet_w"] = "" if pallet_w is None else str(pallet_w)
@@ -99,16 +117,9 @@ def _build_hydrated_form(request, config, selected_box_material=None, selected_p
         initial_data = dict(config)
 
         if config.get("box_source") == "catalogue" and selected_box_material is not None:
-            box_l = selected_box_material.external_length
-            box_w = selected_box_material.external_width
-            box_h = selected_box_material.external_height
-
-            if box_l is None:
-                box_l = selected_box_material.part_length
-            if box_w is None:
-                box_w = selected_box_material.part_width
-            if box_h is None:
-                box_h = selected_box_material.part_height
+            box_l = _catalogue_dimension(selected_box_material, "external_length", "part_length")
+            box_w = _catalogue_dimension(selected_box_material, "external_width", "part_width")
+            box_h = _catalogue_dimension(selected_box_material, "external_height", "part_height")
 
             initial_data["box_l"] = "" if box_l is None else box_l
             initial_data["box_w"] = "" if box_w is None else box_w
@@ -121,13 +132,8 @@ def _build_hydrated_form(request, config, selected_box_material=None, selected_p
                 initial_data["box_weight"] = selected_box_material.part_weight
 
         if config.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
-            pallet_l = selected_pallet_material.external_length
-            pallet_w = selected_pallet_material.external_width
-
-            if pallet_l is None:
-                pallet_l = selected_pallet_material.part_length
-            if pallet_w is None:
-                pallet_w = selected_pallet_material.part_width
+            pallet_l = _catalogue_dimension(selected_pallet_material, "external_length", "part_length")
+            pallet_w = _catalogue_dimension(selected_pallet_material, "external_width", "part_width")
 
             initial_data["pallet_l"] = "" if pallet_l is None else pallet_l
             initial_data["pallet_w"] = "" if pallet_w is None else pallet_w

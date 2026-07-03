@@ -35,6 +35,35 @@
       if (hidden) hidden.value = checkbox.checked ? "1" : "0";
     }
 
+    function transportToggleMaxQty(checkbox) {
+      syncCheckboxHidden(checkbox);
+      const row = checkbox.closest('tr');
+      if (!row) return;
+
+      const manualQty = row.querySelector('[data-transport-manual-qty]');
+      const autoQty = row.querySelector('[data-transport-auto-qty]');
+
+      if (manualQty) manualQty.style.display = checkbox.checked ? 'none' : '';
+      if (autoQty) autoQty.style.display = checkbox.checked ? '' : 'none';
+    }
+
+    function transportPrepareMaxQtyFields(root) {
+      if (!root) return;
+      const rows = Array.from(root.querySelectorAll('tbody tr'));
+      rows.forEach(function(row, rowIndex) {
+        const checkbox = row.querySelector('[data-transport-max-qty-checkbox]');
+        if (!checkbox) return;
+        checkbox.value = String(rowIndex);
+        syncCheckboxHidden(checkbox);
+      });
+    }
+
+    function transportSyncMaxQtyRows(root) {
+      if (!root) return;
+      root.querySelectorAll('.transport-max-qty-checkbox').forEach(cb => transportToggleMaxQty(cb));
+      transportPrepareMaxQtyFields(root);
+    }
+
     function transportToggleInstructions(button) {
       const body = document.getElementById("transportInstructionsBody");
       if (!body) return;
@@ -53,6 +82,7 @@
       const newRow = tbody.lastElementChild;
       if (newRow) {
         newRow.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
+        transportSyncMaxQtyRows(newRow);
       }
     }
     
@@ -205,6 +235,7 @@
       const newRow = tbody.lastElementChild;
       if (newRow) {
         newRow.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
+        transportSyncMaxQtyRows(newRow);
       }
     }
     
@@ -327,6 +358,14 @@
     function initStandaloneTransportUI(root) {
       if (!root) return;
       root.querySelectorAll('#products-tbody input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
+      transportSyncMaxQtyRows(root);
+      const form = root.closest('form');
+      if (form && !form.dataset.transportMaxQtySubmitBound) {
+        form.dataset.transportMaxQtySubmitBound = '1';
+        form.addEventListener('submit', function() {
+          transportPrepareMaxQtyFields(root);
+        });
+      }
       root.querySelectorAll('input[name="container_source"]').forEach(el => {
         el.addEventListener('change', updateContainerSourceUI);
       });
@@ -365,6 +404,14 @@
       if (!root) return;
       const idx = root.dataset.transportPrefix;
       root.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
+      transportSyncMaxQtyRows(root);
+      const form = root.closest('form');
+      if (form && !form.dataset.transportMaxQtySubmitBound) {
+        form.dataset.transportMaxQtySubmitBound = '1';
+        form.addEventListener('submit', function() {
+          transportPrepareMaxQtyFields(root);
+        });
+      }
       if (idx !== undefined && idx !== null && idx !== '') {
         fpTransportUpdateContainerSourceUI(idx);
       }

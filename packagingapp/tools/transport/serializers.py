@@ -18,6 +18,7 @@ def sanitize_transport_rows_for_session(rows):
             "width": _json_safe_scalar(row.get("width", "")),
             "height": _json_safe_scalar(row.get("height", "")),
             "qty": _json_safe_scalar(row.get("qty", 1)),
+            "max_qty": bool(row.get("max_qty", False)),
             "weight": _json_safe_scalar(row.get("weight", 0)),
             "sequence": _json_safe_scalar(row.get("sequence", 1)),
             "r1": bool(row.get("r1", False)),
@@ -58,6 +59,7 @@ def serialize_transport_result(result):
                     "height": float(r.get("height", 0) or 0),
                     "qty_requested": int(r.get("qty_requested", 0) or 0),
                     "qty_packed": int(r.get("qty_packed", 0) or 0),
+                    "max_qty": bool(r.get("max_qty", False)),
                     "weight_each": float(r.get("weight_each", 0) or 0),
                     "sequence": int(r.get("sequence", 0) or 0),
                 }

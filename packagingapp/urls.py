@@ -22,7 +22,7 @@ from packagingapp.views.multi_product_container import (
     multi_product_container_export_excel,
 )
 
-from packagingapp.views.full_packaging import full_packaging_mode
+from packagingapp.views.full_packaging import full_packaging_mode, full_packaging_export_pdf
 
 urlpatterns = [
     path("", home, name="home"),
@@ -124,4 +124,5 @@ urlpatterns = [
 
     # Full Packaging Module
     path("full-packaging/", full_packaging_mode, name="full_packaging_mode"),
+    path("full-packaging/export/pdf/", full_packaging_export_pdf, name="full_packaging_export_pdf"),
 ]

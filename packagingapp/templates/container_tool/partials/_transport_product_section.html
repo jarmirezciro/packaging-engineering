@@ -117,6 +117,7 @@
             <th>L (mm)</th>
             <th>W (mm)</th>
             <th>H (mm)</th>
+            <th class="text-center">Max qty?</th>
             <th>Pieces</th>
             <th>R1</th>
             <th>R2</th>
@@ -136,7 +137,19 @@
             <td><input type="number" step="any" name="item_length[]" class="form-control" value="{{ row.length }}"></td>
             <td><input type="number" step="any" name="item_width[]" class="form-control" value="{{ row.width }}"></td>
             <td><input type="number" step="any" name="item_height[]" class="form-control" value="{{ row.height }}"></td>
-            <td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="{{ row.qty }}"></td>
+            <td class="text-center">
+              <input type="hidden" name="item_max_qty[]" value="{% if row.max_qty %}1{% else %}0{% endif %}">
+              <input type="checkbox" name="item_max_qty_checked[]" class="form-check-input transport-max-qty-checkbox" value="{{ forloop.counter0 }}" data-transport-max-qty-checkbox {% if row.max_qty %}checked{% endif %} onchange="transportToggleMaxQty(this)">
+              <div class="small text-muted mt-1">Max</div>
+            </td>
+            <td>
+              <div data-transport-manual-qty {% if row.max_qty %}style="display:none;"{% endif %}>
+                <input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="{{ row.qty }}">
+              </div>
+              <div data-transport-auto-qty class="badge bg-light text-dark border" {% if not row.max_qty %}style="display:none;"{% endif %}>
+                Auto max
+              </div>
+            </td>
 
             <td class="text-center">
               <input type="hidden" name="item_r1[]" value="{% if row.r1 %}1{% else %}0{% endif %}">
@@ -193,6 +206,7 @@
             <th>L (mm)</th>
             <th>W (mm)</th>
             <th>H (mm)</th>
+            <th>Qty mode</th>
             <th>Requested</th>
             <th>Loaded</th>
             <th>Weight each (kg)</th>
@@ -206,6 +220,7 @@
             <td>{{ row.length }}</td>
             <td>{{ row.width }}</td>
             <td>{{ row.height }}</td>
+            <td>{% if row.max_qty %}<span class="badge bg-light text-dark border">Auto max</span>{% else %}<span class="text-muted">Manual</span>{% endif %}</td>
             <td>{{ row.qty_requested }}</td>
             <td><strong>{{ row.qty_packed }}</strong></td>
             <td>{{ row.weight_each }}</td>
@@ -226,7 +241,17 @@
     <td><input type="number" step="any" name="item_length[]" class="form-control" value=""></td>
     <td><input type="number" step="any" name="item_width[]" class="form-control" value=""></td>
     <td><input type="number" step="any" name="item_height[]" class="form-control" value=""></td>
-    <td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="1"></td>
+    <td class="text-center">
+      <input type="hidden" name="item_max_qty[]" value="0">
+      <input type="checkbox" name="item_max_qty_checked[]" class="form-check-input transport-max-qty-checkbox" value="" data-transport-max-qty-checkbox onchange="transportToggleMaxQty(this)">
+      <div class="small text-muted mt-1">Max</div>
+    </td>
+    <td>
+      <div data-transport-manual-qty>
+        <input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="1">
+      </div>
+      <div data-transport-auto-qty class="badge bg-light text-dark border" style="display:none;">Auto max</div>
+    </td>
 
     <td class="text-center">
       <input type="hidden" name="item_r1[]" value="1">
@@ -364,6 +389,7 @@
             <th>L (mm)</th>
             <th>W (mm)</th>
             <th>H (mm)</th>
+            <th class="text-center">Max qty?</th>
             <th>Pieces</th>
             <th>R1</th>
             <th>R2</th>
@@ -381,7 +407,19 @@
             <td><input type="number" step="any" name="item_length[]" class="form-control" value="{{ row.length }}"></td>
             <td><input type="number" step="any" name="item_width[]" class="form-control" value="{{ row.width }}"></td>
             <td><input type="number" step="any" name="item_height[]" class="form-control" value="{{ row.height }}"></td>
-            <td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="{{ row.qty }}"></td>
+            <td class="text-center">
+              <input type="hidden" name="item_max_qty[]" value="{% if row.max_qty %}1{% else %}0{% endif %}">
+              <input type="checkbox" name="item_max_qty_checked[]" class="form-check-input transport-max-qty-checkbox" value="{{ forloop.counter0 }}" data-transport-max-qty-checkbox {% if row.max_qty %}checked{% endif %} onchange="transportToggleMaxQty(this)">
+              <div class="small text-muted mt-1">Max</div>
+            </td>
+            <td>
+              <div data-transport-manual-qty {% if row.max_qty %}style="display:none;"{% endif %}>
+                <input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="{{ row.qty }}">
+              </div>
+              <div data-transport-auto-qty class="badge bg-light text-dark border" {% if not row.max_qty %}style="display:none;"{% endif %}>
+                Auto max
+              </div>
+            </td>
 
             <td class="text-center">
               <input type="hidden" name="item_r1[]" value="{% if row.r1 %}1{% else %}0{% endif %}">
@@ -435,6 +473,7 @@
             <th>L (mm)</th>
             <th>W (mm)</th>
             <th>H (mm)</th>
+            <th>Qty mode</th>
             <th>Requested</th>
             <th>Loaded</th>
             <th>Weight each (kg)</th>
@@ -448,6 +487,7 @@
             <td>{{ row.length }}</td>
             <td>{{ row.width }}</td>
             <td>{{ row.height }}</td>
+            <td>{% if row.max_qty %}<span class="badge bg-light text-dark border">Auto max</span>{% else %}<span class="text-muted">Manual</span>{% endif %}</td>
             <td>{{ row.qty_requested }}</td>
             <td><strong>{{ row.qty_packed }}</strong></td>
             <td>{{ row.weight_each }}</td>
@@ -467,7 +507,17 @@
     <td><input type="number" step="any" name="item_length[]" class="form-control" value=""></td>
     <td><input type="number" step="any" name="item_width[]" class="form-control" value=""></td>
     <td><input type="number" step="any" name="item_height[]" class="form-control" value=""></td>
-    <td><input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="1"></td>
+    <td class="text-center">
+      <input type="hidden" name="item_max_qty[]" value="0">
+      <input type="checkbox" name="item_max_qty_checked[]" class="form-check-input transport-max-qty-checkbox" value="" data-transport-max-qty-checkbox onchange="transportToggleMaxQty(this)">
+      <div class="small text-muted mt-1">Max</div>
+    </td>
+    <td>
+      <div data-transport-manual-qty>
+        <input type="number" step="1" min="1" name="item_qty[]" class="form-control" value="1">
+      </div>
+      <div data-transport-auto-qty class="badge bg-light text-dark border" style="display:none;">Auto max</div>
+    </td>
 
     <td class="text-center">
       <input type="hidden" name="item_r1[]" value="1">

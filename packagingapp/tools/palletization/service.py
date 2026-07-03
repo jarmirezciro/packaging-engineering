@@ -28,18 +28,44 @@ def _to_float(value, default=None):
         return default
 
 
+def _dimension_from_material(material, *attrs):
+    """Return the first positive catalogue dimension from the requested fields.
+
+    Some catalogue rows have external_* stored as 0 while the usable value is in
+    part_*. Treat 0 as an empty catalogue dimension for fallback purposes, but
+    still return 0 if no positive fallback exists so validation can show a clear
+    message instead of crashing later.
+    """
+    first_numeric = None
+    for attr in attrs:
+        value = _to_float(getattr(material, attr, None), None)
+        if value is None:
+            continue
+        if first_numeric is None:
+            first_numeric = value
+        if value > 0:
+            return value
+    return first_numeric if first_numeric is not None else 0.0
+
+
 def dims_from_material(material, prefer_external=False):
     if not material:
         return None
+
     if prefer_external:
-        l = material.external_length if material.external_length is not None else material.part_length
-        w = material.external_width if material.external_width is not None else material.part_width
-        h = material.external_height if material.external_height is not None else material.part_height
+        length_attrs = ("external_length", "part_length")
+        width_attrs = ("external_width", "part_width")
+        height_attrs = ("external_height", "part_height")
     else:
-        l = material.part_length
-        w = material.part_width
-        h = material.part_height
-    return float(l), float(w), float(h)
+        length_attrs = ("part_length", "external_length")
+        width_attrs = ("part_width", "external_width")
+        height_attrs = ("part_height", "external_height")
+
+    return (
+        _dimension_from_material(material, *length_attrs),
+        _dimension_from_material(material, *width_attrs),
+        _dimension_from_material(material, *height_attrs),
+    )
 
 
 def get_selected_box_material(config):

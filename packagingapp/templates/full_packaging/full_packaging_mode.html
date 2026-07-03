@@ -4,23 +4,35 @@
 {% block extra_css %}
 {% include "container_tool/partials/_transport_styles.html" %}
 <style>
-.fp-page{display:grid;gap:1rem;}
-.fp-shell-card{background:var(--app-surface);border:1px solid var(--app-border);border-radius:var(--app-radius-lg);box-shadow:var(--app-shadow-sm);}
+.fp-page{display:grid;gap:1rem;max-width:1220px;width:100%;margin:0 auto;}
+.fp-shell-card{background:var(--app-surface);border:1px solid var(--app-border);border-radius:var(--app-radius-lg);box-shadow:var(--app-shadow-sm);overflow:hidden;}
 .fp-shell-head{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:1rem 1rem .75rem 1rem;}
-.fp-shell-title{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
+.fp-shell-title{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;min-width:0;}
 .fp-shell-title h3{margin:0;font-size:1rem;font-weight:700;color:var(--app-text);}
 .fp-shell-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .55rem;border-radius:999px;background:var(--app-surface-soft);border:1px solid var(--app-border);font-size:.75rem;font-weight:700;color:var(--app-text-muted);}
-.fp-shell-actions{display:flex;gap:.35rem;align-items:center;}
+.fp-status-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .55rem;border-radius:999px;font-size:.73rem;font-weight:700;border:1px solid var(--app-border);background:#fff;color:var(--app-text-muted);}
+.fp-status-badge--success{background:#ecfdf5;border-color:#bbf7d0;color:#047857;}
+.fp-status-badge--ready{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;}
+.fp-status-badge--danger{background:#fef2f2;border-color:#fecaca;color:#b91c1c;}
+.fp-status-badge--muted{background:var(--app-surface-soft);color:var(--app-text-muted);}
+.fp-shell-actions{display:flex;gap:.35rem;align-items:center;flex-shrink:0;}
 .fp-icon-btn{width:34px;height:34px;border-radius:10px;border:1px solid var(--app-border);background:#fff;color:var(--app-text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
 .fp-icon-btn:hover{background:var(--app-surface-soft);}
-.fp-summary{padding:0 1rem .75rem 1rem;}
+.fp-summary{padding:0 1rem .9rem 1rem;}
 .fp-summary .tool-summary-strip{margin-top:0;}
+.fp-overview{border:1px solid var(--app-border);background:var(--app-surface-soft);border-radius:1rem;padding:.75rem .9rem;display:grid;gap:.45rem;}
+.fp-overview-row{display:grid;grid-template-columns:150px minmax(0,1fr);gap:.75rem;align-items:start;}
+.fp-overview-label{font-size:.76rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--app-text-muted);}
+.fp-overview-value{font-size:.9rem;color:var(--app-text);min-width:0;overflow-wrap:anywhere;}
+.fp-step-form{padding:0 1rem 1rem 1rem;gap:1rem;min-width:0;}
+.fp-step-form .app-card,.fp-step-form .tool-render-wrap,.fp-step-form .container-tool-table-wrap{min-width:0;}
+.fp-step-form .container-tool-table-wrap{max-width:100%;}
 .fp-add-row{padding:0 1rem 1rem 1rem;}
 .fp-add-inline{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;}
 .fp-add-inline select{min-width:240px;}
 .fp-compact-gap{margin-bottom:.5rem !important;}
 .fp-hidden{display:none !important;}
-@media (max-width:991px){.fp-shell-head{padding:.85rem}.fp-summary,.fp-add-row{padding:0 .85rem .85rem .85rem;}}
+@media (max-width:991px){.fp-page{max-width:100%;}.fp-shell-head{padding:.85rem}.fp-summary,.fp-add-row,.fp-step-form{padding:0 .85rem .85rem .85rem;}.fp-overview-row{grid-template-columns:1fr;gap:.15rem;}}
 </style>
 {% endblock %}
 
@@ -37,7 +49,12 @@
     </div>
   </div>
 
-  <div class="d-flex justify-content-end">
+  <div class="d-flex justify-content-end gap-2 flex-wrap">
+    {% if steps %}
+      <a href="{% url 'full_packaging_export_pdf' %}" class="btn btn-app-primary btn-sm">
+        <i class="bi bi-filetype-pdf me-2"></i>Export PDF report
+      </a>
+    {% endif %}
     <form method="post" style="margin:0;">
       {% csrf_token %}
       <input type="hidden" name="action" value="reset_workflow">
@@ -85,6 +102,9 @@
           {% else %}
             <span class="fp-shell-badge"><i class="bi bi-box-seam"></i>Container Selection</span>
           {% endif %}
+          {% if step.workflow_overview %}
+            <span class="fp-status-badge fp-status-badge--{{ step.workflow_overview.status_class }}">{{ step.workflow_overview.status_label }}</span>
+          {% endif %}
         </div>
         <div class="fp-shell-actions">
           <form method="post" style="margin:0;">
@@ -108,7 +128,18 @@
         </div>
       </div>
 
-      {% if step.summary %}
+      {% if not step.expanded and step.workflow_overview %}
+      <div class="fp-summary">
+        <div class="fp-overview">
+          {% for row in step.workflow_overview.rows %}
+            <div class="fp-overview-row">
+              <div class="fp-overview-label">{{ row.label }}</div>
+              <div class="fp-overview-value">{{ row.value }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% elif step.summary %}
       <div class="fp-summary">
         <div class="tool-summary-strip fp-compact-gap">
           <div class="tool-summary-main"><strong>Selected for workflow</strong></div>
@@ -118,7 +149,7 @@
       {% endif %}
 
       {% if step.expanded %}
-      <form method="post" id="step-form-{{ forloop.counter0 }}" class="app-page" data-step-type="{{ step.type }}">
+      <form method="post" id="step-form-{{ forloop.counter0 }}" class="app-page fp-step-form" data-step-type="{{ step.type }}">
         {% csrf_token %}
         <input type="hidden" name="action" id="form_action_{{ forloop.counter0 }}" value="run_step">
         <input type="hidden" name="index" value="{{ forloop.counter0 }}">
@@ -142,7 +173,7 @@
         {% include "container_tool/transport_wrapper.html" with mode="workflow" is_workflow=True prefix=forloop.counter0 container_id=step.config.container_id selected_row_index=step.config.selected_row_index product_id_to_fill=step.config.product_id_to_fill messages=step.messages current_container_source=step.config.container_source selected_material=step.selected_material container_summary=step.container_summary current_catalogue_id=step.config.catalogue_id materials=step.materials packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url image_urls=step.image_urls product_rows=step.product_rows auto_hide_product_catalogue=step.auto_hide_product_catalogue product_catalogue_id=step.config.product_catalogue_id product_catalogues=product_catalogues product_items=step.products is_first_step=forloop.first %}
 
         {% elif step.type == "container" %}
-{% include "container_selection_tool/container_selection_wrapper.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url analysis_report=step.analysis_report products=step.products materials=step.materials top5=step.container_top5_rows %}
+{% include "container_selection_tool/container_selection_wrapper.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url analysis_report=step.analysis_report products=step.products materials=step.materials top5=step.container_top5_rows pending_result=step.pending_result %}
 
         {% elif step.type == "bag" %}
 {% include "bag_selection/bag_selection_wrapper.html" with bag_ui=step.bag_ui bag_values=step.bag_values mode=step.mode prefix=step.prefix current_mode=step.current_mode current_product_source=step.current_product_source current_bag_source=step.current_bag_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_bag_summary=step.selected_bag_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url analysis_report=step.analysis_report products=step.products materials=step.materials top5=step.top5 pending_result=step.pending_result allow_product_catalogue=step.allow_product_catalogue messages=step.messages %}
@@ -164,7 +195,7 @@
                 <option value="container">Container (Box)</option>
                 <option value="bag">Bag</option>
                 <option value="pallet">Palletization</option>
-            <option value="transport">Transport Container</option>
+                <option value="transport">Transport Container</option>
               </select>
               <button type="submit" class="btn btn-app-primary">Add</button>
             </form>

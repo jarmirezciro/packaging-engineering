@@ -58,7 +58,13 @@
         <div class="tool-field-group mb-0">
           <label class="form-label">Tare weight <span class="text-muted">(kg)</span> <span class="text-muted">— optional</span></label>
           {% if is_workflow %}
-          <input type="number" step="any" min="0" class="form-control" name="tare_weight_{{ step_index }}" value="{{ step.config.tare_weight|default:selected_material.part_weight|default:'' }}">
+            {% if step.config.tare_weight %}
+              <input type="number" step="any" min="0" class="form-control" name="tare_weight_{{ step_index }}" value="{{ step.config.tare_weight }}">
+            {% elif selected_material and selected_material.part_weight %}
+              <input type="number" step="any" min="0" class="form-control" name="tare_weight_{{ step_index }}" value="{{ selected_material.part_weight }}">
+            {% else %}
+              <input type="number" step="any" min="0" class="form-control" name="tare_weight_{{ step_index }}" value="">
+            {% endif %}
           {% else %}
           {{ form.tare_weight }}
           {% endif %}

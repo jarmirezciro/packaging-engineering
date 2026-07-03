@@ -2,7 +2,7 @@ from django.conf import settings
 
 from .state import default_product_rows
 from .serializers import sanitize_transport_rows_for_session, serialize_transport_result
-from ...utils.container_tool.engine import run_container_tool
+from ...utils.container_tool.engine import pack_container, run_container_tool
 
 
 def read_product_rows_raw(post_data):
@@ -11,6 +11,13 @@ def read_product_rows_raw(post_data):
     widths = post_data.getlist("item_width[]")
     heights = post_data.getlist("item_height[]")
     qtys = post_data.getlist("item_qty[]")
+    max_qtys = post_data.getlist("item_max_qty[]")
+    max_qty_checked_indices = set()
+    for value in post_data.getlist("item_max_qty_checked[]"):
+        try:
+            max_qty_checked_indices.add(int(value))
+        except Exception:
+            continue
     weights = post_data.getlist("item_weight[]")
     seqs = post_data.getlist("item_sequence[]")
     r1_vals = post_data.getlist("item_r1[]")
@@ -23,6 +30,7 @@ def read_product_rows_raw(post_data):
         len(widths),
         len(heights),
         len(qtys),
+        len(max_qtys),
         len(weights),
         len(seqs),
         len(r1_vals),
@@ -41,6 +49,7 @@ def read_product_rows_raw(post_data):
         width_raw = widths[i].strip() if i < len(widths) else ""
         height_raw = heights[i].strip() if i < len(heights) else ""
         qty_raw = qtys[i].strip() if i < len(qtys) else "1"
+        max_qty_raw = max_qtys[i].strip() if i < len(max_qtys) else "0"
         weight_raw = weights[i].strip() if i < len(weights) else "0"
         seq_raw = seqs[i].strip() if i < len(seqs) else "1"
 
@@ -51,6 +60,7 @@ def read_product_rows_raw(post_data):
                 "width": width_raw,
                 "height": height_raw,
                 "qty": qty_raw if qty_raw != "" else 1,
+                "max_qty": checked(max_qty_raw) or i in max_qty_checked_indices,
                 "weight": weight_raw if weight_raw != "" else 0,
                 "sequence": seq_raw if seq_raw != "" else 1,
                 "r1": checked(r1_vals[i]) if i < len(r1_vals) else False,
@@ -76,7 +86,8 @@ def validate_transport_rows(raw_rows):
             length = float(raw.get("length"))
             width = float(raw.get("width"))
             height = float(raw.get("height"))
-            qty = int(float(raw.get("qty", 1)))
+            max_qty = bool(raw.get("max_qty", False))
+            qty = 1 if max_qty else int(float(raw.get("qty", 1)))
             weight = float(raw.get("weight", 0) or 0)
             sequence = int(float(raw.get("sequence", 1) or 1))
         except Exception:
@@ -90,7 +101,7 @@ def validate_transport_rows(raw_rows):
         if length <= 0 or width <= 0 or height <= 0:
             errors.append(f"Row {i+1}: dimensions must be greater than 0.")
             continue
-        if qty <= 0:
+        if not max_qty and qty <= 0:
             errors.append(f"Row {i+1}: quantity must be greater than 0.")
             continue
         if weight < 0:
@@ -110,6 +121,7 @@ def validate_transport_rows(raw_rows):
                 "width": width,
                 "height": height,
                 "qty": qty,
+                "max_qty": max_qty,
                 "weight": weight,
                 "sequence": sequence,
                 "r1": r1,
@@ -191,6 +203,183 @@ def build_container_from_config(cfg, selected_material=None):
     return container, messages
 
 
+
+MAX_AUTO_QTY_FOR_RENDER = 5000
+
+
+def _allowed_orientation_count(product):
+    try:
+        from ...utils.container_tool.engine import allowed_orientations
+        return allowed_orientations(
+            (product["length"], product["width"], product["height"]),
+            product.get("r1"),
+            product.get("r2"),
+            product.get("r3"),
+        )
+    except Exception:
+        return []
+
+
+def _theoretical_auto_qty_upper(container, product):
+    """
+    Practical upper bound used for binary search.
+    The final quantity is still confirmed with the real packing heuristic.
+    """
+    item_volume = float(product["length"] * product["width"] * product["height"])
+    container_volume = float(container["L"] * container["W"] * container["H"])
+    if item_volume <= 0 or container_volume <= 0:
+        return 0
+
+    volume_upper = int(container_volume // item_volume)
+    weight_upper = volume_upper
+    try:
+        max_weight = container.get("max_weight")
+        item_weight = float(product.get("weight", 0) or 0)
+        if max_weight is not None and float(max_weight) > 0 and item_weight > 0:
+            weight_upper = int(float(max_weight) // item_weight)
+    except Exception:
+        weight_upper = volume_upper
+
+    grid_upper = 0
+    for l, w, h in _allowed_orientation_count(product):
+        if l <= 0 or w <= 0 or h <= 0:
+            continue
+        grid_upper = max(
+            grid_upper,
+            int(container["L"] // l) * int(container["W"] // w) * int(container["H"] // h),
+        )
+
+    candidates = [value for value in (volume_upper, weight_upper) if value is not None and value > 0]
+    if grid_upper > 0:
+        # Use a little headroom above uniform-grid capacity in case mixed rotations help.
+        candidates.append(max(grid_upper * 2, grid_upper + 25))
+
+    upper = min(candidates) if candidates else 0
+    return max(0, int(upper))
+
+
+def _pack_count_by_marker(container, products):
+    pack_result = pack_container(container, products)
+    counts = {}
+    for placement in pack_result.get("placements", []):
+        counts[placement.product_name] = counts.get(placement.product_name, 0) + 1
+    return counts
+
+
+def _can_pack_requested_quantities(container, products, required_counts):
+    counts = _pack_count_by_marker(container, products)
+    for marker, qty in required_counts.items():
+        if counts.get(marker, 0) < int(qty or 0):
+            return False
+    return True
+
+
+def _with_internal_markers(products):
+    marked = []
+    marker_by_row = {}
+    for row_index, product in enumerate(products):
+        marker = f"__transport_row_{row_index}__"
+        marker_by_row[row_index] = marker
+        clone = dict(product)
+        clone["_display_name"] = product.get("name") or f"Row {row_index + 1}"
+        clone["name"] = marker
+        clone["_row_index"] = row_index
+        marked.append(clone)
+    return marked, marker_by_row
+
+
+def _resolve_auto_max_quantities(container, products):
+    """
+    Replace rows marked max_qty=True with the maximum quantity that the current
+    transport heuristic can load, while respecting manually entered rows.
+
+    Multiple max rows are resolved in row order. Earlier resolved rows become
+    fixed inputs for later max rows.
+    """
+    messages = []
+    resolved = [dict(p) for p in products]
+
+    auto_indices = [i for i, product in enumerate(resolved) if product.get("max_qty")]
+    if not auto_indices:
+        return resolved, messages
+
+    for row_index in auto_indices:
+        candidate = resolved[row_index]
+        upper = _theoretical_auto_qty_upper(container, candidate)
+
+        if upper <= 0:
+            candidate["qty"] = 0
+            messages.append(f"Row {row_index + 1}: this load unit cannot fit in the selected transport unit.")
+            continue
+
+        capped = False
+        if upper > MAX_AUTO_QTY_FOR_RENDER:
+            upper = MAX_AUTO_QTY_FOR_RENDER
+            capped = True
+
+        marked, marker_by_row = _with_internal_markers(resolved)
+        required_counts = {
+            marker_by_row[i]: int(p.get("qty", 0) or 0)
+            for i, p in enumerate(marked)
+            if i != row_index and int(p.get("qty", 0) or 0) > 0
+        }
+        candidate_marker = marker_by_row[row_index]
+
+        low = 0
+        high = upper
+        best = 0
+
+        while low <= high:
+            mid = (low + high) // 2
+            trial = []
+            for i, product in enumerate(marked):
+                clone = dict(product)
+                clone["qty"] = mid if i == row_index else int(clone.get("qty", 0) or 0)
+                trial.append(clone)
+
+            required = dict(required_counts)
+            required[candidate_marker] = mid
+
+            if _can_pack_requested_quantities(container, trial, required):
+                best = mid
+                low = mid + 1
+            else:
+                high = mid - 1
+
+        candidate["qty"] = max(best, 0)
+        if best <= 0:
+            messages.append(f"Row {row_index + 1}: no additional units fit after respecting the other rows.")
+        else:
+            if capped and best >= upper:
+                messages.append(
+                    f"Row {row_index + 1}: automatic max quantity was capped at {MAX_AUTO_QTY_FOR_RENDER:,} units to keep the render responsive."
+                )
+
+    # Restore user-facing names and keep the max flag for display/session.
+    for product in resolved:
+        product["qty"] = int(product.get("qty", 0) or 0)
+
+    return resolved, messages
+
+
+def _rows_from_products(products):
+    return [
+        {
+            "name": product.get("name", ""),
+            "length": product.get("length", ""),
+            "width": product.get("width", ""),
+            "height": product.get("height", ""),
+            "qty": product.get("qty", 1),
+            "max_qty": bool(product.get("max_qty", False)),
+            "weight": product.get("weight", 0),
+            "sequence": product.get("sequence", 1),
+            "r1": bool(product.get("r1", False)),
+            "r2": bool(product.get("r2", False)),
+            "r3": bool(product.get("r3", False)),
+        }
+        for product in products
+    ]
+
 def run_transport_analysis(container, products, media_root=None):
     result = run_container_tool(
         container=container,
@@ -227,20 +416,41 @@ def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=N
             "image_urls": None,
         }
 
+    products, auto_messages = _resolve_auto_max_quantities(container, products)
+    safe_rows = sanitize_transport_rows_for_session(_rows_from_products(products))
+
+    if any(int(product.get("qty", 0) or 0) <= 0 for product in products):
+        return {
+            "ok": False,
+            "messages": auto_messages or ["No load units could be placed with the selected settings."],
+            "safe_rows": safe_rows,
+            "products": products,
+            "container": container,
+            "result": None,
+            "serialized_result": None,
+            "image_url": None,
+            "image_urls": None,
+        }
+
     analysis = run_transport_analysis(
         container=container,
         products=products,
         media_root=media_root,
     )
 
+    serialized_result = analysis["serialized_result"]
+    summary_rows = (serialized_result.get("summary") or {}).get("product_rows") or []
+    for row, product in zip(summary_rows, products):
+        row["max_qty"] = bool(product.get("max_qty", False))
+
     return {
         "ok": True,
-        "messages": [],
+        "messages": auto_messages,
         "safe_rows": safe_rows,
         "products": products,
         "container": container,
         "result": analysis["result"],
-        "serialized_result": analysis["serialized_result"],
+        "serialized_result": serialized_result,
         "image_url": analysis["image_url"],
         "image_urls": analysis.get("image_urls") or {},
     }

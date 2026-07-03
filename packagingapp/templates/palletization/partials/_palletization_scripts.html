@@ -85,32 +85,44 @@
 
     function palletToolBrowseBoxCatalogue(prefix) {
         palletToolSetHidden("selected_box_id", prefix, "");
-        palletToolSubmitRefresh(prefix);
+        palletToolSetHidden("action", prefix, "browse_box_packaging");
+        const form = palletToolForm(prefix);
+        if (form) form.submit();
     }
 
     function palletToolClearSelectedBox(prefix) {
         palletToolSetHidden("selected_box_id", prefix, "");
-        palletToolSubmitRefresh(prefix);
+        palletToolSetHidden("action", prefix, "clear_box_packaging");
+        const form = palletToolForm(prefix);
+        if (form) form.submit();
     }
 
     function palletToolSelectBox(prefix, boxId) {
         palletToolSetHidden("selected_box_id", prefix, boxId);
-        palletToolSubmitRefresh(prefix);
+        palletToolSetHidden("action", prefix, "select_box");
+        const form = palletToolForm(prefix);
+        if (form) form.submit();
     }
 
     function palletToolBrowsePalletCatalogue(prefix) {
         palletToolSetHidden("pallet_id", prefix, "");
-        palletToolSubmitRefresh(prefix);
+        palletToolSetHidden("action", prefix, "browse_pallet_packaging");
+        const form = palletToolForm(prefix);
+        if (form) form.submit();
     }
 
     function palletToolClearSelectedPallet(prefix) {
         palletToolSetHidden("pallet_id", prefix, "");
-        palletToolSubmitRefresh(prefix);
+        palletToolSetHidden("action", prefix, "clear_pallet_packaging");
+        const form = palletToolForm(prefix);
+        if (form) form.submit();
     }
 
     function palletToolSelectPallet(prefix, palletId) {
         palletToolSetHidden("pallet_id", prefix, palletId);
-        palletToolSubmitRefresh(prefix);
+        palletToolSetHidden("action", prefix, "select_pallet");
+        const form = palletToolForm(prefix);
+        if (form) form.submit();
     }
 
     function palletToolToggleConstraints(prefix, forceOpen = null) {

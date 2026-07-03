@@ -6,6 +6,7 @@ def default_product_rows():
             "width": "",
             "height": "",
             "qty": 1,
+            "max_qty": False,
             "weight": 0,
             "sequence": 1,
             "r1": True,
