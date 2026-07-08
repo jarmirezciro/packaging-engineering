@@ -383,3 +383,82 @@ def run_mode1_and_render(product: Dims,
     plt.close(fig)
 
     return Mode1Result(max_quantity=max_qty, image_rel_path=rel_path)
+
+def render_product_base_unit(product: Dims, media_root: str) -> str:
+    """
+    Render a clean matplotlib 3D view of the base product unit.
+
+    The labels follow the tool input convention:
+      - Length = X direction
+      - Width  = Y direction
+      - Height = Z direction
+
+    Returns the relative image path below MEDIA_ROOT.
+    """
+    length, width, height = (float(product[0]), float(product[1]), float(product[2]))
+
+    fig = plt.figure(figsize=(5.9, 3.7))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.set_position([0.02, 0.12, 0.96, 0.82])
+    ax.set_box_aspect([max(length, 1.0), max(width, 1.0), max(height, 1.0)])
+
+    draw_cube(
+        ax,
+        0,
+        0,
+        0,
+        length,
+        width,
+        height,
+        color="#f59e0b",
+        edge_color="#111827",
+        alpha=0.60,
+        alpha_edges=0.82,
+    )
+
+    max_dim = max(length, width, height, 1.0)
+    margin = max(max_dim * 0.18, 1.0)
+
+    # Clean edge guides: letters on the 3D view, exact values in badges.
+    line_color = "#475569"
+    text_color = "#0f172a"
+
+    ax.plot([0, length], [-margin * 0.16, -margin * 0.16], [0, 0], color=line_color, linewidth=1.6)
+    ax.text(length / 2, -margin * 0.23, 0, "L", color=text_color, fontsize=11, fontweight="bold", ha="center")
+
+    ax.plot([length + margin * 0.12, length + margin * 0.12], [0, width], [0, 0], color=line_color, linewidth=1.6)
+    ax.text(length + margin * 0.19, width / 2, 0, "W", color=text_color, fontsize=11, fontweight="bold", ha="center")
+
+    ax.plot([-margin * 0.10, -margin * 0.10], [-margin * 0.10, -margin * 0.10], [0, height], color=line_color, linewidth=1.6)
+    ax.text(-margin * 0.16, -margin * 0.12, height / 2, "H", color=text_color, fontsize=11, fontweight="bold", ha="center")
+
+    ax.set_xlim([-margin, length + margin])
+    ax.set_ylim([-margin, width + margin])
+    ax.set_zlim([-margin * 0.12, height + margin * 0.45])
+    ax.view_init(elev=22, azim=35)
+
+    ax.set_axis_off()
+    ax.grid(False)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+        axis.pane.set_alpha(0.0)
+        axis.line.set_alpha(0.0)
+
+    badge_style = dict(boxstyle="round,pad=0.25", facecolor="#f8fafc", edgecolor="#cbd5e1", linewidth=0.8)
+    ax.text2D(0.20, 0.02, f"L: {length:g} mm", transform=ax.transAxes, ha="center", va="center", fontsize=9, color=text_color, bbox=badge_style)
+    ax.text2D(0.50, 0.02, f"W: {width:g} mm", transform=ax.transAxes, ha="center", va="center", fontsize=9, color=text_color, bbox=badge_style)
+    ax.text2D(0.80, 0.02, f"H: {height:g} mm", transform=ax.transAxes, ha="center", va="center", fontsize=9, color=text_color, bbox=badge_style)
+
+    rel_dir = "box_selection"
+    file_name = f"product_base_{uuid.uuid4().hex}.png"
+    rel_path = os.path.join(rel_dir, file_name)
+    abs_path = os.path.join(media_root, rel_path)
+
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    plt.savefig(abs_path, dpi=150, bbox_inches="tight", pad_inches=0.04)
+    plt.close(fig)
+
+    return rel_path
+

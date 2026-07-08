@@ -21,6 +21,7 @@ from ..tools.container.service import (
 )
 from ..tools.container.state import default_container_config
 from ..tools.container.export import build_container_selection_pdf
+from ..utils.box_selection.engine import render_product_base_unit
 
 
 def _as_bool(value):
@@ -140,7 +141,36 @@ def _rotation_display(r1, r2, r3):
     return ", ".join(rotations) if rotations else "None"
 
 
-def _build_single_export_payload(*, form, analysis, selected_product, selected_material):
+def _product_dimensions_for_render(selected_product, form):
+    if selected_product:
+        return (
+            selected_product.product_length,
+            selected_product.product_width,
+            selected_product.product_height,
+        )
+
+    return (
+        form.cleaned_data.get("product_l"),
+        form.cleaned_data.get("product_w"),
+        form.cleaned_data.get("product_h"),
+    )
+
+
+def _render_product_base_image(selected_product, form):
+    dims = _product_dimensions_for_render(selected_product, form)
+    if any(value in (None, "", "None") for value in dims):
+        return ""
+
+    try:
+        return render_product_base_unit(
+            (float(dims[0]), float(dims[1]), float(dims[2])),
+            settings.MEDIA_ROOT,
+        )
+    except (TypeError, ValueError):
+        return ""
+
+
+def _build_single_export_payload(*, form, analysis, selected_product, selected_material, product_base_image_rel_path=""):
     analysis_report = analysis.get("analysis_report")
     result = analysis.get("result")
 
@@ -195,6 +225,7 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
     return {
         "report_type": "single",
         "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
+        "product_base_image_rel_path": product_base_image_rel_path,
         "product": {
             "source": "Catalogue" if product_source == "catalogue" else "Manual",
             "id": product_id,
@@ -270,7 +301,7 @@ def _top5_export_rows(top5):
     return rows
 
 
-def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None, selected_material=None):
+def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None, selected_material=None, product_base_image_rel_path=""):
     if not top5:
         return None
 
@@ -316,6 +347,7 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
         "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
         "catalogue_name": _catalogue_name_from_choice(form, "catalogue_id"),
         "image_rel_path": getattr(result, "image_rel_path", "") if result else "",
+        "product_base_image_rel_path": product_base_image_rel_path,
         "selected_candidate": selected_candidate,
         "analysis_report": analysis_report,
         "product": {
@@ -354,6 +386,8 @@ def container_selection_mode1(request):
     image_url = None
     top5 = []
     analysis_report = None
+    product_base_image_url = None
+    product_base_image_rel_path = ""
 
     if request.method == "POST" and form.is_valid():
         analysis = analyze_container_form(
@@ -369,6 +403,11 @@ def container_selection_mode1(request):
         top5 = analysis["top5"]
         analysis_report = analysis.get("analysis_report")
 
+        if analysis.get("ok") and analysis_report and result:
+            product_base_image_rel_path = _render_product_base_image(selected_product, form)
+            if product_base_image_rel_path:
+                product_base_image_url = settings.MEDIA_URL + product_base_image_rel_path
+
         current_form_mode = form.cleaned_data.get("mode") or "single"
 
         if (
@@ -382,6 +421,7 @@ def container_selection_mode1(request):
                 analysis=analysis,
                 selected_product=selected_product,
                 selected_material=selected_material,
+                product_base_image_rel_path=product_base_image_rel_path,
             )
             if export_payload:
                 request.session["container_selection_last_export"] = export_payload
@@ -395,6 +435,7 @@ def container_selection_mode1(request):
                 selected_product=selected_product,
                 analysis=analysis,
                 selected_material=selected_material,
+                product_base_image_rel_path=product_base_image_rel_path,
             )
             if optimal_export_payload:
                 request.session["container_selection_optimal_export"] = optimal_export_payload
@@ -420,6 +461,7 @@ def container_selection_mode1(request):
 
         "result": result,
         "image_url": image_url,
+        "product_base_image_url": product_base_image_url,
         "analysis_report": analysis_report,
         "top5": top5,
 

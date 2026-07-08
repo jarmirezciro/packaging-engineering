@@ -60,16 +60,6 @@
                     {% endif %}
                 </div>
             {% endif %}
-
-            {% if mode == "workflow" and pending_result %}
-                <div class="app-form-actions tool-card-actions mt-3">
-                    <button type="submit"
-                            class="btn btn-app-primary btn-sm"
-                            onclick="document.getElementById('form_action_{{ container_ui.prefix }}').value='use_step_result';">
-                        <i class="bi bi-check2-circle me-2"></i>Use this result in workflow
-                    </button>
-                </div>
-            {% endif %}
             {% if analysis_report %}
                 <details class="tool-summary-strip mt-3 mb-0">
                     <summary class="tool-summary-main" style="cursor: pointer;">
@@ -138,6 +128,18 @@
                             {% if not analysis_report.has_payload_capacity %} Payload capacity is not currently available in the packaging material record.{% endif %}
                         </div>
                     {% endif %}
+                    {% if product_base_image_url %}
+                        <div class="border rounded-3 p-3 mt-3 bg-white">
+                            <div class="tool-stat-label mb-2">Base product unit</div>
+                            <div class="tool-render-wrap mb-2">
+                                <img src="{{ product_base_image_url }}" alt="Base product unit dimensions" class="tool-render-image">
+                            </div>
+                            <div class="tool-summary-meta">
+                                Length, width and height are shown as used by the calculation.
+                            </div>
+                        </div>
+                    {% endif %}
+
                 </details>
             {% endif %}
         {% else %}

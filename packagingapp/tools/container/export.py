@@ -136,6 +136,22 @@ def _section_title(text):
     return Paragraph(text, _STYLES["SectionTitle"])
 
 
+def _report_image(image_rel_path, max_width, max_height):
+    image_path = _safe_media_path(image_rel_path)
+    if not image_path:
+        return None
+
+    try:
+        img = Image(image_path)
+    except Exception:
+        return None
+
+    scale = min(max_width / img.drawWidth, max_height / img.drawHeight, 1)
+    img.drawWidth *= scale
+    img.drawHeight *= scale
+    return img
+
+
 def _key_value_table(rows, col_widths):
     data = [
         [
@@ -301,19 +317,19 @@ def build_container_selection_single_pdf(export_payload):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
     story.append(info_grid)
-    story.append(Spacer(1, 5))
+    story.append(Spacer(1, 4))
 
-    image_path = _safe_media_path(export_payload.get("image_rel_path"))
-    if image_path:
+    base_img = _report_image(export_payload.get("product_base_image_rel_path"), 125 * mm, 42 * mm)
+    if base_img:
+        story.append(_section_title("Base product unit"))
+        story.append(base_img)
+        story.append(Spacer(1, 4))
+
+    packing_img = _report_image(export_payload.get("image_rel_path"), 165 * mm, 58 * mm)
+    if packing_img:
         story.append(_section_title("Packing visualization"))
-        img = Image(image_path)
-        max_width = 170 * mm
-        max_height = 70 * mm
-        scale = min(max_width / img.drawWidth, max_height / img.drawHeight, 1)
-        img.drawWidth *= scale
-        img.drawHeight *= scale
-        story.append(img)
-        story.append(Spacer(1, 5))
+        story.append(packing_img)
+        story.append(Spacer(1, 4))
 
     story.append(Paragraph(
         "Decision-support representation only. Physical validation is recommended for critical packaging decisions. "
@@ -384,7 +400,13 @@ def build_container_selection_optimal_pdf(export_payload):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
     story.append(info_grid)
-    story.append(Spacer(1, 5))
+    story.append(Spacer(1, 4))
+
+    base_img = _report_image(export_payload.get("product_base_image_rel_path"), 95 * mm, 30 * mm)
+    if base_img:
+        story.append(_section_title("Base product unit"))
+        story.append(base_img)
+        story.append(Spacer(1, 4))
 
     story.append(_section_title("Top 5 suitable packaging options"))
     story.append(_top5_table(top5))
@@ -402,14 +424,10 @@ def build_container_selection_optimal_pdf(export_payload):
             ))
             story.append(Spacer(1, 2))
 
-        img = Image(image_path)
-        max_width = 125 * mm
-        max_height = 48 * mm
-        scale = min(max_width / img.drawWidth, max_height / img.drawHeight, 1)
-        img.drawWidth *= scale
-        img.drawHeight *= scale
-        story.append(img)
-        story.append(Spacer(1, 5))
+        selected_img = _report_image(export_payload.get("image_rel_path"), 120 * mm, 40 * mm)
+        if selected_img:
+            story.append(selected_img)
+            story.append(Spacer(1, 4))
 
     story.append(Paragraph(
         "The Top 5 list includes packaging options that can fit the required quantity. "
