@@ -41,23 +41,112 @@
                 </div>
             {% endif %}
 
-            {% if image_url %}
-                <div class="tool-render-wrap">
-                    <img src="{{ image_url }}" alt="Packing result" class="tool-render-image">
+
+            {% if threejs_scene %}
+                <div class="container-threejs-panel mt-3">
+                    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-2">
+                        <div>
+                            <div class="tool-summary-main"><strong>Interactive 3D result</strong></div>
+                            <div class="tool-summary-meta">Rotate, zoom and inspect the packing zones. The PDF export uses this current 3D view only.</div>
+                        </div>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="3D view controls">
+                            <button type="button" class="btn btn-app-outline" data-container-threejs-view="reset">Reset</button>
+                            <button type="button" class="btn btn-app-outline" data-container-threejs-view="top">Top</button>
+                            <button type="button" class="btn btn-app-outline" data-container-threejs-view="front">Front</button>
+                            <button type="button" class="btn btn-app-outline" data-container-threejs-view="side">Side</button>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-3 mb-2 small text-muted">
+                        <label class="d-inline-flex align-items-center gap-1 mb-0">
+                            <input type="checkbox" data-container-threejs-toggle="subboxes" checked>
+                            Show mainbox/subboxes
+                        </label>
+                        <span>Mouse: drag to rotate, wheel to zoom, right-drag to pan.</span>
+                    </div>
+                    {{ threejs_scene|json_script:container_ui.ids.threejs_scene }}
+                    <div id="{{ container_ui.ids.threejs_viewer }}"
+                         class="container-threejs-viewer"
+                         data-container-threejs-viewer
+                         data-scene-script="{{ container_ui.ids.threejs_scene }}">
+                    </div>
                 </div>
+                <style>
+                    .container-threejs-panel {
+                        border: 1px solid rgba(15, 23, 42, 0.12);
+                        border-radius: 1rem;
+                        padding: 0.85rem;
+                        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+                        width: 100%;
+                        max-width: 100%;
+                        min-width: 0;
+                        overflow: hidden;
+                        box-sizing: border-box;
+                    }
+                    .container-threejs-panel * {
+                        box-sizing: border-box;
+                    }
+                    .container-threejs-viewer {
+                        width: 100%;
+                        max-width: 100%;
+                        min-width: 0;
+                        min-height: 420px;
+                        height: min(56vh, 560px);
+                        border: 1px solid rgba(15, 23, 42, 0.10);
+                        border-radius: 0.85rem;
+                        overflow: hidden;
+                        background: #f8fafc;
+                        position: relative;
+                        display: block;
+                        contain: layout paint;
+                    }
+                    .container-threejs-viewer canvas {
+                        display: block;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        height: 100% !important;
+                        max-height: 100% !important;
+                    }
+                    .container-threejs-fallback {
+                        padding: 1rem;
+                        color: #64748b;
+                        font-size: 0.9rem;
+                    }
+                </style>
             {% endif %}
 
             {% if mode == "standalone" and analysis_report %}
                 <div class="app-form-actions tool-card-actions mt-3">
+                    <input type="hidden" name="threejs_snapshot" value="">
+                    <input type="hidden" name="threejs_view_label" value="">
                     {% if current_mode == "single" %}
-                        <a href="{% url 'container_selection_export_pdf' %}" class="btn btn-app-outline btn-sm">
-                            <i class="bi bi-file-earmark-pdf me-2"></i>Download one-page PDF
-                        </a>
-                    {% elif current_mode == "optimal" and image_url %}
-                        <a href="{% url 'container_selection_export_optimal_pdf' %}" class="btn btn-app-outline btn-sm">
-                            <i class="bi bi-file-earmark-pdf me-2"></i>Download one-page PDF
-                        </a>
+                        <button type="submit"
+                                class="btn btn-app-outline btn-sm"
+                                formaction="{% url 'container_selection_export_pdf' %}"
+                                formmethod="post"
+                                data-container-threejs-pdf-button
+                                data-container-threejs-pdf-viewer="{{ container_ui.ids.threejs_viewer }}">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF with current 3D view
+                        </button>
+                    {% elif current_mode == "optimal" and threejs_scene %}
+                        <button type="submit"
+                                class="btn btn-app-outline btn-sm"
+                                formaction="{% url 'container_selection_export_optimal_pdf' %}"
+                                formmethod="post"
+                                data-container-threejs-pdf-button
+                                data-container-threejs-pdf-viewer="{{ container_ui.ids.threejs_viewer }}">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF with current 3D view
+                        </button>
                     {% endif %}
+                </div>
+            {% endif %}
+
+            {% if mode == "workflow" and pending_result %}
+                <div class="app-form-actions tool-card-actions mt-3">
+                    <button type="submit"
+                            class="btn btn-app-primary btn-sm"
+                            onclick="document.getElementById('form_action_{{ container_ui.prefix }}').value='use_step_result';">
+                        <i class="bi bi-check2-circle me-2"></i>Use this result in workflow
+                    </button>
                 </div>
             {% endif %}
             {% if analysis_report %}
@@ -128,18 +217,6 @@
                             {% if not analysis_report.has_payload_capacity %} Payload capacity is not currently available in the packaging material record.{% endif %}
                         </div>
                     {% endif %}
-                    {% if product_base_image_url %}
-                        <div class="border rounded-3 p-3 mt-3 bg-white">
-                            <div class="tool-stat-label mb-2">Base product unit</div>
-                            <div class="tool-render-wrap mb-2">
-                                <img src="{{ product_base_image_url }}" alt="Base product unit dimensions" class="tool-render-image">
-                            </div>
-                            <div class="tool-summary-meta">
-                                Length, width and height are shown as used by the calculation.
-                            </div>
-                        </div>
-                    {% endif %}
-
                 </details>
             {% endif %}
         {% else %}

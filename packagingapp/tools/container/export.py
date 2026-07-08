@@ -152,6 +152,22 @@ def _report_image(image_rel_path, max_width, max_height):
     return img
 
 
+
+
+def _preferred_visualization_rel_path(export_payload):
+    """Use only the browser-captured Three.js snapshot for PDF reports."""
+    return (export_payload or {}).get("threejs_snapshot_rel_path")
+
+
+def _visualization_source_label(export_payload):
+    if (export_payload or {}).get("threejs_snapshot_rel_path"):
+        return (export_payload or {}).get("threejs_view_label") or "Current interactive 3D view"
+    return "Three.js snapshot was not captured"
+
+
+def _visualization_image(export_payload, max_width, max_height):
+    return _report_image(_preferred_visualization_rel_path(export_payload), max_width, max_height)
+
 def _key_value_table(rows, col_widths):
     data = [
         [
@@ -223,7 +239,7 @@ def _top5_table(rows):
 
     table = Table(
         data,
-        colWidths=[12 * mm, 28 * mm, 54 * mm, 22 * mm, 38 * mm, 24 * mm, 20 * mm, 20 * mm],
+        colWidths=[9 * mm, 22 * mm, 40 * mm, 16 * mm, 31 * mm, 19 * mm, 15 * mm, 16 * mm],
         repeatRows=1,
     )
     table.setStyle(TableStyle([
@@ -263,10 +279,13 @@ def _build_doc(buffer, title="Container Selection Report", pagesize=A4):
 
 def build_container_selection_single_pdf(export_payload):
     """
-    Build a compact one-page standalone Single container analysis PDF.
+    Build a polished landscape Single container analysis PDF.
+
+    The report uses the current Three.js browser snapshot posted by the export form.
+    The old Matplotlib packing image is intentionally not used in the PDF report.
     """
     buffer = BytesIO()
-    doc = _build_doc(buffer, title="Container Selection Single Report")
+    doc = _build_doc(buffer, title="Container Selection Single Report", pagesize=landscape(A4))
     story = []
 
     generated_at = export_payload.get("generated_at") or timezone.now().strftime("%Y-%m-%d %H:%M")
@@ -294,7 +313,7 @@ def build_container_selection_single_pdf(export_payload):
         ("Dimensions", product.get("dimensions")),
         ("Weight", product.get("weight")),
         ("Rotations", product.get("rotations")),
-    ], [28 * mm, 54 * mm])
+    ], [28 * mm, 64 * mm])
 
     container_table = _key_value_table([
         ("Source", container.get("source")),
@@ -302,34 +321,48 @@ def build_container_selection_single_pdf(export_payload):
         ("Description", container.get("description")),
         ("Type", container.get("type")),
         ("Internal dims", container.get("dimensions")),
-        ("Tare / payload", f"{container.get('tare', '-')} / {container.get('payload_capacity', '-')}"),
-    ], [30 * mm, 58 * mm])
+        ("Tare / payload", f"{container.get('tare', '-')} / {container.get('payload_capacity', '-')}")
+    ], [30 * mm, 66 * mm])
 
-    info_grid = Table(
-        [[_section_title("Product"), _section_title("Packaging")], [product_table, container_table]],
-        colWidths=[84 * mm, 90 * mm],
+    left_stack = [
+        _section_title("Product"),
+        product_table,
+        Spacer(1, 4),
+        _section_title("Packaging"),
+        container_table,
+    ]
+
+    base_img = _report_image(export_payload.get("product_base_image_rel_path"), 92 * mm, 34 * mm)
+    if base_img:
+        left_stack.extend([Spacer(1, 4), _section_title("Base product unit"), base_img])
+
+    visual_stack = [
+        _section_title("Packing visualization"),
+        Paragraph(
+            f"Source: <b>{_clean(_visualization_source_label(export_payload))}</b>",
+            _STYLES["BodySmall"],
+        ),
+        Spacer(1, 2),
+    ]
+    packing_img = _visualization_image(export_payload, 150 * mm, 105 * mm)
+    if packing_img:
+        visual_stack.append(packing_img)
+    else:
+        visual_stack.append(Paragraph("No Three.js snapshot was captured for this export. Please use the PDF button below the interactive 3D viewer and wait until the viewer is fully loaded.", _STYLES["BodySmall"]))
+
+    content_grid = Table(
+        [[left_stack, visual_stack]],
+        colWidths=[103 * mm, 150 * mm],
     )
-    info_grid.setStyle(TableStyle([
+    content_grid.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
         ("TOPPADDING", (0, 0), (-1, -1), 0),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
-    story.append(info_grid)
-    story.append(Spacer(1, 4))
-
-    base_img = _report_image(export_payload.get("product_base_image_rel_path"), 125 * mm, 42 * mm)
-    if base_img:
-        story.append(_section_title("Base product unit"))
-        story.append(base_img)
-        story.append(Spacer(1, 4))
-
-    packing_img = _report_image(export_payload.get("image_rel_path"), 165 * mm, 58 * mm)
-    if packing_img:
-        story.append(_section_title("Packing visualization"))
-        story.append(packing_img)
-        story.append(Spacer(1, 4))
+    story.append(content_grid)
+    story.append(Spacer(1, 5))
 
     story.append(Paragraph(
         "Decision-support representation only. Physical validation is recommended for critical packaging decisions. "
@@ -346,7 +379,11 @@ def build_container_selection_single_pdf(export_payload):
 
 def build_container_selection_optimal_pdf(export_payload):
     """
-    Build a compact one-page standalone Optimal container Top 5 PDF.
+    Build a polished landscape Optimal container Top 5 PDF.
+
+    The selected candidate visualization uses the current Three.js browser
+    snapshot posted by the export form. The old Matplotlib packing image is
+    intentionally not used in the PDF report.
     """
     buffer = BytesIO()
     doc = _build_doc(buffer, title="Container Selection Optimal Report", pagesize=landscape(A4))
@@ -356,6 +393,7 @@ def build_container_selection_optimal_pdf(export_payload):
     product = export_payload.get("product") or {}
     top5 = export_payload.get("top5") or []
     recommendation = top5[0] if top5 else {}
+    selected_candidate = export_payload.get("selected_candidate") or {}
 
     story.append(Paragraph("Container Selection Report", _STYLES["ReportTitle"]))
     story.append(Paragraph(f"Optimal container recommendation - Generated {generated_at}", _STYLES["ReportSubtitle"]))
@@ -377,20 +415,34 @@ def build_container_selection_optimal_pdf(export_payload):
         ("Dimensions", product.get("dimensions")),
         ("Weight", product.get("weight")),
         ("Rotations", product.get("rotations")),
-    ], [34 * mm, 72 * mm])
+    ], [31 * mm, 63 * mm])
 
     context_table = _key_value_table([
         ("Mode", "Optimal container"),
         ("Catalogue", export_payload.get("catalogue_name")),
         ("Ranking logic", "Highest volume usage, then smaller container volume"),
-        ("Recommendation", recommendation.get("part_number")),
-        ("Description", recommendation.get("description")),
-        ("Internal dims", recommendation.get("dimensions")),
-    ], [36 * mm, 66 * mm])
+        ("Selected candidate", selected_candidate.get("part_number") or recommendation.get("part_number")),
+        ("Description", selected_candidate.get("description") or recommendation.get("description")),
+        ("Internal dims", selected_candidate.get("dimensions") or recommendation.get("dimensions")),
+    ], [35 * mm, 67 * mm])
+
+    visual_stack = [
+        _section_title("Selected candidate 3D visualization"),
+        Paragraph(
+            f"Source: <b>{_clean(_visualization_source_label(export_payload))}</b>",
+            _STYLES["BodySmall"],
+        ),
+        Spacer(1, 2),
+    ]
+    selected_img = _visualization_image(export_payload, 84 * mm, 92 * mm)
+    if selected_img:
+        visual_stack.append(selected_img)
+    else:
+        visual_stack.append(Paragraph("No Three.js snapshot was captured for this export. Please use the PDF button below the interactive 3D viewer and wait until the viewer is fully loaded.", _STYLES["BodySmall"]))
 
     info_grid = Table(
         [[_section_title("Product"), _section_title("Recommendation context")], [product_table, context_table]],
-        colWidths=[106 * mm, 106 * mm],
+        colWidths=[96 * mm, 104 * mm],
     )
     info_grid.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -399,35 +451,21 @@ def build_container_selection_optimal_pdf(export_payload):
         ("TOPPADDING", (0, 0), (-1, -1), 0),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
-    story.append(info_grid)
-    story.append(Spacer(1, 4))
 
-    base_img = _report_image(export_payload.get("product_base_image_rel_path"), 95 * mm, 30 * mm)
-    if base_img:
-        story.append(_section_title("Base product unit"))
-        story.append(base_img)
-        story.append(Spacer(1, 4))
-
-    story.append(_section_title("Top 5 suitable packaging options"))
-    story.append(_top5_table(top5))
+    top_context_stack = [info_grid, Spacer(1, 5), _section_title("Top 5 suitable packaging options"), _top5_table(top5)]
+    content_grid = Table(
+        [[top_context_stack, visual_stack]],
+        colWidths=[178 * mm, 86 * mm],
+    )
+    content_grid.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    story.append(content_grid)
     story.append(Spacer(1, 5))
-
-    image_path = _safe_media_path(export_payload.get("image_rel_path"))
-    if image_path:
-        selected_candidate = export_payload.get("selected_candidate") or {}
-        story.append(_section_title("Selected candidate packing visualization"))
-        selected_text = selected_candidate.get("part_number")
-        if selected_text:
-            story.append(Paragraph(
-                f"Selected candidate: <b>{_clean(selected_text)}</b> - {_clean(selected_candidate.get('description'))}",
-                _STYLES["BodySmall"],
-            ))
-            story.append(Spacer(1, 2))
-
-        selected_img = _report_image(export_payload.get("image_rel_path"), 120 * mm, 40 * mm)
-        if selected_img:
-            story.append(selected_img)
-            story.append(Spacer(1, 4))
 
     story.append(Paragraph(
         "The Top 5 list includes packaging options that can fit the required quantity. "

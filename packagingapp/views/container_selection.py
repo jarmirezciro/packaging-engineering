@@ -1,4 +1,8 @@
 from django.conf import settings
+import base64
+import binascii
+import os
+import uuid
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.utils import timezone
@@ -21,7 +25,6 @@ from ..tools.container.service import (
 )
 from ..tools.container.state import default_container_config
 from ..tools.container.export import build_container_selection_pdf
-from ..utils.box_selection.engine import render_product_base_unit
 
 
 def _as_bool(value):
@@ -101,6 +104,8 @@ def _build_shared_container_ui_contract(prefix=""):
             "manual_container_fields": f"manualContainerFields{suffix}",
             "selected_product_id": f"selected_product_id{suffix}",
             "container_id": f"container_id{suffix}",
+            "threejs_viewer": f"containerThreeJsViewer{suffix}",
+            "threejs_scene": f"containerThreeJsScene{suffix}",
         },
         "actions": {
             "refresh": "containerSelectionRefresh",
@@ -141,36 +146,7 @@ def _rotation_display(r1, r2, r3):
     return ", ".join(rotations) if rotations else "None"
 
 
-def _product_dimensions_for_render(selected_product, form):
-    if selected_product:
-        return (
-            selected_product.product_length,
-            selected_product.product_width,
-            selected_product.product_height,
-        )
-
-    return (
-        form.cleaned_data.get("product_l"),
-        form.cleaned_data.get("product_w"),
-        form.cleaned_data.get("product_h"),
-    )
-
-
-def _render_product_base_image(selected_product, form):
-    dims = _product_dimensions_for_render(selected_product, form)
-    if any(value in (None, "", "None") for value in dims):
-        return ""
-
-    try:
-        return render_product_base_unit(
-            (float(dims[0]), float(dims[1]), float(dims[2])),
-            settings.MEDIA_ROOT,
-        )
-    except (TypeError, ValueError):
-        return ""
-
-
-def _build_single_export_payload(*, form, analysis, selected_product, selected_material, product_base_image_rel_path=""):
+def _build_single_export_payload(*, form, analysis, selected_product, selected_material):
     analysis_report = analysis.get("analysis_report")
     result = analysis.get("result")
 
@@ -225,7 +201,6 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
     return {
         "report_type": "single",
         "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
-        "product_base_image_rel_path": product_base_image_rel_path,
         "product": {
             "source": "Catalogue" if product_source == "catalogue" else "Manual",
             "id": product_id,
@@ -301,7 +276,7 @@ def _top5_export_rows(top5):
     return rows
 
 
-def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None, selected_material=None, product_base_image_rel_path=""):
+def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None, selected_material=None):
     if not top5:
         return None
 
@@ -347,7 +322,6 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
         "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
         "catalogue_name": _catalogue_name_from_choice(form, "catalogue_id"),
         "image_rel_path": getattr(result, "image_rel_path", "") if result else "",
-        "product_base_image_rel_path": product_base_image_rel_path,
         "selected_candidate": selected_candidate,
         "analysis_report": analysis_report,
         "product": {
@@ -361,6 +335,66 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
         },
         "top5": _top5_export_rows(top5),
     }
+
+
+def _save_threejs_snapshot_from_request(request):
+    """
+    Save an optional Three.js canvas snapshot posted by the browser.
+
+    Returns a MEDIA_ROOT-relative path that ReportLab can use, or an empty
+    string if no valid snapshot was submitted. The PDF exporter falls back to
+    the Matplotlib image when this returns empty.
+    """
+    if request.method != "POST":
+        return ""
+
+    data_url = (request.POST.get("threejs_snapshot") or "").strip()
+    allowed_prefixes = {
+        "data:image/png;base64,": (".png", b"\x89PNG\r\n\x1a\n"),
+        "data:image/jpeg;base64,": (".jpg", b"\xff\xd8"),
+    }
+    matched = None
+    for prefix, meta in allowed_prefixes.items():
+        if data_url.startswith(prefix):
+            matched = (prefix, meta[0], meta[1])
+            break
+    if not matched:
+        return ""
+
+    # Keep the snapshot bounded. The browser sends JPEG by default to avoid
+    # Django's default request-size limits, but this still protects the server.
+    if len(data_url) > 8_000_000:
+        return ""
+
+    try:
+        encoded = data_url.split(",", 1)[1]
+        image_bytes = base64.b64decode(encoded, validate=True)
+    except (IndexError, binascii.Error, ValueError):
+        return ""
+
+    _prefix, extension, magic = matched
+    if not image_bytes.startswith(magic):
+        return ""
+
+    rel_dir = os.path.join("container_exports", "threejs")
+    file_name = f"threejs_snapshot_{uuid.uuid4().hex}{extension}"
+    rel_path = os.path.join(rel_dir, file_name)
+    abs_path = os.path.join(settings.MEDIA_ROOT, rel_path)
+
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    with open(abs_path, "wb") as image_file:
+        image_file.write(image_bytes)
+
+    return rel_path
+
+
+def _attach_threejs_snapshot(export_payload, request):
+    payload = dict(export_payload or {})
+    snapshot_rel_path = _save_threejs_snapshot_from_request(request)
+    if snapshot_rel_path:
+        payload["threejs_snapshot_rel_path"] = snapshot_rel_path
+        payload["threejs_view_label"] = request.POST.get("threejs_view_label") or "Current interactive 3D view"
+    return payload
 
 def container_selection_mode1(request):
     packaging_catalogues = get_packaging_catalogues(request.user)
@@ -386,8 +420,7 @@ def container_selection_mode1(request):
     image_url = None
     top5 = []
     analysis_report = None
-    product_base_image_url = None
-    product_base_image_rel_path = ""
+    threejs_scene = None
 
     if request.method == "POST" and form.is_valid():
         analysis = analyze_container_form(
@@ -402,11 +435,7 @@ def container_selection_mode1(request):
         image_url = analysis["image_url"]
         top5 = analysis["top5"]
         analysis_report = analysis.get("analysis_report")
-
-        if analysis.get("ok") and analysis_report and result:
-            product_base_image_rel_path = _render_product_base_image(selected_product, form)
-            if product_base_image_rel_path:
-                product_base_image_url = settings.MEDIA_URL + product_base_image_rel_path
+        threejs_scene = analysis.get("threejs_scene")
 
         current_form_mode = form.cleaned_data.get("mode") or "single"
 
@@ -421,7 +450,6 @@ def container_selection_mode1(request):
                 analysis=analysis,
                 selected_product=selected_product,
                 selected_material=selected_material,
-                product_base_image_rel_path=product_base_image_rel_path,
             )
             if export_payload:
                 request.session["container_selection_last_export"] = export_payload
@@ -435,7 +463,6 @@ def container_selection_mode1(request):
                 selected_product=selected_product,
                 analysis=analysis,
                 selected_material=selected_material,
-                product_base_image_rel_path=product_base_image_rel_path,
             )
             if optimal_export_payload:
                 request.session["container_selection_optimal_export"] = optimal_export_payload
@@ -461,7 +488,7 @@ def container_selection_mode1(request):
 
         "result": result,
         "image_url": image_url,
-        "product_base_image_url": product_base_image_url,
+        "threejs_scene": threejs_scene,
         "analysis_report": analysis_report,
         "top5": top5,
 
@@ -502,6 +529,7 @@ def container_selection_export_pdf(request):
             content_type="text/plain",
         )
 
+    export_payload = _attach_threejs_snapshot(export_payload, request)
     export_payload["report_type"] = "single"
     pdf_buffer = build_container_selection_pdf(export_payload)
     timestamp = timezone.now().strftime("%Y%m%d_%H%M")
@@ -522,6 +550,7 @@ def container_selection_export_optimal_pdf(request):
             content_type="text/plain",
         )
 
+    export_payload = _attach_threejs_snapshot(export_payload, request)
     export_payload["report_type"] = "optimal"
     pdf_buffer = build_container_selection_pdf(export_payload)
     timestamp = timezone.now().strftime("%Y%m%d_%H%M")

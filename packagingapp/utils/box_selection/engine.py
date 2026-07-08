@@ -26,6 +26,7 @@ Point = Tuple[float, float, float]
 class Mode1Result:
     max_quantity: int
     image_rel_path: str
+    threejs_scene: Optional[dict] = None
 
 
 def draw_cube(ax, x, y, z, dx, dy, dz,
@@ -131,7 +132,8 @@ def fill_subbox(ax,
                 cube_edge_color="blue",
                 cube_alpha=0.9,
                 cube_alpha_edges=0.7,
-                remaining: Optional[List[int]] = None):
+                remaining: Optional[List[int]] = None,
+                scene_items: Optional[List[dict]] = None):
     """
     Fill a subbox volume with a regular grid of cubes (rectangular items) of cube_dimensions.
 
@@ -161,6 +163,14 @@ def fill_subbox(ax,
                         ax, x, y, z, cube_dx, cube_dy, cube_dz,
                         color=cube_color, edge_color=cube_edge_color,
                         alpha=cube_alpha, alpha_edges=cube_alpha_edges
+                    )
+                    _append_threejs_cuboid(
+                        scene_items,
+                        (x, y, z),
+                        (cube_dx, cube_dy, cube_dz),
+                        kind="product",
+                        color="#f59e0b",
+                        opacity=cube_alpha,
                     )
                     if remaining is not None:
                         remaining[0] -= 1
@@ -195,9 +205,63 @@ def compute_max_quantity_only(product: Dims, container: Dims, r1: int, r2: int, 
     return int(max_quantity)
 
 
+
+def _scene_number(value):
+    """Return a JSON-safe float for the browser 3D scene."""
+    return round(float(value), 6)
+
+
+def _build_threejs_scene(container: Dims) -> dict:
+    """
+    Build the browser-render payload for the experimental Three.js preview.
+
+    Python remains the packing source of truth. Three.js only receives
+    cuboid coordinates/dimensions and renders them interactively.
+    """
+    lc, ac, hc = container
+    return {
+        "version": 1,
+        "units": "mm",
+        "container": {
+            "length": _scene_number(lc),
+            "width": _scene_number(ac),
+            "height": _scene_number(hc),
+        },
+        "rsc": {
+            "enabled": True,
+            "openingAngleDeg": 130,
+        },
+        "products": [],
+        "subboxes": [],
+    }
+
+
+def _append_threejs_cuboid(collection, origin: Point, dimensions: Dims, *, kind: str, color: str, opacity: float = 1.0):
+    if collection is None:
+        return
+
+    x, y, z = origin
+    dx, dy, dz = dimensions
+    if dx <= 0 or dy <= 0 or dz <= 0:
+        return
+
+    collection.append({
+        "kind": kind,
+        "x": _scene_number(x),
+        "y": _scene_number(y),
+        "z": _scene_number(z),
+        "dx": _scene_number(dx),
+        "dy": _scene_number(dy),
+        "dz": _scene_number(dz),
+        "color": color,
+        "opacity": float(opacity),
+    })
+
+
 def _draw_region_solution(ax, product: Dims, region: Dims, origin: Point, r1: int, r2: int, r3: int,
                           draw_wireframes: bool = True,
-                          remaining: Optional[List[int]] = None):
+                          remaining: Optional[List[int]] = None,
+                          threejs_scene: Optional[dict] = None):
     """
     Matches your pilot behavior per MainBox call:
       1) Fill the chosen main subbox (dimensions_subbox_max) with b_xyz_max
@@ -224,7 +288,25 @@ def _draw_region_solution(ax, product: Dims, region: Dims, origin: Point, r1: in
     if all(d > 0 for d in main_dims) and all(d > 0 for d in main_cube):
         if draw_wireframes:
             draw_cube(ax, *main_origin, *main_dims, color="blue", edge_color="black", alpha=0.08, alpha_edges=0.08)
-        fill_subbox(ax, main_origin, main_dims, main_cube, cube_color="orange", cube_edge_color="blue", remaining=remaining)
+        if threejs_scene is not None:
+            _append_threejs_cuboid(
+                threejs_scene.get("subboxes"),
+                main_origin,
+                main_dims,
+                kind="main",
+                color="#2563eb",
+                opacity=0.10,
+            )
+        fill_subbox(
+            ax,
+            main_origin,
+            main_dims,
+            main_cube,
+            cube_color="orange",
+            cube_edge_color="blue",
+            remaining=remaining,
+            scene_items=(threejs_scene or {}).get("products"),
+        )
 
     if remaining is not None and remaining[0] <= 0:
         return int(max_quantity), []
@@ -245,7 +327,25 @@ def _draw_region_solution(ax, product: Dims, region: Dims, origin: Point, r1: in
             if draw_wireframes:
                 draw_cube(ax, *sub_origin, *sub_dims, color=wire_color, edge_color="black",
                           alpha=0.08, alpha_edges=0.08)
-            fill_subbox(ax, sub_origin, sub_dims, sub_cube, cube_color="orange", cube_edge_color="blue", remaining=remaining)
+            if threejs_scene is not None:
+                _append_threejs_cuboid(
+                    threejs_scene.get("subboxes"),
+                    sub_origin,
+                    sub_dims,
+                    kind="leftover",
+                    color={"green": "#22c55e", "red": "#ef4444", "yellow": "#eab308"}.get(wire_color, "#94a3b8"),
+                    opacity=0.10,
+                )
+            fill_subbox(
+                ax,
+                sub_origin,
+                sub_dims,
+                sub_cube,
+                cube_color="orange",
+                cube_edge_color="blue",
+                remaining=remaining,
+                scene_items=(threejs_scene or {}).get("products"),
+            )
 
     return int(max_quantity), leftovers
 
@@ -253,7 +353,8 @@ def _draw_region_solution(ax, product: Dims, region: Dims, origin: Point, r1: in
 def _recurse(ax, product: Dims, region: Dims, origin: Point, r1: int, r2: int, r3: int,
              depth: int, max_depth: int,
              remaining: Optional[List[int]] = None,
-             draw_wireframes: bool = True):
+             draw_wireframes: bool = True,
+             threejs_scene: Optional[dict] = None):
     """
     Recursive continuation similar to your pilot's repeated MainBox calls on leftover regions.
     We keep it bounded by max_depth for safety.
@@ -265,8 +366,18 @@ def _recurse(ax, product: Dims, region: Dims, origin: Point, r1: int, r2: int, r
     if remaining is not None and remaining[0] <= 0:
         return
 
-    _, leftovers = _draw_region_solution(ax, product, region, origin, r1, r2, r3,
-                                         draw_wireframes=draw_wireframes, remaining=remaining)
+    _, leftovers = _draw_region_solution(
+        ax,
+        product,
+        region,
+        origin,
+        r1,
+        r2,
+        r3,
+        draw_wireframes=draw_wireframes,
+        remaining=remaining,
+        threejs_scene=threejs_scene,
+    )
 
     if remaining is not None and remaining[0] <= 0:
         return
@@ -280,6 +391,7 @@ def _recurse(ax, product: Dims, region: Dims, origin: Point, r1: int, r2: int, r
                 depth + 1, max_depth,
                 remaining=remaining,
                 draw_wireframes=draw_wireframes,
+                threejs_scene=threejs_scene,
             )
 
 
@@ -311,6 +423,7 @@ def run_mode1_and_render(product: Dims,
     remaining = [int(draw_limit)] if draw_limit is not None else None
     clean_render = str(render_style or "").lower() == "clean"
     show_debug_subboxes = not clean_render
+    threejs_scene = _build_threejs_scene(container)
 
     fig = plt.figure(figsize=(7.6, 4.8))
     ax = fig.add_subplot(111, projection="3d")
@@ -335,6 +448,7 @@ def run_mode1_and_render(product: Dims,
         r3,
         draw_wireframes=show_debug_subboxes,
         remaining=remaining,
+        threejs_scene=threejs_scene,
     )
 
     _recurse(
@@ -349,12 +463,16 @@ def run_mode1_and_render(product: Dims,
         max_depth=6,
         remaining=remaining,
         draw_wireframes=show_debug_subboxes,
+        # The Matplotlib renderer keeps the previous recursive visual behavior.
+        # The interactive Three.js preview stays quantity-faithful by using
+        # the first MainBox solution only, avoiding duplicate/recursive overdraw.
+        threejs_scene=None,
     )
 
     ax.set_xlim([-flap_margin, lc + flap_margin])
     ax.set_ylim([-flap_margin, ac + flap_margin])
     ax.set_zlim([0, hc + flap_margin])
-    ax.view_init(elev=15, azim=15)
+    ax.view_init(elev=28, azim=30)
 
     if clean_render:
         # Final product view: remove matplotlib chart elements and keep only
@@ -382,7 +500,7 @@ def run_mode1_and_render(product: Dims,
     plt.savefig(abs_path, dpi=160, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
-    return Mode1Result(max_quantity=max_qty, image_rel_path=rel_path)
+    return Mode1Result(max_quantity=max_qty, image_rel_path=rel_path, threejs_scene=threejs_scene)
 
 def render_product_base_unit(product: Dims, media_root: str) -> str:
     """
@@ -435,7 +553,7 @@ def render_product_base_unit(product: Dims, media_root: str) -> str:
     ax.set_xlim([-margin, length + margin])
     ax.set_ylim([-margin, width + margin])
     ax.set_zlim([-margin * 0.12, height + margin * 0.45])
-    ax.view_init(elev=15, azim=15)
+    ax.view_init(elev=22, azim=35)
 
     ax.set_axis_off()
     ax.grid(False)

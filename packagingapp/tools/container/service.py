@@ -575,6 +575,7 @@ def analyze_container_form(
         "messages": messages,
         "result": result,
         "image_url": image_url,
+        "threejs_scene": getattr(result, "threejs_scene", None) if result is not None else None,
         "analysis_report": analysis_report,
         "top5": top5,
     }
