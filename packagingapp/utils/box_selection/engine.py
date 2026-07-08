@@ -312,11 +312,12 @@ def run_mode1_and_render(product: Dims,
     clean_render = str(render_style or "").lower() == "clean"
     show_debug_subboxes = not clean_render
 
-    fig = plt.figure(figsize=(7.2, 4.6))
+    fig = plt.figure(figsize=(7.6, 4.8))
     ax = fig.add_subplot(111, projection="3d")
+    ax.set_position([0.02, 0.03, 0.96, 0.94])
     ax.set_box_aspect([lc, ac, hc])
 
-    flap_margin = max(min(lc, ac) * 0.35, 1.0) if clean_render else 0.0
+    flap_margin = max(min(lc, ac) * 0.22, 1.0) if clean_render else 0.0
 
     if clean_render:
         draw_open_box_shell(ax, lc, ac, hc)
@@ -353,7 +354,7 @@ def run_mode1_and_render(product: Dims,
     ax.set_xlim([-flap_margin, lc + flap_margin])
     ax.set_ylim([-flap_margin, ac + flap_margin])
     ax.set_zlim([0, hc + flap_margin])
-    ax.view_init(elev=28, azim=30)
+    ax.view_init(elev=15, azim=15)
 
     if clean_render:
         # Final product view: remove matplotlib chart elements and keep only
@@ -378,8 +379,7 @@ def run_mode1_and_render(product: Dims,
     abs_path = os.path.join(media_root, rel_path)
 
     os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-    plt.tight_layout()
-    plt.savefig(abs_path, dpi=150)
+    plt.savefig(abs_path, dpi=160, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
     return Mode1Result(max_quantity=max_qty, image_rel_path=rel_path)
@@ -397,9 +397,9 @@ def render_product_base_unit(product: Dims, media_root: str) -> str:
     """
     length, width, height = (float(product[0]), float(product[1]), float(product[2]))
 
-    fig = plt.figure(figsize=(5.9, 3.7))
+    fig = plt.figure(figsize=(6.2, 3.9))
     ax = fig.add_subplot(111, projection="3d")
-    ax.set_position([0.02, 0.12, 0.96, 0.82])
+    ax.set_position([0.01, 0.08, 0.98, 0.86])
     ax.set_box_aspect([max(length, 1.0), max(width, 1.0), max(height, 1.0)])
 
     draw_cube(
@@ -417,7 +417,7 @@ def render_product_base_unit(product: Dims, media_root: str) -> str:
     )
 
     max_dim = max(length, width, height, 1.0)
-    margin = max(max_dim * 0.18, 1.0)
+    margin = max(max_dim * 0.12, 1.0)
 
     # Clean edge guides: letters on the 3D view, exact values in badges.
     line_color = "#475569"
@@ -435,7 +435,7 @@ def render_product_base_unit(product: Dims, media_root: str) -> str:
     ax.set_xlim([-margin, length + margin])
     ax.set_ylim([-margin, width + margin])
     ax.set_zlim([-margin * 0.12, height + margin * 0.45])
-    ax.view_init(elev=22, azim=35)
+    ax.view_init(elev=15, azim=15)
 
     ax.set_axis_off()
     ax.grid(False)
@@ -457,7 +457,7 @@ def render_product_base_unit(product: Dims, media_root: str) -> str:
     abs_path = os.path.join(media_root, rel_path)
 
     os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-    plt.savefig(abs_path, dpi=150, bbox_inches="tight", pad_inches=0.04)
+    plt.savefig(abs_path, dpi=160, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
     return rel_path
