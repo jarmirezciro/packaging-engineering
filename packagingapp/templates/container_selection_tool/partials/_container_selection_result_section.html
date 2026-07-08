@@ -44,24 +44,14 @@
 
             {% if threejs_scene %}
                 <div class="container-threejs-panel mt-3">
-                    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-2">
-                        <div>
-                            <div class="tool-summary-main"><strong>Interactive 3D result</strong></div>
-                            <div class="tool-summary-meta">Rotate, zoom and inspect the packing zones. The PDF export uses this current 3D view only.</div>
-                        </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <div class="tool-summary-main me-1"><strong>Interactive 3D result</strong></div>
                         <div class="btn-group btn-group-sm" role="group" aria-label="3D view controls">
                             <button type="button" class="btn btn-app-outline" data-container-threejs-view="reset">Reset</button>
                             <button type="button" class="btn btn-app-outline" data-container-threejs-view="top">Top</button>
                             <button type="button" class="btn btn-app-outline" data-container-threejs-view="front">Front</button>
                             <button type="button" class="btn btn-app-outline" data-container-threejs-view="side">Side</button>
                         </div>
-                    </div>
-                    <div class="d-flex flex-wrap align-items-center gap-3 mb-2 small text-muted">
-                        <label class="d-inline-flex align-items-center gap-1 mb-0">
-                            <input type="checkbox" data-container-threejs-toggle="subboxes" checked>
-                            Show mainbox/subboxes
-                        </label>
-                        <span>Mouse: drag to rotate, wheel to zoom, right-drag to pan.</span>
                     </div>
                     {{ threejs_scene|json_script:container_ui.ids.threejs_scene }}
                     <div id="{{ container_ui.ids.threejs_viewer }}"
@@ -110,6 +100,13 @@
                         padding: 1rem;
                         color: #64748b;
                         font-size: 0.9rem;
+                    }
+                    .container-base-product-card {
+                        max-width: 460px;
+                    }
+                    .container-base-product-preview {
+                        max-height: 220px;
+                        width: auto;
                     }
                 </style>
             {% endif %}
@@ -211,6 +208,12 @@
                             </tbody>
                         </table>
                     </div>
+                    {% if product_base_image_url %}
+                        <div class="border rounded-3 p-2 mt-3 bg-body-tertiary container-base-product-card">
+                            <div class="tool-stat-label mb-2">Base product unit</div>
+                            <img src="{{ product_base_image_url }}" alt="Base product unit render" class="img-fluid d-block mx-auto container-base-product-preview">
+                        </div>
+                    {% endif %}
                     {% if not analysis_report.has_container_tare or not analysis_report.has_payload_capacity %}
                         <div class="tool-summary-meta mt-2">
                             {% if not analysis_report.has_container_tare %}Packaging tare is needed for total weight.{% endif %}

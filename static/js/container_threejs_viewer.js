@@ -213,7 +213,8 @@ function setCameraView(camera, controls, dims, viewName) {
 function setupCamera(width, height, dims) {
     const aspect = Math.max(width, 1) / Math.max(height, 1);
     const maxDim = Math.max(dims.length, dims.width, dims.height);
-    const viewSize = maxDim * 1.75;
+    // Slightly wider orthographic frame so the container, flaps and edges fit comfortably.
+    const viewSize = maxDim * 2.05;
 
     const camera = new THREE.OrthographicCamera(
         -viewSize * aspect / 2,
@@ -337,6 +338,8 @@ function initViewer(el) {
             subboxGroup.visible = Boolean(toggle.checked);
         });
         subboxGroup.visible = Boolean(toggle.checked);
+    } else {
+        subboxGroup.visible = false;
     }
 
     instances.set(el, {
