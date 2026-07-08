@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}{{ company_name }} | Packaging Engineering Tools{% endblock %}
+{% block meta %}<meta name="description" content="Practical packaging engineering tools for box selection, bag selection, palletization, transport container loading, catalogues, and visual reports.">{% endblock %}
+
+{% block content %}
+<div class="app-page marketing-page">
+    <section class="marketing-hero app-hero">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-8">
+                <span class="app-hero-badge"><i class="bi bi-stars"></i> Swedish-minded packaging technology</span>
+                <h1 class="marketing-title">{{ company_name }}</h1>
+                <p class="marketing-tagline">{{ company_tagline }}</p>
+                <p class="marketing-lead">
+                    Practical packaging engineering tools for selecting boxes, bags, pallets, and transport containers with visual, catalogue-driven decision support.
+                </p>
+                <div class="marketing-actions">
+                    <a href="{% url 'home' %}" class="btn btn-light btn-lg">
+                        <i class="bi bi-box-arrow-up-right me-2"></i>Open the tool
+                    </a>
+                    <a href="{% url 'blog_list' %}" class="btn btn-outline-light btn-lg">
+                        <i class="bi bi-journal-text me-2"></i>Read the blog
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="marketing-hero-panel">
+                    <div class="marketing-hero-icon"><i class="bi bi-diagram-3"></i></div>
+                    <div>
+                        <div class="marketing-panel-label">Focus</div>
+                        <div class="marketing-panel-value">Engineering clarity for daily packaging decisions</div>
+                    </div>
+                    <hr>
+                    <div class="marketing-mini-grid">
+                        <div><strong>Box</strong><span>selection</span></div>
+                        <div><strong>Bag</strong><span>selection</span></div>
+                        <div><strong>Pallet</strong><span>patterns</span></div>
+                        <div><strong>Container</strong><span>loading</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="row g-4">
+        <div class="col-lg-5">
+            <div class="app-card h-100">
+                <div class="app-card-body">
+                    <span class="marketing-kicker">About</span>
+                    <h2 class="app-section-title">Built by a packaging engineer, for packaging decisions.</h2>
+                    <p class="app-section-subtitle mb-0">
+                        The project combines packaging engineering experience, operations thinking, and simple digital workflows. The ambition is not to replace engineering judgement, but to make calculations, alternatives, and visual communication faster and easier.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="app-card h-100">
+                <div class="app-card-body">
+                    <span class="marketing-kicker">Positioning</span>
+                    <h2 class="app-section-title">Why this tool is different</h2>
+                    <div class="marketing-check-grid">
+                        <div><i class="bi bi-check-circle-fill"></i><span>Built around practical packaging workflows, not only abstract optimization.</span></div>
+                        <div><i class="bi bi-check-circle-fill"></i><span>Uses your own packaging and product catalogues.</span></div>
+                        <div><i class="bi bi-check-circle-fill"></i><span>Shows visual outputs and one-page reports for communication.</span></div>
+                        <div><i class="bi bi-check-circle-fill"></i><span>Designed to stay simple enough for small teams and daily use.</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="app-card">
+        <div class="app-card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+                <div>
+                    <span class="marketing-kicker">Offer</span>
+                    <h2 class="app-section-title mb-1">A compact toolbox for packaging engineering</h2>
+                    <p class="app-section-subtitle mb-0">Start from product data, select packaging, visualize the result, and communicate decisions.</p>
+                </div>
+                <a href="{% url 'home' %}" class="btn btn-app-primary">
+                    <i class="bi bi-arrow-right-circle me-2"></i>Go to tools
+                </a>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6 col-xl-4">
+                    <div class="marketing-feature-card">
+                        <i class="bi bi-box"></i>
+                        <h3>Box selection</h3>
+                        <p>Find suitable boxes using product dimensions, quantity, orientations, and catalogue restrictions.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="marketing-feature-card">
+                        <i class="bi bi-handbag"></i>
+                        <h3>Bag selection</h3>
+                        <p>Choose bag sizes while considering tolerance, opening direction, and sealing space.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="marketing-feature-card">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                        <h3>Palletization</h3>
+                        <p>Explore pallet layouts, layers, fills, and pattern alternatives with a clearer visual language.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="marketing-feature-card">
+                        <i class="bi bi-truck"></i>
+                        <h3>Transport container</h3>
+                        <p>Estimate packed-unit loading into trailers and transport containers using engineering dimensions.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="marketing-feature-card">
+                        <i class="bi bi-archive"></i>
+                        <h3>Catalogue-driven</h3>
+                        <p>Keep reusable packaging and product catalogues with dimensions, images, weights, and classifications.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="marketing-feature-card">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                        <h3>Reports</h3>
+                        <p>Create simple one-page visual summaries that are easier to share with stakeholders.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="app-card">
+        <div class="app-card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+                <div>
+                    <span class="marketing-kicker">Knowledge hub</span>
+                    <h2 class="app-section-title mb-1">Packaging engineering blog</h2>
+                    <p class="app-section-subtitle mb-0">Articles about box selection, bag sizing, palletization, container loading, catalogues, and packaging workflows.</p>
+                </div>
+                <a href="{% url 'blog_list' %}" class="btn btn-app-outline">
+                    View all posts
+                </a>
+            </div>
+
+            {% if latest_posts %}
+            <div class="row g-3">
+                {% for post in latest_posts %}
+                <div class="col-md-4">
+                    <article class="marketing-blog-card h-100">
+                        {% if post.cover_image %}
+                        <img src="{{ post.cover_image.url }}" alt="{{ post.title }}" class="marketing-blog-thumb">
+                        {% else %}
+                        <div class="marketing-blog-placeholder"><i class="bi bi-journal-richtext"></i></div>
+                        {% endif %}
+                        <div class="p-3">
+                            <h3><a href="{{ post.get_absolute_url }}">{{ post.title }}</a></h3>
+                            <p>{{ post.summary|default:"Packaging engineering article."|truncatewords:24 }}</p>
+                        </div>
+                    </article>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="marketing-empty-blog">
+                <i class="bi bi-lightbulb"></i>
+                <div>
+                    <strong>Blog ready for your first articles.</strong>
+                    <p class="mb-0">Suggested first posts: box fill rate, pallet patterns, bag sealing logic, packaging catalogue setup, and transport container loading.</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="marketing-cta app-card">
+        <div class="app-card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <h2 class="app-section-title mb-1">Ready to test the workflow?</h2>
+                <p class="app-section-subtitle mb-0">Use the current app tools and start turning engineering logic into repeatable packaging decisions.</p>
+            </div>
+            <a href="{% url 'home' %}" class="btn btn-app-primary btn-lg">
+                Open Packaging Engineering
+            </a>
+        </div>
+    </section>
+</div>
+{% endblock %}

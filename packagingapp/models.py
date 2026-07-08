@@ -39,6 +39,17 @@ def packaging_material_picture_upload_path(instance, filename):
     return f"packaging_material_pictures/{instance.catalogue_id}/{filename}"
 
 
+def blog_image_upload_path(instance, filename):
+    """Compatibility upload path for blog image migrations.
+
+    The current first blog version uses static in-code articles, but some local
+    branches may still contain the earlier BlogImage migration. Keeping this
+    small helper here allows Django to import that migration safely.
+    """
+    slug = getattr(instance, "slug", None) or getattr(getattr(instance, "post", None), "slug", None) or "blog"
+    return f"blog_images/{slug}/{filename}"
+
+
 class PackagingMaterial(models.Model):
 
     PACKAGING_TYPES = [

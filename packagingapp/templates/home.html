@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Packaging Engineering | Home{% endblock %}
+{% block title %}KolliPack | Home{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -176,40 +176,39 @@
     <div class="card hero-card p-4 p-lg-5 mb-4">
         <div class="hero-badge">
             <i class="bi bi-stars"></i>
-            Packaging Engineering Platform
+            KolliPack Packaging App
         </div>
 
         <div class="hero-title">
-            Design, evaluate and optimize packaging decisions in one unified workspace.
+            Start optimizing packaging decisions with KolliPack.
         </div>
 
         <div class="hero-subtitle">
-            From product and packaging catalogues to container selection, bag sizing, palletization,
-            transport analysis and full packaging workflows, this platform brings together the tools
-            developed across your project into one structured engineering environment.
+            Use KolliPack to create catalogues, evaluate packaging alternatives, visualize pallet and transport decisions,
+            and export clear PDF reports. Start free during the early launch and upgrade later when subscription plans are introduced.
         </div>
 
         <div class="d-flex flex-wrap gap-2">
             <a href="{% url 'full_packaging_mode' %}" class="btn btn-light btn-lg">
-                <i class="bi bi-diagram-3 me-2"></i>Open Full Packaging Module
+                <i class="bi bi-diagram-3 me-2"></i>Start free with Packaging Flow
             </a>
             <a href="{% url 'product_catalogues' %}" class="btn btn-outline-light btn-lg">
-                <i class="bi bi-card-checklist me-2"></i>Go to Catalogues
+                <i class="bi bi-card-checklist me-2"></i>Set up catalogues
             </a>
         </div>
 
         <div class="hero-stat-grid">
             <div class="hero-stat">
                 <span class="num">8+</span>
-                <span>Integrated engineering tools</span>
+                <span>Packaging engineering tools</span>
             </div>
             <div class="hero-stat">
-                <span class="num">1</span>
-                <span>Unified packaging workflow</span>
+                <span class="num">Free</span>
+                <span>Early access during launch</span>
             </div>
             <div class="hero-stat">
-                <span class="num">3D</span>
-                <span>Visualization-driven decision making</span>
+                <span class="num">PDF</span>
+                <span>Reports for decision support</span>
             </div>
         </div>
     </div>
@@ -217,7 +216,7 @@
     <div class="card workflow-card p-4 mb-4">
         <div class="section-title">Recommended workflow</div>
         <div class="section-subtitle">
-            A natural flow through the application from data setup to final packaging evaluation.
+            A natural flow through KolliPack from data setup to final packaging evaluation.
         </div>
 
         <div class="row g-3">
@@ -275,7 +274,7 @@
                 <div class="workflow-step">
                     <div class="workflow-icon"><i class="bi bi-diagram-3"></i></div>
                     <div>
-                        <strong>6. Full Packaging Module</strong><br>
+                        <strong>6. Packaging Flow</strong><br>
                         Connect the whole workflow into one integrated decision flow.
                     </div>
                 </div>
@@ -286,7 +285,7 @@
     <div class="mb-3">
         <div class="section-title">Tools</div>
         <div class="section-subtitle">
-            Direct access to every tool already developed in the project.
+            Direct access to the KolliPack tools. The full workflow is the recommended starting point for end-to-end decisions.
         </div>
     </div>
 
@@ -367,8 +366,8 @@
         <div class="col-xl-3 col-lg-4 col-md-6">
             <div class="tool-card">
                 <div class="tool-icon"><i class="bi bi-diagram-3"></i></div>
-                <h5>Full Packaging Module</h5>
-                <p>Bring packaging decisions together into one integrated end-to-end packaging workflow.</p>
+                <h5>Packaging Flow</h5>
+                <p>Bring product, package, pallet, transport, and report logic into one integrated workflow.</p>
                 <a href="{% url 'full_packaging_mode' %}" class="btn btn-success w-100">Open</a>
             </div>
         </div>
@@ -378,38 +377,75 @@
     <div class="row g-4 mt-1">
         <div class="col-lg-7">
             <div class="highlight-card h-100">
-                <div class="section-title">What makes this landing page feel fresh</div>
+                <div class="section-title">Start free, grow into paid workflows</div>
                 <div class="section-subtitle mb-3">
-                    The idea is to position the app as an engineering platform, not just a collection of forms.
+                    The home page should help users try KolliPack and understand why a paid subscription can be valuable later.
                 </div>
 
-                <span class="mini-pill">Unified navigation</span>
-                <span class="mini-pill">Modern hero section</span>
-                <span class="mini-pill">Visual workflow</span>
-                <span class="mini-pill">Quick tool access</span>
-                <span class="mini-pill">Professional feel</span>
+                <span class="mini-pill">Free early access</span>
+                <span class="mini-pill">Workflow reports</span>
+                <span class="mini-pill">Catalogue-based decisions</span>
+                <span class="mini-pill">3D visualization</span>
+                <span class="mini-pill">Subscription-ready product</span>
 
                 <hr>
 
                 <p class="mb-0 text-secondary">
-                    This page gives a strong first impression: structured, technical, visual, and clearly aligned
-                    with packaging engineering work. It also helps new users understand where to start.
+                    KolliPack should invite users to start for free, experience the packaging workflow, and later convert
+                    to a paid subscription for professional use, reporting, and future advanced modules.
                 </p>
             </div>
         </div>
 
         <div class="col-lg-5">
             <div class="highlight-card h-100">
-                <div class="section-title">Suggested welcome text</div>
-                <div class="section-subtitle mb-3">Simple and professional.</div>
+                <div class="section-title">Welcome to KolliPack</div>
+                <div class="section-subtitle mb-3">The packaging engineering app by KolliLabs.</div>
 
                 <p class="mb-2">
-                    <strong>Welcome to the Packaging Engineering Platform.</strong>
+                    <strong>Try the tools, build a packaging flow, and export a report.</strong>
                 </p>
                 <p class="text-secondary mb-0">
-                    Use the tools on the left to create catalogues, evaluate packaging alternatives,
-                    simulate loading, and build a complete packaging solution from product to transport.
+                    KolliPack is the app experience. KolliLabs is the company behind the software, consultancy,
+                    education, and future packaging solutions.
                 </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-lg-7">
+            <div class="highlight-card h-100">
+                <div class="section-title">KolliLabs: company, consultancy and education</div>
+                <div class="section-subtitle mb-3">
+                    Learn more about the company behind KolliPack and how KolliLabs supports packaging projects.
+                </div>
+                <p class="text-secondary">
+                    KolliLabs offers packaging software such as KolliPack, plus consultancy, packaging optimization,
+                    project management support, and practical packaging education.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{% url 'about' %}" class="btn btn-success">
+                        <i class="bi bi-building me-2"></i>About KolliLabs
+                    </a>
+                    <a href="{% url 'about' %}#contact" class="btn btn-outline-success">
+                        <i class="bi bi-envelope me-2"></i>Contact
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="highlight-card h-100">
+                <div class="section-title">KolliLabs packaging blog</div>
+                <div class="section-subtitle mb-3">
+                    Articles can support SEO, explain the KolliPack philosophy, and educate users about packaging engineering.
+                </div>
+                <p class="text-secondary">
+                    Sample articles are included to test the blog layout and build a first educational content base.
+                </p>
+                <a href="{% url 'blog_list' %}" class="btn btn-outline-success">
+                    <i class="bi bi-journal-text me-2"></i>Open blog
+                </a>
             </div>
         </div>
     </div>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1100" viewBox="0 0 900 1100" role="img" aria-label="Alejandro Ramirez placeholder portrait">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="0.56" stop-color="#12344d"/>
+      <stop offset="1" stop-color="#10a37f"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="1100" rx="56" fill="url(#bg)"/>
+  <circle cx="700" cy="170" r="190" fill="#ffffff" opacity="0.08"/>
+  <circle cx="150" cy="910" r="260" fill="#10a37f" opacity="0.20"/>
+  <rect x="115" y="115" width="670" height="870" rx="46" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.22"/>
+  <circle cx="450" cy="385" r="150" fill="#ecfeff" opacity="0.95"/>
+  <path d="M220 835c28-178 133-270 230-270s202 92 230 270" fill="#ecfeff" opacity="0.95"/>
+  <text x="450" y="900" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="700" fill="#ffffff">Alejandro Ramírez</text>
+  <text x="450" y="962" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="#d1fae5">Packaging Engineering · Digitalization</text>
+</svg>

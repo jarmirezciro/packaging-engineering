@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Blog | KolliLabs{% endblock %}
+
+{% block content %}
+<div class="app-page marketing-page">
+    <section class="app-hero app-hero--compact">
+        <div class="app-hero-badge"><i class="bi bi-journal-text"></i> Blog</div>
+        <h1 class="app-title">KolliLabs packaging articles</h1>
+        <p class="app-subtitle">
+            Practical notes about packaging optimization, KolliPack workflows, palletization, transport utilization, and packaging education.
+        </p>
+    </section>
+
+    <div class="row g-4">
+        {% for post in posts %}
+        <div class="col-lg-6 col-xl-4">
+            <a href="{% url 'blog_detail' post.slug %}" class="blog-card h-100">
+                <div class="blog-card-visual"><i class="bi {{ post.hero_icon }}"></i></div>
+                <div class="blog-card-body">
+                    <div class="blog-meta">{{ post.category }} · {{ post.read_time }} · {{ post.published_at }}</div>
+                    <h2>{{ post.title }}</h2>
+                    <p>{{ post.summary }}</p>
+                    <span>Read article <i class="bi bi-arrow-right"></i></span>
+                </div>
+            </a>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="app-empty-state app-card">No articles published yet.</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

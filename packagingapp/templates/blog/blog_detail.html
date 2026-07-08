@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}{{ post.meta_title }} | {{ company_name }}{% endblock %}
+{% block meta %}
+{% if post.meta_description %}<meta name="description" content="{{ post.meta_description }}">{% endif %}
+{% endblock %}
+
+{% block content %}
+<article class="app-page blog-detail-page">
+    <section class="app-card blog-article-card">
+        {% if post.cover_image %}
+        <img src="{{ post.cover_image.url }}" alt="{{ post.title }}" class="blog-article-cover">
+        {% endif %}
+        <div class="app-card-body blog-article-body">
+            <div class="blog-date mb-2">
+                {% if post.published_at %}{{ post.published_at|date:"F d, Y" }}{% else %}Draft preview{% endif %}
+            </div>
+            <h1 class="blog-article-title">{{ post.title }}</h1>
+            {% if post.summary %}
+            <p class="blog-article-summary">{{ post.summary }}</p>
+            {% endif %}
+            <hr class="app-divider">
+            <div class="blog-content">
+                {{ content_html }}
+            </div>
+        </div>
+    </section>
+
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'blog_list' %}" class="btn btn-app-outline"><i class="bi bi-arrow-left me-2"></i>Back to blog</a>
+        <a href="{% url 'home' %}" class="btn btn-app-primary">Open the tool</a>
+    </div>
+</article>
+{% endblock %}

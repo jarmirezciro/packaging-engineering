@@ -7,6 +7,7 @@ from .views import bag_selection
 from .views import palletization
 from .views import container_tool
 from .views.home import home
+from .views.marketing import about, blog_detail, blog_list
 
 from .views.multi_product_bag import (
     multi_product_bag_selection,
@@ -26,6 +27,9 @@ from packagingapp.views.full_packaging import full_packaging_mode, full_packagin
 
 urlpatterns = [
     path("", home, name="home"),
+    path("about/", about, name="about"),
+    path("blog/", blog_list, name="blog_list"),
+    path("blog/<slug:slug>/", blog_detail, name="blog_detail"),
 
 
 # Packaging Catalogue
