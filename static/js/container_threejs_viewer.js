@@ -414,7 +414,7 @@ if (document.readyState === "loading") {
     initAll();
 }
 
-function captureViewer(viewerId, mimeType = "image/jpeg", quality = 0.9) {
+function captureViewer(viewerId, mimeType = "image/jpeg", quality = 0.88) {
     const el = typeof viewerId === "string" ? document.getElementById(viewerId) : viewerId;
     if (!el) return "";
 
@@ -424,7 +424,30 @@ function captureViewer(viewerId, mimeType = "image/jpeg", quality = 0.9) {
     try {
         instance.controls.update();
         instance.renderer.render(instance.scene, instance.camera);
-        return instance.renderer.domElement.toDataURL(mimeType, quality);
+
+        const sourceCanvas = instance.renderer.domElement;
+        const sourceWidth = sourceCanvas.width || 0;
+        const sourceHeight = sourceCanvas.height || 0;
+        if (!sourceWidth || !sourceHeight) return "";
+
+        // Keep the POST payload comfortably below Django's default upload limits
+        // while preserving enough quality for the PDF report.
+        const maxExportWidth = 1400;
+        const scale = Math.min(1, maxExportWidth / sourceWidth);
+        const exportWidth = Math.max(1, Math.round(sourceWidth * scale));
+        const exportHeight = Math.max(1, Math.round(sourceHeight * scale));
+
+        const exportCanvas = document.createElement("canvas");
+        exportCanvas.width = exportWidth;
+        exportCanvas.height = exportHeight;
+        const ctx = exportCanvas.getContext("2d");
+        if (!ctx) return "";
+
+        ctx.fillStyle = "#f8fafc";
+        ctx.fillRect(0, 0, exportWidth, exportHeight);
+        ctx.drawImage(sourceCanvas, 0, 0, exportWidth, exportHeight);
+
+        return exportCanvas.toDataURL(mimeType, quality);
     } catch (error) {
         console.error("KolliContainerThreeJs capture error:", error);
         return "";
@@ -479,17 +502,18 @@ function preparePdfExport(target) {
     return true;
 }
 
-function bindPdfExports()function bindPdfExports() {
+function bindPdfExports() {
     document.querySelectorAll("[data-container-threejs-pdf-button]").forEach((button) => {
         if (button.dataset.threejsPdfBound === "1") return;
         button.dataset.threejsPdfBound = "1";
-        button.addEventListener("click", (event) => {
+        button.addEventListener("click", async (event) => {
             if (button.dataset.threejsPdfSubmitting === "1") {
                 button.dataset.threejsPdfSubmitting = "0";
                 return;
             }
 
             event.preventDefault();
+            await new Promise((resolve) => window.requestAnimationFrame(resolve));
             const ok = preparePdfExport(button);
             if (!ok) return;
 
@@ -507,8 +531,6 @@ function bindPdfExports()function bindPdfExports() {
             }
         });
     });
-
-    // Backward compatibility
 
     // Backward compatibility for any older standalone PDF forms still present.
     document.querySelectorAll("[data-container-threejs-pdf-form]").forEach((form) => {

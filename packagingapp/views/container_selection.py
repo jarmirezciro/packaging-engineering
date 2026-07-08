@@ -342,8 +342,8 @@ def _save_threejs_snapshot_from_request(request):
     Save an optional Three.js canvas snapshot posted by the browser.
 
     Returns a MEDIA_ROOT-relative path that ReportLab can use, or an empty
-    string if no valid snapshot was submitted. The PDF exporter falls back to
-    the Matplotlib image when this returns empty.
+    string if no valid snapshot was submitted. The PDF exporter now requires
+    this snapshot so the report matches the interactive Three.js result.
     """
     if request.method != "POST":
         return ""
@@ -395,6 +395,14 @@ def _attach_threejs_snapshot(export_payload, request):
         payload["threejs_snapshot_rel_path"] = snapshot_rel_path
         payload["threejs_view_label"] = request.POST.get("threejs_view_label") or "Current interactive 3D view"
     return payload
+
+
+def _missing_threejs_snapshot_response():
+    return HttpResponse(
+        "The Three.js snapshot was not received by the server. Please hard-refresh the page with Ctrl+F5, wait until the interactive 3D viewer is visible, and try the PDF export again.",
+        status=400,
+        content_type="text/plain",
+    )
 
 def container_selection_mode1(request):
     packaging_catalogues = get_packaging_catalogues(request.user)
@@ -530,6 +538,8 @@ def container_selection_export_pdf(request):
         )
 
     export_payload = _attach_threejs_snapshot(export_payload, request)
+    if not export_payload.get("threejs_snapshot_rel_path"):
+        return _missing_threejs_snapshot_response()
     export_payload["report_type"] = "single"
     pdf_buffer = build_container_selection_pdf(export_payload)
     timestamp = timezone.now().strftime("%Y%m%d_%H%M")
@@ -551,6 +561,8 @@ def container_selection_export_optimal_pdf(request):
         )
 
     export_payload = _attach_threejs_snapshot(export_payload, request)
+    if not export_payload.get("threejs_snapshot_rel_path"):
+        return _missing_threejs_snapshot_response()
     export_payload["report_type"] = "optimal"
     pdf_buffer = build_container_selection_pdf(export_payload)
     timestamp = timezone.now().strftime("%Y%m%d_%H%M")
