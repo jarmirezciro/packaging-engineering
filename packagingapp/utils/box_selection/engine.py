@@ -214,13 +214,17 @@ def _draw_region_solution(ax, product: Dims, region: Dims, origin: Point, r1: in
         dimensions_subbox_max
     ) = _mainbox(product, region, origin, r1, r2, r3)
 
+    if int(max_quantity or 0) <= 0:
+        return 0, []
+
     main_origin = origin
     main_dims = tuple(dimensions_subbox_max)
     main_cube = tuple(b_xyz_max)
 
-    if draw_wireframes:
-        draw_cube(ax, *main_origin, *main_dims, color="blue", edge_color="black", alpha=0.08, alpha_edges=0.08)
-    fill_subbox(ax, main_origin, main_dims, main_cube, cube_color="orange", cube_edge_color="blue", remaining=remaining)
+    if all(d > 0 for d in main_dims) and all(d > 0 for d in main_cube):
+        if draw_wireframes:
+            draw_cube(ax, *main_origin, *main_dims, color="blue", edge_color="black", alpha=0.08, alpha_edges=0.08)
+        fill_subbox(ax, main_origin, main_dims, main_cube, cube_color="orange", cube_edge_color="blue", remaining=remaining)
 
     if remaining is not None and remaining[0] <= 0:
         return int(max_quantity), []
@@ -234,7 +238,10 @@ def _draw_region_solution(ax, product: Dims, region: Dims, origin: Point, r1: in
     for sub_origin, sub_dims, sub_cube, wire_color in leftovers:
         if remaining is not None and remaining[0] <= 0:
             break
-        if sub_dims[0] > 0 and sub_dims[1] > 0 and sub_dims[2] > 0:
+        if (
+            sub_dims[0] > 0 and sub_dims[1] > 0 and sub_dims[2] > 0
+            and sub_cube[0] > 0 and sub_cube[1] > 0 and sub_cube[2] > 0
+        ):
             if draw_wireframes:
                 draw_cube(ax, *sub_origin, *sub_dims, color=wire_color, edge_color="black",
                           alpha=0.08, alpha_edges=0.08)

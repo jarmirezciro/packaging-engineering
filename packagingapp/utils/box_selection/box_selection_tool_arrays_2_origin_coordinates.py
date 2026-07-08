@@ -9,41 +9,94 @@ Created on Wed Dec 14 10:30:37 2022
 import pandas as pd
 
 
-def box(l,a,h,lc,ac,hc,r1,r2,r3):
-    b=[None]*6
-    b_xyz=[None]*6
-    a11=int(lc/l)
-    a12=int(lc/a)
-    a13=int(lc/h)
-    a21=int(ac/l)
-    a22=int(ac/a)
-    a23=int(ac/h)
-    a31=int(hc/l)
-    a32=int(hc/a)
-    a33=int(hc/h)
-    
-    b[0] = a11 * a22 * a33 * r3 # (l,a,h)
-    b[1] = a11 * a32 * a23 * r2 # (l,h,a)
-    b[2] = a21 * a12 * a33 * r3 # (a,l,h)
-    b[3] = a31 * a12 * a23 * r1 # (a,h,l)
-    b[4] = a31 * a22 * a13 * r1 # (h,a,l)
-    b[5] = a21 * a32 * a13 * r2 # (h,l,a)
-    
-    b_xyz[0]=(l,a,h)
-    b_xyz[1]=(l,h,a)
-    b_xyz[2]=(a,l,h)
-    b_xyz[3]=(a,h,l)
-    b_xyz[4]=(h,a,l)
-    b_xyz[5]=(h,l,a)
-    
-    calculated_box=max(b)
-   
-    max_position = b.index(calculated_box)  # The position (index) of the maximum value
+def _normalize_rotation_flags(r1, r2, r3):
+    """
+    Normalize product rotation restriction flags.
 
-    # Retrieve the corresponding arrays
+    Semantics used by the tool:
+      R1 = product length is allowed vertical
+      R2 = product width is allowed vertical
+      R3 = product height is allowed vertical
+    """
+    return (1 if r1 else 0, 1 if r2 else 0, 1 if r3 else 0)
+
+
+def _orientation_allowed_flags(r1, r2, r3):
+    """
+    Return the allowed flag for each orientation candidate.
+
+    Candidate orientations:
+      0: (l, a, h) -> h vertical -> R3
+      1: (l, h, a) -> a vertical -> R2
+      2: (a, l, h) -> h vertical -> R3
+      3: (a, h, l) -> l vertical -> R1
+      4: (h, a, l) -> l vertical -> R1
+      5: (h, l, a) -> a vertical -> R2
+    """
+    r1, r2, r3 = _normalize_rotation_flags(r1, r2, r3)
+    return [r3, r2, r3, r1, r1, r2]
+
+
+def _zero_pack():
+    return 0, (0, 0, 0)
+
+
+def _zero_subbox_result():
+    zero = [0, 0, 0]
+    return 0, zero.copy(), zero.copy(), zero.copy(), zero.copy(), zero.copy(), zero.copy()
+
+
+def box(l, a, h, lc, ac, hc, r1, r2, r3):
+    """
+    Calculate the best regular-grid quantity for one region.
+
+    Rotation restrictions are applied to every orientation candidate. If no
+    allowed orientation fits, return a zero cube so downstream drawing does not
+    accidentally render a restricted orientation in leftover/subbox areas.
+    """
+    allowed = _orientation_allowed_flags(r1, r2, r3)
+
+    b = [None] * 6
+    b_xyz = [None] * 6
+
+    a11 = int(lc / l)
+    a12 = int(lc / a)
+    a13 = int(lc / h)
+    a21 = int(ac / l)
+    a22 = int(ac / a)
+    a23 = int(ac / h)
+    a31 = int(hc / l)
+    a32 = int(hc / a)
+    a33 = int(hc / h)
+
+    raw_counts = [
+        a11 * a22 * a33,  # (l, a, h)
+        a11 * a32 * a23,  # (l, h, a)
+        a21 * a12 * a33,  # (a, l, h)
+        a31 * a12 * a23,  # (a, h, l)
+        a31 * a22 * a13,  # (h, a, l)
+        a21 * a32 * a13,  # (h, l, a)
+    ]
+
+    b_xyz[0] = (l, a, h)
+    b_xyz[1] = (l, h, a)
+    b_xyz[2] = (a, l, h)
+    b_xyz[3] = (a, h, l)
+    b_xyz[4] = (h, a, l)
+    b_xyz[5] = (h, l, a)
+
+    for idx, raw_count in enumerate(raw_counts):
+        b[idx] = raw_count if allowed[idx] else 0
+
+    calculated_box = max(b)
+
+    if calculated_box <= 0:
+        return _zero_pack()
+
+    max_position = b.index(calculated_box)
     xyz = b_xyz[max_position]
-    
-    return calculated_box,  xyz
+
+    return calculated_box, xyz
 
 
 
@@ -101,12 +154,18 @@ def MainBox(l,a,h,lc,ac,hc,r1,r2,r3,origin_coordinates):
     a32=int(hc/a)
     a33=int(hc/h)
     
-    b[0] = a11 * a22 * a33
-    b[1] = a11 * a32 * a23
-    b[2] = a21 * a12 * a33
-    b[3] = a31 * a12 * a23
-    b[4] = a31 * a22 * a13
-    b[5] = a21 * a32 * a13
+    allowed = _orientation_allowed_flags(r1, r2, r3)
+    raw_counts = [
+        a11 * a22 * a33,  # (l, a, h)
+        a11 * a32 * a23,  # (l, h, a)
+        a21 * a12 * a33,  # (a, l, h)
+        a31 * a12 * a23,  # (a, h, l)
+        a31 * a22 * a13,  # (h, a, l)
+        a21 * a32 * a13,  # (h, l, a)
+    ]
+
+    for idx, raw_count in enumerate(raw_counts):
+        b[idx] = raw_count if allowed[idx] else 0
     
     
     b_xyz[0]=(l,a,h)
@@ -213,75 +272,48 @@ def MainBox(l,a,h,lc,ac,hc,r1,r2,r3,origin_coordinates):
     ch_xyz=[None]*6
 
     # --- ONLY CHANGE: replace "subbox(...) * rX" unpacking with guarded calls ---
-    if r3:
+    if r3 and b[0] > 0:
         bc[0], cl[0],ca[0],ch[0],cl_xyz[0], ca_xyz[0], ch_xyz[0] = subbox(nbox1, box1, p, b[0], r1, r2, r3)
     else:
-        bc[0] = 0
-        cl[0] = [0, 0, 0]
-        ca[0] = [0, 0, 0]
-        ch[0] = [0, 0, 0]
-        cl_xyz[0] = [0, 0, 0]
-        ca_xyz[0] = [0, 0, 0]
-        ch_xyz[0] = [0, 0, 0]
+        bc[0], cl[0], ca[0], ch[0], cl_xyz[0], ca_xyz[0], ch_xyz[0] = _zero_subbox_result()
 
-    if r2:
+    if r2 and b[1] > 0:
         bc[1], cl[1],ca[1],ch[1],cl_xyz[1], ca_xyz[1], ch_xyz[1] = subbox(nbox2, box1, p, b[1], r1, r2, r3)
     else:
-        bc[1] = 0
-        cl[1] = [0, 0, 0]
-        ca[1] = [0, 0, 0]
-        ch[1] = [0, 0, 0]
-        cl_xyz[1] = [0, 0, 0]
-        ca_xyz[1] = [0, 0, 0]
-        ch_xyz[1] = [0, 0, 0]
+        bc[1], cl[1], ca[1], ch[1], cl_xyz[1], ca_xyz[1], ch_xyz[1] = _zero_subbox_result()
 
-    if r3:
+    if r3 and b[2] > 0:
         bc[2], cl[2],ca[2],ch[2],cl_xyz[2], ca_xyz[2], ch_xyz[2] = subbox(nbox3, box1, p, b[2], r1, r2, r3)
     else:
-        bc[2] = 0
-        cl[2] = [0, 0, 0]
-        ca[2] = [0, 0, 0]
-        ch[2] = [0, 0, 0]
-        cl_xyz[2] = [0, 0, 0]
-        ca_xyz[2] = [0, 0, 0]
-        ch_xyz[2] = [0, 0, 0]
+        bc[2], cl[2], ca[2], ch[2], cl_xyz[2], ca_xyz[2], ch_xyz[2] = _zero_subbox_result()
 
-    if r1:
+    if r1 and b[3] > 0:
         bc[3], cl[3],ca[3],ch[3],cl_xyz[3], ca_xyz[3], ch_xyz[3] = subbox(nbox4, box1, p, b[3], r1, r2, r3)
     else:
-        bc[3] = 0
-        cl[3] = [0, 0, 0]
-        ca[3] = [0, 0, 0]
-        ch[3] = [0, 0, 0]
-        cl_xyz[3] = [0, 0, 0]
-        ca_xyz[3] = [0, 0, 0]
-        ch_xyz[3] = [0, 0, 0]
+        bc[3], cl[3], ca[3], ch[3], cl_xyz[3], ca_xyz[3], ch_xyz[3] = _zero_subbox_result()
 
-    if r1:
+    if r1 and b[4] > 0:
         bc[4], cl[4],ca[4],ch[4],cl_xyz[4], ca_xyz[4], ch_xyz[4] = subbox(nbox5, box1, p, b[4], r1, r2, r3)
     else:
-        bc[4] = 0
-        cl[4] = [0, 0, 0]
-        ca[4] = [0, 0, 0]
-        ch[4] = [0, 0, 0]
-        cl_xyz[4] = [0, 0, 0]
-        ca_xyz[4] = [0, 0, 0]
-        ch_xyz[4] = [0, 0, 0]
+        bc[4], cl[4], ca[4], ch[4], cl_xyz[4], ca_xyz[4], ch_xyz[4] = _zero_subbox_result()
 
-    if r2:
+    if r2 and b[5] > 0:
         bc[5], cl[5],ca[5],ch[5],cl_xyz[5], ca_xyz[5], ch_xyz[5] = subbox(nbox6, box1, p, b[5], r1, r2, r3)
     else:
-        bc[5] = 0
-        cl[5] = [0, 0, 0]
-        ca[5] = [0, 0, 0]
-        ch[5] = [0, 0, 0]
-        cl_xyz[5] = [0, 0, 0]
-        ca_xyz[5] = [0, 0, 0]
-        ch_xyz[5] = [0, 0, 0]
+        bc[5], cl[5], ca[5], ch[5], cl_xyz[5], ca_xyz[5], ch_xyz[5] = _zero_subbox_result()
     # --- END ONLY CHANGE ---
 
     max_quantity = max(bc)
-    
+
+    if max_quantity <= 0:
+        zero = [0, 0, 0]
+        zero_coordinates = [
+            (origin_coordinates[0], origin_coordinates[1], origin_coordinates[2]),
+            (origin_coordinates[0], origin_coordinates[1], origin_coordinates[2]),
+            (origin_coordinates[0], origin_coordinates[1], origin_coordinates[2]),
+        ]
+        return 0, zero.copy(), zero.copy(), zero.copy(), zero.copy(), zero.copy(), zero.copy(), (0, 0, 0), zero_coordinates, (0, 0, 0)
+
     max_position = bc.index(max_quantity)
     
     # Retrieve the corresponding arrays
