@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Blog | KolliLabs{% endblock %}
+{% block meta_description %}Practical articles from KolliLabs about packaging optimization, KolliPack workflows, box selection, palletization, transport utilization, and packaging education.{% endblock %}
 
 {% block content %}
 <div class="app-page marketing-page">
@@ -12,14 +14,37 @@
         </p>
     </section>
 
+    <section class="blog-type-strip" aria-label="Article types">
+        {% for article_type in article_types %}
+        <div class="blog-type-card">
+            <i class="bi {{ article_type.icon }}"></i>
+            <div>
+                <strong>{{ article_type.label }}</strong>
+                <span>{{ article_type.description }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </section>
+
     <div class="row g-4">
         {% for post in posts %}
         <div class="col-lg-6 col-xl-4">
             <a href="{% url 'blog_detail' post.slug %}" class="blog-card h-100">
-                <div class="blog-card-visual"><i class="bi {{ post.hero_icon }}"></i></div>
+                <div class="blog-card-visual {% if post.featured_image %}blog-card-visual--image{% endif %}">
+                    {% if post.featured_image %}
+                    <img src="{% static post.featured_image %}" alt="{{ post.title }}">
+                    {% else %}
+                    <i class="bi {{ post.hero_icon }}"></i>
+                    {% endif %}
+                    <div class="blog-card-type"><i class="bi {{ post.article_type_meta.icon }}"></i> {{ post.article_type_meta.short_label }}</div>
+                </div>
                 <div class="blog-card-body">
                     <div class="blog-meta">{{ post.category }} · {{ post.read_time }} · {{ post.published_at }}</div>
                     <h2>{{ post.title }}</h2>
+                    <div class="blog-card-author">
+                        <img src="{% static post.author.image %}" alt="{{ post.author.name }}">
+                        <span>{{ post.author.name }}</span>
+                    </div>
                     <p>{{ post.summary }}</p>
                     <span>Read article <i class="bi bi-arrow-right"></i></span>
                 </div>
