@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Blog | {{ company_name }}{% endblock %}
+{% block meta %}<meta name="description" content="Packaging engineering articles about box selection, bag selection, palletization, transport containers, and packaging catalogues.">{% endblock %}
+
+{% block content %}
+<div class="app-page blog-page">
+    <section class="app-hero app-hero--compact">
+        <span class="app-hero-badge"><i class="bi bi-journal-text"></i> Packaging knowledge hub</span>
+        <h1 class="app-title">Packaging engineering blog</h1>
+        <p class="app-subtitle">Practical articles about packaging selection, palletization, container loading, reports, and catalogue-driven workflows.</p>
+    </section>
+
+    {% if posts %}
+    <div class="row g-4">
+        {% for post in posts %}
+        <div class="col-md-6 col-xl-4">
+            <article class="app-grid-card blog-card h-100">
+                {% if post.cover_image %}
+                <img src="{{ post.cover_image.url }}" alt="{{ post.title }}" class="blog-card-image">
+                {% else %}
+                <div class="blog-card-placeholder"><i class="bi bi-journal-richtext"></i></div>
+                {% endif %}
+                <div class="app-grid-card-body">
+                    <div class="blog-date">
+                        {% if post.published_at %}{{ post.published_at|date:"M d, Y" }}{% else %}Draft{% endif %}
+                    </div>
+                    <h2 class="blog-card-title"><a href="{{ post.get_absolute_url }}">{{ post.title }}</a></h2>
+                    <p class="app-grid-card-text">{{ post.summary|default:"Packaging engineering article."|truncatewords:28 }}</p>
+                    <a href="{{ post.get_absolute_url }}" class="btn btn-app-outline btn-sm">Read article</a>
+                </div>
+            </article>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="app-card">
+        <div class="app-empty-state">
+            <i class="bi bi-journal-plus display-5 d-block mb-3"></i>
+            <h2 class="app-section-title">No published blog posts yet</h2>
+            <p class="app-section-subtitle mb-0">Create posts from Django Admin and publish them when ready.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,6 +1,8 @@
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
+from django.http import HttpResponse
 from django.shortcuts import render, redirect
+from django.utils import timezone
 
 from ..models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
 from ..utils.box_selection.engine import run_mode1_and_render, compute_max_quantity_only
@@ -22,6 +24,21 @@ from ..tools.palletization.service import (
 from ..tools.palletization.state import default_palletization_config
 from ..views.palletization import _build_shared_pallet_ui_contract
 from ..views.container_selection import _build_shared_container_ui_contract
+from ..views.bag_selection import _build_shared_bag_ui_contract
+
+from ..tools.bag.presenter import (
+    selected_bag_summary as selected_bag_summary_bag,
+    selected_product_summary as selected_product_summary_bag,
+)
+from ..tools.bag.serializers import sanitize_bag_config_for_session
+from ..tools.bag.service import (
+    analyze_bag_config as analyze_bag_config_shared,
+    get_materials_for_catalogue as get_bag_materials_for_catalogue,
+    get_products_for_catalogue as get_bag_products_for_catalogue,
+    get_selected_material as get_bag_selected_material,
+    get_selected_product as get_bag_selected_product,
+)
+from ..tools.bag.state import default_bag_config
 
 from ..tools.container.presenter import (
     selected_container_summary as selected_container_summary_container,
@@ -51,6 +68,11 @@ from ..tools.transport.service import (
     read_product_rows_raw,
 )
 from ..tools.transport.state import default_product_rows
+
+from ..tools.full_packaging.export import (
+    build_full_packaging_pdf,
+    build_workflow_report_payload,
+)
 
 
 SESSION_KEY = "full_packaging_mode_session"
@@ -89,6 +111,7 @@ def _new_container_step():
         "messages": [],
         "result": None,
         "image_url": None,
+        "analysis_report": None,
         "selected_result": None,
         "top5": [],
         "pending_result": None,
@@ -126,21 +149,7 @@ def _new_bag_step():
         "image_url": None,
         "top5": [],
         "pending_result": None,
-        "config": {
-            "mode": "single",
-            "product_source": "manual",
-            "bag_source": "manual",
-            "product_catalogue_id": "",
-            "selected_product_id": "",
-            "product_l": "",
-            "product_w": "",
-            "product_h": "",
-            "desired_qty": 1,
-            "catalogue_id": "",
-            "bag_id": "",
-            "bag_length": "",
-            "bag_width": "",
-        },
+        "config": default_bag_config(),
     }
 
 
@@ -156,6 +165,7 @@ def _new_transport_step():
         "messages": [],
         "result": None,
         "image_url": None,
+        "image_urls": {},
         "top5": [],
         "pending_result": None,
         "analysis_ran": False,
@@ -168,6 +178,7 @@ def _new_transport_step():
             "container_w": 2352,
             "container_h": 2698,
             "max_weight": 26000,
+            "tare_weight": "",
             "product_catalogue_id": "",
             "product_id_to_fill": "",
             "selected_row_index": "",
@@ -287,10 +298,15 @@ def _run_pallet_analysis_shared(step, steps, idx):
         return
 
     cfg = _extract_pallet_config_from_step(step)
-    _update_pallet_config_on_step(step, cfg)
 
     selected_box_material = get_selected_box_material(cfg) if idx == 0 else None
     selected_pallet_material = get_selected_pallet_material(cfg)
+    cfg = _hydrate_pallet_catalogue_values(
+        cfg,
+        selected_box_material=selected_box_material,
+        selected_pallet_material=selected_pallet_material,
+    )
+    _update_pallet_config_on_step(step, cfg)
 
     analysis = analyze_palletization_config(
         config=cfg,
@@ -334,6 +350,21 @@ def _run_pallet_analysis_shared(step, steps, idx):
         selected_pallet_material=selected_pallet_material,
         upstream_units=upstream_units,
     )
+    if step["pending_result"]:
+        prev_weight_g = _to_float((prev or {}).get("weight_g"), None)
+        pallet_tare_g = _to_float(getattr(selected_pallet_material, "part_weight", None), None)
+        total_boxes = _to_int(selected_row.get("total_boxes"), 1) or 1
+        gross_weight_g = None
+        if prev_weight_g is not None:
+            gross_weight_g = prev_weight_g * total_boxes
+        if pallet_tare_g is not None:
+            gross_weight_g = (gross_weight_g or 0.0) + pallet_tare_g
+        if gross_weight_g is not None:
+            step["pending_result"]["weight_g"] = round(gross_weight_g, 3)
+            step["pending_result"]["weight_kg"] = round(gross_weight_g / 1000.0, 3)
+        step["pending_result"].setdefault("transport_qty", 1)
+        step["pending_result"]["source_step_type"] = "pallet"
+        step["pending_result"]["package_type"] = "pallet"
 
 
 def _compute_pallet_view_model(step, steps, idx):
@@ -367,6 +398,162 @@ def _to_int(value, default=None):
         return default
 
 
+def _round_payload_value(value, digits=2):
+    numeric = _to_float(value)
+    if numeric is None:
+        return None
+    return round(numeric, digits)
+
+
+def _format_mm_triplet(payload):
+    if not payload:
+        return "Not set"
+    length = payload.get("length", "")
+    width = payload.get("width", "")
+    height = payload.get("height", "")
+    if length in (None, "") or width in (None, "") or height in (None, ""):
+        return "Not set"
+    return f"{length} × {width} × {height} mm"
+
+
+def _format_payload_units(payload):
+    if not payload:
+        return ""
+    parts = []
+    units_per_parent = payload.get("units_per_parent")
+    total_base_units = payload.get("total_base_units")
+    if units_per_parent not in (None, ""):
+        parts.append(f"{units_per_parent} units per parent")
+    if total_base_units not in (None, ""):
+        parts.append(f"{total_base_units} total base units")
+    weight_kg = payload.get("weight_kg")
+    if weight_kg not in (None, ""):
+        try:
+            parts.append(f"{float(weight_kg):.2f} kg gross")
+        except Exception:
+            parts.append(f"{weight_kg} kg gross")
+    return " | ".join(parts)
+
+
+def _payload_overview_value(payload):
+    if not payload:
+        return "Not selected yet"
+    label = payload.get("label") or "Workflow load unit"
+    dims = _format_mm_triplet(payload)
+    units = _format_payload_units(payload)
+    if units:
+        return f"{label} — {dims} — {units}"
+    return f"{label} — {dims}"
+
+
+
+
+def _material_dimension_for_workflow(material, external_attr, part_attr):
+    """Return the physical outside dimension for chained workflow payloads.
+
+    Catalogue items may store external_* as 0 when the usable dimension is in
+    part_*. For workflow inheritance, prefer the first positive outside/part
+    dimension and only keep 0 when no positive fallback exists.
+    """
+    if material is None:
+        return 0.0
+
+    first_numeric = None
+    for attr in (external_attr, part_attr):
+        value = _to_float(getattr(material, attr, None), None)
+        if value is None:
+            continue
+        if first_numeric is None:
+            first_numeric = value
+        if value > 0:
+            return value
+
+    return first_numeric or 0.0
+
+
+def _material_dimension_value(material, external_attr, part_attr):
+    """Return a catalogue dimension while preserving empty values as empty.
+
+    Prefer the first positive external/part dimension. This avoids workflow
+    validation failures when external_* is stored as 0 but part_* contains the
+    real catalogue dimension.
+    """
+    if material is None:
+        return ""
+
+    first_raw = ""
+    for attr in (external_attr, part_attr):
+        raw_value = getattr(material, attr, None)
+        numeric_value = _to_float(raw_value, None)
+        if raw_value not in (None, "", "None") and first_raw == "":
+            first_raw = raw_value
+        if numeric_value is not None and numeric_value > 0:
+            return raw_value
+
+    return first_raw
+
+
+def _hydrate_pallet_catalogue_values(cfg, selected_box_material=None, selected_pallet_material=None):
+    """Copy selected catalogue dimensions into the pallet workflow config.
+
+    This is UI/state hydration only. It does not change the palletization
+    calculation rules; the service layer still owns the effective calculation
+    config. The copied values keep workflow forms and validation messages aligned
+    after selecting carton/pallet rows from the shared catalogue tables.
+    """
+    cfg = dict(cfg or {})
+
+    if cfg.get("box_source") == "catalogue" and selected_box_material is not None:
+        cfg["box_l"] = _material_dimension_value(selected_box_material, "external_length", "part_length")
+        cfg["box_w"] = _material_dimension_value(selected_box_material, "external_width", "part_width")
+        cfg["box_h"] = _material_dimension_value(selected_box_material, "external_height", "part_height")
+        if cfg.get("box_weight") in (None, "", "None"):
+            material_weight = getattr(selected_box_material, "part_weight", None)
+            if material_weight not in (None, "", "None"):
+                cfg["box_weight"] = material_weight
+
+    if cfg.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
+        cfg["pallet_l"] = _material_dimension_value(selected_pallet_material, "external_length", "part_length")
+        cfg["pallet_w"] = _material_dimension_value(selected_pallet_material, "external_width", "part_width")
+
+    return sanitize_palletization_config_for_session(cfg)
+
+
+def _resolve_product_weight_g(cfg, selected_product=None):
+    if (cfg or {}).get("product_source") == "catalogue" and selected_product is not None:
+        return _to_float(getattr(selected_product, "weight", None))
+    return _to_float((cfg or {}).get("product_weight"))
+
+
+def _resolve_packaging_weight_g(cfg, manual_key, selected_material=None):
+    manual_weight = _to_float((cfg or {}).get(manual_key))
+    if manual_weight is not None:
+        return manual_weight
+    if selected_material is not None:
+        return _to_float(getattr(selected_material, "part_weight", None))
+    return None
+
+
+def _enrich_package_payload_weight(payload, product_weight_g=None, packaging_weight_g=None):
+    if not payload:
+        return payload
+
+    units_per_parent = _to_int(payload.get("units_per_parent"), 1) or 1
+    gross_weight_g = None
+
+    if product_weight_g is not None:
+        gross_weight_g = float(product_weight_g) * units_per_parent
+    if packaging_weight_g is not None:
+        gross_weight_g = (gross_weight_g or 0.0) + float(packaging_weight_g)
+
+    if gross_weight_g is not None:
+        payload["weight_g"] = round(gross_weight_g, 3)
+        payload["weight_kg"] = round(gross_weight_g / 1000.0, 3)
+
+    payload.setdefault("transport_qty", 1)
+    return payload
+
+
 def _as_bool(post, key, default=False):
     val = post.get(key)
     if val is None:
@@ -393,51 +580,218 @@ def _invalidate_downstream(steps, start_idx):
             steps[i]["config"]["selected_row_index"] = ""
 
 
+def _effective_step_output(step):
+    """Return the workflow payload that should feed the next step.
+
+    A step can have a calculated result (`pending_result`) before the user has
+    explicitly clicked "Use this result". For workflow inheritance, that
+    pending result is still the freshest physical load unit and should be used
+    to prefill the next step. `selected` is kept as the explicit/accepted
+    payload and as a fallback for older sessions.
+    """
+    if not step:
+        return None
+    return step.get("pending_result") or step.get("selected")
+
+
 def _selected_input_for_step(steps, idx):
     if idx <= 0:
         return None
-    return steps[idx - 1].get("selected")
+    return _effective_step_output(steps[idx - 1])
 
 
 def _build_summary(selected):
     if not selected:
         return ""
-    return (
-        f'{selected.get("label", "")} | '
-        f'{selected.get("length")} × {selected.get("width")} × {selected.get("height")} mm | '
-        f'units per parent: {selected.get("units_per_parent", 1)} | '
-        f'total base units: {selected.get("total_base_units", 1)}'
-    )
+    return _payload_overview_value(selected)
+
+
+def _build_step_overview(step, steps, idx):
+    incoming = _selected_input_for_step(steps, idx)
+    selected = step.get("selected")
+    pending = step.get("pending_result")
+    result = step.get("result")
+    messages = step.get("messages") or []
+
+    if messages:
+        status_label = "Needs attention"
+        status_class = "danger"
+    elif selected:
+        status_label = "Selected for next step"
+        status_class = "success"
+    elif pending:
+        status_label = "Result ready"
+        status_class = "ready"
+    elif result:
+        status_label = "Analysis complete"
+        status_class = "ready"
+    else:
+        status_label = "Not run yet"
+        status_class = "muted"
+
+    rows = []
+    if incoming:
+        rows.append({
+            "label": "Input inherited",
+            "value": _payload_overview_value(incoming),
+        })
+    else:
+        rows.append({
+            "label": "Input",
+            "value": "Manual input or catalogue selection",
+        })
+
+    if selected:
+        rows.append({
+            "label": "Passed forward",
+            "value": _payload_overview_value(selected),
+        })
+    elif pending:
+        rows.append({
+            "label": "Ready to pass",
+            "value": _payload_overview_value(pending),
+        })
+    elif result:
+        rows.append({
+            "label": "Result",
+            "value": "Analysis result available. Use the result to pass it to the next workflow step.",
+        })
+    else:
+        rows.append({
+            "label": "Result",
+            "value": "Run this step to calculate a workflow result.",
+        })
+
+    return {
+        "status_label": status_label,
+        "status_class": status_class,
+        "rows": rows,
+    }
+
+
+def _apply_payload_to_config(cfg, step_type, payload):
+    """Force inherited workflow payload into a step config.
+
+    This is intentionally used both on normal page render and immediately after
+    reading POST data. Otherwise stale/empty posted form fields can overwrite
+    the inherited carton/package dimensions before the step is processed.
+    """
+    if not payload:
+        return cfg
+
+    length = payload.get("length")
+    width = payload.get("width")
+    height = payload.get("height")
+    weight_g = payload.get("weight_g")
+
+    has_dimensions = all(value not in (None, "", "None") for value in (length, width, height))
+
+    if step_type == "pallet":
+        cfg["box_source"] = "manual"
+        cfg["box_catalogue_id"] = ""
+        cfg["selected_box_id"] = ""
+        if has_dimensions:
+            cfg["box_l"] = length
+            cfg["box_w"] = width
+            cfg["box_h"] = height
+        if weight_g not in (None, "", "None"):
+            cfg["box_weight"] = weight_g
+        return cfg
+
+    if step_type == "transport":
+        cfg["product_catalogue_id"] = ""
+        cfg["product_id_to_fill"] = ""
+        cfg["selected_row_index"] = ""
+
+        # The inherited physical load unit must refresh dimensions/weight from
+        # the previous step, but workflow-specific user choices made in the
+        # transport row must survive normal page renders and POST processing.
+        # In particular, the Max qty? checkbox lives in product_rows; replacing
+        # the row here reset it to False before _run_transport_analysis().
+        inherited_rows = _transport_rows_from_selected(payload)
+        existing_rows = cfg.get("product_rows") or []
+        cfg["product_rows"] = _merge_transport_inherited_rows(existing_rows, inherited_rows)
+        return cfg
+
+    cfg["product_source"] = "manual"
+    cfg["product_catalogue_id"] = ""
+    cfg["selected_product_id"] = ""
+    if has_dimensions:
+        cfg["product_l"] = length
+        cfg["product_w"] = width
+        cfg["product_h"] = height
+    if weight_g not in (None, "", "None"):
+        cfg["product_weight"] = weight_g
+    return cfg
+
+
+def _transport_rows_from_selected(selected):
+    """Build a JSON-safe transport row from the previous workflow step."""
+    if not selected:
+        return default_product_rows()
+
+    # The previous workflow result is one physical load unit.
+    # units_per_parent describes how many base units it contains; it must not
+    # become the number of cartons/pallets loaded into the transport unit.
+    qty = _to_int(selected.get("transport_qty"), 1) or 1
+    qty = max(qty, 1)
+
+    weight_kg = _to_float(selected.get("weight_kg"), None)
+    if weight_kg is None:
+        weight_kg = _to_float(selected.get("weight"), 0) or 0
+
+    return sanitize_transport_rows_for_session([
+        {
+            "name": selected.get("label") or "Previous workflow load unit",
+            "length": selected.get("length", ""),
+            "width": selected.get("width", ""),
+            "height": selected.get("height", ""),
+            "qty": qty,
+            "max_qty": bool(selected.get("transport_max_qty", False)),
+            "weight": round(float(weight_kg), 3),
+            "sequence": 1,
+            "r1": True,
+            "r2": True,
+            "r3": True,
+        }
+    ])
+
+
+def _merge_transport_inherited_rows(existing_rows, inherited_rows):
+    """
+    Keep the physical load unit inherited from the previous workflow step, while
+    preserving user choices made inside the transport row, such as manual qty,
+    auto-max checkbox and loading sequence.
+    """
+    inherited = sanitize_transport_rows_for_session(inherited_rows or default_product_rows())
+    existing = sanitize_transport_rows_for_session(existing_rows or [])
+
+    if not inherited:
+        return existing or default_product_rows()
+
+    merged = []
+    for row_index, inherited_row in enumerate(inherited):
+        current = existing[row_index] if row_index < len(existing) else {}
+        row = dict(inherited_row)
+
+        for key in ("qty", "max_qty", "sequence", "r1", "r2", "r3"):
+            if key in current and current.get(key) not in (None, ""):
+                row[key] = current.get(key)
+
+        merged.append(row)
+
+    return sanitize_transport_rows_for_session(merged)
 
 
 def _apply_chained_defaults(step, steps, idx):
     prev = _selected_input_for_step(steps, idx)
     if not prev:
         return
-
-    cfg = step["config"]
-    if step.get("type") == "pallet":
-        cfg["box_source"] = "manual"
-        cfg["box_catalogue_id"] = ""
-        cfg["selected_box_id"] = ""
-        cfg["box_l"] = prev["length"]
-        cfg["box_w"] = prev["width"]
-        cfg["box_h"] = prev["height"]
-        return
-
-    if step.get("type") == "transport":
-        cfg["product_catalogue_id"] = ""
-        cfg["product_id_to_fill"] = ""
-        cfg["selected_row_index"] = ""
-        cfg["product_rows"] = _transport_rows_from_selected(prev)
-        return
-
-    cfg["product_source"] = "manual"
-    cfg["product_catalogue_id"] = ""
-    cfg["selected_product_id"] = ""
-    cfg["product_l"] = prev["length"]
-    cfg["product_w"] = prev["width"]
-    cfg["product_h"] = prev["height"]
+    step["config"] = _apply_payload_to_config(
+        step.get("config") or {},
+        step.get("type"),
+        prev,
+    )
 
 
 def _resolve_product_for_container(cfg, selected_product):
@@ -490,26 +844,16 @@ def _resolve_visual_bag_box(selected_bag, inner_box):
     tolerance = 2.0
     sealing_area = 10.0
 
-    candidates = []
+    # Bag dimensions are physical L × W values and must not be swapped.
+    # Length carries sealing; width is the opening side and carries tolerance only.
+    bag_box_length = bag_len - tolerance - sealing_area - bh
+    bag_box_width = bag_w - tolerance - bh
 
-    box_length_a = bag_len - tolerance - bh
-    box_width_a = bag_w - tolerance - sealing_area - bh
-    if box_length_a > 0 and box_width_a > 0:
-        candidates.append((box_length_a, box_width_a))
-
-    box_length_b = bag_w - tolerance - bh
-    box_width_b = bag_len - tolerance - sealing_area - bh
-    if box_length_b > 0 and box_width_b > 0:
-        candidates.append((box_length_b, box_width_b))
-
-    if not candidates:
+    if bag_box_length <= 0 or bag_box_width <= 0:
         return None
 
-    valid_candidates = [(L, W) for (L, W) in candidates if bl <= L and bw <= W]
-    if valid_candidates:
-        bag_box_length, bag_box_width = min(valid_candidates, key=lambda t: (t[0] * t[1], t[0] + t[1]))
-    else:
-        bag_box_length, bag_box_width = min(candidates, key=lambda t: (t[0] * t[1], t[0] + t[1]))
+    bag_box_length = max(float(bag_box_length), float(bl))
+    bag_box_width = max(float(bag_box_width), float(bw))
 
     return (round(bag_box_length, 2), round(bag_box_width, 2), round(bh, 2))
 
@@ -582,7 +926,46 @@ def _prepare_container_step_view_model(step, idx):
     step["current_product_source"] = cfg.get("product_source") or "manual"
     step["current_container_source"] = cfg.get("container_source") or "manual"
     step["container_top5_rows"] = _inflate_container_top5_rows(step.get("top5", []))
+    step["analysis_report"] = step.get("analysis_report") or (step.get("result") or {}).get("analysis_report")
+    step["threejs_scene"] = step.get("threejs_scene") or (step.get("result") or {}).get("threejs_scene")
+    step["product_base_image_url"] = step.get("product_base_image_url") or (step.get("result") or {}).get("product_base_image_url")
 
+
+def _prepare_bag_step_view_model(step, idx):
+    cfg = sanitize_bag_config_for_session(step.get("config") or {})
+    if idx != 0:
+        cfg["product_source"] = "manual"
+        cfg["product_catalogue_id"] = ""
+        cfg["selected_product_id"] = ""
+        cfg = sanitize_bag_config_for_session(cfg)
+
+    selected_product = get_bag_selected_product(cfg) if idx == 0 else None
+    selected_material = get_bag_selected_material(cfg)
+
+    step["config"] = cfg
+    step["bag_values"] = {k: cfg.get(k) for k in default_bag_config().keys()}
+    step["bag_ui"] = _build_shared_bag_ui_contract(prefix=str(idx))
+    step["mode"] = "workflow"
+    step["prefix"] = str(idx)
+
+    step["products"] = get_bag_products_for_catalogue(cfg) if idx == 0 else Product.objects.none()
+    step["materials"] = get_bag_materials_for_catalogue(cfg)
+    step["selected_product"] = selected_product
+    step["selected_material"] = selected_material
+    step["selected_product_summary"] = selected_product_summary_bag(
+        selected_product=selected_product,
+        data=cfg,
+        mode=cfg.get("mode") or "single",
+    )
+    step["selected_bag_summary"] = selected_bag_summary_bag(
+        selected_material=selected_material,
+        data=cfg,
+    )
+    step["current_mode"] = cfg.get("mode") or "single"
+    step["current_product_source"] = cfg.get("product_source") or "manual"
+    step["current_bag_source"] = cfg.get("bag_source") or "manual"
+    step["allow_product_catalogue"] = idx == 0
+    step["analysis_report"] = step.get("analysis_report") or (step.get("result") or {}).get("analysis_report")
 
 
 def _process_container_step(step, steps, idx, post):
@@ -650,6 +1033,14 @@ def _process_container_step(step, steps, idx, post):
     cfg["box_l"] = post.get(f"box_l{suffix}", post.get(f"box_l_{idx}", cfg.get("box_l", "")))
     cfg["box_w"] = post.get(f"box_w{suffix}", post.get(f"box_w_{idx}", cfg.get("box_w", "")))
     cfg["box_h"] = post.get(f"box_h{suffix}", post.get(f"box_h_{idx}", cfg.get("box_h", "")))
+    cfg["box_weight"] = post.get(
+        f"box_weight{suffix}",
+        post.get(f"box_weight_{idx}", cfg.get("box_weight", ""))
+    )
+    cfg["box_max_payload"] = post.get(
+        f"box_max_payload{suffix}",
+        post.get(f"box_max_payload_{idx}", cfg.get("box_max_payload", ""))
+    )
     cfg["action"] = post.get(
         f"action{suffix}",
         post.get(f"step_action_{idx}", cfg.get("action", "refresh"))
@@ -659,6 +1050,7 @@ def _process_container_step(step, steps, idx, post):
         cfg["product_source"] = "manual"
         cfg["product_catalogue_id"] = ""
         cfg["selected_product_id"] = ""
+        cfg = _apply_payload_to_config(cfg, step.get("type"), _selected_input_for_step(steps, idx))
 
     cfg = sanitize_container_config_for_session(cfg)
 
@@ -683,6 +1075,8 @@ def _process_container_step(step, steps, idx, post):
         "box_l": cfg.get("box_l", ""),
         "box_w": cfg.get("box_w", ""),
         "box_h": cfg.get("box_h", ""),
+        "box_weight": cfg.get("box_weight", ""),
+        "box_max_payload": cfg.get("box_max_payload", ""),
     }
     if cfg.get("r1"):
         normalized_post["r1"] = "on"
@@ -714,6 +1108,9 @@ def _process_container_step(step, steps, idx, post):
     top5_payload = []
     messages = []
     pending_result = None
+    analysis_report = None
+    threejs_scene = None
+    product_base_image_url = None
 
     if form.is_valid():
         analysis = analyze_container_form(
@@ -726,6 +1123,9 @@ def _process_container_step(step, steps, idx, post):
         messages = list(analysis.get("messages") or [])
         render_result = analysis.get("result")
         image_url = analysis.get("image_url")
+        analysis_report = analysis.get("analysis_report")
+        threejs_scene = analysis.get("threejs_scene")
+        product_base_image_url = analysis.get("product_base_image_url")
         top5_payload = [
             {
                 "material_id": str(row["material"].id),
@@ -741,6 +1141,9 @@ def _process_container_step(step, steps, idx, post):
             result_payload = {
                 "kind": "container",
                 "max_quantity": getattr(render_result, "max_quantity", None),
+                "analysis_report": analysis_report,
+                "threejs_scene": threejs_scene,
+                "product_base_image_url": product_base_image_url,
             }
 
             desired_qty = int(form.cleaned_data.get("desired_qty") or 1)
@@ -748,9 +1151,9 @@ def _process_container_step(step, steps, idx, post):
                 desired_qty = int(getattr(selected_product, "desired_qty", 1) or 1)
 
             if selected_material is not None:
-                length = float(selected_material.part_length)
-                width = float(selected_material.part_width)
-                height = float(selected_material.part_height)
+                length = _material_dimension_for_workflow(selected_material, "external_length", "part_length")
+                width = _material_dimension_for_workflow(selected_material, "external_width", "part_width")
+                height = _material_dimension_for_workflow(selected_material, "external_height", "part_height")
                 label = selected_material.part_number
             else:
                 length = _to_float(cfg.get("box_l"), 0.0) or 0.0
@@ -758,20 +1161,37 @@ def _process_container_step(step, steps, idx, post):
                 height = _to_float(cfg.get("box_h"), 0.0) or 0.0
                 label = "Manual Container"
 
+            max_quantity = int(getattr(render_result, "max_quantity", 0) or 0)
+            units_per_parent = max_quantity if cfg.get("mode") == "single" else desired_qty
+            units_per_parent = max(int(units_per_parent or 1), 1)
+            prev = _selected_input_for_step(steps, idx)
+            upstream_units = _to_int(prev.get("total_base_units"), 1) if prev else 1
+
             pending_result = {
                 "label": label,
                 "length": round(length, 2),
                 "width": round(width, 2),
                 "height": round(height, 2),
-                "units_per_parent": desired_qty,
-                "total_base_units": desired_qty,
+                "units_per_parent": units_per_parent,
+                "total_base_units": units_per_parent * int(upstream_units or 1),
+                "transport_qty": 1,
+                "source_step_type": "container",
+                "package_type": "container",
             }
+            pending_result = _enrich_package_payload_weight(
+                pending_result,
+                product_weight_g=_resolve_product_weight_g(cfg, selected_product),
+                packaging_weight_g=_resolve_packaging_weight_g(cfg, "box_weight", selected_material),
+            )
     else:
         messages = [str(err) for err in form.non_field_errors()]
 
     step["config"] = cfg
     step["result"] = result_payload
     step["image_url"] = image_url
+    step["analysis_report"] = analysis_report
+    step["threejs_scene"] = threejs_scene
+    step["product_base_image_url"] = product_base_image_url
     step["top5"] = top5_payload
     step["pending_result"] = pending_result
     step["messages"] = messages
@@ -779,237 +1199,124 @@ def _process_container_step(step, steps, idx, post):
 
 
 def _process_bag_step(step, steps, idx, post):
-    cfg = step["config"]
-    messages = []
-    step["top5"] = []
-    step["result"] = None
-    step["image_url"] = None
-    step["pending_result"] = None
+    existing_cfg = step.get("config") or {}
+    cfg = default_bag_config()
+    cfg.update(existing_cfg)
 
-    cfg["mode"] = post.get(f"mode_{idx}", cfg.get("mode", "single"))
+    suffix = f"_{idx}"
+    cfg["mode"] = post.get(f"mode{suffix}", post.get(f"mode_{idx}", cfg.get("mode", "single")))
 
     if idx == 0:
-        cfg["product_source"] = post.get(f"product_source_{idx}", cfg.get("product_source", "manual"))
-        cfg["product_catalogue_id"] = post.get(f"product_catalogue_id_{idx}", cfg.get("product_catalogue_id", ""))
-        cfg["selected_product_id"] = post.get(f"selected_product_id_{idx}", cfg.get("selected_product_id", ""))
+        cfg["product_source"] = post.get(
+            f"product_source{suffix}",
+            post.get(f"product_source_{idx}", cfg.get("product_source", "manual")),
+        )
+        cfg["product_catalogue_id"] = post.get(
+            f"product_catalogue_id{suffix}",
+            post.get(f"product_catalogue_id_{idx}", cfg.get("product_catalogue_id", "")),
+        )
+        cfg["selected_product_id"] = post.get(
+            f"selected_product_id{suffix}",
+            post.get(f"selected_product_id_{idx}", cfg.get("selected_product_id", "")),
+        )
     else:
         cfg["product_source"] = "manual"
         cfg["product_catalogue_id"] = ""
         cfg["selected_product_id"] = ""
 
-    cfg["bag_source"] = post.get(f"bag_source_{idx}", cfg.get("bag_source", "manual"))
-    cfg["product_l"] = post.get(f"product_l_{idx}", cfg.get("product_l", ""))
-    cfg["product_w"] = post.get(f"product_w_{idx}", cfg.get("product_w", ""))
-    cfg["product_h"] = post.get(f"product_h_{idx}", cfg.get("product_h", ""))
-    cfg["desired_qty"] = _to_int(post.get(f"desired_qty_{idx}"), cfg.get("desired_qty", 1)) or 1
-    cfg["catalogue_id"] = post.get(f"catalogue_id_{idx}", cfg.get("catalogue_id", ""))
-    cfg["bag_id"] = post.get(f"bag_id_{idx}", cfg.get("bag_id", ""))
-    cfg["bag_length"] = post.get(f"bag_length_{idx}", cfg.get("bag_length", ""))
-    cfg["bag_width"] = post.get(f"bag_width_{idx}", cfg.get("bag_width", ""))
+    cfg["bag_source"] = post.get(
+        f"bag_source{suffix}",
+        post.get(f"bag_source_{idx}", cfg.get("bag_source", "manual")),
+    )
+    cfg["product_l"] = post.get(f"product_l{suffix}", post.get(f"product_l_{idx}", cfg.get("product_l", "")))
+    cfg["product_w"] = post.get(f"product_w{suffix}", post.get(f"product_w_{idx}", cfg.get("product_w", "")))
+    cfg["product_h"] = post.get(f"product_h{suffix}", post.get(f"product_h_{idx}", cfg.get("product_h", "")))
+    cfg["product_weight"] = post.get(
+        f"product_weight{suffix}",
+        post.get(f"product_weight_{idx}", cfg.get("product_weight", "")),
+    )
+    cfg["desired_qty"] = post.get(
+        f"desired_qty{suffix}",
+        post.get(f"desired_qty_{idx}", cfg.get("desired_qty", "1")),
+    )
+    cfg["catalogue_id"] = post.get(
+        f"catalogue_id{suffix}",
+        post.get(f"catalogue_id_{idx}", cfg.get("catalogue_id", "")),
+    )
+    cfg["bag_id"] = post.get(
+        f"bag_id{suffix}",
+        post.get(f"bag_id_{idx}", cfg.get("bag_id", "")),
+    )
+    cfg["bag_length"] = post.get(f"bag_length{suffix}", post.get(f"bag_length_{idx}", cfg.get("bag_length", "")))
+    cfg["bag_width"] = post.get(f"bag_width{suffix}", post.get(f"bag_width_{idx}", cfg.get("bag_width", "")))
+    cfg["bag_weight"] = post.get(
+        f"bag_weight{suffix}",
+        post.get(f"bag_weight_{idx}", cfg.get("bag_weight", "")),
+    )
+    cfg["bag_max_payload"] = post.get(
+        f"bag_max_payload{suffix}",
+        post.get(f"bag_max_payload_{idx}", cfg.get("bag_max_payload", "")),
+    )
+    cfg["action"] = post.get(
+        f"action{suffix}",
+        post.get(f"step_action_{idx}", cfg.get("action", "refresh")),
+    )
 
-    action = post.get(f"step_action_{idx}", "refresh")
-
-    if action == "browse_product" and idx == 0:
+    if cfg["action"] == "browse_product" and idx == 0:
         cfg["selected_product_id"] = ""
-    elif action == "clear_product" and idx == 0:
+    elif cfg["action"] == "clear_product" and idx == 0:
         cfg["selected_product_id"] = ""
-    elif action == "select_product" and idx == 0:
-        cfg["selected_product_id"] = post.get(f"selected_product_id_{idx}", "")
-    elif action == "browse_packaging":
+    elif cfg["action"] == "browse_packaging":
         cfg["bag_id"] = ""
-    elif action == "clear_packaging":
+    elif cfg["action"] == "clear_packaging":
         cfg["bag_id"] = ""
-    elif action in ("select_bag", "select_candidate"):
-        cfg["bag_id"] = post.get(f"bag_id_{idx}", cfg.get("bag_id", ""))
 
-    mode = cfg["mode"]
-    product_source = cfg["product_source"]
-    bag_source = cfg["bag_source"]
+    if idx != 0:
+        cfg["product_source"] = "manual"
+        cfg["product_catalogue_id"] = ""
+        cfg["selected_product_id"] = ""
+        cfg = _apply_payload_to_config(cfg, step.get("type"), _selected_input_for_step(steps, idx))
 
-    selected_product = Product.objects.filter(id=cfg.get("selected_product_id") or None).select_related("catalogue").first()
-    selected_material = PackagingMaterial.objects.filter(id=cfg.get("bag_id") or None).select_related("catalogue").first()
+    cfg = sanitize_bag_config_for_session(cfg)
 
-    product = _resolve_product_for_bag(cfg, selected_product)
+    selected_product = get_bag_selected_product(cfg) if idx == 0 else None
+    selected_material = get_bag_selected_material(cfg)
+    materials = get_bag_materials_for_catalogue(cfg)
 
-    if mode == "optimal" and product_source == "catalogue" and selected_product:
-        desired_qty = int(selected_product.desired_qty or 1)
-    else:
-        desired_qty = int(cfg.get("desired_qty") or 1)
+    analysis = analyze_bag_config_shared(
+        config=cfg,
+        action=cfg.get("action") or "",
+        selected_product=selected_product,
+        selected_material=selected_material,
+        materials=materials,
+        media_root=settings.MEDIA_ROOT,
+    )
 
-    if mode == "single" and action in ("run_single", "select_bag"):
-        bag = None
+    pending_result = analysis.get("pending_result")
+    if pending_result:
+        pending_result["source_step_type"] = "bag"
+        pending_result["package_type"] = "bag"
+        pending_result.setdefault("transport_qty", 1)
+        pending_result = _enrich_package_payload_weight(
+            pending_result,
+            product_weight_g=_resolve_product_weight_g(cfg, selected_product),
+            packaging_weight_g=_resolve_packaging_weight_g(cfg, "bag_weight", selected_material),
+        )
 
-        if product_source == "catalogue" and not selected_product:
-            messages.append("Please select a product from the product catalogue.")
-        elif product_source == "manual" and (not product or None in product):
-            messages.append("Please enter product dimensions.")
-
-        if not messages:
-            if bag_source == "manual":
-                bag_l = _to_float(cfg.get("bag_length"))
-                bag_w = _to_float(cfg.get("bag_width"))
-                if bag_l is None or bag_w is None:
-                    messages.append("Please enter bag length and width.")
-                else:
-                    bag = (bag_l, bag_w)
-            else:
-                if not selected_material:
-                    messages.append("Please select a bag from the packaging catalogue.")
-                else:
-                    bag = (
-                        float(selected_material.part_length),
-                        float(selected_material.part_width),
-                    )
-
-        if not messages and bag is not None and product is not None:
-            req = build_required_bag_options(product[0], product[1], product[2], desired_qty)
-            required_bags = req["required"]
-            best = best_usage_for_bag(bag[0], bag[1], required_bags)
-
-            step["result"] = {
-                "kind": "bag",
-                "desired_qty": desired_qty,
-                "smooth_qty": req["smooth_qty"],
-                "fits": best is not None,
-                "bag_len": bag[0],
-                "bag_w": bag[1],
-                "best_required": (best["req_len"], best["req_w"]) if best else None,
-                "usage": best["usage"] if best else 0.0,
-                "required_bags": required_bags,
-                "usage_pct": round((best["usage"] if best else 0.0) * 100, 2),
-            }
-
-            if best is not None:
-                render_res = run_bag_mode1_and_render(
-                    product=product,
-                    selected_bag=(bag[0], bag[1]),
-                    desired_qty=desired_qty,
-                    solutions=req["solutions"],
-                    media_root=settings.MEDIA_ROOT,
-                    draw_limit=desired_qty,
-                )
-                step["image_url"] = settings.MEDIA_URL + render_res.image_rel_path
-                bag_box = _resolve_visual_bag_box((bag[0], bag[1]), render_res.inner_box)
-                if bag_box:
-                    length, width, height = bag_box
-                else:
-                    length, width, height = (
-                        round(render_res.inner_box[0], 2),
-                        round(render_res.inner_box[1], 2),
-                        round(render_res.inner_box[2], 2),
-                    )
-                label = selected_material.part_number if selected_material else "Manual Bag"
-                step["pending_result"] = {
-                    "label": label,
-                    "length": length,
-                    "width": width,
-                    "height": height,
-                    "units_per_parent": desired_qty,
-                    "total_base_units": desired_qty,
-                }
-
-    if mode == "optimal" and action in ("find_top5", "select_candidate"):
-        if product_source == "catalogue" and not selected_product:
-            messages.append("Please select a product from the product catalogue.")
-        elif product_source == "manual" and (not product or None in product):
-            messages.append("Please enter product dimensions.")
-        elif not cfg.get("catalogue_id"):
-            messages.append("Please select a packaging catalogue.")
-
-        materials = PackagingMaterial.objects.filter(
-            catalogue_id=cfg.get("catalogue_id") or None,
-            packaging_type="BAG",
-        ).select_related("catalogue").order_by("part_number") if cfg.get("catalogue_id") else PackagingMaterial.objects.none()
-
-        if not messages:
-            req = build_required_bag_options(product[0], product[1], product[2], desired_qty)
-            required_bags = req["required"]
-            scored = []
-
-            for m in materials:
-                bag_len = float(m.part_length or 0)
-                bag_w = float(m.part_width or 0)
-                if bag_len <= 0 or bag_w <= 0:
-                    continue
-                best = best_usage_for_bag(bag_len, bag_w, required_bags)
-                if best is not None:
-                    scored.append({
-                        "material": m,
-                        "bag_len": bag_len,
-                        "bag_w": bag_w,
-                        "usage": best["usage"],
-                        "best_required": (best["req_len"], best["req_w"]),
-                        "bag_area": bag_len * bag_w,
-                    })
-
-            scored.sort(key=lambda x: (-x["usage"], x["bag_area"]))
-            step["top5"] = [{
-                "id": str(row["material"].id),
-                "part_number": row["material"].part_number,
-                "description": row["material"].part_description,
-                "branding": row["material"].branding,
-                "bag_len": round(row["bag_len"], 2),
-                "bag_w": round(row["bag_w"], 2),
-                "usage": round(row["usage"], 4),
-                "usage_pct": round(row["usage"] * 100, 2),
-                "best_required": (round(row["best_required"][0], 2), round(row["best_required"][1], 2)),
-            } for row in scored[:5]]
-
-            if action == "select_candidate":
-                if not selected_material:
-                    messages.append("Please select one of the Top 5 bags.")
-                else:
-                    bag = (float(selected_material.part_length), float(selected_material.part_width))
-                    best = best_usage_for_bag(bag[0], bag[1], required_bags)
-                    step["result"] = {
-                        "kind": "bag",
-                        "desired_qty": desired_qty,
-                        "smooth_qty": req["smooth_qty"],
-                        "fits": best is not None,
-                        "bag_len": bag[0],
-                        "bag_w": bag[1],
-                        "best_required": (best["req_len"], best["req_w"]) if best else None,
-                        "usage": best["usage"] if best else 0.0,
-                        "required_bags": required_bags,
-                        "usage_pct": round((best["usage"] if best else 0.0) * 100, 2),
-                    }
-                    if best is not None:
-                        render_res = run_bag_mode1_and_render(
-                            product=product,
-                            selected_bag=(bag[0], bag[1]),
-                            desired_qty=desired_qty,
-                            solutions=req["solutions"],
-                            media_root=settings.MEDIA_ROOT,
-                            draw_limit=desired_qty,
-                        )
-                        step["image_url"] = settings.MEDIA_URL + render_res.image_rel_path
-                        bag_box = _resolve_visual_bag_box((bag[0], bag[1]), render_res.inner_box)
-                        if bag_box:
-                            length, width, height = bag_box
-                        else:
-                            length, width, height = (
-                                round(render_res.inner_box[0], 2),
-                                round(render_res.inner_box[1], 2),
-                                round(render_res.inner_box[2], 2),
-                            )
-                        step["pending_result"] = {
-                            "label": selected_material.part_number,
-                            "length": length,
-                            "width": width,
-                            "height": height,
-                            "units_per_parent": desired_qty,
-                            "total_base_units": desired_qty,
-                        }
-
-    step["messages"] = messages
+    step["config"] = cfg
+    step["result"] = analysis.get("result")
+    step["image_url"] = analysis.get("image_url")
+    step["top5"] = analysis.get("top5") or []
+    step["pending_result"] = pending_result
+    step["analysis_report"] = analysis.get("analysis_report")
+    step["messages"] = analysis.get("messages") or []
     step["expanded"] = True
-
-
 
 def _process_transport_step(step, steps, idx, post):
     cfg = step["config"]
     step["result"] = None
     step["image_url"] = None
+    step["image_urls"] = {}
     step["pending_result"] = None
     step["auto_hide_product_catalogue"] = False
 
@@ -1020,6 +1327,7 @@ def _process_transport_step(step, steps, idx, post):
     cfg["container_w"] = post.get(f"container_w_{idx}", cfg.get("container_w", ""))
     cfg["container_h"] = post.get(f"container_h_{idx}", cfg.get("container_h", ""))
     cfg["max_weight"] = post.get(f"max_weight_{idx}", cfg.get("max_weight", ""))
+    cfg["tare_weight"] = post.get(f"tare_weight_{idx}", cfg.get("tare_weight", ""))
 
     action = post.get(f"step_action_{idx}", "refresh")
 
@@ -1044,7 +1352,9 @@ def _process_transport_step(step, steps, idx, post):
         cfg["product_catalogue_id"] = ""
         cfg["product_id_to_fill"] = ""
         cfg["selected_row_index"] = ""
-        cfg["product_rows"] = _transport_rows_from_selected(_selected_input_for_step(steps, idx))
+        inherited_rows = _transport_rows_from_selected(_selected_input_for_step(steps, idx))
+        posted_rows = read_product_rows_raw(post)
+        cfg["product_rows"] = _merge_transport_inherited_rows(posted_rows or cfg.get("product_rows"), inherited_rows)
         step["messages"] = []
 
     if action == "select_product" and idx == 0:
@@ -1093,6 +1403,8 @@ def _process_transport_step(step, steps, idx, post):
 
 def _process_pallet_step(step, steps, idx, post):
     cfg = _read_prefixed_pallet_post(step, idx, post)
+    if idx != 0:
+        cfg = _apply_payload_to_config(cfg, step.get("type"), _selected_input_for_step(steps, idx))
     _update_pallet_config_on_step(step, cfg)
 
     action = post.get(f"step_action_{idx}", "refresh")
@@ -1147,19 +1459,14 @@ def _process_pallet_step(step, steps, idx, post):
 
     if action in ("run_analysis", "select_result"):
         step["analysis_ran"] = True
-
-    elif action in (
-        "browse_box_packaging",
-        "clear_box_packaging",
-        "select_box",
-        "browse_pallet_packaging",
-        "clear_pallet_packaging",
-        "select_pallet",
-    ):
-        step["analysis_ran"] = step.get("analysis_ran", False)
-
-    elif action == "refresh":
-        step["analysis_ran"] = step.get("analysis_ran", False)
+    else:
+        # Catalogue browsing, row selection, source switching, and normal refreshes
+        # change the input state. Do not keep re-validating an old incomplete
+        # pallet analysis on every render, otherwise messages such as
+        # "Please enter max stack height." stay visible while the user is still
+        # selecting data.
+        step["analysis_ran"] = False
+        step["selected_result_key"] = ""
 
     step["expanded"] = True
     step["messages"] = []
@@ -1167,6 +1474,17 @@ def _process_pallet_step(step, steps, idx, post):
     _run_pallet_analysis_shared(step, steps, idx)
 
 
+
+
+def full_packaging_export_pdf(request):
+    workflow = _get_workflow(request)
+    report_payload = build_workflow_report_payload(workflow)
+    pdf_buffer = build_full_packaging_pdf(report_payload)
+
+    filename = f"packaging-flow-report-{timezone.now().strftime('%Y%m%d-%H%M')}.pdf"
+    response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 def full_packaging_mode(request):
     workflow = _get_workflow(request)
@@ -1252,7 +1570,7 @@ def full_packaging_mode(request):
                     step = steps[idx]
                     _run_pallet_analysis_shared(step, steps, idx)
 
-                pending = steps[idx].get("pending_result")
+                pending = _effective_step_output(steps[idx])
                 if pending:
                     steps[idx]["selected"] = pending
                     steps[idx]["summary"] = _build_summary(pending)
@@ -1307,19 +1625,14 @@ def full_packaging_mode(request):
                 step["product_rows"] = sanitize_transport_rows_for_session(cfg.get("product_rows") or default_product_rows())
                 cfg["product_rows"] = step["product_rows"]
             else:
-                step["product_rows"] = _transport_rows_from_selected(_selected_input_for_step(steps, idx))
+                inherited_rows = _transport_rows_from_selected(_selected_input_for_step(steps, idx))
+                step["product_rows"] = _merge_transport_inherited_rows(cfg.get("product_rows"), inherited_rows)
                 cfg["product_rows"] = step["product_rows"]
             step["container_summary"] = selected_container_summary(step["selected_material"], cfg)
             if step.get("analysis_ran"):
                 _run_transport_analysis(step, steps, idx)
         elif step.get("type") == "bag":
-            step["materials"] = PackagingMaterial.objects.filter(
-                catalogue_id=cfg.get("catalogue_id") or None,
-                packaging_type="BAG",
-            ).select_related("catalogue").order_by("part_number") if cfg.get("catalogue_id") else PackagingMaterial.objects.none()
-            step["selected_material"] = PackagingMaterial.objects.filter(
-                id=cfg.get("bag_id") or None
-            ).select_related("catalogue").first()
+            _prepare_bag_step_view_model(step, idx)
         elif step.get("type") == "pallet":
             step.setdefault("results_table", [])
             step.setdefault("show_box_catalogue", False)
@@ -1351,6 +1664,13 @@ def full_packaging_mode(request):
 
             step["selected_pallet_material"] = get_selected_pallet_material(cfg)
 
+            cfg = _hydrate_pallet_catalogue_values(
+                cfg,
+                selected_box_material=step.get("selected_box_material"),
+                selected_pallet_material=step.get("selected_pallet_material"),
+            )
+            _update_pallet_config_on_step(step, cfg)
+
             step["show_box_catalogue"] = bool(step.get("show_box_catalogue")) or (
                 idx == 0
                 and cfg.get("box_source") == "catalogue"
@@ -1376,6 +1696,8 @@ def full_packaging_mode(request):
         else:
             _prepare_container_step_view_model(step, idx)
 
+        step["workflow_overview"] = _build_step_overview(step, steps, idx)
+
     return render(request, "full_packaging/full_packaging_mode.html", {
         "steps": steps,
         "show_add_bar_after": workflow.get("show_add_bar_after"),
@@ -1387,6 +1709,7 @@ def _run_transport_analysis(step, steps, idx):
     cfg = step["config"]
     step["result"] = None
     step["image_url"] = None
+    step["image_urls"] = {}
     step["pending_result"] = None
 
     selected_material = PackagingMaterial.objects.filter(
@@ -1397,7 +1720,8 @@ def _run_transport_analysis(step, steps, idx):
         raw_rows = cfg.get("product_rows") or default_product_rows()
     else:
         upstream = _selected_input_for_step(steps, idx)
-        raw_rows = _transport_rows_from_selected(upstream)
+        inherited_rows = _transport_rows_from_selected(upstream)
+        raw_rows = _merge_transport_inherited_rows(cfg.get("product_rows"), inherited_rows)
         cfg["product_rows"] = sanitize_transport_rows_for_session(raw_rows)
 
     analysis = analyze_transport_config(
@@ -1417,6 +1741,7 @@ def _run_transport_analysis(step, steps, idx):
 
     step["result"] = analysis["serialized_result"]
     step["image_url"] = analysis["image_url"]
+    step["image_urls"] = analysis.get("image_urls") or {}
 
     prev = _selected_input_for_step(steps, idx)
     upstream_units = prev.get("total_base_units", 1) if prev else 1
@@ -1427,3 +1752,12 @@ def _run_transport_analysis(step, steps, idx):
         selected_material=selected_material,
         upstream_units=upstream_units,
     )
+    summary = (analysis.get("serialized_result") or {}).get("summary", {}) or {}
+    gross_weight = _to_float(summary.get("gross_weight"), None)
+    if gross_weight is not None and step.get("pending_result"):
+        step["pending_result"]["weight_kg"] = round(gross_weight, 3)
+        step["pending_result"]["weight_g"] = round(gross_weight * 1000.0, 3)
+    if step.get("pending_result"):
+        step["pending_result"].setdefault("transport_qty", 1)
+        step["pending_result"]["source_step_type"] = "transport"
+        step["pending_result"]["package_type"] = "transport_unit"

@@ -26,6 +26,7 @@ Point = Tuple[float, float, float]
 class Mode1Result:
     max_quantity: int
     image_rel_path: str
+    threejs_scene: Optional[dict] = None
 
 
 def draw_cube(ax, x, y, z, dx, dy, dz,
@@ -47,6 +48,82 @@ def draw_cube(ax, x, y, z, dx, dy, dz,
     ax.add_collection3d(poly3d)
 
 
+def draw_open_box_shell(ax, lc, ac, hc,
+                        color="#d8c3a5",
+                        edge_color="black",
+                        alpha=0.16,
+                        alpha_edges=0.45):
+    """
+    Draw a lightweight open-top box shell.
+    """
+    edge_color = to_rgba(edge_color, alpha=alpha_edges)
+
+    faces = [
+        [(0, 0, 0), (lc, 0, 0), (lc, ac, 0), (0, ac, 0)],
+        [(0, 0, 0), (0, ac, 0), (0, ac, hc), (0, 0, hc)],
+        [(lc, 0, 0), (lc, ac, 0), (lc, ac, hc), (lc, 0, hc)],
+        [(0, 0, 0), (lc, 0, 0), (lc, 0, hc), (0, 0, hc)],
+        [(0, ac, 0), (lc, ac, 0), (lc, ac, hc), (0, ac, hc)],
+    ]
+
+    poly3d = Poly3DCollection(faces, facecolors=color, edgecolors=edge_color, alpha=alpha)
+    ax.add_collection3d(poly3d)
+
+
+def draw_rsc_top_flaps(ax, lc, ac, hc,
+                       color="#c9a66b",
+                       edge_color="black",
+                       alpha=0.26,
+                       alpha_edges=0.45,
+                       opening_angle_deg=130.0):
+    """
+    Draw a simplified regular slotted container (RSC) top closure.
+
+    Visual intent:
+      - 2 major flaps: L x (W/2)
+      - 2 minor flaps: attached to the width panels
+
+    opening_angle_deg is used as a visual opening control.
+    130° gives a much more opened look than the previous flatter version.
+    """
+    edge_color = to_rgba(edge_color, alpha=alpha_edges)
+
+    # Major flaps: L x (W/2)
+    major_len = max(ac * 0.5, 1.0)
+
+    # Minor flaps: visually shorter, attached to the width sides
+    minor_len = max(min(lc * 0.22, ac * 0.48), 1.0)
+
+    # Convert the desired visual opening into an upward/outward tilt.
+    # 130° opening -> 50° tilt above the top rim plane.
+    tilt_deg = max(5.0, min(opening_angle_deg - 80.0, 75.0))
+    theta = np.deg2rad(tilt_deg)
+
+    major_run = major_len * np.cos(theta)
+    major_rise = major_len * np.sin(theta)
+
+    minor_run = minor_len * np.cos(theta)
+    minor_rise = minor_len * np.sin(theta)
+
+    flaps = [
+        # Front major flap (hinge at y = 0, opens outward to negative y)
+        [(0, 0, hc), (lc, 0, hc), (lc, -major_run, hc + major_rise), (0, -major_run, hc + major_rise)],
+
+        # Back major flap (hinge at y = ac, opens outward to positive y)
+        [(0, ac, hc), (lc, ac, hc), (lc, ac + major_run, hc + major_rise), (0, ac + major_run, hc + major_rise)],
+
+        # Left minor flap (hinge at x = 0, opens outward to negative x)
+        [(0, 0, hc), (0, ac, hc), (-minor_run, ac, hc + minor_rise), (-minor_run, 0, hc + minor_rise)],
+
+        # Right minor flap (hinge at x = lc, opens outward to positive x)
+        [(lc, 0, hc), (lc, ac, hc), (lc + minor_run, ac, hc + minor_rise), (lc + minor_run, 0, hc + minor_rise)],
+    ]
+
+    poly3d = Poly3DCollection(flaps, facecolors=color, edgecolors=edge_color, alpha=alpha)
+    ax.add_collection3d(poly3d)
+
+
+
 def fill_subbox(ax,
                 subbox_origin: Point,
                 subbox_dimensions: Dims,
@@ -55,7 +132,8 @@ def fill_subbox(ax,
                 cube_edge_color="blue",
                 cube_alpha=0.9,
                 cube_alpha_edges=0.7,
-                remaining: Optional[List[int]] = None):
+                remaining: Optional[List[int]] = None,
+                scene_items: Optional[List[dict]] = None):
     """
     Fill a subbox volume with a regular grid of cubes (rectangular items) of cube_dimensions.
 
@@ -85,6 +163,14 @@ def fill_subbox(ax,
                         ax, x, y, z, cube_dx, cube_dy, cube_dz,
                         color=cube_color, edge_color=cube_edge_color,
                         alpha=cube_alpha, alpha_edges=cube_alpha_edges
+                    )
+                    _append_threejs_cuboid(
+                        scene_items,
+                        (x, y, z),
+                        (cube_dx, cube_dy, cube_dz),
+                        kind="product",
+                        color="#f59e0b",
+                        opacity=cube_alpha,
                     )
                     if remaining is not None:
                         remaining[0] -= 1
@@ -119,9 +205,63 @@ def compute_max_quantity_only(product: Dims, container: Dims, r1: int, r2: int, 
     return int(max_quantity)
 
 
+
+def _scene_number(value):
+    """Return a JSON-safe float for the browser 3D scene."""
+    return round(float(value), 6)
+
+
+def _build_threejs_scene(container: Dims) -> dict:
+    """
+    Build the browser-render payload for the experimental Three.js preview.
+
+    Python remains the packing source of truth. Three.js only receives
+    cuboid coordinates/dimensions and renders them interactively.
+    """
+    lc, ac, hc = container
+    return {
+        "version": 1,
+        "units": "mm",
+        "container": {
+            "length": _scene_number(lc),
+            "width": _scene_number(ac),
+            "height": _scene_number(hc),
+        },
+        "rsc": {
+            "enabled": True,
+            "openingAngleDeg": 130,
+        },
+        "products": [],
+        "subboxes": [],
+    }
+
+
+def _append_threejs_cuboid(collection, origin: Point, dimensions: Dims, *, kind: str, color: str, opacity: float = 1.0):
+    if collection is None:
+        return
+
+    x, y, z = origin
+    dx, dy, dz = dimensions
+    if dx <= 0 or dy <= 0 or dz <= 0:
+        return
+
+    collection.append({
+        "kind": kind,
+        "x": _scene_number(x),
+        "y": _scene_number(y),
+        "z": _scene_number(z),
+        "dx": _scene_number(dx),
+        "dy": _scene_number(dy),
+        "dz": _scene_number(dz),
+        "color": color,
+        "opacity": float(opacity),
+    })
+
+
 def _draw_region_solution(ax, product: Dims, region: Dims, origin: Point, r1: int, r2: int, r3: int,
                           draw_wireframes: bool = True,
-                          remaining: Optional[List[int]] = None):
+                          remaining: Optional[List[int]] = None,
+                          threejs_scene: Optional[dict] = None):
     """
     Matches your pilot behavior per MainBox call:
       1) Fill the chosen main subbox (dimensions_subbox_max) with b_xyz_max
@@ -138,16 +278,36 @@ def _draw_region_solution(ax, product: Dims, region: Dims, origin: Point, r1: in
         dimensions_subbox_max
     ) = _mainbox(product, region, origin, r1, r2, r3)
 
-    # Main chosen subbox is at the region origin in your pilot usage
+    if int(max_quantity or 0) <= 0:
+        return 0, []
+
     main_origin = origin
     main_dims = tuple(dimensions_subbox_max)
     main_cube = tuple(b_xyz_max)
 
-    if draw_wireframes:
-        draw_cube(ax, *main_origin, *main_dims, color="blue", edge_color="black", alpha=0.08, alpha_edges=0.08)
-    fill_subbox(ax, main_origin, main_dims, main_cube, cube_color="orange", cube_edge_color="blue", remaining=remaining)
+    if all(d > 0 for d in main_dims) and all(d > 0 for d in main_cube):
+        if draw_wireframes:
+            draw_cube(ax, *main_origin, *main_dims, color="blue", edge_color="black", alpha=0.08, alpha_edges=0.08)
+        if threejs_scene is not None:
+            _append_threejs_cuboid(
+                threejs_scene.get("subboxes"),
+                main_origin,
+                main_dims,
+                kind="main",
+                color="#2563eb",
+                opacity=0.10,
+            )
+        fill_subbox(
+            ax,
+            main_origin,
+            main_dims,
+            main_cube,
+            cube_color="orange",
+            cube_edge_color="blue",
+            remaining=remaining,
+            scene_items=(threejs_scene or {}).get("products"),
+        )
 
-    # Stop early if we hit the draw limit
     if remaining is not None and remaining[0] <= 0:
         return int(max_quantity), []
 
@@ -160,18 +320,41 @@ def _draw_region_solution(ax, product: Dims, region: Dims, origin: Point, r1: in
     for sub_origin, sub_dims, sub_cube, wire_color in leftovers:
         if remaining is not None and remaining[0] <= 0:
             break
-        if sub_dims[0] > 0 and sub_dims[1] > 0 and sub_dims[2] > 0:
+        if (
+            sub_dims[0] > 0 and sub_dims[1] > 0 and sub_dims[2] > 0
+            and sub_cube[0] > 0 and sub_cube[1] > 0 and sub_cube[2] > 0
+        ):
             if draw_wireframes:
                 draw_cube(ax, *sub_origin, *sub_dims, color=wire_color, edge_color="black",
                           alpha=0.08, alpha_edges=0.08)
-            fill_subbox(ax, sub_origin, sub_dims, sub_cube, cube_color="orange", cube_edge_color="blue", remaining=remaining)
+            if threejs_scene is not None:
+                _append_threejs_cuboid(
+                    threejs_scene.get("subboxes"),
+                    sub_origin,
+                    sub_dims,
+                    kind="leftover",
+                    color={"green": "#22c55e", "red": "#ef4444", "yellow": "#eab308"}.get(wire_color, "#94a3b8"),
+                    opacity=0.10,
+                )
+            fill_subbox(
+                ax,
+                sub_origin,
+                sub_dims,
+                sub_cube,
+                cube_color="orange",
+                cube_edge_color="blue",
+                remaining=remaining,
+                scene_items=(threejs_scene or {}).get("products"),
+            )
 
     return int(max_quantity), leftovers
 
 
 def _recurse(ax, product: Dims, region: Dims, origin: Point, r1: int, r2: int, r3: int,
              depth: int, max_depth: int,
-             remaining: Optional[List[int]] = None):
+             remaining: Optional[List[int]] = None,
+             draw_wireframes: bool = True,
+             threejs_scene: Optional[dict] = None):
     """
     Recursive continuation similar to your pilot's repeated MainBox calls on leftover regions.
     We keep it bounded by max_depth for safety.
@@ -183,8 +366,18 @@ def _recurse(ax, product: Dims, region: Dims, origin: Point, r1: int, r2: int, r
     if remaining is not None and remaining[0] <= 0:
         return
 
-    _, leftovers = _draw_region_solution(ax, product, region, origin, r1, r2, r3,
-                                         draw_wireframes=True, remaining=remaining)
+    _, leftovers = _draw_region_solution(
+        ax,
+        product,
+        region,
+        origin,
+        r1,
+        r2,
+        r3,
+        draw_wireframes=draw_wireframes,
+        remaining=remaining,
+        threejs_scene=threejs_scene,
+    )
 
     if remaining is not None and remaining[0] <= 0:
         return
@@ -193,14 +386,21 @@ def _recurse(ax, product: Dims, region: Dims, origin: Point, r1: int, r2: int, r
         if remaining is not None and remaining[0] <= 0:
             return
         if sub_dims[0] > 0 and sub_dims[1] > 0 and sub_dims[2] > 0:
-            _recurse(ax, product, sub_dims, sub_origin, r1, r2, r3, depth + 1, max_depth, remaining=remaining)
+            _recurse(
+                ax, product, sub_dims, sub_origin, r1, r2, r3,
+                depth + 1, max_depth,
+                remaining=remaining,
+                draw_wireframes=draw_wireframes,
+                threejs_scene=threejs_scene,
+            )
 
 
 def run_mode1_and_render(product: Dims,
                          container: Dims,
                          r1: int, r2: int, r3: int,
                          media_root: str,
-                         draw_limit: Optional[int] = None) -> Mode1Result:
+                         draw_limit: Optional[int] = None,
+                         render_style: str = "debug") -> Mode1Result:
     """
     Mode render:
       - Draw container wireframe
@@ -211,8 +411,9 @@ def run_mode1_and_render(product: Dims,
     NEW:
       - draw_limit=None (default) => draw maximum packed items (Single mode)
       - draw_limit=N              => draw only N items (Optimal mode, desired quantity)
+      - render_style="debug"      => keep development empty-space/subbox overlays
+      - render_style="clean"      => final user-facing view with product inside an open box
     """
-    # Normalize to float (important if inputs are Decimal)
     product = (float(product[0]), float(product[1]), float(product[2]))
     container = (float(container[0]), float(container[1]), float(container[2]))
 
@@ -220,40 +421,162 @@ def run_mode1_and_render(product: Dims,
     origin = (0.0, 0.0, 0.0)
 
     remaining = [int(draw_limit)] if draw_limit is not None else None
+    clean_render = str(render_style or "").lower() == "clean"
+    show_debug_subboxes = not clean_render
+    threejs_scene = _build_threejs_scene(container)
 
-    # Render figure (small/fast)
-    fig = plt.figure(figsize=(7.2, 4.6))
+    fig = plt.figure(figsize=(7.6, 4.8))
     ax = fig.add_subplot(111, projection="3d")
+    ax.set_position([0.02, 0.03, 0.96, 0.94])
     ax.set_box_aspect([lc, ac, hc])
 
-    # Outer container
-    draw_cube(ax, 0, 0, 0, lc, ac, hc, color="lightgrey", edge_color="black", alpha=0.20, alpha_edges=0.35)
+    flap_margin = max(min(lc, ac) * 0.22, 1.0) if clean_render else 0.0
 
-    # First level solve + draw
-    max_qty, _leftovers = _draw_region_solution(ax, product, container, origin, r1, r2, r3,
-                                               draw_wireframes=True, remaining=remaining)
+    if clean_render:
+        draw_open_box_shell(ax, lc, ac, hc)
+        draw_rsc_top_flaps(ax, lc, ac, hc)
+    else:
+        draw_cube(ax, 0, 0, 0, lc, ac, hc, color="lightgrey", edge_color="black", alpha=0.20, alpha_edges=0.35)
 
-    # Recurse further like the pilot's chained subboxes (but stop if we reach draw limit)
-    _recurse(ax, product, container, origin, r1, r2, r3, depth=0, max_depth=6, remaining=remaining)
+    max_qty, _leftovers = _draw_region_solution(
+        ax,
+        product,
+        container,
+        origin,
+        r1,
+        r2,
+        r3,
+        draw_wireframes=show_debug_subboxes,
+        remaining=remaining,
+        threejs_scene=threejs_scene,
+    )
 
-    # Axes / view
-    ax.set_xlim([0, lc])
-    ax.set_ylim([0, ac])
-    ax.set_zlim([0, hc])
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
+    _recurse(
+        ax,
+        product,
+        container,
+        origin,
+        r1,
+        r2,
+        r3,
+        depth=0,
+        max_depth=6,
+        remaining=remaining,
+        draw_wireframes=show_debug_subboxes,
+        # The Matplotlib renderer keeps the previous recursive visual behavior.
+        # The interactive Three.js preview stays quantity-faithful by using
+        # the first MainBox solution only, avoiding duplicate/recursive overdraw.
+        threejs_scene=None,
+    )
+
+    ax.set_xlim([-flap_margin, lc + flap_margin])
+    ax.set_ylim([-flap_margin, ac + flap_margin])
+    ax.set_zlim([0, hc + flap_margin])
     ax.view_init(elev=28, azim=30)
 
-    # Save
+    if clean_render:
+        # Final product view: remove matplotlib chart elements and keep only
+        # the packaging/product representation.
+        ax.set_axis_off()
+        ax.grid(False)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_zticks([])
+        for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+            axis.pane.set_alpha(0.0)
+            axis.line.set_alpha(0.0)
+    else:
+        # Development/debug view keeps axes and grid for visual analysis.
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+
     rel_dir = "box_selection"
     file_name = f"mode1_{uuid.uuid4().hex}.png"
     rel_path = os.path.join(rel_dir, file_name)
     abs_path = os.path.join(media_root, rel_path)
 
     os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-    plt.tight_layout()
-    plt.savefig(abs_path, dpi=150)
+    plt.savefig(abs_path, dpi=160, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
-    return Mode1Result(max_quantity=max_qty, image_rel_path=rel_path)
+    return Mode1Result(max_quantity=max_qty, image_rel_path=rel_path, threejs_scene=threejs_scene)
+
+def render_product_base_unit(product: Dims, media_root: str) -> str:
+    """
+    Render a clean matplotlib 3D view of the base product unit.
+
+    The labels follow the tool input convention:
+      - Length = X direction
+      - Width  = Y direction
+      - Height = Z direction
+
+    Returns the relative image path below MEDIA_ROOT.
+    """
+    length, width, height = (float(product[0]), float(product[1]), float(product[2]))
+
+    fig = plt.figure(figsize=(6.2, 3.9))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.set_position([0.01, 0.08, 0.98, 0.86])
+    ax.set_box_aspect([max(length, 1.0), max(width, 1.0), max(height, 1.0)])
+
+    draw_cube(
+        ax,
+        0,
+        0,
+        0,
+        length,
+        width,
+        height,
+        color="#f59e0b",
+        edge_color="#111827",
+        alpha=0.60,
+        alpha_edges=0.82,
+    )
+
+    max_dim = max(length, width, height, 1.0)
+    margin = max(max_dim * 0.12, 1.0)
+
+    # Clean edge guides: letters on the 3D view, exact values in badges.
+    line_color = "#475569"
+    text_color = "#0f172a"
+
+    ax.plot([0, length], [-margin * 0.16, -margin * 0.16], [0, 0], color=line_color, linewidth=1.6)
+    ax.text(length / 2, -margin * 0.23, 0, "L", color=text_color, fontsize=11, fontweight="bold", ha="center")
+
+    ax.plot([length + margin * 0.12, length + margin * 0.12], [0, width], [0, 0], color=line_color, linewidth=1.6)
+    ax.text(length + margin * 0.19, width / 2, 0, "W", color=text_color, fontsize=11, fontweight="bold", ha="center")
+
+    ax.plot([-margin * 0.10, -margin * 0.10], [-margin * 0.10, -margin * 0.10], [0, height], color=line_color, linewidth=1.6)
+    ax.text(-margin * 0.16, -margin * 0.12, height / 2, "H", color=text_color, fontsize=11, fontweight="bold", ha="center")
+
+    ax.set_xlim([-margin, length + margin])
+    ax.set_ylim([-margin, width + margin])
+    ax.set_zlim([-margin * 0.12, height + margin * 0.45])
+    ax.view_init(elev=22, azim=35)
+
+    ax.set_axis_off()
+    ax.grid(False)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+        axis.pane.set_alpha(0.0)
+        axis.line.set_alpha(0.0)
+
+    badge_style = dict(boxstyle="round,pad=0.25", facecolor="#f8fafc", edgecolor="#cbd5e1", linewidth=0.8)
+    ax.text2D(0.20, 0.02, f"L: {length:g} mm", transform=ax.transAxes, ha="center", va="center", fontsize=9, color=text_color, bbox=badge_style)
+    ax.text2D(0.50, 0.02, f"W: {width:g} mm", transform=ax.transAxes, ha="center", va="center", fontsize=9, color=text_color, bbox=badge_style)
+    ax.text2D(0.80, 0.02, f"H: {height:g} mm", transform=ax.transAxes, ha="center", va="center", fontsize=9, color=text_color, bbox=badge_style)
+
+    rel_dir = "box_selection"
+    file_name = f"product_base_{uuid.uuid4().hex}.png"
+    rel_path = os.path.join(rel_dir, file_name)
+    abs_path = os.path.join(media_root, rel_path)
+
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    plt.savefig(abs_path, dpi=160, bbox_inches="tight", pad_inches=0.02)
+    plt.close(fig)
+
+    return rel_path
+

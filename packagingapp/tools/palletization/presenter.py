@@ -1,3 +1,26 @@
+def _to_float(value, default=None):
+    try:
+        if value in (None, "", "None"):
+            return default
+        return float(value)
+    except Exception:
+        return default
+
+
+def _catalogue_dimension(material, external_attr, part_attr):
+    if material is None:
+        return ""
+    first_raw = ""
+    for attr in (external_attr, part_attr):
+        raw_value = getattr(material, attr, None)
+        numeric_value = _to_float(raw_value, None)
+        if raw_value not in (None, "", "None") and first_raw == "":
+            first_raw = raw_value
+        if numeric_value is not None and numeric_value > 0:
+            return raw_value
+    return first_raw
+
+
 def _read_value(data, key, default=""):
     if isinstance(data, dict):
         return data.get(key, default)
@@ -19,9 +42,9 @@ def _read_value(data, key, default=""):
 
 def selected_box_summary(selected_material, data):
     if selected_material:
-        length = selected_material.external_length if selected_material.external_length is not None else selected_material.part_length
-        width = selected_material.external_width if selected_material.external_width is not None else selected_material.part_width
-        height = selected_material.external_height if selected_material.external_height is not None else selected_material.part_height
+        length = _catalogue_dimension(selected_material, "external_length", "part_length")
+        width = _catalogue_dimension(selected_material, "external_width", "part_width")
+        height = _catalogue_dimension(selected_material, "external_height", "part_height")
         return {
             "title": f"{selected_material.part_number} — {selected_material.part_description}",
             "dims": f"{length} × {width} × {height}",
@@ -39,9 +62,9 @@ def selected_box_summary(selected_material, data):
 
 def selected_pallet_summary(selected_material, data):
     if selected_material:
-        length = selected_material.external_length if selected_material.external_length is not None else selected_material.part_length
-        width = selected_material.external_width if selected_material.external_width is not None else selected_material.part_width
-        height = selected_material.external_height if selected_material.external_height is not None else selected_material.part_height
+        length = _catalogue_dimension(selected_material, "external_length", "part_length")
+        width = _catalogue_dimension(selected_material, "external_width", "part_width")
+        height = _catalogue_dimension(selected_material, "external_height", "part_height")
         return {
             "title": f"{selected_material.part_number} — {selected_material.part_description}",
             "dims": f"{length} × {width} × {height}",

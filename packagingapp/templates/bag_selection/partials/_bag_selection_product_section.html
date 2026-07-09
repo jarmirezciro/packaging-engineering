@@ -1,7 +1,7 @@
 <div class="app-card">
     <div class="app-card-body">
         <div class="app-section-title">Product</div>
-        <div class="app-section-subtitle">Manual dimensions or product catalogue selection.</div>
+        <div class="app-section-subtitle">Manual dimensions or product catalogue selection. Dimensions are in mm.</div>
 
         <div class="tool-field-group mb-0">
             <label class="form-label">Mode</label>
@@ -47,23 +47,25 @@
 
         <div id="{{ bag_ui.ids.manual_product_fields }}">
             <div class="tool-compact-grid-three">
-                <div class="tool-field-group mb-0"><label class="form-label">Length</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.product_l }}" value="{{ bag_values.product_l|default:'' }}">{% else %}{{ form.product_l }}{% endif %}</div>
-                <div class="tool-field-group mb-0"><label class="form-label">Width</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.product_w }}" value="{{ bag_values.product_w|default:'' }}">{% else %}{{ form.product_w }}{% endif %}</div>
-                <div class="tool-field-group mb-0"><label class="form-label">Height</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.product_h }}" value="{{ bag_values.product_h|default:'' }}">{% else %}{{ form.product_h }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Length <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.product_l }}" value="{{ bag_values.product_l|default:'' }}">{% else %}{{ form.product_l }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Width <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.product_w }}" value="{{ bag_values.product_w|default:'' }}">{% else %}{{ form.product_w }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Height <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.product_h }}" value="{{ bag_values.product_h|default:'' }}">{% else %}{{ form.product_h }}{% endif %}</div>
             </div>
 
             <div class="tool-compact-grid-two tool-tight-gap">
-                <div id="{{ bag_ui.ids.manual_desired_qty_wrap }}" class="tool-field-group mb-0"><label class="form-label">Units needed</label>{% if mode == "workflow" %}<input type="number" step="1" min="1" class="form-control" name="{{ bag_ui.names.desired_qty }}" value="{{ bag_values.desired_qty|default:'1' }}">{% else %}{{ form.desired_qty }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Weight <span class="text-muted">(g)</span></label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ bag_ui.names.product_weight }}" value="{{ bag_values.product_weight|default:'' }}">{% else %}{{ form.product_weight }}{% endif %}</div>
+                <div id="{{ bag_ui.ids.manual_desired_qty_wrap }}" class="tool-field-group mb-0"><label class="form-label">Target quantity</label>{% if mode == "workflow" %}<input type="number" step="1" min="1" class="form-control" name="{{ bag_ui.names.desired_qty }}" value="{{ bag_values.desired_qty|default:'1' }}">{% else %}{{ form.desired_qty }}{% endif %}</div>
             </div>
+            <div class="app-form-note mt-2">Single bag analysis calculates the maximum quantity automatically. Target quantity is only used in Optimal mode.</div>
         </div>
 
         {% if selected_product %}
             <div class="tool-summary-strip">
                 <div class="tool-summary-main"><strong>{{ selected_product.product_id }}</strong>{% if selected_product.product_name %} — {{ selected_product.product_name }}{% endif %}</div>
                 <div class="tool-summary-meta">
-                    {{ selected_product.product_length }} × {{ selected_product.product_width }} × {{ selected_product.product_height }}
-                    {% if selected_product.weight %} | Wt: {{ selected_product.weight }}{% endif %}
-                    {% if current_mode == "optimal" %} | Desired Qty: {{ selected_product.desired_qty }}{% endif %}
+                    {{ selected_product.product_length }} × {{ selected_product.product_width }} × {{ selected_product.product_height }} mm
+                    {% if selected_product.weight %} | Wt: {{ selected_product.weight }} g{% endif %}
+                    {% if current_mode == "optimal" %} | Target Qty: {{ selected_product.desired_qty }}{% endif %}
                 </div>
             </div>
         {% endif %}

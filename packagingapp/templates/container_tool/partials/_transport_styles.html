@@ -1,21 +1,35 @@
 <style>
   .container-tool-form { display:flex; flex-direction:column; gap:1.1rem; }
   .container-tool-card-head, .container-tool-table-header { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
-  .container-tool-top { display:grid; grid-template-columns:1.8fr 1fr; gap:1.1rem; align-items:start; }
-  .container-tool-summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; }
+  .container-tool-top { display:grid; grid-template-columns:1fr; gap:1.1rem; align-items:start; }
+  .container-tool-summary-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:0.75rem; }
   .container-tool-fields-4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:0.9rem; }
+  .container-tool-fields-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.9rem; }
+  .container-tool-fields-2 { display:grid; grid-template-columns:1fr 1fr; gap:0.9rem; }
   .container-tool-catalogue-row { display:grid; grid-template-columns:minmax(320px,420px) auto; gap:1rem; align-items:end; }
   .container-tool-catalogue-row-single { grid-template-columns:minmax(320px,420px); }
   .container-tool-table-wrap { border:1px solid var(--app-border); border-radius:1rem; overflow:auto; }
   .container-tool-table, .container-tool-table td, .container-tool-table th { white-space:nowrap; vertical-align:middle; }
   .container-tool-table input.form-control { min-width:88px; }
   .container-tool-render-wrap { min-height:300px; display:flex; align-items:center; justify-content:center; }
+  .transport-view-toggle { display:flex; flex-wrap:wrap; gap:0.55rem; margin-bottom:0.8rem; }
+  .transport-view-btn.is-active { background:var(--app-primary, #0d6efd); color:#fff; border-color:var(--app-primary, #0d6efd); }
   .container-tool-render-image { width:100%; max-height:300px; object-fit:contain; }
   .container-tool-empty { min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .container-tool-fields-4 .form-control, .container-tool-catalogue-row .form-select { border-radius:14px; }
+  .container-tool-fields-4 .form-control, .container-tool-fields-3 .form-control, .container-tool-fields-2 .form-control, .container-tool-catalogue-row .form-select { border-radius:14px; }
+  .transport-instructions-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.85rem; }
+  .transport-instruction-box { display:flex; gap:0.75rem; padding:0.9rem; border:1px solid var(--app-border); border-radius:1rem; background:var(--app-surface-soft, #f8fafc); }
+  .transport-instruction-box p { margin:0.25rem 0 0; color:var(--app-muted); font-size:0.92rem; }
+  .transport-instruction-icon { width:2.2rem; height:2.2rem; border-radius:0.8rem; display:flex; align-items:center; justify-content:center; background:rgba(13,110,253,.08); flex:0 0 auto; }
   .section-collapsed { display:none; }
   .container-collapsed-summary .tool-summary-strip.compact { padding:0.65rem 0.9rem; }
-  @media (max-width:1200px){ .container-tool-top{grid-template-columns:1fr;} .container-tool-fields-4{grid-template-columns:1fr 1fr;} }
+  .container-tool-form .tool-stat-card { min-width:0; padding:0.85rem 0.9rem; gap:0.45rem; }
+  .container-tool-form .tool-stat-label,
+  .container-tool-form .tool-stat-value,
+  .container-tool-form .tool-summary-main,
+  .container-tool-form .tool-summary-meta { min-width:0; max-width:100%; overflow-wrap:anywhere; }
+  .container-tool-form .tool-stat-value { font-size:1.45rem; }
+  @media (max-width:1200px){ .container-tool-top{grid-template-columns:1fr;} .container-tool-fields-4,.container-tool-fields-3,.container-tool-fields-2{grid-template-columns:1fr 1fr;} }
   @media (max-width:991px){ .container-tool-summary-grid, .container-tool-catalogue-row{grid-template-columns:1fr;} }
-  @media (max-width:767px){ .container-tool-fields-4, .container-tool-summary-grid{grid-template-columns:1fr;} .container-tool-table-header, .container-tool-card-head{flex-direction:column; align-items:stretch;} }
+  @media (max-width:767px){ .container-tool-fields-4, .container-tool-fields-3, .container-tool-fields-2, .container-tool-summary-grid, .transport-instructions-grid{grid-template-columns:1fr;} .container-tool-table-header, .container-tool-card-head{flex-direction:column; align-items:stretch;} }
 </style>

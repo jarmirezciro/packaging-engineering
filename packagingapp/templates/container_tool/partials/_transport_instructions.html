@@ -1,0 +1,50 @@
+<div class="app-card transport-instructions-card">
+  <div class="app-card-body">
+    <div class="container-tool-card-head mb-2">
+      <div>
+        <div class="app-section-title mb-1">How to use this tool</div>
+        <div class="app-section-subtitle mb-0">
+          Estimate how many products, cartons, pallets, or mixed items can be loaded into a transport unit.
+        </div>
+      </div>
+      <button type="button"
+              class="btn btn-app-outline btn-sm"
+              onclick="transportToggleInstructions(this)">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+    </div>
+
+    <div id="transportInstructionsBody" class="transport-instructions-body section-collapsed">
+      <div class="transport-instructions-grid">
+        <div class="transport-instruction-box">
+          <div class="transport-instruction-icon"><i class="bi bi-truck"></i></div>
+          <div>
+            <strong>1. Define the transport unit</strong>
+            <p>Use the internal loading dimensions in <strong>mm</strong>. For trucks, trailers, sea containers, or cargo compartments, enter the usable loading space, not the outside vehicle size.</p>
+          </div>
+        </div>
+        <div class="transport-instruction-box">
+          <div class="transport-instruction-icon"><i class="bi bi-boxes"></i></div>
+          <div>
+            <strong>2. Add the items to load</strong>
+            <p>Each row can represent a product, carton, pallet, crate, or another load unit. Dimensions are in <strong>mm</strong>; weight is in <strong>kg</strong>.</p>
+          </div>
+        </div>
+        <div class="transport-instruction-box">
+          <div class="transport-instruction-icon"><i class="bi bi-arrow-repeat"></i></div>
+          <div>
+            <strong>3. Set allowed rotations</strong>
+            <p>Use R1/R2/R3 to control which orientations are allowed. Keep only realistic orientations enabled for fragile, upright, or stack-sensitive items.</p>
+          </div>
+        </div>
+        <div class="transport-instruction-box">
+          <div class="transport-instruction-icon"><i class="bi bi-clipboard-check"></i></div>
+          <div>
+            <strong>4. Review dimensional and payload limits</strong>
+            <p>The result checks both available loading space and max payload. A practical validation step is still needed for load securing, axle load, stacking limits, and local transport rules.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

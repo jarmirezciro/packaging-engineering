@@ -1,10 +1,10 @@
 <div class="app-card">
     <div class="app-card-body">
-        <div class="app-section-title">Box</div>
-        <div class="app-section-subtitle">Manual dimensions or packaging catalogue selection.</div>
+        <div class="app-section-title">Carton / Box</div>
+        <div class="app-section-subtitle">Use manual carton dimensions or select a BOX/CRATE from the packaging catalogue. Dimensions are in mm.</div>
 
         <div class="tool-field-group">
-            <label class="form-label">Box Source</label>
+            <label class="form-label">Carton source</label>
             <div class="tool-radio-group">
                 <label class="tool-radio-option">
                     <input type="radio"
@@ -18,13 +18,13 @@
                            name="{{ pallet_ui.names.box_source }}"
                            value="catalogue"
                            {% if pallet_values.box_source == "catalogue" %}checked{% endif %}>
-                    <span>From Catalogue</span>
+                    <span>From catalogue</span>
                 </label>
             </div>
         </div>
 
         <div id="{{ pallet_ui.ids.box_catalogue_chooser }}" class="tool-field-group tool-tight-gap">
-            <label class="form-label">Packaging Catalogue</label>
+            <label class="form-label">Packaging catalogue</label>
             <select name="{{ pallet_ui.names.box_catalogue_id }}" class="form-select">
                 <option value="">— Select —</option>
                 {% for catalogue in packaging_catalogues %}
@@ -39,25 +39,56 @@
         <div id="{{ pallet_ui.ids.manual_box_fields }}">
             <div class="tool-compact-grid-three">
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Length</label>
+                    <label class="form-label">Carton length <span class="text-muted">(mm)</span></label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.box_l }}"
                            value="{{ pallet_values.box_l|default:'' }}">
                 </div>
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Width</label>
+                    <label class="form-label">Carton width <span class="text-muted">(mm)</span></label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.box_w }}"
                            value="{{ pallet_values.box_w|default:'' }}">
                 </div>
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Height</label>
+                    <label class="form-label">Carton height <span class="text-muted">(mm)</span></label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.box_h }}"
                            value="{{ pallet_values.box_h|default:'' }}">
                 </div>
             </div>
         </div>
+
+        <hr class="app-divider">
+
+        <details class="tool-advanced-details" {% if pallet_values.box_weight or pallet_values.max_weight_on_bottom_box %}open{% endif %}>
+            <summary class="tool-collapsible-head tool-details-summary">
+                <div>
+                    <div class="app-form-section-title mb-0">Advanced carton parameters</div>
+                    <div class="app-form-note">Optional weight and compression settings for bottom-carton load checks.</div>
+                </div>
+                <span class="btn btn-app-outline btn-sm tool-details-toggle">
+                    <i class="bi bi-chevron-down me-2"></i>Show / hide
+                </span>
+            </summary>
+
+            <div class="tool-compact-grid-two tool-tight-gap">
+                <div class="tool-field-group mb-0">
+                    <label class="form-label">Carton weight <span class="text-muted">(g)</span></label>
+                    <input type="number" step="any" class="form-control"
+                           name="{{ pallet_ui.names.box_weight }}"
+                           value="{{ pallet_values.box_weight|default:'' }}">
+                    <div class="app-form-note mt-1">Optional. Used for the bottom-carton load check.</div>
+                </div>
+                <div class="tool-field-group mb-0">
+                    <label class="form-label">Max load on bottom carton <span class="text-muted">(g)</span></label>
+                    <input type="number" step="any" class="form-control"
+                           name="{{ pallet_ui.names.max_weight_on_bottom_box }}"
+                           value="{{ pallet_values.max_weight_on_bottom_box|default:'' }}">
+                    <div class="app-form-note mt-1">Optional. Leave empty when no compression limit is known.</div>
+                </div>
+            </div>
+        </details>
 
         {% if selected_box_material %}
             <div class="tool-summary-strip">
@@ -69,8 +100,8 @@
                     ×
                     {{ selected_box_material.external_width|default:selected_box_material.part_width }}
                     ×
-                    {{ selected_box_material.external_height|default:selected_box_material.part_height }}
-                    {% if selected_box_material.part_weight %} | Wt: {{ selected_box_material.part_weight }}{% endif %}
+                    {{ selected_box_material.external_height|default:selected_box_material.part_height }} mm
+                    {% if selected_box_material.part_weight %} | Packaging wt: {{ selected_box_material.part_weight }} g{% endif %}
                     | {{ selected_box_material.packaging_type }}
                     | {{ selected_box_material.branding }}
                 </div>
@@ -83,13 +114,13 @@
                     <button type="button"
                             class="btn btn-app-outline btn-sm"
                             onclick="{{ pallet_ui.actions.clear_box }}('{{ pallet_ui.prefix }}')">
-                        <i class="bi bi-arrow-repeat me-2"></i>Change Box
+                        <i class="bi bi-arrow-repeat me-2"></i>Change carton
                     </button>
                 {% else %}
                     <button type="button"
                             class="btn btn-app-outline btn-sm"
                             onclick="{{ pallet_ui.actions.browse_box }}('{{ pallet_ui.prefix }}')">
-                        <i class="bi bi-search me-2"></i>Browse Catalogue
+                        <i class="bi bi-search me-2"></i>Browse catalogue
                     </button>
                 {% endif %}
             </div>

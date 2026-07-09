@@ -1,41 +1,171 @@
 <div class="app-card">
     <div class="app-card-body">
         <div class="app-section-title">Result</div>
-        <div class="app-section-subtitle">Best ranked result, same presentation style as the other tools.</div>
+        <div class="app-section-subtitle">Recommended pallet layout with practical capacity, height, and load indicators.</div>
 
         {% if selected_result %}
-            <div class="tool-top-pair">
-                <div class="tool-stat-card">
-                    <div class="tool-stat-label">Total boxes</div>
-                    <div class="tool-stat-value">{{ selected_result.total_boxes }}</div>
-                </div>
-                <div class="tool-stat-card">
-                    <div class="tool-stat-label">Layers</div>
-                    <div class="tool-stat-value">{{ selected_result.layers }}</div>
+            <div class="tool-summary-strip mb-3">
+                <div class="tool-summary-main mb-2"><strong>Palletization result</strong></div>
+                <div class="row g-2">
+                    <div class="col-12 col-sm-6">
+                        <div class="border rounded-3 p-2 h-100">
+                            <div class="tool-stat-label">Total cartons</div>
+                            <div class="fw-bold text-break">{{ selected_result.total_boxes }} pcs</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <div class="border rounded-3 p-2 h-100">
+                            <div class="tool-stat-label">Layers</div>
+                            <div class="fw-bold text-break">{{ selected_result.layers }}</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <div class="border rounded-3 p-2 h-100">
+                            <div class="tool-stat-label">Cartons/layer</div>
+                            <div class="fw-bold text-break">
+                                {{ selected_result.boxes_layer_A }}{% if selected_result.boxes_layer_B and selected_result.boxes_layer_B != selected_result.boxes_layer_A %} / {{ selected_result.boxes_layer_B }}{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <div class="border rounded-3 p-2 h-100">
+                            <div class="tool-stat-label">Stack height</div>
+                            <div class="fw-bold text-break">{{ selected_result.used_height_mm|floatformat:0 }} mm</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="tool-summary-strip mb-3">
-                <div class="tool-summary-main">
-                    <strong>{{ selected_result.pattern }}</strong> — {{ selected_result.stacking|title }}
-                </div>
-                <div class="tool-summary-meta">
-                    Footprint: {{ selected_result.layer_footprint_util_pct }}%
-                    | Volume: {{ selected_result.volumetric_util_pct }}%
-                    | Weight OK: {{ selected_result.feasible_weight }}
-                    | Max bottom load: {{ selected_result.max_bottom_load_kg }}
-                </div>
-            </div>
 
             {% if result_image_url %}
                 <div class="tool-render-wrap">
                     <img src="{{ result_image_url }}" alt="Palletization result" class="tool-render-image">
                 </div>
             {% endif %}
+
+            <details class="tool-summary-strip mt-3 mb-0">
+                <summary class="tool-summary-main" style="cursor: pointer;">
+                    <strong>Detailed analysis</strong>
+                    <span class="tool-summary-meta ms-1">recommended layout, utilization and load check</span>
+                </summary>
+
+                <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mt-2 mb-2">
+                    <div>
+                        <div class="tool-summary-main">
+                            <strong>Recommended palletization</strong>
+                        </div>
+                        <div class="tool-summary-meta">
+                            Pallet floor usage: {{ selected_result.layer_footprint_util_pct }}%
+                            | Stack volume usage: {{ selected_result.volumetric_util_pct }}%
+                            | Alternate layer possible: {% if selected_result.interlock_possible %}Yes{% else %}No{% endif %}
+                            | Bottom load check: {% if selected_result.weight_limit_kg is not None %}{% if selected_result.feasible_weight %}OK{% else %}Review{% endif %}{% else %}Not checked{% endif %}
+                            {% if selected_result.weight_limit_kg is not None %}| Max bottom-carton load: {{ selected_result.max_bottom_load_kg }} g{% endif %}
+                        </div>
+                    </div>
+                    {% if selected_result.interlock_possible %}
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Toggle alternate layer preview">
+                            <button type="button"
+                                    class="btn {% if not selected_result.interlock_render_active %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                                    onclick="palletToolSelectResult('{{ pallet_ui.prefix }}', '{{ selected_result.result_key|escapejs }}')">
+                                Main layer view
+                            </button>
+                            <button type="button"
+                                    class="btn {% if selected_result.interlock_render_active %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                                    onclick="palletToolSelectResult('{{ pallet_ui.prefix }}', '{{ selected_result.interlock_result_key|escapejs }}')">
+                                Alternate layer view
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+
+                {% if pallet_debug %}
+                    <div class="tool-summary-meta text-muted mb-2">
+                        Dev: {{ selected_result.pattern }} / {{ selected_result.stacking }}
+                        {% if selected_result.interlock_possible_relation %}
+                            | Alternate relation candidate: {{ selected_result.interlock_possible_relation }}
+                        {% endif %}
+                        {% if selected_result.debug_equivalent_results %}
+                            | Hidden duplicates: {{ selected_result.debug_equivalent_results|join:", " }}
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+                <div class="table-responsive mt-2">
+                    <table class="table table-sm mb-0 align-middle">
+                        <tbody>
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Main layer cartons</th>
+                                <td class="text-end">{{ selected_result.boxes_layer_A }} pcs</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Alternate layer cartons</th>
+                                <td class="text-end">
+                                    {% if selected_result.boxes_layer_B %}{{ selected_result.boxes_layer_B }} pcs{% else %}<span class="text-muted">Not available</span>{% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Used stack height</th>
+                                <td class="text-end">{{ selected_result.used_height_mm }} mm</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Pallet floor usage</th>
+                                <td class="text-end">{{ selected_result.layer_footprint_util_pct }}%</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Stack volume usage</th>
+                                <td class="text-end">{{ selected_result.volumetric_util_pct }}%</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Bottom-carton load check</th>
+                                <td class="text-end">{% if selected_result.weight_limit_kg is not None %}{% if selected_result.feasible_weight %}OK{% else %}Review required{% endif %}{% else %}<span class="text-muted">Not checked</span>{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Max bottom-carton load</th>
+                                <td class="text-end">
+                                    {% if selected_result.weight_limit_kg is not None %}
+                                        {{ selected_result.max_bottom_load_kg }} g
+                                    {% else %}
+                                        <span class="text-muted">Not available</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Bottom-carton load limit</th>
+                                <td class="text-end">
+                                    {% if selected_result.weight_limit_kg is not None %}
+                                        {{ selected_result.weight_limit_kg }} g
+                                    {% else %}
+                                        <span class="text-muted">Not provided</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tool-summary-meta mt-2">
+                    Validate final stability, wrapping, handling, and customer-specific transport restrictions before release.
+                </div>
+            </details>
+
+            {% if mode == "standalone" %}
+                <div class="app-form-actions tool-card-actions mt-3">
+                    <a href="{% url 'palletization_export_pdf' %}" class="btn btn-app-outline btn-sm">
+                        <i class="bi bi-filetype-pdf me-2"></i>Download PDF report
+                    </a>
+                </div>
+            {% endif %}
+
+            {% if mode == "workflow" and pending_result %}
+                <div class="app-form-actions tool-card-actions mt-3">
+                    <button type="submit" class="btn btn-app-primary btn-sm" onclick="document.getElementById('form_action_{{ pallet_ui.prefix }}').value='use_step_result';">
+                        <i class="bi bi-check2-circle me-2"></i>Use this result in workflow
+                    </button>
+                </div>
+            {% endif %}
         {% else %}
             <div class="app-empty-state">
                 <i class="bi bi-boxes fs-2 d-block mb-2"></i>
-                <div>Run analysis to generate the best palletization result and 3D view.</div>
+                <div>Enter carton, pallet, and max stack height values, then run analysis to generate the recommended pallet layout.</div>
             </div>
         {% endif %}
     </div>

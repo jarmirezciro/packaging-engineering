@@ -13,9 +13,64 @@
       };
     }
 
+
+    function transportSwitchView(button) {
+      const targetId = button.getAttribute("data-image-target");
+      const src = button.getAttribute("data-image-src");
+      if (!targetId || !src) return false;
+
+      const img = document.getElementById(targetId);
+      if (img) img.src = src;
+
+      const wrap = button.closest('.transport-view-toggle');
+      if (wrap) {
+        wrap.querySelectorAll('.transport-view-btn').forEach(btn => btn.classList.remove('is-active'));
+      }
+      button.classList.add('is-active');
+      return false;
+    }
+
     function syncCheckboxHidden(checkbox) {
       const hidden = checkbox.parentElement.querySelector('input[type="hidden"]');
       if (hidden) hidden.value = checkbox.checked ? "1" : "0";
+    }
+
+    function transportToggleMaxQty(checkbox) {
+      syncCheckboxHidden(checkbox);
+      const row = checkbox.closest('tr');
+      if (!row) return;
+
+      const manualQty = row.querySelector('[data-transport-manual-qty]');
+      const autoQty = row.querySelector('[data-transport-auto-qty]');
+
+      if (manualQty) manualQty.style.display = checkbox.checked ? 'none' : '';
+      if (autoQty) autoQty.style.display = checkbox.checked ? '' : 'none';
+    }
+
+    function transportPrepareMaxQtyFields(root) {
+      if (!root) return;
+      const rows = Array.from(root.querySelectorAll('tbody tr'));
+      rows.forEach(function(row, rowIndex) {
+        const checkbox = row.querySelector('[data-transport-max-qty-checkbox]');
+        if (!checkbox) return;
+        checkbox.value = String(rowIndex);
+        syncCheckboxHidden(checkbox);
+      });
+    }
+
+    function transportSyncMaxQtyRows(root) {
+      if (!root) return;
+      root.querySelectorAll('.transport-max-qty-checkbox').forEach(cb => transportToggleMaxQty(cb));
+      transportPrepareMaxQtyFields(root);
+    }
+
+    function transportToggleInstructions(button) {
+      const body = document.getElementById("transportInstructionsBody");
+      if (!body) return;
+
+      const collapsed = body.classList.toggle("section-collapsed");
+      const icon = button ? button.querySelector("i") : null;
+      if (icon) icon.className = collapsed ? "bi bi-chevron-down" : "bi bi-chevron-up";
     }
     
     function addProductRow() {
@@ -27,6 +82,7 @@
       const newRow = tbody.lastElementChild;
       if (newRow) {
         newRow.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
+        transportSyncMaxQtyRows(newRow);
       }
     }
     
@@ -179,6 +235,7 @@
       const newRow = tbody.lastElementChild;
       if (newRow) {
         newRow.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
+        transportSyncMaxQtyRows(newRow);
       }
     }
     
@@ -280,12 +337,12 @@
       const catalogueCard = document.getElementById('fpTransportCatalogueSectionCard_' + idx);
       const hasSelected = !!(document.getElementById('container_id_' + idx)?.value);
     
-      if (manualFields) manualFields.style.display = 'block';
-
       if (source === 'catalogue') {
+        if (manualFields) manualFields.style.display = 'none';
         if (catalogueSummary) catalogueSummary.style.display = 'block';
         if (catalogueCard) catalogueCard.style.display = hasSelected ? 'none' : 'block';
       } else {
+        if (manualFields) manualFields.style.display = 'block';
         if (catalogueSummary) catalogueSummary.style.display = 'none';
         if (catalogueCard) catalogueCard.style.display = 'none';
       }
@@ -301,6 +358,14 @@
     function initStandaloneTransportUI(root) {
       if (!root) return;
       root.querySelectorAll('#products-tbody input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
+      transportSyncMaxQtyRows(root);
+      const form = root.closest('form');
+      if (form && !form.dataset.transportMaxQtySubmitBound) {
+        form.dataset.transportMaxQtySubmitBound = '1';
+        form.addEventListener('submit', function() {
+          transportPrepareMaxQtyFields(root);
+        });
+      }
       root.querySelectorAll('input[name="container_source"]').forEach(el => {
         el.addEventListener('change', updateContainerSourceUI);
       });
@@ -339,6 +404,14 @@
       if (!root) return;
       const idx = root.dataset.transportPrefix;
       root.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
+      transportSyncMaxQtyRows(root);
+      const form = root.closest('form');
+      if (form && !form.dataset.transportMaxQtySubmitBound) {
+        form.dataset.transportMaxQtySubmitBound = '1';
+        form.addEventListener('submit', function() {
+          transportPrepareMaxQtyFields(root);
+        });
+      }
       if (idx !== undefined && idx !== null && idx !== '') {
         fpTransportUpdateContainerSourceUI(idx);
       }

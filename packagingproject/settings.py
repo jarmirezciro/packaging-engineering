@@ -249,3 +249,9 @@ LOGGING = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 TAILWIND_APP_NAME = "theme"
+
+# -----------------------------------------------------------------------------
+# Marketing/contact page settings
+# -----------------------------------------------------------------------------
+CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", CONTACT_EMAIL or "webmaster@localhost")

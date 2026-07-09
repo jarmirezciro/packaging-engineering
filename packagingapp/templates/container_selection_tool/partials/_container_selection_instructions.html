@@ -1,0 +1,302 @@
+<style>
+    .container-help {
+        border: 1px solid rgba(15, 23, 42, 0.10);
+        border-radius: 1rem;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+
+    .container-help summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 1rem 1.15rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .container-help summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .container-help-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 0;
+    }
+
+    .container-help-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(13, 110, 253, 0.10);
+        color: #0d6efd;
+        flex: 0 0 auto;
+    }
+
+    .container-help-title strong {
+        display: block;
+        font-size: 0.98rem;
+    }
+
+    .container-help-title span {
+        display: block;
+        color: #64748b;
+        font-size: 0.84rem;
+    }
+
+    .container-help-chevron {
+        color: #64748b;
+        transition: transform 0.18s ease;
+    }
+
+    .container-help[open] .container-help-chevron {
+        transform: rotate(180deg);
+    }
+
+    .container-help-body {
+        padding: 0 1.15rem 1.15rem 1.15rem;
+        border-top: 1px solid rgba(15, 23, 42, 0.08);
+    }
+
+    .container-help-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-top: 1rem;
+    }
+
+    .container-help-card {
+        border: 1px solid rgba(15, 23, 42, 0.09);
+        border-radius: 0.8rem;
+        background: #ffffff;
+        padding: 0.95rem;
+        min-height: 100%;
+    }
+
+    .container-help-card h4 {
+        font-size: 0.95rem;
+        margin: 0 0 0.45rem 0;
+        color: #0f172a;
+    }
+
+    .container-help-card p {
+        margin-bottom: 0.55rem;
+        color: #475569;
+        font-size: 0.86rem;
+    }
+
+    .container-help-card ul {
+        margin: 0;
+        padding-left: 1.1rem;
+        color: #475569;
+        font-size: 0.84rem;
+    }
+
+    .container-help-mini-flow,
+    .container-help-mode-flow,
+    .container-help-rotation-row,
+    .container-help-metric-grid {
+        display: flex;
+        gap: 0.55rem;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 0.65rem;
+    }
+
+    .container-help-mini-box,
+    .container-help-mode-chip,
+    .container-help-rotation-chip,
+    .container-help-metric {
+        border: 1px solid rgba(15, 23, 42, 0.10);
+        border-radius: 0.65rem;
+        background: #f8fafc;
+        padding: 0.45rem 0.55rem;
+        font-size: 0.78rem;
+        color: #334155;
+    }
+
+    .container-help-arrow {
+        color: #94a3b8;
+        font-weight: 700;
+    }
+
+    .container-help-svg {
+        width: 58px;
+        height: 42px;
+        display: block;
+    }
+
+    .container-help-svg .top {
+        fill: #f4efe8;
+        stroke: #64748b;
+        stroke-width: 1.1;
+    }
+
+    .container-help-svg .left {
+        fill: #e8dccb;
+        stroke: #64748b;
+        stroke-width: 1.1;
+    }
+
+    .container-help-svg .right {
+        fill: #d7c2a8;
+        stroke: #64748b;
+        stroke-width: 1.1;
+    }
+
+    .container-help-svg .product {
+        fill: #f59e0b;
+        stroke: #1d4ed8;
+        stroke-width: 1.1;
+    }
+
+    .container-help-svg .accent {
+        stroke: #0d6efd;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+    }
+
+    .container-help-note {
+        margin-top: 0.85rem;
+        padding: 0.75rem 0.85rem;
+        border-radius: 0.75rem;
+        background: rgba(245, 158, 11, 0.10);
+        color: #7c2d12;
+        font-size: 0.84rem;
+    }
+
+    @media (max-width: 991.98px) {
+        .container-help-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<details class="container-help">
+    <summary>
+        <div class="container-help-title">
+            <span class="container-help-icon"><i class="bi bi-info-circle"></i></span>
+            <div>
+                <strong>How to use this tool</strong>
+                <span>Modes, rotation restrictions, result interpretation, and good input practices.</span>
+            </div>
+        </div>
+        <i class="bi bi-chevron-down container-help-chevron"></i>
+    </summary>
+
+    <div class="container-help-body">
+        <div class="container-help-grid">
+            <div class="container-help-card">
+                <h4>What the tool does</h4>
+                <p>
+                    The Container Selection Tool checks how many identical products fit inside a rectangular packaging item such as a box, crate, container, or trailer.
+                </p>
+                <div class="container-help-mini-flow" aria-hidden="true">
+                    <span class="container-help-mini-box">
+                        <svg class="container-help-svg" viewBox="0 0 60 42">
+                            <polygon points="14,15 32,9 46,16 28,23" class="top"></polygon>
+                            <polygon points="14,15 28,23 28,32 14,24" class="left"></polygon>
+                            <polygon points="28,23 46,16 46,25 28,32" class="right"></polygon>
+                        </svg>
+                        Product
+                    </span>
+                    <span class="container-help-arrow">→</span>
+                    <span class="container-help-mini-box">
+                        <svg class="container-help-svg" viewBox="0 0 60 42">
+                            <polygon points="8,13 32,6 52,15 28,23" class="top"></polygon>
+                            <polygon points="8,13 28,23 28,36 8,26" class="left"></polygon>
+                            <polygon points="28,23 52,15 52,28 28,36" class="right"></polygon>
+                        </svg>
+                        Packaging
+                    </span>
+                    <span class="container-help-arrow">→</span>
+                    <span class="container-help-mini-box">
+                        <svg class="container-help-svg" viewBox="0 0 60 42">
+                            <polygon points="8,13 32,6 52,15 28,23" class="top"></polygon>
+                            <polygon points="8,13 28,23 28,36 8,26" class="left"></polygon>
+                            <polygon points="28,23 52,15 52,28 28,36" class="right"></polygon>
+                            <rect x="20" y="17" width="18" height="10" class="product" transform="skewY(-18)"></rect>
+                        </svg>
+                        Fit result
+                    </span>
+                </div>
+            </div>
+
+            <div class="container-help-card">
+                <h4>How to use the modes</h4>
+                <p><strong>Single mode</strong> tests one selected packaging item.</p>
+                <p><strong>Optimal mode</strong> searches a packaging catalogue and ranks suitable options for the required quantity.</p>
+                <div class="container-help-mode-flow">
+                    <span class="container-help-mode-chip">Single: Product + 1 packaging → result</span>
+                    <span class="container-help-mode-chip">Optimal: Product + qty + catalogue → Top 5</span>
+                </div>
+                <ul class="mt-2">
+                    <li>Use Single mode when you already know which packaging to test.</li>
+                    <li>Use Optimal mode when you want the tool to recommend candidates.</li>
+                    <li>In Optimal mode, select a Top 5 candidate to generate the 3D view.</li>
+                </ul>
+            </div>
+
+            <div class="container-help-card">
+                <h4>Rotation restrictions</h4>
+                <p>
+                    Rotation permissions define which original product dimension may be placed vertically during packing.
+                    Disable a rotation if the product cannot safely be placed in that orientation.
+                </p>
+                <div class="container-help-rotation-row">
+                    <span class="container-help-rotation-chip">
+                        <svg class="container-help-svg" viewBox="0 0 60 42">
+                            <polygon points="25,8 35,5 46,11 36,15" class="top"></polygon>
+                            <polygon points="25,8 36,15 36,35 25,28" class="left"></polygon>
+                            <polygon points="36,15 46,11 46,31 36,35" class="right"></polygon>
+                            <line x1="21" y1="32" x2="21" y2="8" class="accent"></line>
+                        </svg>
+                        <strong>R1</strong><br>Length vertical
+                    </span>
+                    <span class="container-help-rotation-chip">
+                        <svg class="container-help-svg" viewBox="0 0 60 42">
+                            <polygon points="16,14 36,7 48,14 28,21" class="top"></polygon>
+                            <polygon points="16,14 28,21 28,34 16,27" class="left"></polygon>
+                            <polygon points="28,21 48,14 48,27 28,34" class="right"></polygon>
+                            <line x1="31" y1="34" x2="31" y2="11" class="accent"></line>
+                        </svg>
+                        <strong>R2</strong><br>Width vertical
+                    </span>
+                    <span class="container-help-rotation-chip">
+                        <svg class="container-help-svg" viewBox="0 0 60 42">
+                            <polygon points="11,16 35,8 50,16 26,24" class="top"></polygon>
+                            <polygon points="11,16 26,24 26,31 11,23" class="left"></polygon>
+                            <polygon points="26,24 50,16 50,23 26,31" class="right"></polygon>
+                            <line x1="30" y1="31" x2="30" y2="20" class="accent"></line>
+                        </svg>
+                        <strong>R3</strong><br>Height vertical
+                    </span>
+                </div>
+            </div>
+
+            <div class="container-help-card">
+                <h4>Interpreting results</h4>
+                <p>The 3D image is a decision-support representation of the packing logic. Physical validation is still recommended for critical packaging decisions.</p>
+                <div class="container-help-metric-grid">
+                    <span class="container-help-metric"><strong>Max qty</strong><br>Maximum units that fit</span>
+                    <span class="container-help-metric"><strong>Efficiency</strong><br>Used product volume</span>
+                    <span class="container-help-metric"><strong>Total weight</strong><br>Product load + packaging weight</span>
+                    <span class="container-help-metric"><strong>Payload usage</strong><br>Product load vs. max payload</span>
+                    <span class="container-help-metric"><strong>Remaining capacity</strong><br>Extra units that could fit</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="container-help-note">
+            Use internal packaging dimensions for fit calculations. Dimensions are expected in millimetres and weights in grams.
+            A high volumetric efficiency is useful, but the final choice may also depend on protection, handling, branding, transport, and quality requirements.
+        </div>
+    </div>
+</details>

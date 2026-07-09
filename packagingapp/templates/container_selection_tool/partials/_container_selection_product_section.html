@@ -1,3 +1,102 @@
+<style>
+    .container-rotation-group {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .container-rotation-option {
+        align-items: stretch;
+        gap: 0;
+        min-height: 0;
+        padding: 0.55rem 0.45rem;
+        flex-direction: column;
+        min-width: 0;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .container-rotation-visual-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        width: 100%;
+    }
+
+    .container-rotation-icon {
+        width: 42px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+    }
+
+    .container-rotation-icon svg {
+        width: 42px;
+        height: 32px;
+        display: block;
+    }
+
+    .container-rotation-icon .box-top {
+        fill: #f4efe8;
+        stroke: #6c757d;
+        stroke-width: 1.1;
+    }
+
+    .container-rotation-icon .box-left {
+        fill: #e8dccb;
+        stroke: #6c757d;
+        stroke-width: 1.1;
+    }
+
+    .container-rotation-icon .box-right {
+        fill: #d7c2a8;
+        stroke: #6c757d;
+        stroke-width: 1.1;
+    }
+
+    .container-rotation-icon .accent-line {
+        stroke: #0d6efd;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+    }
+
+    .container-rotation-icon .accent-dot {
+        fill: #0d6efd;
+    }
+
+    .container-rotation-text {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.12rem;
+        line-height: 1.05;
+        margin-top: 0.35rem;
+        text-align: center;
+        width: 100%;
+    }
+
+    .container-rotation-text strong {
+        font-size: 0.9rem;
+    }
+
+    .container-rotation-text small {
+        color: #6c757d;
+        font-size: 0.68rem;
+        white-space: nowrap;
+    }
+
+    .container-rotation-option {
+        border-radius: 0.55rem !important;
+        min-height: 82px;
+        aspect-ratio: 1.45 / 1;
+    }
+</style>
+
 <div class="app-card">
     <div class="app-card-body">
         <div class="app-section-title">Product</div>
@@ -54,29 +153,114 @@
 
         <div id="{% if mode == 'workflow' %}manualProductFields_{{ container_ui.prefix }}{% else %}manualProductFields{% endif %}">
             <div class="tool-compact-grid-three">
-                <div class="tool-field-group mb-0"><label class="form-label">Length</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_l }}" value="{{ container_values.product_l|default:'' }}">{% else %}{{ form.product_l }}{% endif %}</div>
-                <div class="tool-field-group mb-0"><label class="form-label">Width</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_w }}" value="{{ container_values.product_w|default:'' }}">{% else %}{{ form.product_w }}{% endif %}</div>
-                <div class="tool-field-group mb-0"><label class="form-label">Height</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_h }}" value="{{ container_values.product_h|default:'' }}">{% else %}{{ form.product_h }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Length <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_l }}" value="{{ container_values.product_l|default:'' }}">{% else %}{{ form.product_l }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Width <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_w }}" value="{{ container_values.product_w|default:'' }}">{% else %}{{ form.product_w }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Height <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_h }}" value="{{ container_values.product_h|default:'' }}">{% else %}{{ form.product_h }}{% endif %}</div>
             </div>
 
             <div class="tool-compact-grid-two tool-tight-gap">
-                <div class="tool-field-group mb-0"><label class="form-label">Weight</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_weight }}" value="{{ container_values.product_weight|default:'' }}">{% else %}{{ form.product_weight }}{% endif %}</div>
+                <div class="tool-field-group mb-0"><label class="form-label">Weight <span class="text-muted">(g)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_weight }}" value="{{ container_values.product_weight|default:'' }}">{% else %}{{ form.product_weight }}{% endif %}</div>
                 <div id="{% if mode == 'workflow' %}manualDesiredQtyWrap_{{ container_ui.prefix }}{% else %}manualDesiredQtyWrap{% endif %}" class="tool-field-group mb-0"><label class="form-label">Units needed</label>{% if mode == "workflow" %}<input type="number" step="1" min="1" class="form-control" name="{{ container_ui.names.desired_qty }}" value="{{ container_values.desired_qty|default:'1' }}">{% else %}{{ form.desired_qty }}{% endif %}</div>
             </div>
 
             <div class="tool-field-group tool-tight-gap">
                 <label class="form-label">Rotation permissions</label>
-                <div class="tool-checkbox-group tool-checkbox-group--inline">
+                <div class="tool-checkbox-group tool-checkbox-group--inline container-rotation-group">
                     {% if mode == "workflow" %}
-                        <label class="tool-check-option"><input type="checkbox" name="{{ container_ui.names.r1 }}" {% if container_values.r1 %}checked{% endif %}> <span>R1</span></label>
-                        <label class="tool-check-option"><input type="checkbox" name="{{ container_ui.names.r2 }}" {% if container_values.r2 %}checked{% endif %}> <span>R2</span></label>
-                        <label class="tool-check-option"><input type="checkbox" name="{{ container_ui.names.r3 }}" {% if container_values.r3 %}checked{% endif %}> <span>R3</span></label>
+                        <label class="tool-check-option container-rotation-option" title="R1 allows the original product length to be placed vertically.">
+                            <span class="container-rotation-visual-row">
+                                <input type="checkbox" name="{{ container_ui.names.r1 }}" {% if container_values.r1 %}checked{% endif %}>
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="19,8 27,5 36,10 28,13" class="box-top"></polygon>
+                                    <polygon points="19,8 28,13 28,31 19,26" class="box-left"></polygon>
+                                    <polygon points="28,13 36,10 36,28 28,31" class="box-right"></polygon>
+                                    <line x1="17" y1="28" x2="17" y2="8" class="accent-line"></line>
+                                    <circle cx="17" cy="8" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                                                        </span>
+                            <span class="container-rotation-text"><strong>R1</strong><small>Length vertical</small></span>
+                        </label>
+                        <label class="tool-check-option container-rotation-option" title="R2 allows the original product width to be placed vertically.">
+                            <span class="container-rotation-visual-row">
+                                <input type="checkbox" name="{{ container_ui.names.r2 }}" {% if container_values.r2 %}checked{% endif %}>
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="14,11 29,6 38,11 23,16" class="box-top"></polygon>
+                                    <polygon points="14,11 23,16 23,28 14,23" class="box-left"></polygon>
+                                    <polygon points="23,16 38,11 38,23 23,28" class="box-right"></polygon>
+                                    <line x1="26" y1="28" x2="26" y2="10" class="accent-line"></line>
+                                    <circle cx="26" cy="10" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                                                        </span>
+                            <span class="container-rotation-text"><strong>R2</strong><small>Width vertical</small></span>
+                        </label>
+                        <label class="tool-check-option container-rotation-option" title="R3 allows the original product height to be placed vertically.">
+                            <span class="container-rotation-visual-row">
+                                <input type="checkbox" name="{{ container_ui.names.r3 }}" {% if container_values.r3 %}checked{% endif %}>
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="10,13 28,7 39,13 21,19" class="box-top"></polygon>
+                                    <polygon points="10,13 21,19 21,25 10,19" class="box-left"></polygon>
+                                    <polygon points="21,19 39,13 39,19 21,25" class="box-right"></polygon>
+                                    <line x1="24" y1="24" x2="24" y2="16" class="accent-line"></line>
+                                    <circle cx="24" cy="16" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                                                        </span>
+                            <span class="container-rotation-text"><strong>R3</strong><small>Height vertical</small></span>
+                        </label>
                     {% else %}
-                        <label class="tool-check-option">{{ form.r1 }} <span>R1</span></label>
-                        <label class="tool-check-option">{{ form.r2 }} <span>R2</span></label>
-                        <label class="tool-check-option">{{ form.r3 }} <span>R3</span></label>
+                        <label class="tool-check-option container-rotation-option" title="R1 allows the original product length to be placed vertically.">
+                            <span class="container-rotation-visual-row">
+                                {{ form.r1 }}
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="19,8 27,5 36,10 28,13" class="box-top"></polygon>
+                                    <polygon points="19,8 28,13 28,31 19,26" class="box-left"></polygon>
+                                    <polygon points="28,13 36,10 36,28 28,31" class="box-right"></polygon>
+                                    <line x1="17" y1="28" x2="17" y2="8" class="accent-line"></line>
+                                    <circle cx="17" cy="8" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                                                        </span>
+                            <span class="container-rotation-text"><strong>R1</strong><small>Length vertical</small></span>
+                        </label>
+                        <label class="tool-check-option container-rotation-option" title="R2 allows the original product width to be placed vertically.">
+                            <span class="container-rotation-visual-row">
+                                {{ form.r2 }}
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="14,11 29,6 38,11 23,16" class="box-top"></polygon>
+                                    <polygon points="14,11 23,16 23,28 14,23" class="box-left"></polygon>
+                                    <polygon points="23,16 38,11 38,23 23,28" class="box-right"></polygon>
+                                    <line x1="26" y1="28" x2="26" y2="10" class="accent-line"></line>
+                                    <circle cx="26" cy="10" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                                                        </span>
+                            <span class="container-rotation-text"><strong>R2</strong><small>Width vertical</small></span>
+                        </label>
+                        <label class="tool-check-option container-rotation-option" title="R3 allows the original product height to be placed vertically.">
+                            <span class="container-rotation-visual-row">
+                                {{ form.r3 }}
+                            <span class="container-rotation-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 36" focusable="false">
+                                    <polygon points="10,13 28,7 39,13 21,19" class="box-top"></polygon>
+                                    <polygon points="10,13 21,19 21,25 10,19" class="box-left"></polygon>
+                                    <polygon points="21,19 39,13 39,19 21,25" class="box-right"></polygon>
+                                    <line x1="24" y1="24" x2="24" y2="16" class="accent-line"></line>
+                                    <circle cx="24" cy="16" r="2.2" class="accent-dot"></circle>
+                                </svg>
+                            </span>
+                                                        </span>
+                            <span class="container-rotation-text"><strong>R3</strong><small>Height vertical</small></span>
+                        </label>
                     {% endif %}
                 </div>
+                <div class="app-form-note mt-2">Restriction means which original product dimension may be placed vertically.</div>
             </div>
         </div>
 
@@ -84,8 +268,8 @@
             <div class="tool-summary-strip">
                 <div class="tool-summary-main"><strong>{{ selected_product.product_id }}</strong>{% if selected_product.product_name %} — {{ selected_product.product_name }}{% endif %}</div>
                 <div class="tool-summary-meta">
-                    {{ selected_product.product_length }} × {{ selected_product.product_width }} × {{ selected_product.product_height }}
-                    {% if selected_product.weight %} | Wt: {{ selected_product.weight }}{% endif %}
+                    {{ selected_product.product_length }} × {{ selected_product.product_width }} × {{ selected_product.product_height }} mm
+                    {% if selected_product.weight %} | Wt: {{ selected_product.weight }} g{% endif %}
                     {% if current_mode == "optimal" %} | Qty: {{ selected_product.desired_qty }}{% endif %}
                 </div>
             </div>

@@ -1,13 +1,97 @@
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
+from django.http import HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
 
 from ..forms import ContainerToolForm
 from ..models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
+from ..tools.transport.export import build_transport_container_pdf
 from ..tools.transport.presenter import selected_container_summary
 from ..tools.transport.serializers import sanitize_transport_rows_for_session
 from ..tools.transport.service import analyze_transport_config, read_product_rows_raw
 from ..tools.transport.state import default_product_rows
+
+
+def _format_number(value, decimals=0):
+    if value in (None, "", "None"):
+        return "-"
+    try:
+        return f"{float(value):.{decimals}f}"
+    except (TypeError, ValueError):
+        return "-"
+
+
+def _format_dims(l, w, h):
+    return f"{_format_number(l, 0)} x {_format_number(w, 0)} x {_format_number(h, 0)} mm"
+
+
+def _format_optional_weight(value):
+    if value in (None, "", "None"):
+        return "Not set"
+    return f"{_format_number(value, 2)} kg"
+
+
+def _material_value(material, attr, default="-"):
+    if material is None:
+        return default
+    return getattr(material, attr, default) or default
+
+
+def _build_transport_export_payload(*, cfg, analysis, selected_material=None):
+    if not analysis.get("ok") or not analysis.get("serialized_result"):
+        return None
+
+    serialized = analysis.get("serialized_result") or {}
+    summary = serialized.get("summary") or {}
+    container = analysis.get("container") or {}
+    result = analysis.get("result") or {}
+    image_rel_paths = result.get("image_rel_paths") or {}
+
+    if selected_material is not None:
+        source = "Catalogue"
+        part_number = _material_value(selected_material, "part_number")
+        description = _material_value(selected_material, "part_description")
+        unit_type = _material_value(selected_material, "packaging_type")
+        material = _material_value(selected_material, "packaging_materials")
+        dimensions = _format_dims(selected_material.part_length, selected_material.part_width, selected_material.part_height)
+    else:
+        source = "Manual"
+        part_number = "Manual transport unit"
+        description = "Manual input"
+        unit_type = "Manual"
+        material = "Manual input"
+        dimensions = _format_dims(container.get("L"), container.get("W"), container.get("H"))
+
+    return {
+        "report_type": "standalone",
+        "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
+        "transport_unit": {
+            "source": source,
+            "part_number": str(part_number),
+            "description": str(description),
+            "type": str(unit_type),
+            "material": str(material),
+            "dimensions": dimensions,
+            "max_payload": _format_optional_weight(container.get("max_weight")),
+            "tare_weight": _format_optional_weight(container.get("tare_weight")),
+        },
+        "summary": summary,
+        "image_rel_path": result.get("image_rel_path") or "",
+        "image_rel_paths": image_rel_paths,
+    }
+
+
+def _form_error_messages(form):
+    messages = []
+    for field_name, errors in form.errors.items():
+        if field_name == "__all__":
+            label = "Form"
+        else:
+            label = form.fields.get(field_name).label if field_name in form.fields else field_name
+        for error in errors:
+            messages.append(f"{label}: {error}")
+    return messages
 
 
 def container_tool(request):
@@ -24,6 +108,7 @@ def container_tool(request):
 
     result = None
     image_url = None
+    image_urls = {}
     row_errors = []
     auto_hide_product_catalogue = False
 
@@ -49,7 +134,7 @@ def container_tool(request):
 
     if raw_container_id:
         selected_material = (
-            PackagingMaterial.objects.filter(id=raw_container_id)
+            PackagingMaterial.objects.filter(catalogue__in=packaging_catalogues, id=raw_container_id)
             .select_related("catalogue")
             .first()
         )
@@ -60,7 +145,7 @@ def container_tool(request):
         selected_product_catalogue = visible_product_catalogues(request.user).filter(id=raw_product_catalogue_id).first()
 
     if raw_action == "select_product":
-        selected_product = Product.objects.filter(id=raw_product_id_to_fill or None).first()
+        selected_product = Product.objects.filter(catalogue__in=product_catalogues, id=raw_product_id_to_fill or None).first()
         try:
             row_idx = int(raw_selected_row_index)
         except Exception:
@@ -84,7 +169,7 @@ def container_tool(request):
 
     if raw_action == "select_container":
         selected_material = (
-            PackagingMaterial.objects.filter(id=raw_container_id or None)
+            PackagingMaterial.objects.filter(catalogue__in=packaging_catalogues, id=raw_container_id or None)
             .select_related("catalogue")
             .first()
         )
@@ -124,6 +209,7 @@ def container_tool(request):
                     "container_l": selected_material.part_length,
                     "container_w": selected_material.part_width,
                     "container_h": selected_material.part_height,
+                    "tare_weight": selected_material.part_weight,
                 }
             )
 
@@ -143,6 +229,7 @@ def container_tool(request):
             "container_w": form.cleaned_data.get("container_w"),
             "container_h": form.cleaned_data.get("container_h"),
             "max_weight": form.cleaned_data.get("max_weight"),
+            "tare_weight": form.cleaned_data.get("tare_weight"),
             "catalogue_id": raw_catalogue_id,
             "container_id": raw_container_id,
             "product_catalogue_id": raw_product_catalogue_id,
@@ -163,6 +250,15 @@ def container_tool(request):
             if analysis["ok"]:
                 result = analysis["serialized_result"]
                 image_url = analysis["image_url"]
+                image_urls = analysis.get("image_urls") or {}
+                export_payload = _build_transport_export_payload(
+                    cfg=cfg,
+                    analysis=analysis,
+                    selected_material=selected_material,
+                )
+                if export_payload:
+                    request.session["transport_container_last_export"] = export_payload
+                    request.session.modified = True
 
         if selected_material is not None and current_container_source == "catalogue":
             container_l_value = selected_material.part_length
@@ -182,6 +278,7 @@ def container_tool(request):
                 "container_w": container_w_value,
                 "container_h": container_h_value,
                 "max_weight": form.cleaned_data.get("max_weight"),
+                "tare_weight": form.cleaned_data.get("tare_weight"),
             }
         )
 
@@ -191,6 +288,9 @@ def container_tool(request):
             ]
 
     else:
+        if request.method == "POST" and raw_action == "run_analysis":
+            row_errors = _form_error_messages(form)
+
         if selected_material is not None and current_container_source == "catalogue":
             form = ContainerToolForm(
                 initial={
@@ -201,6 +301,7 @@ def container_tool(request):
                     "container_w": selected_material.part_width,
                     "container_h": selected_material.part_height,
                     "max_weight": request.POST.get("max_weight", "") if request.method == "POST" else "",
+                    "tare_weight": request.POST.get("tare_weight", "") if request.method == "POST" else (selected_material.part_weight or ""),
                 }
             )
 
@@ -217,14 +318,15 @@ def container_tool(request):
             "container_w": form["container_w"].value() if "container_w" in form.fields else "",
             "container_h": form["container_h"].value() if "container_h" in form.fields else "",
             "max_weight": form["max_weight"].value() if "max_weight" in form.fields else "",
+            "tare_weight": form["tare_weight"].value() if "tare_weight" in form.fields else "",
         },
     )
 
-    materials = PackagingMaterial.objects.all().select_related("catalogue").order_by("part_number")
+    materials = PackagingMaterial.objects.filter(catalogue__in=packaging_catalogues).select_related("catalogue").order_by("part_number")
     if selected_catalogue:
         materials = materials.filter(catalogue=selected_catalogue)
 
-    product_items = Product.objects.all().order_by("product_name")
+    product_items = Product.objects.filter(catalogue__in=product_catalogues).order_by("product_name")
     if selected_product_catalogue:
         product_items = product_items.filter(catalogue=selected_product_catalogue)
 
@@ -232,6 +334,7 @@ def container_tool(request):
         "form": form,
         "result": result,
         "image_url": image_url,
+        "image_urls": image_urls,
         "row_errors": row_errors,
         "product_rows": product_rows,
         "packaging_catalogues": packaging_catalogues,
@@ -249,3 +352,21 @@ def container_tool(request):
     }
 
     return render(request, "container_tool/container_tool.html", context)
+
+def container_tool_export_pdf(request):
+    export_payload = request.session.get("transport_container_last_export")
+
+    if not export_payload:
+        return HttpResponse(
+            "Please run a transport container analysis before exporting a PDF report.",
+            status=400,
+            content_type="text/plain",
+        )
+
+    pdf_buffer = build_transport_container_pdf(export_payload)
+    timestamp = timezone.now().strftime("%Y%m%d_%H%M")
+    filename = f"transport_container_report_{timestamp}.pdf"
+
+    response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response

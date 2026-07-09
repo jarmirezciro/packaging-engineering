@@ -64,7 +64,7 @@
             if (manualProductFields) manualProductFields.style.display = 'block';
         }
 
-        if (manualDesiredQtyWrap) manualDesiredQtyWrap.style.display = 'block';
+        if (manualDesiredQtyWrap) manualDesiredQtyWrap.style.display = (mode === 'optimal') ? 'block' : 'none';
 
         if (mode === 'single') {
             if (singleBagControls) singleBagControls.style.display = 'block';

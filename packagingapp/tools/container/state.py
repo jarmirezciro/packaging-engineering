@@ -21,4 +21,6 @@ def default_container_config():
         "box_l": "",
         "box_w": "",
         "box_h": "",
+        "box_weight": "",
+        "box_max_payload": "",
     }

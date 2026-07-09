@@ -7,6 +7,7 @@ from .views import bag_selection
 from .views import palletization
 from .views import container_tool
 from .views.home import home
+from .views.marketing import about, blog_detail, blog_list
 
 from .views.multi_product_bag import (
     multi_product_bag_selection,
@@ -22,10 +23,13 @@ from packagingapp.views.multi_product_container import (
     multi_product_container_export_excel,
 )
 
-from packagingapp.views.full_packaging import full_packaging_mode
+from packagingapp.views.full_packaging import full_packaging_mode, full_packaging_export_pdf
 
 urlpatterns = [
     path("", home, name="home"),
+    path("about/", about, name="about"),
+    path("blog/", blog_list, name="blog_list"),
+    path("blog/<slug:slug>/", blog_detail, name="blog_detail"),
 
 
 # Packaging Catalogue
@@ -57,6 +61,12 @@ urlpatterns = [
         name="container_selection_mode1",
     ),
 
+    path(
+        "container-selection/mode1/export/pdf/",
+        container_selection.container_selection_export_pdf,
+        name="container_selection_export_pdf",
+    ),
+
     path("catalogues/<int:pk>/export-excel/", packaging_catalogue.export_catalogue_excel, name="export_catalogue_excel"),
 
 
@@ -83,6 +93,16 @@ urlpatterns = [
     # Bag Selection
     path("bag-selection/", bag_selection.bag_selection_mode1, name="bag_selection"),
     path("bag-selection/mode1/", bag_selection.bag_selection_mode1, name="bag_selection_mode1"),
+    path(
+        "bag-selection/mode1/export/pdf/",
+        bag_selection.bag_selection_export_pdf,
+        name="bag_selection_export_pdf",
+    ),
+    path(
+        "bag-selection/mode1/export/optimal/pdf/",
+        bag_selection.bag_selection_export_optimal_pdf,
+        name="bag_selection_export_optimal_pdf",
+    ),
 
     # Multi Product Bag
     path("multi-product-bag/", multi_product_bag_selection, name="multi_product_bag_selection"),
@@ -92,10 +112,21 @@ urlpatterns = [
 
     # Palletization Tool
     path("palletization/mode1/", palletization.palletization_mode1, name="palletization_mode1"),
+    path(
+        "palletization/mode1/export/pdf/",
+        palletization.palletization_export_pdf,
+        name="palletization_export_pdf",
+    ),
 
     # Transport Container Tool
     path("container-tool/", container_tool.container_tool, name="container_tool"),
+    path(
+        "container-tool/export/pdf/",
+        container_tool.container_tool_export_pdf,
+        name="container_tool_export_pdf",
+    ),
 
     # Full Packaging Module
     path("full-packaging/", full_packaging_mode, name="full_packaging_mode"),
+    path("full-packaging/export/pdf/", full_packaging_export_pdf, name="full_packaging_export_pdf"),
 ]

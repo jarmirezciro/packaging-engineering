@@ -8,7 +8,7 @@
             <table class="table table-hover app-table align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th class="tool-select-col"></th>
+                        <th>Picture</th>
                         <th>Part Number</th>
                         <th>Description</th>
                         <th>Type</th>
@@ -20,8 +20,8 @@
                         <th>Ext. L (mm)</th>
                         <th>Ext. W (mm)</th>
                         <th>Ext. H (mm)</th>
-                        <th>Weight (kg)</th>
-                        <th>Volume</th>
+                        <th>Weight (g)</th>
+                        <th>Volume (mm³)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -30,12 +30,17 @@
                         onclick="containerSelectionSelectContainer('{{ container_ui.prefix|default:'' }}', '{{ material.id }}')"
                         tabindex="0"
                         role="button">
-                        <td class="tool-select-col">
-                            <button type="button"
-                                    class="btn btn-sm btn-app-outline"
-                                    onclick="event.stopPropagation(); containerSelectionSelectContainer('{{ container_ui.prefix|default:'' }}', '{{ material.id }}')">
-                                Select
-                            </button>
+                        <td>
+                            {% if material.picture %}
+                                <img src="{{ material.picture.url }}"
+                                     alt="{{ material.part_description|default:material.part_number }}"
+                                     class="app-thumb"
+                                     style="width:48px;height:48px;">
+                            {% else %}
+                                <div class="app-thumb-placeholder app-thumb-placeholder--small" style="width:48px;height:48px;font-size:1rem;">
+                                    <i class="bi bi-box-seam"></i>
+                                </div>
+                            {% endif %}
                         </td>
                         <td>{{ material.part_number }}</td>
                         <td>{{ material.part_description }}</td>
@@ -52,7 +57,7 @@
                         <td>{{ material.part_volume }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="14" class="text-center text-muted">No packaging materials found.</td></tr>
+                    <tr><td colspan="14" class="text-center text-muted">No BOX, CRATE, CONTAINER, or TRAILER materials found in this catalogue.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

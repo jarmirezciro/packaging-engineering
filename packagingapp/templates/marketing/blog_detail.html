@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ post.title }} | KolliLabs Blog{% endblock %}
+{% block meta_description %}{% if post.description %}{{ post.description }}{% else %}{{ post.subtitle }}{% endif %}{% endblock %}
+{% block extra_head %}
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ post.title }}">
+<meta property="og:description" content="{% if post.description %}{{ post.description }}{% else %}{{ post.subtitle }}{% endif %}">
+{% if post.featured_image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static post.featured_image %}">{% endif %}
+<script type="application/ld+json">{{ post.article_schema_json|safe }}</script>
+{% endblock %}
+
+{% block content %}
+<article class="app-page marketing-page blog-article">
+    <section class="app-hero blog-article-hero">
+        <div class="blog-hero-badges">
+            <div class="app-hero-badge"><i class="bi {{ post.hero_icon }}"></i> {{ post.category }}</div>
+            <div class="blog-type-pill blog-type-pill--hero"><i class="bi {{ post.article_type_meta.icon }}"></i> {{ post.article_type_meta.short_label }}</div>
+        </div>
+
+        <h1 class="app-title marketing-title">{{ post.title }}</h1>
+        <p class="app-subtitle marketing-subtitle">{{ post.subtitle }}</p>
+
+        <div class="blog-author-card blog-author-card--hero">
+            <img src="{% static post.author.image %}" alt="{{ post.author.name }}" class="blog-author-avatar">
+            <div class="blog-author-copy">
+                <span>Written by</span>
+                <strong>{{ post.author.name }}</strong>
+                <p>{{ post.author.role }}</p>
+                <div class="blog-author-meta">
+                    <span><i class="bi bi-calendar3"></i> Published {{ post.published_at }}</span>
+                    <span><i class="bi bi-clock"></i> {{ post.read_time }}</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="app-card blog-context-card">
+        <div class="app-card-body">
+            <div class="blog-context-row">
+                <div>
+                    <div class="section-kicker">Article type</div>
+                    <h2>{{ post.article_type_meta.label }}</h2>
+                    <p>{{ post.article_type_meta.description }}</p>
+                </div>
+                <span class="blog-context-icon"><i class="bi {{ post.article_type_meta.icon }}"></i></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="app-card">
+        <div class="app-card-body">
+            <div class="flow-diagram" aria-label="Article concept diagram">
+                {% if post.flow_steps %}
+                    {% for step in post.flow_steps %}
+                    <div><i class="bi {{ step.icon }}"></i><span>{{ step.label }}</span></div>
+                    {% if not forloop.last %}<i class="bi bi-arrow-right"></i>{% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div><i class="bi bi-bounding-box"></i><span>Product</span></div>
+                    <i class="bi bi-arrow-right"></i>
+                    <div><i class="bi bi-box"></i><span>Package</span></div>
+                    <i class="bi bi-arrow-right"></i>
+                    <div><i class="bi bi-grid-3x3-gap"></i><span>Pallet</span></div>
+                    <i class="bi bi-arrow-right"></i>
+                    <div><i class="bi bi-truck"></i><span>Transport</span></div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section class="app-card blog-content-card">
+        <div class="app-card-body">
+            {% for section in post.sections %}
+            <section class="blog-content-section">
+                <h2>{{ section.heading }}</h2>
+
+                {% for paragraph in section.paragraphs %}
+                <p>{{ paragraph }}</p>
+                {% endfor %}
+
+                {% if section.quote %}
+                <blockquote class="blog-pull-quote">{{ section.quote }}</blockquote>
+                {% endif %}
+
+                {% if section.bullets %}
+                <ul class="blog-bullet-list">
+                    {% for item in section.bullets %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if section.table %}
+                <div class="blog-table-wrap">
+                    <table class="table table-sm blog-result-table">
+                        <thead>
+                            <tr>
+                                {% for header in section.table.headers %}
+                                <th>{{ header }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in section.table.rows %}
+                            <tr>
+                                {% for cell in row %}
+                                <td>{{ cell }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+
+                {% if section.note %}
+                <div class="blog-note"><i class="bi bi-lightbulb me-2"></i>{{ section.note }}</div>
+                {% endif %}
+
+                {% if section.figures %}
+                <div class="blog-figure-stack">
+                    {% for figure in section.figures %}
+                    <figure class="blog-figure">
+                        <img src="{% static figure.src %}" alt="{{ figure.alt }}">
+                        <figcaption>{{ figure.caption }}</figcaption>
+                    </figure>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </section>
+            {% endfor %}
+
+            <div class="takeaway-box">
+                <h3><i class="bi bi-check2-circle me-2"></i>Key takeaways</h3>
+                <ul>
+                    {% for item in post.takeaways %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="app-card blog-author-card blog-author-card--footer">
+        <img src="{% static post.author.image %}" alt="{{ post.author.name }}" class="blog-author-avatar">
+        <div class="blog-author-copy">
+            <span>About the author</span>
+            <strong>{{ post.author.name }}</strong>
+            <p>{{ post.author.bio }}</p>
+        </div>
+    </section>
+
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'blog_list' %}" class="btn btn-outline-success"><i class="bi bi-arrow-left me-2"></i>Back to blog</a>
+        <a href="{% url 'container_selection_mode1' %}" class="btn btn-success"><i class="bi bi-box-seam me-2"></i>Try Container Selection</a>
+        <a href="{% url 'about' %}#contact" class="btn btn-outline-success"><i class="bi bi-envelope me-2"></i>Contact KolliLabs</a>
+    </div>
+</article>
+{% endblock %}

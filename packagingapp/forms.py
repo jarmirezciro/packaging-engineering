@@ -259,6 +259,20 @@ class ContainerSelectionMode1Form(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
 
+    box_weight = forms.FloatField(
+        min_value=0,
+        required=False,
+        label="Packaging weight",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "min": "0"})
+    )
+
+    box_max_payload = forms.FloatField(
+        min_value=0,
+        required=False,
+        label="Max payload",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "min": "0"})
+    )
+
     action = forms.CharField(required=False, widget=forms.HiddenInput())
 
 ###
@@ -407,10 +421,17 @@ class BagSelectionForm(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
 
+    product_weight = forms.FloatField(
+        min_value=0,
+        label="Product weight (g)",
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+
     desired_qty = forms.IntegerField(
         min_value=1,
         initial=1,
-        label="Units needed",
+        label="Target quantity",
         required=False,
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"})
     )
@@ -440,6 +461,20 @@ class BagSelectionForm(forms.Form):
         min_value=0.0001,
         required=False,
         label="Bag width",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+
+    bag_weight = forms.FloatField(
+        min_value=0,
+        required=False,
+        label="Packaging weight (g)",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+
+    bag_max_payload = forms.FloatField(
+        min_value=0,
+        required=False,
+        label="Max payload (g)",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
 
@@ -562,21 +597,84 @@ class ContainerToolForm(forms.Form):
 
     container_l = forms.FloatField(
         min_value=0.0001,
-        label="Internal length",
+        label="Internal length (mm)",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
     container_w = forms.FloatField(
         min_value=0.0001,
-        label="Internal width",
+        label="Internal width (mm)",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
     container_h = forms.FloatField(
         min_value=0.0001,
-        label="Internal height",
+        label="Internal height (mm)",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
     max_weight = forms.FloatField(
+        required=False,
         min_value=0.0,
-        label="Max weight",
+        label="Max payload (kg)",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
     )
+    tare_weight = forms.FloatField(
+        required=False,
+        min_value=0.0,
+        label="Tare weight (kg)",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+
+
+class ContactForm(forms.Form):
+    AREA_CHOICES = [
+        ("KolliPack app", "KolliPack app"),
+        ("Packaging consultancy", "Packaging consultancy"),
+        ("Packaging project management", "Packaging project management"),
+        ("Packaging optimization", "Packaging optimization"),
+        ("Packaging education / training", "Packaging education / training"),
+        ("Other", "Other"),
+    ]
+
+    name = forms.CharField(
+        max_length=120,
+        label="Name",
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Your name"}),
+    )
+    email = forms.EmailField(
+        label="Email",
+        widget=forms.EmailInput(attrs={"class": "form-control", "placeholder": "name@example.com"}),
+    )
+    company = forms.CharField(
+        max_length=160,
+        required=False,
+        label="Company",
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Company name"}),
+    )
+    area_of_interest = forms.ChoiceField(
+        choices=AREA_CHOICES,
+        label="Area of interest",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    message = forms.CharField(
+        label="Message",
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 5,
+                "placeholder": "Tell us briefly what you would like to evaluate, optimize, or discuss.",
+            }
+        ),
+    )
+    consent = forms.BooleanField(
+        label="I agree to be contacted by KolliLabs about my request.",
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+    )
+    website = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={"class": "d-none", "tabindex": "-1", "autocomplete": "off"}),
+    )
+
+    def clean_website(self):
+        value = self.cleaned_data.get("website", "")
+        if value:
+            raise forms.ValidationError("Invalid submission.")
+        return value

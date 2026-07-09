@@ -1,27 +1,152 @@
 <div class="app-card">
     <div class="app-card-body">
         <div class="app-section-title">Result</div>
-        <div class="app-section-subtitle">3D bag preview and bag requirement summary.</div>
+        <div class="app-section-subtitle">Clean bag preview with capacity, usage and weight summary.</div>
 
         {% if result %}
-            <div class="tool-stat-card mb-3">
-                <div class="tool-stat-label">Smooth qty</div>
-                <div class="tool-stat-value">{{ result.smooth_qty }}</div>
-            </div>
-
-            <div class="tool-summary-strip mb-3">
-                <div class="tool-summary-main"><strong>Bag:</strong> {{ result.bag_len }} × {{ result.bag_w }}</div>
-                <div class="tool-summary-meta">
-                    Fits: {{ result.fits|yesno:"Yes,No" }}
-                    {% if result.best_required %} | Best required: {{ result.best_required.0 }} × {{ result.best_required.1 }}{% endif %}
-                    {% if result.usage %} | Usage: {{ result.usage|floatformat:4 }}{% endif %}
+            {% if analysis_report %}
+                <div class="tool-summary-strip mb-3">
+                    <div class="tool-summary-main mb-2"><strong>Bag result</strong></div>
+                    <div class="row g-2">
+                        <div class="col-12 col-md-4">
+                            <div class="border rounded-3 p-2 h-100">
+                                <div class="tool-stat-label">Max qty</div>
+                                <div class="fw-bold">
+                                    {% if analysis_report.max_quantity %}
+                                        {{ analysis_report.max_quantity }} pcs
+                                    {% else %}
+                                        <span class="text-muted">No fit</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="border rounded-3 p-2 h-100">
+                                <div class="tool-stat-label">Bag usage</div>
+                                <div class="fw-bold">{{ analysis_report.bag_usage_max_display }}</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="border rounded-3 p-2 h-100">
+                                <div class="tool-stat-label">Total weight</div>
+                                <div class="fw-bold">
+                                    {% if analysis_report.has_total_weight %}
+                                        {{ analysis_report.total_weight_display }}
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            {% else %}
+                <div class="tool-summary-strip mb-3">
+                    <div class="tool-summary-main"><strong>Bag result</strong></div>
+                    <div class="tool-summary-meta">
+                        {% if current_mode == "single" %}{% if result.max_quantity %}Max quantity: {{ result.max_quantity }} pcs{% else %}No fitting arrangement found{% endif %}{% else %}Current quantity: {{ result.desired_qty }} pcs{% endif %}
+                    </div>
+                </div>
+            {% endif %}
 
             {% if image_url %}
                 <div class="tool-render-wrap">
                     <img src="{{ image_url }}" alt="Bag result" class="tool-render-image">
                 </div>
+            {% endif %}
+
+            {% if mode == "standalone" and analysis_report %}
+                <div class="app-form-actions tool-card-actions mt-3">
+                    {% if current_mode == "single" %}
+                        <a href="{% url 'bag_selection_export_pdf' %}" class="btn btn-app-outline btn-sm">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF report
+                        </a>
+                    {% elif current_mode == "optimal" %}
+                        <a href="{% url 'bag_selection_export_optimal_pdf' %}" class="btn btn-app-outline btn-sm">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF report
+                        </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if analysis_report %}
+                <details class="tool-summary-strip mt-3 mb-0">
+                    <summary class="tool-summary-main" style="cursor: pointer;">
+                        <strong>Detailed analysis</strong>
+                        <span class="tool-summary-meta ms-1">capacity, bag usage, weight and payload</span>
+                    </summary>
+                    <div class="table-responsive mt-2">
+                        <table class="table table-sm mb-0 align-middle">
+                            <tbody>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Current quantity</th>
+                                    <td class="text-end">{{ analysis_report.current_quantity }} pcs</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Bag usage — current</th>
+                                    <td class="text-end">{{ analysis_report.bag_usage_current_display }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Max quantity</th>
+                                    <td class="text-end">
+                                        {% if analysis_report.max_quantity %}
+                                            {{ analysis_report.max_quantity }} pcs
+                                        {% else %}
+                                            <span class="text-muted">No fit</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Bag usage — max quantity</th>
+                                    <td class="text-end">{{ analysis_report.bag_usage_max_display }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Net weight</th>
+                                    <td class="text-end">
+                                        {% if analysis_report.has_product_weight %}
+                                            {{ analysis_report.net_weight_display }}
+                                        {% else %}
+                                            <span class="text-muted">Not available</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Total weight</th>
+                                    <td class="text-end">
+                                        {% if analysis_report.has_total_weight %}
+                                            {{ analysis_report.total_weight_display }}
+                                        {% else %}
+                                            <span class="text-muted">Not available</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Payload usage</th>
+                                    <td class="text-end">
+                                        {% if analysis_report.has_payload_usage %}
+                                            {{ analysis_report.payload_usage_display }}
+                                        {% else %}
+                                            <span class="text-muted">Not available</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Remaining capacity</th>
+                                    <td class="text-end">{{ analysis_report.remaining_capacity }} pcs</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if not analysis_report.has_bag_weight or not analysis_report.has_payload_capacity %}
+                        <div class="tool-summary-meta mt-2">
+                            {% if not analysis_report.has_bag_weight %}Packaging weight is needed for total weight.{% endif %}
+                            {% if not analysis_report.has_payload_capacity %} Max payload is needed for payload usage.{% endif %}
+                        </div>
+                    {% endif %}
+                    {% if analysis_report.search_capped %}
+                        <div class="tool-summary-meta mt-2">Maximum quantity reached the internal search cap. Validate high-volume cases physically.</div>
+                    {% endif %}
+                </details>
             {% endif %}
 
             {% if mode == "workflow" and pending_result %}
@@ -32,7 +157,7 @@
         {% else %}
             <div class="app-empty-state">
                 <i class="bi bi-handbag fs-2 d-block mb-2"></i>
-                <div>Run a single analysis or select one Top 5 candidate to generate the result.</div>
+                <div>Run a single analysis to calculate max quantity, or select one Top 5 candidate to generate the result.</div>
             </div>
         {% endif %}
     </div>

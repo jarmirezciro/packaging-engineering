@@ -1,9 +1,12 @@
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
+from django.http import HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
 
 from ..forms import PalletizationForm
 from ..models import PackagingCatalogue
+from ..tools.palletization.export import build_palletization_pdf
 from ..tools.palletization.serializers import sanitize_palletization_config_for_session
 from ..tools.palletization.service import (
     analyze_palletization_config,
@@ -17,6 +20,36 @@ from ..tools.palletization.state import default_palletization_config
 
 def _as_bool(value):
     return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _to_float(value, default=None):
+    try:
+        if value in (None, "", "None"):
+            return default
+        return float(value)
+    except Exception:
+        return default
+
+
+def _catalogue_dimension(material, external_attr, part_attr):
+    """Prefer a positive external dimension, then a positive part dimension.
+
+    Some catalogue imports keep external_* as 0 even when part_* contains the
+    usable dimension. Treat 0 as missing for fallback purposes.
+    """
+    if material is None:
+        return ""
+
+    first_raw = ""
+    for attr in (external_attr, part_attr):
+        raw_value = getattr(material, attr, None)
+        numeric_value = _to_float(raw_value, None)
+        if raw_value not in (None, "", "None") and first_raw == "":
+            first_raw = raw_value
+        if numeric_value is not None and numeric_value > 0:
+            return raw_value
+
+    return first_raw
 
 
 def _read_raw_palletization_config(request):
@@ -58,16 +91,9 @@ def _build_hydrated_form(request, config, selected_box_material=None, selected_p
         post_data = request.POST.copy()
 
         if config.get("box_source") == "catalogue" and selected_box_material is not None:
-            box_l = selected_box_material.external_length
-            box_w = selected_box_material.external_width
-            box_h = selected_box_material.external_height
-
-            if box_l is None:
-                box_l = selected_box_material.part_length
-            if box_w is None:
-                box_w = selected_box_material.part_width
-            if box_h is None:
-                box_h = selected_box_material.part_height
+            box_l = _catalogue_dimension(selected_box_material, "external_length", "part_length")
+            box_w = _catalogue_dimension(selected_box_material, "external_width", "part_width")
+            box_h = _catalogue_dimension(selected_box_material, "external_height", "part_height")
 
             post_data["box_l"] = "" if box_l is None else str(box_l)
             post_data["box_w"] = "" if box_w is None else str(box_w)
@@ -80,13 +106,8 @@ def _build_hydrated_form(request, config, selected_box_material=None, selected_p
                 post_data["box_weight"] = str(selected_box_material.part_weight)
 
         if config.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
-            pallet_l = selected_pallet_material.external_length
-            pallet_w = selected_pallet_material.external_width
-
-            if pallet_l is None:
-                pallet_l = selected_pallet_material.part_length
-            if pallet_w is None:
-                pallet_w = selected_pallet_material.part_width
+            pallet_l = _catalogue_dimension(selected_pallet_material, "external_length", "part_length")
+            pallet_w = _catalogue_dimension(selected_pallet_material, "external_width", "part_width")
 
             post_data["pallet_l"] = "" if pallet_l is None else str(pallet_l)
             post_data["pallet_w"] = "" if pallet_w is None else str(pallet_w)
@@ -96,16 +117,9 @@ def _build_hydrated_form(request, config, selected_box_material=None, selected_p
         initial_data = dict(config)
 
         if config.get("box_source") == "catalogue" and selected_box_material is not None:
-            box_l = selected_box_material.external_length
-            box_w = selected_box_material.external_width
-            box_h = selected_box_material.external_height
-
-            if box_l is None:
-                box_l = selected_box_material.part_length
-            if box_w is None:
-                box_w = selected_box_material.part_width
-            if box_h is None:
-                box_h = selected_box_material.part_height
+            box_l = _catalogue_dimension(selected_box_material, "external_length", "part_length")
+            box_w = _catalogue_dimension(selected_box_material, "external_width", "part_width")
+            box_h = _catalogue_dimension(selected_box_material, "external_height", "part_height")
 
             initial_data["box_l"] = "" if box_l is None else box_l
             initial_data["box_w"] = "" if box_w is None else box_w
@@ -118,13 +132,8 @@ def _build_hydrated_form(request, config, selected_box_material=None, selected_p
                 initial_data["box_weight"] = selected_box_material.part_weight
 
         if config.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
-            pallet_l = selected_pallet_material.external_length
-            pallet_w = selected_pallet_material.external_width
-
-            if pallet_l is None:
-                pallet_l = selected_pallet_material.part_length
-            if pallet_w is None:
-                pallet_w = selected_pallet_material.part_width
+            pallet_l = _catalogue_dimension(selected_pallet_material, "external_length", "part_length")
+            pallet_w = _catalogue_dimension(selected_pallet_material, "external_width", "part_width")
 
             initial_data["pallet_l"] = "" if pallet_l is None else pallet_l
             initial_data["pallet_w"] = "" if pallet_w is None else pallet_w
@@ -139,6 +148,112 @@ def _apply_catalogue_choices(form, packaging_catalogues):
     form.fields["box_catalogue_id"].choices = choices
     form.fields["pallet_catalogue_id"].choices = choices
 
+
+
+
+def _clean_display(value, default="-"):
+    if value in (None, "", "None"):
+        return default
+    return str(value)
+
+
+def _format_number(value, decimals=0):
+    if value in (None, "", "None"):
+        return "-"
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if decimals == 0:
+        return str(int(round(value)))
+    return f"{value:.{decimals}f}".rstrip("0").rstrip(".")
+
+
+def _format_dims(length, width, height=None):
+    parts = [_format_number(length), _format_number(width)]
+    if height not in (None, "", "None"):
+        parts.append(_format_number(height))
+    if any(part == "-" for part in parts):
+        return "-"
+    return " x ".join(parts) + " mm"
+
+
+def _format_weight(value):
+    if value in (None, "", "None"):
+        return "Not provided"
+    return f"{_format_number(value, 2)} g"
+
+
+def _material_payload(material, fallback_part_number):
+    if material is None:
+        return {
+            "part_number": fallback_part_number,
+            "description": "Manual input",
+            "material": "Manual input",
+            "brand": "Manual",
+            "picture": "",
+        }
+
+    picture = ""
+    if getattr(material, "picture", None):
+        try:
+            picture = material.picture.name or ""
+        except ValueError:
+            picture = ""
+
+    return {
+        "part_number": _clean_display(getattr(material, "part_number", None)),
+        "description": _clean_display(getattr(material, "part_description", None)),
+        "material": _clean_display(getattr(material, "packaging_materials", None)),
+        "brand": _clean_display(getattr(material, "branding", None)),
+        "picture": picture,
+    }
+
+
+def _build_palletization_export_payload(*, config, analysis, selected_box_material=None, selected_pallet_material=None):
+    serialized = analysis.get("serialized_result") or {}
+    selected_result = serialized.get("selected_result") or {}
+    effective_config = analysis.get("effective_config") or {}
+
+    if not selected_result:
+        return None
+
+    box_base = _material_payload(selected_box_material, "Manual carton")
+    pallet_base = _material_payload(selected_pallet_material, "Manual pallet")
+
+    box_source = "Catalogue" if (config.get("box_source") == "catalogue" and selected_box_material is not None) else "Manual"
+    pallet_source = "Catalogue" if (config.get("pallet_source") == "catalogue" and selected_pallet_material is not None) else "Manual"
+
+    return {
+        "report_type": "standalone",
+        "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
+        "box": {
+            **box_base,
+            "source": box_source,
+            "dimensions": _format_dims(
+                effective_config.get("box_l"),
+                effective_config.get("box_w"),
+                effective_config.get("box_h"),
+            ),
+            "weight": _format_weight(effective_config.get("box_weight")),
+            "bottom_load_limit": _format_weight(effective_config.get("max_weight_on_bottom_box")),
+        },
+        "pallet": {
+            **pallet_base,
+            "source": pallet_source,
+            "dimensions": _format_dims(
+                effective_config.get("pallet_l"),
+                effective_config.get("pallet_w"),
+            ),
+            "max_stack_height": f"{_format_number(effective_config.get('max_stack_height'))} mm",
+            "overhang": (
+                f"{_format_number(effective_config.get('max_width_stickout'))} mm width / "
+                f"{_format_number(effective_config.get('max_length_stickout'))} mm length"
+            ),
+        },
+        "analysis_report": selected_result,
+        "image_rel_path": serialized.get("image_rel_path") or "",
+    }
 
 def _build_shared_pallet_ui_contract(prefix=""):
     suffix = f"_{prefix}" if prefix else ""
@@ -214,6 +329,7 @@ def palletization_mode1(request):
     results_table = []
     selected_result = None
     result_image_url = None
+    active_selected_result_key = ""
 
     if request.method == "POST":
         action = request.POST.get("action") or "refresh"
@@ -232,10 +348,21 @@ def palletization_mode1(request):
                 serialized = analysis["serialized_result"] or {}
                 results_table = serialized.get("results_table") or []
                 selected_result = serialized.get("selected_result")
+                active_selected_result_key = serialized.get("selected_result_key") or ""
                 image_rel_path = serialized.get("image_rel_path")
 
                 if image_rel_path:
                     result_image_url = settings.MEDIA_URL + image_rel_path
+
+                export_payload = _build_palletization_export_payload(
+                    config=config,
+                    analysis=analysis,
+                    selected_box_material=selected_box_material,
+                    selected_pallet_material=selected_pallet_material,
+                )
+                if export_payload:
+                    request.session["palletization_last_export"] = export_payload
+                    request.session.modified = True
             else:
                 for message in analysis["messages"]:
                     form.add_error(None, message)
@@ -261,9 +388,32 @@ def palletization_mode1(request):
             "prefix": "",
             "packaging_catalogues": packaging_catalogues,
             "pallet_values": {
-                k: config.get(k)
-                for k in default_palletization_config().keys()
+                **{
+                    k: config.get(k)
+                    for k in default_palletization_config().keys()
+                },
+                "selected_result_key": active_selected_result_key,
             },
             "pallet_ui": _build_shared_pallet_ui_contract(prefix=""),
+            "pallet_debug": settings.DEBUG,
         },
     )
+
+
+def palletization_export_pdf(request):
+    export_payload = request.session.get("palletization_last_export")
+
+    if not export_payload:
+        return HttpResponse(
+            "Please run a palletization analysis before exporting a PDF report.",
+            status=400,
+            content_type="text/plain",
+        )
+
+    pdf_buffer = build_palletization_pdf(export_payload)
+    timestamp = timezone.now().strftime("%Y%m%d_%H%M")
+    filename = f"palletization_report_{timestamp}.pdf"
+
+    response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response

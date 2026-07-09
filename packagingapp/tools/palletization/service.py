@@ -9,6 +9,16 @@ from .serializers import (
 from .state import default_palletization_config
 
 
+INTERLOCK_RENDER_SUFFIX = "__interlock_preview"
+
+
+def split_pallet_result_key(selected_result_key):
+    key = str(selected_result_key or "")
+    if key.endswith(INTERLOCK_RENDER_SUFFIX):
+        return key[:-len(INTERLOCK_RENDER_SUFFIX)], True
+    return key, False
+
+
 def _to_float(value, default=None):
     try:
         if value in (None, "", "None"):
@@ -18,18 +28,44 @@ def _to_float(value, default=None):
         return default
 
 
+def _dimension_from_material(material, *attrs):
+    """Return the first positive catalogue dimension from the requested fields.
+
+    Some catalogue rows have external_* stored as 0 while the usable value is in
+    part_*. Treat 0 as an empty catalogue dimension for fallback purposes, but
+    still return 0 if no positive fallback exists so validation can show a clear
+    message instead of crashing later.
+    """
+    first_numeric = None
+    for attr in attrs:
+        value = _to_float(getattr(material, attr, None), None)
+        if value is None:
+            continue
+        if first_numeric is None:
+            first_numeric = value
+        if value > 0:
+            return value
+    return first_numeric if first_numeric is not None else 0.0
+
+
 def dims_from_material(material, prefer_external=False):
     if not material:
         return None
+
     if prefer_external:
-        l = material.external_length if material.external_length is not None else material.part_length
-        w = material.external_width if material.external_width is not None else material.part_width
-        h = material.external_height if material.external_height is not None else material.part_height
+        length_attrs = ("external_length", "part_length")
+        width_attrs = ("external_width", "part_width")
+        height_attrs = ("external_height", "part_height")
     else:
-        l = material.part_length
-        w = material.part_width
-        h = material.part_height
-    return float(l), float(w), float(h)
+        length_attrs = ("part_length", "external_length")
+        width_attrs = ("part_width", "external_width")
+        height_attrs = ("part_height", "external_height")
+
+    return (
+        _dimension_from_material(material, *length_attrs),
+        _dimension_from_material(material, *width_attrs),
+        _dimension_from_material(material, *height_attrs),
+    )
 
 
 def get_selected_box_material(config):
@@ -135,8 +171,8 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
     for label, value in [
         ("box weight", box_weight),
         ("max weight on bottom box", max_weight_on_bottom_box),
-        ("max width stickout", max_width_stickout),
-        ("max length stickout", max_length_stickout),
+        ("max width overhang", max_width_stickout),
+        ("max length overhang", max_length_stickout),
     ]:
         if value is not None and value < 0:
             messages.append(f"{label.capitalize()} cannot be negative.")
@@ -164,6 +200,8 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
 
 
 def analyze_palletization_config(config, selected_result_key="", selected_box_material=None, selected_pallet_material=None, media_root=None):
+    selected_base_result_key, render_interlock_preview = split_pallet_result_key(selected_result_key)
+
     built = build_effective_palletization_config(
         config=config,
         selected_box_material=selected_box_material,
@@ -195,10 +233,10 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
     )
 
     selected_row = None
-    if selected_result_key:
+    if selected_base_result_key:
         for row in raw_results:
             row_key = f'{row["pattern"]}__{row["stacking"]}'
-            if row_key == selected_result_key:
+            if row_key == selected_base_result_key:
                 selected_row = row
                 break
 
@@ -207,13 +245,24 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
 
     render_result = None
     image_rel_path = None
+    active_selected_result_key = ""
     if selected_row is not None:
+        can_render_interlock = bool(selected_row.get("interlock_possible") and selected_row.get("interlock_possible_layer"))
+        render_interlock_preview = bool(render_interlock_preview and can_render_interlock)
+        selected_row["interlock_render_active"] = render_interlock_preview
+
+        base_row_key = f'{selected_row["pattern"]}__{selected_row["stacking"]}'
+        active_selected_result_key = (
+            f"{base_row_key}{INTERLOCK_RENDER_SUFFIX}" if render_interlock_preview else base_row_key
+        )
+
         render_result = render_selected_result(
             selected_result=selected_row,
             pallet_l=float(eff["pallet_l"]),
             pallet_w=float(eff["pallet_w"]),
             max_stack_height=float(eff["max_stack_height"]),
             media_root=media_root or settings.MEDIA_ROOT,
+            render_interlock=render_interlock_preview,
         )
         image_rel_path = render_result.image_rel_path
 
@@ -221,6 +270,7 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
         raw_results=raw_results,
         selected_row=selected_row,
         image_rel_path=image_rel_path,
+        selected_result_key=active_selected_result_key,
     )
 
     return {

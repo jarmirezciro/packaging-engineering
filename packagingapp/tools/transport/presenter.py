@@ -35,6 +35,10 @@ def _read_value(data, key, default=""):
     return _normalize_value(getattr(data, key, default))
 
 
+def _display_value(value, empty="Not set"):
+    return value if value not in (None, "") else empty
+
+
 def selected_container_summary(selected_material, data):
     """
     Summary for the transport container card.
@@ -43,23 +47,29 @@ def selected_container_summary(selected_material, data):
     - workflow config dict
     """
     max_weight = _read_value(data, "max_weight", "")
+    tare_weight = _read_value(data, "tare_weight", "")
     container_l = _read_value(data, "container_l", "")
     container_w = _read_value(data, "container_w", "")
     container_h = _read_value(data, "container_h", "")
 
     if selected_material:
+        tare_display = tare_weight
+        if tare_display in (None, ""):
+            tare_display = getattr(selected_material, "part_weight", "")
         return {
             "title": f"{getattr(selected_material, 'part_number', '')} — {getattr(selected_material, 'part_description', '')}",
             "dims": f"{getattr(selected_material, 'part_length', '')} × {getattr(selected_material, 'part_width', '')} × {getattr(selected_material, 'part_height', '')}",
             "meta": f"{getattr(selected_material, 'packaging_type', '')} | {getattr(selected_material, 'branding', '')}",
-            "max_weight": max_weight or "",
+            "max_weight": _display_value(max_weight),
+            "tare_weight": _display_value(tare_display),
         }
 
     return {
-        "title": "Manual container",
+        "title": "Manual transport unit",
         "dims": f"{container_l or ''} × {container_w or ''} × {container_h or ''}",
-        "meta": "Manual dimensions",
-        "max_weight": max_weight or "",
+        "meta": "Manual internal loading dimensions",
+        "max_weight": _display_value(max_weight),
+        "tare_weight": _display_value(tare_weight),
     }
 
 
