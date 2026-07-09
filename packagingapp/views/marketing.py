@@ -14,11 +14,11 @@ from packagingapp.forms import ContactForm
 
 AUTHOR_PROFILE = {
     "name": "Alejandro Ramírez",
-    "role": "Founder of KolliLabs · Packaging engineer",
+    "role": "Founder of KolliLabs · Chemical Engineer Msc.",
     "image": "img/alejandro-ramirez.jpg",
     "bio": (
-        "Alejandro Ramírez is a packaging engineer and digitalization specialist based in Gothenburg, Sweden. "
-        "He builds KolliPack to make packaging decisions more visual, systematic, and data-driven."
+        "Alejandro Ramírez is a Chemical Engineer and digitalization specialist based in Gothenburg, Sweden. "
+        "He builds KolliPack from his experience in the field of logisctis and packaging to make packaging decisions more visual, systematic, and data-driven."
     ),
 }
 
@@ -88,7 +88,7 @@ BLOG_POSTS = [
         "read_time": "9 min read",
         "published_at": "2026-07-09",
         "hero_icon": "bi-box-seam",
-        "featured_image": "img/blog/box-selection-3d-bin-packing-problem/figure_3_best_uniform_vs_kollipack.png",
+        "featured_image": "img/blog/box-selection-3d-bin-packing-problem/blog1_thumbnail_kollipack_box_selection.png",
         "summary": (
             "Box selection is a 3D packing problem with many possible product orientations and leftover-space combinations. "
             "KolliPack helps evaluate these alternatives faster and more consistently than manual checks."
