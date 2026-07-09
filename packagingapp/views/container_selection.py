@@ -222,6 +222,7 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
         },
         "analysis_report": analysis_report,
         "image_rel_path": getattr(result, "image_rel_path", ""),
+        "product_base_image_rel_path": analysis.get("product_base_image_rel_path", ""),
     }
 
 
@@ -324,6 +325,7 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
         "image_rel_path": getattr(result, "image_rel_path", "") if result else "",
         "selected_candidate": selected_candidate,
         "analysis_report": analysis_report,
+        "product_base_image_rel_path": (analysis or {}).get("product_base_image_rel_path", ""),
         "product": {
             "source": "Catalogue" if product_source == "catalogue" else "Manual",
             "id": product_id,
@@ -429,6 +431,7 @@ def container_selection_mode1(request):
     top5 = []
     analysis_report = None
     threejs_scene = None
+    product_base_image_url = None
 
     if request.method == "POST" and form.is_valid():
         analysis = analyze_container_form(
@@ -444,6 +447,7 @@ def container_selection_mode1(request):
         top5 = analysis["top5"]
         analysis_report = analysis.get("analysis_report")
         threejs_scene = analysis.get("threejs_scene")
+        product_base_image_url = analysis.get("product_base_image_url")
 
         current_form_mode = form.cleaned_data.get("mode") or "single"
 
@@ -498,6 +502,7 @@ def container_selection_mode1(request):
         "image_url": image_url,
         "threejs_scene": threejs_scene,
         "analysis_report": analysis_report,
+        "product_base_image_url": product_base_image_url,
         "top5": top5,
 
         "products": products,

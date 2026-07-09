@@ -928,6 +928,7 @@ def _prepare_container_step_view_model(step, idx):
     step["container_top5_rows"] = _inflate_container_top5_rows(step.get("top5", []))
     step["analysis_report"] = step.get("analysis_report") or (step.get("result") or {}).get("analysis_report")
     step["threejs_scene"] = step.get("threejs_scene") or (step.get("result") or {}).get("threejs_scene")
+    step["product_base_image_url"] = step.get("product_base_image_url") or (step.get("result") or {}).get("product_base_image_url")
 
 
 def _prepare_bag_step_view_model(step, idx):
@@ -1109,6 +1110,7 @@ def _process_container_step(step, steps, idx, post):
     pending_result = None
     analysis_report = None
     threejs_scene = None
+    product_base_image_url = None
 
     if form.is_valid():
         analysis = analyze_container_form(
@@ -1123,6 +1125,7 @@ def _process_container_step(step, steps, idx, post):
         image_url = analysis.get("image_url")
         analysis_report = analysis.get("analysis_report")
         threejs_scene = analysis.get("threejs_scene")
+        product_base_image_url = analysis.get("product_base_image_url")
         top5_payload = [
             {
                 "material_id": str(row["material"].id),
@@ -1140,6 +1143,7 @@ def _process_container_step(step, steps, idx, post):
                 "max_quantity": getattr(render_result, "max_quantity", None),
                 "analysis_report": analysis_report,
                 "threejs_scene": threejs_scene,
+                "product_base_image_url": product_base_image_url,
             }
 
             desired_qty = int(form.cleaned_data.get("desired_qty") or 1)
@@ -1187,6 +1191,7 @@ def _process_container_step(step, steps, idx, post):
     step["image_url"] = image_url
     step["analysis_report"] = analysis_report
     step["threejs_scene"] = threejs_scene
+    step["product_base_image_url"] = product_base_image_url
     step["top5"] = top5_payload
     step["pending_result"] = pending_result
     step["messages"] = messages

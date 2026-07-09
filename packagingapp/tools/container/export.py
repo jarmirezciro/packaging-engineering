@@ -440,8 +440,13 @@ def build_container_selection_optimal_pdf(export_payload):
     else:
         visual_stack.append(Paragraph("No Three.js snapshot was captured for this export. Please use the PDF button below the interactive 3D viewer and wait until the viewer is fully loaded.", _STYLES["BodySmall"]))
 
+    product_stack = [_section_title("Product"), product_table]
+    base_img = _report_image(export_payload.get("product_base_image_rel_path"), 92 * mm, 34 * mm)
+    if base_img:
+        product_stack.extend([Spacer(1, 4), _section_title("Base product unit"), base_img])
+
     info_grid = Table(
-        [[_section_title("Product"), _section_title("Recommendation context")], [product_table, context_table]],
+        [[product_stack, [_section_title("Recommendation context"), context_table]]],
         colWidths=[96 * mm, 104 * mm],
     )
     info_grid.setStyle(TableStyle([

@@ -3,7 +3,7 @@ from django.conf import settings
 from ...access import visible_packaging_catalogues, visible_product_catalogues
 from ...forms import ContainerSelectionMode1Form
 from ...models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
-from ...utils.box_selection.engine import run_mode1_and_render, compute_max_quantity_only
+from ...utils.box_selection.engine import run_mode1_and_render, compute_max_quantity_only, render_product_base_unit
 
 from .serializers import sanitize_container_config_for_session
 
@@ -443,6 +443,8 @@ def analyze_container_form(
     top5 = []
     messages = []
     analysis_report = None
+    product_base_image_rel_path = ""
+    product_base_image_url = None
 
     mode = form.cleaned_data.get("mode") or "single"
     action = form.cleaned_data.get("action") or ""
@@ -465,6 +467,18 @@ def analyze_container_form(
         product_source=product_source,
         selected_product=selected_product,
     )
+
+    if product is not None and not messages:
+        try:
+            product_base_image_rel_path = render_product_base_unit(
+                product,
+                media_root or settings.MEDIA_ROOT,
+            )
+            if product_base_image_rel_path:
+                product_base_image_url = settings.MEDIA_URL + product_base_image_rel_path
+        except Exception:
+            product_base_image_rel_path = ""
+            product_base_image_url = None
 
     if mode == "single" and not messages:
         should_run_single = action in ("run_single", "select_container")
@@ -577,5 +591,7 @@ def analyze_container_form(
         "image_url": image_url,
         "threejs_scene": getattr(result, "threejs_scene", None) if result is not None else None,
         "analysis_report": analysis_report,
+        "product_base_image_rel_path": product_base_image_rel_path,
+        "product_base_image_url": product_base_image_url,
         "top5": top5,
     }
