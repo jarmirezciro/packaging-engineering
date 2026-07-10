@@ -26,9 +26,13 @@ from packagingapp.views.multi_product_container import (
 from packagingapp.views.full_packaging import full_packaging_mode, full_packaging_export_pdf
 
 urlpatterns = [
-    path("", home, name="home"),
+    # Public KolliLabs website
+    path("", about, name="company_home"),
     path("about/", about, name="about"),
     path("blog/", blog_list, name="blog_list"),
+
+    # KolliPack application
+    path("kollipack/", home, name="home"),
     path("blog/<slug:slug>/", blog_detail, name="blog_detail"),
 
 

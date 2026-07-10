@@ -178,7 +178,7 @@
             <div class="app-nav-section">
                 <div class="app-nav-section-title">Home</div>
                 <a href="{% url 'home' %}"
-                   class="app-nav-link {% if request.path == '/' %}active{% endif %}">
+                   class="app-nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
                     <i class="bi bi-house-door"></i>
                     <span>Home</span>
                 </a>

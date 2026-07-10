@@ -597,7 +597,7 @@ def about(request):
                     "Please use the LinkedIn contact link for now.",
                 )
 
-            return redirect("about")
+            return redirect("company_home")
 
     return render(
         request,

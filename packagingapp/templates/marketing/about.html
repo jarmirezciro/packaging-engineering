@@ -1,7 +1,13 @@
-{% extends "base.html" %}
+{% extends "marketing_base.html" %}
 {% load static %}
 
-{% block title %}About KolliLabs | KolliPack{% endblock %}
+{% block title %}KolliLabs | Packaging Software, Consultancy and Education{% endblock %}
+
+{% block meta_description %}KolliLabs develops practical packaging engineering software, consultancy, and education. Explore KolliPack and improve packaging decisions from product to transport.{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{% url 'company_home' %}">
+{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -352,20 +358,7 @@
 {% block content %}
 <div class="app-page marketing-page kollilabs-page" data-about-design="kollilabs-positioning-20260706">
 
-    <nav class="kolli-subnav" aria-label="KolliLabs page sections">
-        <div class="kolli-subnav-brand">
-            <i class="bi bi-building"></i>
-            <span>KolliLabs</span>
-        </div>
-        <div class="kolli-subnav-links">
-            <a href="#why">Why we exist</a>
-            <a href="#software">Software</a>
-            <a href="#consultancy">Consultancy</a>
-            <a href="#education">Education</a>
-            <a href="#who-we-are">Who we are</a>
-            <a href="#contact">Contact</a>
-        </div>
-    </nav>
+
 
     <section class="kolli-hero">
         <div class="kolli-hero-grid">
