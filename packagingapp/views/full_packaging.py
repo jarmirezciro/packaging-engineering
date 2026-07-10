@@ -12,6 +12,7 @@ from ..utils.bag_selection.engine import (
     run_bag_mode1_and_render,
 )
 from ..tools.palletization.presenter import (
+    build_pallet_ui_contract,
     result_card_from_row,
     build_pallet_pending_result,
 )
@@ -22,7 +23,6 @@ from ..tools.palletization.service import (
     get_selected_pallet_material,
 )
 from ..tools.palletization.state import default_palletization_config
-from ..views.palletization import _build_shared_pallet_ui_contract
 from ..views.container_selection import _build_shared_container_ui_contract
 from ..views.bag_selection import _build_shared_bag_ui_contract
 
@@ -1684,7 +1684,7 @@ def full_packaging_mode(request):
                 and not cfg.get("pallet_id")
             )
 
-            step["pallet_ui"] = _build_shared_pallet_ui_contract(prefix=str(idx))
+            step["pallet_ui"] = build_pallet_ui_contract(prefix=str(idx))
             step["pallet_values"] = {
                 k: cfg.get(k)
                 for k in default_palletization_config().keys()

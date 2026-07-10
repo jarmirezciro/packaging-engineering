@@ -7,6 +7,66 @@ def _to_float(value, default=None):
         return default
 
 
+def build_pallet_ui_contract(prefix=""):
+    """Return the shared field/action contract used by every pallet surface.
+
+    The standalone KolliPack tool, the Packaging Flow pallet step, and public
+    SEO calculator all render the same palletization partials.  Keeping the
+    generated names and ids here prevents any one surface from drifting away
+    when the shared UI evolves.
+    """
+    suffix = f"_{prefix}" if prefix else ""
+
+    return {
+        "prefix": prefix,
+        "names": {
+            "action": f"action{suffix}",
+            "selected_box_id": f"selected_box_id{suffix}",
+            "pallet_id": f"pallet_id{suffix}",
+            "selected_result_key": f"selected_result_key{suffix}",
+            "show_advanced": f"show_advanced{suffix}",
+            "box_source": f"box_source{suffix}",
+            "box_catalogue_id": f"box_catalogue_id{suffix}",
+            "box_l": f"box_l{suffix}",
+            "box_w": f"box_w{suffix}",
+            "box_h": f"box_h{suffix}",
+            "box_weight": f"box_weight{suffix}",
+            "max_weight_on_bottom_box": f"max_weight_on_bottom_box{suffix}",
+            "pallet_source": f"pallet_source{suffix}",
+            "pallet_catalogue_id": f"pallet_catalogue_id{suffix}",
+            "pallet_l": f"pallet_l{suffix}",
+            "pallet_w": f"pallet_w{suffix}",
+            "max_stack_height": f"max_stack_height{suffix}",
+            "max_width_stickout": f"max_width_stickout{suffix}",
+            "max_length_stickout": f"max_length_stickout{suffix}",
+        },
+        "ids": {
+            "root": f"palletizationToolRoot{suffix}",
+            "box_catalogue_chooser": f"boxCatalogueChooser{suffix}",
+            "manual_box_fields": f"manualBoxFields{suffix}",
+            "pallet_catalogue_chooser": f"palletCatalogueChooser{suffix}",
+            "manual_pallet_fields": f"manualPalletFields{suffix}",
+            "catalogue_pallet_main_fields": f"cataloguePalletMainFields{suffix}",
+            "stacking_constraints_section": f"stackingConstraintsSection{suffix}",
+            "toggle_constraints_text": f"toggleConstraintsText{suffix}",
+            "toggle_constraints_icon": f"toggleConstraintsIcon{suffix}",
+            "selected_result_key": f"selected_result_key{suffix}",
+            "show_advanced": f"show_advanced{suffix}",
+        },
+        "actions": {
+            "browse_box": "palletToolBrowseBoxCatalogue",
+            "clear_box": "palletToolClearSelectedBox",
+            "select_box": "palletToolSelectBox",
+            "browse_pallet": "palletToolBrowsePalletCatalogue",
+            "clear_pallet": "palletToolClearSelectedPallet",
+            "select_pallet": "palletToolSelectPallet",
+            "toggle_advanced": "palletToolToggleConstraints",
+            "run_analysis": "palletToolRunAnalysis",
+            "select_result": "palletToolSelectResult",
+        },
+    }
+
+
 def _catalogue_dimension(material, external_attr, part_attr):
     if material is None:
         return ""

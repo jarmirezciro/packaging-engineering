@@ -1,0 +1,843 @@
+{% extends "marketing_base.html" %}
+
+{% block title %}Free Palletization Calculator | KolliPack Pallet Pattern Tool{% endblock %}
+
+{% block meta_description %}Calculate pallet patterns, cartons per layer, total cartons, stack height, floor usage, and volume utilization with the free KolliPack palletization tool.{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ canonical_url }}">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Free Palletization Calculator | KolliPack Pallet Pattern Tool">
+<meta property="og:description" content="Calculate ranked pallet patterns, cartons per layer, total cartons, stack height, and pallet utilization in your browser.">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:site_name" content="KolliLabs">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">{{ seo_schema_json|safe }}</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pallet-seo-page {
+        --seo-max: 1420px;
+        max-width: var(--seo-max);
+        margin: 0 auto;
+    }
+
+    .pallet-seo-content {
+        max-width: 1180px;
+        margin-inline: auto;
+    }
+
+    .pallet-seo-breadcrumb {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: .45rem;
+        margin-bottom: 1rem;
+        color: var(--app-text-muted, #64748b);
+        font-size: .9rem;
+    }
+
+    .pallet-seo-breadcrumb a {
+        color: var(--app-primary-dark, #0b7a60);
+        text-decoration: none;
+        font-weight: 700;
+    }
+
+    .pallet-seo-hero {
+        position: relative;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+        gap: 2.5rem;
+        align-items: center;
+        padding: clamp(2rem, 5vw, 4rem);
+        border-radius: 30px;
+        color: #fff;
+        background:
+            radial-gradient(circle at 86% 12%, rgba(52, 211, 153, .34), transparent 28%),
+            radial-gradient(circle at 10% 100%, rgba(59, 130, 246, .20), transparent 34%),
+            linear-gradient(135deg, #0f172a 0%, #12344d 48%, #10a37f 100%);
+        box-shadow: 0 26px 54px rgba(15, 23, 42, .18);
+    }
+
+    .pallet-seo-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        margin-bottom: 1rem;
+        padding: .45rem .75rem;
+        border: 1px solid rgba(255, 255, 255, .18);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .11);
+        color: rgba(255, 255, 255, .92);
+        font-weight: 750;
+        font-size: .88rem;
+    }
+
+    .pallet-seo-hero h1 {
+        max-width: 820px;
+        margin: 0 0 1rem;
+        font-size: clamp(2.25rem, 5vw, 4.65rem);
+        line-height: 1.01;
+        letter-spacing: -.045em;
+        font-weight: 900;
+    }
+
+    .pallet-seo-lead {
+        max-width: 760px;
+        margin: 0;
+        color: rgba(255, 255, 255, .84);
+        font-size: clamp(1rem, 1.7vw, 1.17rem);
+        line-height: 1.7;
+    }
+
+    .pallet-seo-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .75rem;
+        margin-top: 1.45rem;
+    }
+
+    .pallet-seo-proof {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .55rem;
+        margin-top: 1.3rem;
+    }
+
+    .pallet-seo-proof span {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .42rem .66rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .10);
+        border: 1px solid rgba(255, 255, 255, .14);
+        color: rgba(255, 255, 255, .84);
+        font-size: .82rem;
+        font-weight: 650;
+    }
+
+    .pallet-visual-card {
+        position: relative;
+        min-height: 390px;
+        border: 1px solid rgba(255, 255, 255, .28);
+        border-radius: 26px;
+        background: rgba(255, 255, 255, .94);
+        box-shadow: 0 24px 48px rgba(15, 23, 42, .24);
+        color: #0f172a;
+        padding: 1.25rem;
+    }
+
+    .pallet-visual-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .pallet-visual-head strong {
+        display: block;
+        font-size: 1rem;
+    }
+
+    .pallet-visual-head small {
+        color: #64748b;
+    }
+
+    .pallet-visual-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .38rem .58rem;
+        border-radius: 999px;
+        background: #dcfce7;
+        color: #166534;
+        font-size: .75rem;
+        font-weight: 800;
+    }
+
+    .pallet-scene {
+        position: relative;
+        height: 225px;
+        overflow: hidden;
+        border-radius: 18px;
+        background:
+            linear-gradient(rgba(15, 23, 42, .04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(15, 23, 42, .04) 1px, transparent 1px),
+            linear-gradient(180deg, #f8fafc, #eef7f3);
+        background-size: 24px 24px, 24px 24px, auto;
+        perspective: 900px;
+    }
+
+    .pallet-stack {
+        position: absolute;
+        left: 50%;
+        top: 49%;
+        width: 250px;
+        height: 165px;
+        transform: translate(-50%, -50%) rotateX(57deg) rotateZ(-27deg);
+        transform-style: preserve-3d;
+    }
+
+    .pallet-base-visual {
+        position: absolute;
+        inset: auto 8px 0;
+        height: 42px;
+        border: 3px solid #7c5c36;
+        border-radius: 7px;
+        background: repeating-linear-gradient(90deg, #d6b17d 0 24px, #b8874f 24px 29px);
+        box-shadow: 10px 14px 25px rgba(15, 23, 42, .18);
+    }
+
+    .pallet-box-grid {
+        position: absolute;
+        left: 22px;
+        right: 22px;
+        bottom: 39px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 5px;
+    }
+
+    .pallet-box-grid span {
+        aspect-ratio: 1.32;
+        border: 2px solid #0b7a60;
+        border-radius: 4px;
+        background: linear-gradient(145deg, #d1fae5, #6ee7b7);
+        box-shadow: inset -7px -6px 0 rgba(11, 122, 96, .12);
+    }
+
+    .pallet-box-grid span:nth-child(5),
+    .pallet-box-grid span:nth-child(6),
+    .pallet-box-grid span:nth-child(7),
+    .pallet-box-grid span:nth-child(8) {
+        transform: translateZ(32px);
+    }
+
+    .pallet-visual-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .6rem;
+        margin-top: .85rem;
+    }
+
+    .pallet-visual-stat {
+        padding: .7rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 13px;
+        background: #fff;
+    }
+
+    .pallet-visual-stat small {
+        display: block;
+        color: #64748b;
+        font-size: .72rem;
+    }
+
+    .pallet-visual-stat strong {
+        display: block;
+        margin-top: .12rem;
+        font-size: 1rem;
+    }
+
+    .pallet-seo-section {
+        padding: 4rem 0 0;
+        scroll-margin-top: 96px;
+    }
+
+    .pallet-seo-section-head {
+        max-width: 820px;
+        margin-bottom: 1.4rem;
+    }
+
+    .pallet-seo-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        color: var(--app-primary-dark, #0b7a60);
+        font-size: .78rem;
+        font-weight: 850;
+        letter-spacing: .09em;
+        text-transform: uppercase;
+    }
+
+    .pallet-seo-section h2 {
+        margin: .45rem 0 .7rem;
+        font-size: clamp(1.75rem, 3vw, 2.8rem);
+        line-height: 1.08;
+        font-weight: 875;
+        letter-spacing: -.03em;
+    }
+
+    .pallet-seo-section-head p,
+    .pallet-seo-copy {
+        color: var(--app-text-muted, #64748b);
+        line-height: 1.75;
+    }
+
+    .pallet-tool-shell {
+        padding: clamp(.7rem, 2vw, 1.25rem);
+        border: 1px solid rgba(16, 163, 127, .24);
+        border-radius: 26px;
+        background: linear-gradient(180deg, #f0fdf8 0%, #f8fafc 150px, #f8fafc 100%);
+        box-shadow: 0 20px 44px rgba(15, 23, 42, .08);
+    }
+
+    .pallet-tool-shell .tool-grid-3 {
+        align-items: start;
+    }
+
+    .pallet-tool-disclosure {
+        display: flex;
+        align-items: flex-start;
+        gap: .75rem;
+        margin-bottom: 1rem;
+        padding: .9rem 1rem;
+        border-radius: 16px;
+        background: #fff;
+        border: 1px solid #dbeee7;
+        color: #475569;
+        font-size: .9rem;
+    }
+
+    .pallet-tool-disclosure i {
+        color: var(--app-primary, #10a37f);
+        font-size: 1.15rem;
+    }
+
+    .pallet-example-live-banner {
+        display: flex;
+        align-items: flex-start;
+        gap: .8rem;
+        margin-bottom: 1rem;
+        padding: 1rem 1.1rem;
+        border: 1px solid #a7f3d0;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #ecfdf5, #f0fdfa);
+        color: #14532d;
+        box-shadow: 0 10px 24px rgba(16, 185, 129, .08);
+    }
+
+    .pallet-example-live-banner i {
+        flex: 0 0 auto;
+        color: var(--app-primary-dark, #0b7a60);
+        font-size: 1.25rem;
+    }
+
+    .pallet-example-live-banner strong {
+        display: block;
+        margin-bottom: .15rem;
+        color: #065f46;
+    }
+
+    .pallet-example-live-banner p {
+        margin: 0;
+        color: #33745f;
+        line-height: 1.55;
+    }
+
+    .pallet-feature-grid,
+    .pallet-process-grid,
+    .pallet-use-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .pallet-seo-card {
+        height: 100%;
+        padding: 1.35rem;
+        border: 1px solid var(--app-border, #e5e7eb);
+        border-radius: 22px;
+        background: #fff;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, .045);
+    }
+
+    .pallet-seo-card-icon {
+        width: 46px;
+        height: 46px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: .85rem;
+        border-radius: 14px;
+        background: #ecfdf5;
+        color: var(--app-primary-dark, #0b7a60);
+        font-size: 1.25rem;
+    }
+
+    .pallet-seo-card h3 {
+        margin-bottom: .45rem;
+        font-size: 1.08rem;
+        font-weight: 820;
+    }
+
+    .pallet-seo-card p,
+    .pallet-seo-card li {
+        color: #64748b;
+        line-height: 1.65;
+    }
+
+    .pallet-process-step {
+        position: relative;
+        padding-top: 3.35rem;
+    }
+
+    .pallet-process-number {
+        position: absolute;
+        top: 1rem;
+        left: 1.25rem;
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: var(--app-primary, #10a37f);
+        color: #fff;
+        font-weight: 850;
+    }
+
+    .pallet-example {
+        display: grid;
+        grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+        gap: 1rem;
+        align-items: stretch;
+    }
+
+    .pallet-example-panel {
+        padding: 1.45rem;
+        border-radius: 22px;
+        border: 1px solid var(--app-border, #e5e7eb);
+        background: #fff;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, .045);
+    }
+
+    .pallet-example-values {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .75rem;
+        margin-top: 1rem;
+    }
+
+    .pallet-example-value {
+        padding: .8rem;
+        border-radius: 14px;
+        background: #f8fafc;
+        border: 1px solid #eef2f7;
+    }
+
+    .pallet-example-value small {
+        display: block;
+        color: #64748b;
+        font-size: .76rem;
+    }
+
+    .pallet-example-value strong {
+        display: block;
+        margin-top: .2rem;
+    }
+
+    .pallet-pattern-note {
+        padding: 1rem 1.1rem;
+        border-left: 4px solid var(--app-primary, #10a37f);
+        border-radius: 0 14px 14px 0;
+        background: #ecfdf5;
+        color: #14532d;
+    }
+
+    .pallet-faq {
+        display: grid;
+        gap: .75rem;
+    }
+
+    .pallet-faq details {
+        border: 1px solid var(--app-border, #e5e7eb);
+        border-radius: 17px;
+        background: #fff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, .035);
+    }
+
+    .pallet-faq summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 1rem 1.1rem;
+        font-weight: 780;
+    }
+
+    .pallet-faq summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .pallet-faq-answer {
+        padding: 0 1.1rem 1.1rem;
+        color: #64748b;
+        line-height: 1.7;
+    }
+
+    .pallet-seo-cta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1.25rem;
+        margin-top: 4rem;
+        padding: clamp(1.5rem, 4vw, 2.5rem);
+        border-radius: 25px;
+        color: #fff;
+        background: linear-gradient(135deg, #0f172a, #12344d 55%, #0b7a60);
+        box-shadow: 0 18px 38px rgba(15, 23, 42, .14);
+    }
+
+    .pallet-seo-cta h2 {
+        margin-bottom: .4rem;
+        font-size: clamp(1.5rem, 3vw, 2.25rem);
+        font-weight: 850;
+    }
+
+    .pallet-seo-cta p {
+        max-width: 700px;
+        margin: 0;
+        color: rgba(255, 255, 255, .78);
+    }
+
+    @media (max-width: 1199.98px) {
+        .pallet-seo-hero {
+            grid-template-columns: 1fr;
+        }
+
+        .pallet-visual-card {
+            max-width: 720px;
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 991.98px) {
+        .pallet-feature-grid,
+        .pallet-process-grid,
+        .pallet-use-grid,
+        .pallet-example {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        .pallet-seo-hero {
+            padding: 1.6rem;
+            border-radius: 22px;
+        }
+
+        .pallet-visual-card {
+            min-height: 350px;
+            padding: 1rem;
+        }
+
+        .pallet-stack {
+            width: 205px;
+        }
+
+        .pallet-visual-stats,
+        .pallet-example-values {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pallet-seo-page">
+    <div class="pallet-seo-content">
+        <nav class="pallet-seo-breadcrumb" aria-label="Breadcrumb">
+            <a href="{% url 'company_home' %}">KolliLabs</a>
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            <span>Tools</span>
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            <span aria-current="page">Palletization Calculator</span>
+        </nav>
+    </div>
+
+    <section class="pallet-seo-hero" aria-labelledby="pallet-calculator-title">
+        <div>
+            <div class="pallet-seo-eyebrow">
+                <i class="bi bi-grid-3x3-gap"></i>
+                Free online packaging engineering tool
+            </div>
+            <h1 id="pallet-calculator-title">Free Palletization Calculator</h1>
+            <p class="pallet-seo-lead">
+                Calculate ranked pallet patterns, cartons per layer, total cartons, stack height,
+                pallet floor usage, and stack volume utilization. Enter your carton and pallet
+                dimensions and let KolliPack compare practical layer layouts for you.
+            </p>
+            <div class="pallet-seo-actions">
+                <a href="#calculator" class="btn btn-light btn-lg">
+                    <i class="bi bi-calculator me-2"></i>Use the calculator
+                </a>
+                <a href="{% url 'palletization_mode1' %}" class="btn btn-outline-light btn-lg">
+                    <i class="bi bi-box-seam me-2"></i>Open in KolliPack
+                </a>
+            </div>
+            <div class="pallet-seo-proof" aria-label="Calculator benefits">
+                <span><i class="bi bi-check2-circle"></i>No account required</span>
+                <span><i class="bi bi-check2-circle"></i>Ranked pattern alternatives</span>
+                <span><i class="bi bi-check2-circle"></i>3D result visualization</span>
+                <span><i class="bi bi-check2-circle"></i>PDF report</span>
+            </div>
+        </div>
+
+        <div class="pallet-visual-card" aria-label="Illustration of cartons arranged on a pallet">
+            <div class="pallet-visual-head">
+                <div>
+                    <strong>Pallet analysis preview</strong>
+                    <small>Carton-to-pallet decision support</small>
+                </div>
+                <span class="pallet-visual-badge"><i class="bi bi-stars"></i>Best ranked</span>
+            </div>
+            <div class="pallet-scene" aria-hidden="true">
+                <div class="pallet-stack">
+                    <div class="pallet-box-grid">
+                        <span></span><span></span><span></span><span></span>
+                        <span></span><span></span><span></span><span></span>
+                    </div>
+                    <div class="pallet-base-visual"></div>
+                </div>
+            </div>
+            <div class="pallet-visual-stats">
+                <div class="pallet-visual-stat"><small>Cartons/layer</small><strong>Calculated</strong></div>
+                <div class="pallet-visual-stat"><small>Total cartons</small><strong>Ranked</strong></div>
+                <div class="pallet-visual-stat"><small>Utilization</small><strong>Compared</strong></div>
+            </div>
+        </div>
+    </section>
+
+    <section id="calculator" class="pallet-seo-section" aria-labelledby="calculator-heading">
+        <div class="pallet-seo-section-head pallet-seo-content">
+            <span class="pallet-seo-kicker"><i class="bi bi-play-circle"></i>Interactive calculator</span>
+            <h2 id="calculator-heading">Calculate your pallet pattern now</h2>
+            <p>
+                Use external carton dimensions in millimetres, select or enter a pallet footprint,
+                and define the maximum carton stack height. KolliPack will rank the available layouts
+                and render the selected result.
+            </p>
+        </div>
+
+        <div class="pallet-tool-shell">
+            {% if is_initial_example %}
+                <div class="pallet-example-live-banner" role="status">
+                    <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+                    <div>
+                        <strong>Live example loaded — edit any value to calculate your own pallet.</strong>
+                        <p>
+                            Carton {{ example_carton_dimensions }} on a EUR-size pallet
+                            {{ example_pallet_dimensions }}, with a maximum carton stack height of
+                            {{ example_stack_height }}. The result below was generated by the real KolliPack engine.
+                        </p>
+                    </div>
+                </div>
+            {% endif %}
+            <div class="pallet-tool-disclosure">
+                <i class="bi bi-diagram-3"></i>
+                <div>
+                    <strong>This is the same palletization module used inside KolliPack and Packaging Flow.</strong>
+                    The calculator, result logic, shared UI, 3D rendering, and PDF export are maintained as one implementation.
+                </div>
+            </div>
+            <form method="post" action="{% url 'palletization_calculator' %}" class="app-page">
+                {% csrf_token %}
+                {% include "palletization/palletization_wrapper.html" %}
+            </form>
+        </div>
+    </section>
+
+    <div class="pallet-seo-content">
+        <section class="pallet-seo-section" aria-labelledby="outputs-heading">
+            <div class="pallet-seo-section-head">
+                <span class="pallet-seo-kicker"><i class="bi bi-bar-chart"></i>Calculator outputs</span>
+                <h2 id="outputs-heading">What the palletization calculator measures</h2>
+                <p>
+                    A good pallet decision is more than a simple “does it fit?” check. KolliPack compares
+                    capacity, geometry, utilization, and optional stacking constraints so the result is easier to evaluate.
+                </p>
+            </div>
+            <div class="pallet-feature-grid">
+                <article class="pallet-seo-card">
+                    <span class="pallet-seo-card-icon"><i class="bi bi-grid-3x3"></i></span>
+                    <h3>Cartons per layer</h3>
+                    <p>See how many identical cartons fit on the pallet footprint for each ranked layer pattern.</p>
+                </article>
+                <article class="pallet-seo-card">
+                    <span class="pallet-seo-card-icon"><i class="bi bi-layers"></i></span>
+                    <h3>Layers and total cartons</h3>
+                    <p>Calculate the number of permitted layers from carton height and maximum stack height, then estimate total pallet quantity.</p>
+                </article>
+                <article class="pallet-seo-card">
+                    <span class="pallet-seo-card-icon"><i class="bi bi-percent"></i></span>
+                    <h3>Space utilization</h3>
+                    <p>Compare pallet floor usage and full stack volume usage to identify layouts that reduce unused space.</p>
+                </article>
+                <article class="pallet-seo-card">
+                    <span class="pallet-seo-card-icon"><i class="bi bi-arrow-left-right"></i></span>
+                    <h3>Alternate layer options</h3>
+                    <p>Review whether a different layer orientation can be alternated to support a more interlocked stack concept.</p>
+                </article>
+                <article class="pallet-seo-card">
+                    <span class="pallet-seo-card-icon"><i class="bi bi-bounding-box"></i></span>
+                    <h3>Optional pallet overhang</h3>
+                    <p>Add allowed length or width overhang when the packaging, handling equipment, and transport rules permit it.</p>
+                </article>
+                <article class="pallet-seo-card">
+                    <span class="pallet-seo-card-icon"><i class="bi bi-box-arrow-down"></i></span>
+                    <h3>Bottom-carton load check</h3>
+                    <p>Optionally compare the estimated load on the bottom carton with the maximum load value supplied by the user.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="pallet-seo-section" aria-labelledby="how-heading">
+            <div class="pallet-seo-section-head">
+                <span class="pallet-seo-kicker"><i class="bi bi-diagram-2"></i>How it works</span>
+                <h2 id="how-heading">From carton dimensions to a ranked pallet layout</h2>
+            </div>
+            <div class="pallet-process-grid">
+                <article class="pallet-seo-card pallet-process-step">
+                    <span class="pallet-process-number">1</span>
+                    <h3>Define the carton</h3>
+                    <p>Enter the external carton length, width, and height. Optional weight data can support a bottom-load review.</p>
+                </article>
+                <article class="pallet-seo-card pallet-process-step">
+                    <span class="pallet-process-number">2</span>
+                    <h3>Define the pallet and limits</h3>
+                    <p>Enter the pallet footprint and maximum carton stack height. Add overhang only when your logistics rules allow it.</p>
+                </article>
+                <article class="pallet-seo-card pallet-process-step">
+                    <span class="pallet-process-number">3</span>
+                    <h3>Compare the results</h3>
+                    <p>Review the best-ranked option, inspect the 3D rendering, and select another row to compare an alternative layout.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="pallet-seo-section" aria-labelledby="example-heading">
+            <div class="pallet-seo-section-head">
+                <span class="pallet-seo-kicker"><i class="bi bi-rulers"></i>Worked input example</span>
+                <h2 id="example-heading">Example: cartons on a Euro pallet</h2>
+                <p>
+                    A quick first analysis can start with a 400 × 300 × 250 mm carton, a 1200 × 800 mm pallet,
+                    and a maximum carton stack height of 1500 mm. Enter these values in the calculator to compare the ranked patterns.
+                </p>
+            </div>
+            <div class="pallet-example">
+                <div class="pallet-example-panel">
+                    <h3 class="h5 fw-bold">Example inputs</h3>
+                    <div class="pallet-example-values">
+                        <div class="pallet-example-value"><small>Carton</small><strong>400 × 300 × 250 mm</strong></div>
+                        <div class="pallet-example-value"><small>Pallet</small><strong>1200 × 800 mm</strong></div>
+                        <div class="pallet-example-value"><small>Max stack height</small><strong>1500 mm</strong></div>
+                        <div class="pallet-example-value"><small>Overhang</small><strong>0 mm</strong></div>
+                    </div>
+                </div>
+                <div class="pallet-example-panel">
+                    <h3 class="h5 fw-bold">What to review in the result</h3>
+                    <ul class="pallet-seo-copy mb-3">
+                        <li>Whether carton rotation increases cartons per layer.</li>
+                        <li>Whether an alternate layer pattern is available.</li>
+                        <li>How much pallet floor and stack volume are actually used.</li>
+                        <li>Whether the total height complies with the operational limit.</li>
+                    </ul>
+                    <div class="pallet-pattern-note">
+                        The highest carton quantity is not automatically the safest released pallet. Confirm compression strength,
+                        center of gravity, wrapping, handling, and transport stability before implementation.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="pallet-seo-section" aria-labelledby="patterns-heading">
+            <div class="pallet-seo-section-head">
+                <span class="pallet-seo-kicker"><i class="bi bi-bricks"></i>Pattern interpretation</span>
+                <h2 id="patterns-heading">Regular patterns, mixed orientations, and alternate layers</h2>
+                <p>
+                    Cartons can often be arranged in more than one orientation on the same pallet. KolliPack ranks practical
+                    layer developments and collapses duplicate visible layouts so you can compare meaningful alternatives instead
+                    of reviewing repeated results.
+                </p>
+            </div>
+            <div class="pallet-use-grid">
+                <article class="pallet-seo-card">
+                    <h3>Uniform orientation</h3>
+                    <p>Every carton in the layer uses the same footprint orientation. These layouts are simple to understand and often easy to execute.</p>
+                </article>
+                <article class="pallet-seo-card">
+                    <h3>Mixed-orientation layout</h3>
+                    <p>Different footprint orientations can be combined when that improves pallet coverage and produces a practical arrangement.</p>
+                </article>
+                <article class="pallet-seo-card">
+                    <h3>Alternate layer preview</h3>
+                    <p>When available, a related layer can be previewed as an alternate stacking option for a more interlocked pallet concept.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="pallet-seo-section" aria-labelledby="use-cases-heading">
+            <div class="pallet-seo-section-head">
+                <span class="pallet-seo-kicker"><i class="bi bi-briefcase"></i>Use cases</span>
+                <h2 id="use-cases-heading">Who can use the pallet pattern calculator?</h2>
+            </div>
+            <div class="pallet-use-grid">
+                <article class="pallet-seo-card">
+                    <span class="pallet-seo-card-icon"><i class="bi bi-box-seam"></i></span>
+                    <h3>Packaging engineers</h3>
+                    <p>Compare carton and pallet alternatives before releasing or changing a packaging instruction.</p>
+                </article>
+                <article class="pallet-seo-card">
+                    <span class="pallet-seo-card-icon"><i class="bi bi-truck"></i></span>
+                    <h3>Logistics teams</h3>
+                    <p>Estimate pallet quantity and utilization before reviewing transport loading and freight implications.</p>
+                </article>
+                <article class="pallet-seo-card">
+                    <span class="pallet-seo-card-icon"><i class="bi bi-building-gear"></i></span>
+                    <h3>Manufacturing and warehousing</h3>
+                    <p>Support standardized pallet configurations for handling, storage, line feeding, and outbound operations.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="pallet-seo-section" aria-labelledby="faq-heading">
+            <div class="pallet-seo-section-head">
+                <span class="pallet-seo-kicker"><i class="bi bi-question-circle"></i>Frequently asked questions</span>
+                <h2 id="faq-heading">Palletization calculator FAQ</h2>
+            </div>
+            <div class="pallet-faq">
+                {% for question, answer in faq_items %}
+                    <details>
+                        <summary>{{ question }}</summary>
+                        <div class="pallet-faq-answer">{{ answer }}</div>
+                    </details>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="pallet-seo-cta" aria-labelledby="pallet-cta-heading">
+            <div>
+                <h2 id="pallet-cta-heading">Continue from palletization to the full packaging flow</h2>
+                <p>
+                    KolliPack connects package selection, palletization, and transport loading so downstream effects can be reviewed in one engineering workflow.
+                </p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{% url 'full_packaging_mode' %}" class="btn btn-light btn-lg">
+                    <i class="bi bi-diagram-3 me-2"></i>Open Packaging Flow
+                </a>
+                <a href="{% url 'blog_detail' slug='palletization-affects-transport-cost' %}" class="btn btn-outline-light btn-lg">
+                    <i class="bi bi-journal-text me-2"></i>Read the palletization guide
+                </a>
+            </div>
+        </section>
+    </div>
+</div>
+
+{% include "palletization/partials/_palletization_scripts.html" %}
+{% endblock %}

@@ -1,12 +1,16 @@
+import json
+
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.utils import timezone
 
 from ..forms import PalletizationForm
 from ..models import PackagingCatalogue
 from ..tools.palletization.export import build_palletization_pdf
+from ..tools.palletization.presenter import build_pallet_ui_contract
 from ..tools.palletization.serializers import sanitize_palletization_config_for_session
 from ..tools.palletization.service import (
     analyze_palletization_config,
@@ -52,8 +56,27 @@ def _catalogue_dimension(material, external_attr, part_attr):
     return first_raw
 
 
-def _read_raw_palletization_config(request):
+SEO_PALLETIZATION_EXAMPLE_CONFIG = {
+    "box_source": "manual",
+    "box_l": 400,
+    "box_w": 300,
+    "box_h": 250,
+    "box_weight": "",
+    "max_weight_on_bottom_box": "",
+    "pallet_source": "manual",
+    "pallet_l": 1200,
+    "pallet_w": 800,
+    "max_stack_height": 1500,
+    "max_width_stickout": 0,
+    "max_length_stickout": 0,
+    "show_advanced": False,
+}
+
+
+def _read_raw_palletization_config(request, *, initial_config=None):
     cfg = default_palletization_config()
+    if initial_config:
+        cfg.update(initial_config)
 
     if request.method == "POST":
         source = request.POST
@@ -255,62 +278,24 @@ def _build_palletization_export_payload(*, config, analysis, selected_box_materi
         "image_rel_path": serialized.get("image_rel_path") or "",
     }
 
-def _build_shared_pallet_ui_contract(prefix=""):
-    suffix = f"_{prefix}" if prefix else ""
+def _build_palletization_page_context(
+    request,
+    *,
+    mode,
+    initial_config=None,
+    run_initial_analysis=False,
+):
+    """Build one shared view model for every standalone pallet calculator page.
 
-    return {
-        "prefix": prefix,
-        "names": {
-            "action": f"action{suffix}",
-            "selected_box_id": f"selected_box_id{suffix}",
-            "pallet_id": f"pallet_id{suffix}",
-            "selected_result_key": f"selected_result_key{suffix}",
-            "show_advanced": f"show_advanced{suffix}",
-            "box_source": f"box_source{suffix}",
-            "box_catalogue_id": f"box_catalogue_id{suffix}",
-            "box_l": f"box_l{suffix}",
-            "box_w": f"box_w{suffix}",
-            "box_h": f"box_h{suffix}",
-            "box_weight": f"box_weight{suffix}",
-            "max_weight_on_bottom_box": f"max_weight_on_bottom_box{suffix}",
-            "pallet_source": f"pallet_source{suffix}",
-            "pallet_catalogue_id": f"pallet_catalogue_id{suffix}",
-            "pallet_l": f"pallet_l{suffix}",
-            "pallet_w": f"pallet_w{suffix}",
-            "max_stack_height": f"max_stack_height{suffix}",
-            "max_width_stickout": f"max_width_stickout{suffix}",
-            "max_length_stickout": f"max_length_stickout{suffix}",
-        },
-        "ids": {
-            "root": f"palletizationToolRoot{suffix}",
-            "box_catalogue_chooser": f"boxCatalogueChooser{suffix}",
-            "manual_box_fields": f"manualBoxFields{suffix}",
-            "pallet_catalogue_chooser": f"palletCatalogueChooser{suffix}",
-            "manual_pallet_fields": f"manualPalletFields{suffix}",
-            "catalogue_pallet_main_fields": f"cataloguePalletMainFields{suffix}",
-            "stacking_constraints_section": f"stackingConstraintsSection{suffix}",
-            "toggle_constraints_text": f"toggleConstraintsText{suffix}",
-            "toggle_constraints_icon": f"toggleConstraintsIcon{suffix}",
-            "selected_result_key": f"selected_result_key{suffix}",
-            "show_advanced": f"show_advanced{suffix}",
-        },
-        "actions": {
-            "browse_box": "palletToolBrowseBoxCatalogue",
-            "clear_box": "palletToolClearSelectedBox",
-            "select_box": "palletToolSelectBox",
-            "browse_pallet": "palletToolBrowsePalletCatalogue",
-            "clear_pallet": "palletToolClearSelectedPallet",
-            "select_pallet": "palletToolSelectPallet",
-            "toggle_advanced": "palletToolToggleConstraints",
-            "run_analysis": "palletToolRunAnalysis",
-            "select_result": "palletToolSelectResult",
-        },
-    }
-
-def palletization_mode1(request):
+    Both the KolliPack application screen and the public SEO calculator call
+    this function, so request parsing, catalogue hydration, engine execution,
+    selected-result rendering, and PDF state cannot diverge between them.
+    Packaging Flow uses the same service layer and shared templates with a
+    prefixed UI contract.
+    """
     packaging_catalogues = visible_packaging_catalogues(request.user).order_by("name")
 
-    config = _read_raw_palletization_config(request)
+    config = _read_raw_palletization_config(request, initial_config=initial_config)
 
     selected_box_material = get_selected_box_material(config)
     selected_pallet_material = get_selected_pallet_material(config)
@@ -331,74 +316,212 @@ def palletization_mode1(request):
     result_image_url = None
     active_selected_result_key = ""
 
+    should_run_analysis = run_initial_analysis
+    selected_result_key = ""
+
     if request.method == "POST":
         action = request.POST.get("action") or "refresh"
         selected_result_key = request.POST.get("selected_result_key") or ""
+        should_run_analysis = action in ("run_analysis", "select_result")
 
-        if action in ("run_analysis", "select_result"):
-            analysis = analyze_palletization_config(
+    if should_run_analysis:
+        analysis = analyze_palletization_config(
+            config=config,
+            selected_result_key=selected_result_key,
+            selected_box_material=selected_box_material,
+            selected_pallet_material=selected_pallet_material,
+            media_root=settings.MEDIA_ROOT,
+        )
+
+        if analysis["ok"]:
+            serialized = analysis["serialized_result"] or {}
+            results_table = serialized.get("results_table") or []
+            selected_result = serialized.get("selected_result")
+            active_selected_result_key = serialized.get("selected_result_key") or ""
+            image_rel_path = serialized.get("image_rel_path")
+
+            if image_rel_path:
+                result_image_url = settings.MEDIA_URL + image_rel_path
+
+            export_payload = _build_palletization_export_payload(
                 config=config,
-                selected_result_key=selected_result_key,
+                analysis=analysis,
                 selected_box_material=selected_box_material,
                 selected_pallet_material=selected_pallet_material,
-                media_root=settings.MEDIA_ROOT,
             )
+            if export_payload:
+                request.session["palletization_last_export"] = export_payload
+                request.session.modified = True
+        else:
+            for message in analysis["messages"]:
+                form.add_error(None, message)
 
-            if analysis["ok"]:
-                serialized = analysis["serialized_result"] or {}
-                results_table = serialized.get("results_table") or []
-                selected_result = serialized.get("selected_result")
-                active_selected_result_key = serialized.get("selected_result_key") or ""
-                image_rel_path = serialized.get("image_rel_path")
+    return {
+        "form": form,
+        "pallet_form": form,
+        "pallet_config": config,
+        "box_materials": box_materials,
+        "pallet_materials": pallet_materials,
+        "selected_box_material": selected_box_material,
+        "selected_pallet_material": selected_pallet_material,
+        "results_table": results_table,
+        "selected_result": selected_result,
+        "result_image_url": result_image_url,
+        "current_box_source": config.get("box_source") or "manual",
+        "current_pallet_source": config.get("pallet_source") or "manual",
+        "show_advanced": bool(config.get("show_advanced", False)),
+        "show_pdf_export": True,
+        "mode": mode,
+        "prefix": "",
+        "packaging_catalogues": packaging_catalogues,
+        "pallet_values": {
+            **{
+                key: config.get(key)
+                for key in default_palletization_config().keys()
+            },
+            "selected_result_key": active_selected_result_key,
+        },
+        "pallet_ui": build_pallet_ui_contract(prefix=""),
+        "pallet_debug": settings.DEBUG,
+    }
 
-                if image_rel_path:
-                    result_image_url = settings.MEDIA_URL + image_rel_path
 
-                export_payload = _build_palletization_export_payload(
-                    config=config,
-                    analysis=analysis,
-                    selected_box_material=selected_box_material,
-                    selected_pallet_material=selected_pallet_material,
-                )
-                if export_payload:
-                    request.session["palletization_last_export"] = export_payload
-                    request.session.modified = True
-            else:
-                for message in analysis["messages"]:
-                    form.add_error(None, message)
+def _build_palletization_seo_schema(request):
+    canonical_url = request.build_absolute_uri(reverse("palletization_calculator"))
+    company_url = request.build_absolute_uri(reverse("company_home"))
+    app_url = request.build_absolute_uri(reverse("palletization_mode1"))
 
+    faq_items = [
+        (
+            "What does a palletization calculator calculate?",
+            "It estimates cartons per layer, number of layers, total cartons, pallet floor usage, stack volume usage, and available alternative layer patterns from carton and pallet dimensions.",
+        ),
+        (
+            "Is the KolliPack palletization calculator free?",
+            "Yes. The public calculator can be used without creating an account during the KolliPack early launch.",
+        ),
+        (
+            "Which carton dimensions should I use?",
+            "Use the external length, width, and height of the packed carton because those dimensions occupy space on the pallet.",
+        ),
+        (
+            "Can the calculator evaluate pallet overhang?",
+            "Yes. Optional maximum overhang values can be entered for the pallet length and width directions, but overhang should only be used when handling and transport rules allow it.",
+        ),
+        (
+            "Does the result replace physical pallet testing?",
+            "No. The result is an engineering estimate. Final approval should still consider carton compression strength, load stability, wrapping, handling, vibration, and customer requirements.",
+        ),
+    ]
+
+    schema = [
+        {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "KolliPack Free Palletization Calculator",
+            "applicationCategory": "BusinessApplication",
+            "applicationSubCategory": "Packaging engineering calculator",
+            "operatingSystem": "Any web browser",
+            "url": canonical_url,
+            "description": (
+                "Calculate pallet patterns, cartons per layer, total cartons, stack height, "
+                "pallet floor usage, and stack volume usage with a free online palletization tool."
+            ),
+            "provider": {
+                "@type": "Organization",
+                "name": "KolliLabs",
+                "url": company_url,
+            },
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD",
+                "availability": "https://schema.org/InStock",
+            },
+            "isAccessibleForFree": True,
+            "browserRequirements": "Requires JavaScript and a modern web browser",
+            "featureList": [
+                "Ranked pallet patterns",
+                "Main and alternate layer layouts",
+                "Cartons per layer and total cartons",
+                "Pallet floor and stack volume utilization",
+                "Optional overhang and bottom-carton load checks",
+                "3D pallet visualization",
+                "PDF engineering report",
+            ],
+            "potentialAction": {
+                "@type": "UseAction",
+                "target": canonical_url,
+            },
+            "sameAs": [app_url],
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": question,
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": answer,
+                    },
+                }
+                for question, answer in faq_items
+            ],
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+                {
+                    "@type": "ListItem",
+                    "position": 1,
+                    "name": "KolliLabs",
+                    "item": company_url,
+                },
+                {
+                    "@type": "ListItem",
+                    "position": 2,
+                    "name": "Free Palletization Calculator",
+                    "item": canonical_url,
+                },
+            ],
+        },
+    ]
+
+    return canonical_url, faq_items, json.dumps(schema, ensure_ascii=False)
+
+
+def palletization_mode1(request):
     return render(
         request,
         "palletization/palletization_mode1.html",
-        {
-            "form": form,
-            "pallet_form": form,
-            "pallet_config": config,
-            "box_materials": box_materials,
-            "pallet_materials": pallet_materials,
-            "selected_box_material": selected_box_material,
-            "selected_pallet_material": selected_pallet_material,
-            "results_table": results_table,
-            "selected_result": selected_result,
-            "result_image_url": result_image_url,
-            "current_box_source": config.get("box_source") or "manual",
-            "current_pallet_source": config.get("pallet_source") or "manual",
-            "show_advanced": bool(config.get("show_advanced", False)),
-            "mode": "standalone",
-            "prefix": "",
-            "packaging_catalogues": packaging_catalogues,
-            "pallet_values": {
-                **{
-                    k: config.get(k)
-                    for k in default_palletization_config().keys()
-                },
-                "selected_result_key": active_selected_result_key,
-            },
-            "pallet_ui": _build_shared_pallet_ui_contract(prefix=""),
-            "pallet_debug": settings.DEBUG,
-        },
+        _build_palletization_page_context(request, mode="standalone"),
     )
 
+
+def palletization_calculator(request):
+    is_initial_example = request.method == "GET" and not request.GET
+    context = _build_palletization_page_context(
+        request,
+        mode="seo",
+        initial_config=SEO_PALLETIZATION_EXAMPLE_CONFIG if is_initial_example else None,
+        run_initial_analysis=is_initial_example,
+    )
+    canonical_url, faq_items, schema_json = _build_palletization_seo_schema(request)
+    context.update(
+        {
+            "canonical_url": canonical_url,
+            "faq_items": faq_items,
+            "seo_schema_json": schema_json,
+            "is_initial_example": is_initial_example,
+            "example_carton_dimensions": "400 × 300 × 250 mm",
+            "example_pallet_dimensions": "1200 × 800 mm",
+            "example_stack_height": "1500 mm",
+        }
+    )
+    return render(request, "marketing/palletization_calculator.html", context)
 
 def palletization_export_pdf(request):
     export_payload = request.session.get("palletization_last_export")

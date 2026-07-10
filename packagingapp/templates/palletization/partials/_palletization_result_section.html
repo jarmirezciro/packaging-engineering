@@ -147,7 +147,7 @@
                 </div>
             </details>
 
-            {% if mode == "standalone" %}
+            {% if show_pdf_export %}
                 <div class="app-form-actions tool-card-actions mt-3">
                     <a href="{% url 'palletization_export_pdf' %}" class="btn btn-app-outline btn-sm">
                         <i class="bi bi-filetype-pdf me-2"></i>Download PDF report

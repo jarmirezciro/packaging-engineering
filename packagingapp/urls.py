@@ -30,6 +30,11 @@ urlpatterns = [
     path("", about, name="company_home"),
     path("about/", about, name="about"),
     path("blog/", blog_list, name="blog_list"),
+    path(
+        "tools/palletization-calculator/",
+        palletization.palletization_calculator,
+        name="palletization_calculator",
+    ),
 
     # KolliPack application
     path("kollipack/", home, name="home"),

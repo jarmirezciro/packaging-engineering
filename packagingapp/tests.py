@@ -1,3 +1,6 @@
+import shutil
+import tempfile
+
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -361,3 +364,38 @@ class CatalogueRowEditingTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+class PalletizationSeoExampleTests(TestCase):
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp(prefix="kollipack-pallet-test-")
+
+    def tearDown(self):
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_seo_calculator_opens_with_live_example_result(self):
+        with self.settings(MEDIA_ROOT=self.media_root):
+            response = self.client.get(reverse("palletization_calculator"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["is_initial_example"])
+        self.assertEqual(response.context["pallet_config"]["box_l"], 400)
+        self.assertEqual(response.context["pallet_config"]["box_w"], 300)
+        self.assertEqual(response.context["pallet_config"]["box_h"], 250)
+        self.assertEqual(response.context["pallet_config"]["pallet_l"], 1200)
+        self.assertEqual(response.context["pallet_config"]["pallet_w"], 800)
+        self.assertEqual(response.context["pallet_config"]["max_stack_height"], 1500)
+        self.assertTrue(response.context["results_table"])
+        self.assertIsNotNone(response.context["selected_result"])
+        self.assertTrue(response.context["result_image_url"])
+        self.assertContains(response, "Live example loaded")
+        self.assertContains(response, "edit any value to calculate your own pallet")
+
+    def test_standalone_calculator_still_opens_without_example(self):
+        response = self.client.get(reverse("palletization_mode1"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["pallet_config"]["box_l"], "")
+        self.assertEqual(response.context["pallet_config"]["pallet_l"], "")
+        self.assertEqual(response.context["results_table"], [])
+        self.assertNotContains(response, "Live example loaded")
+
