@@ -1,0 +1,51 @@
+# Durable decision log
+
+This is a compact log of decisions that repeatedly affect implementation.
+
+## Product and site
+
+- KolliLabs is the company; KolliPack is the application.
+- The project is independent/commercial, not a previous employer’s internal tool.
+- Public root is for KolliLabs; KolliPack has its own application entry.
+- Blog and public calculators support SEO, education, credibility, and conversion.
+
+## Architecture
+
+- Standalone tools remain independent.
+- Packaging Flow chains selected outputs and is a thin orchestration adapter.
+- Shared engines, services, wrappers, partials, and prefix-safe JS are the target.
+- Session state must remain JSON-safe.
+- A tool improvement must propagate to all consumers. Container changes include standalone, Flow, and Multi-product Container Selection. Bag changes include standalone, Flow, and Multi-product Bag Selection. Palletization also includes its SEO page.
+
+## Frontend
+
+- Existing Bootstrap/app theme is the source of truth.
+- Container Selection is the primary reference standard.
+- Include instructions, clarified units, images, clean result cards, clean visualization, and concise PDF.
+- Remove redundant Select buttons where row selection exists.
+- Preserve vertical page position through interactions.
+- Do not redesign the stable Packaging Flow shell.
+
+## Domain
+
+- Bag sealing space belongs to length; width receives tolerance only.
+- Container rotation restrictions apply to recursive leftovers as well as the main region.
+- Pallet pattern terminology uses mosaic, P1/P2, block/filler language, column/interlock.
+- Pinwheel and interlock require conservative geometric validation.
+- Transport payload and tare may be optional; volumes display in m³; doors and multi-view render are part of the approved result.
+
+## Reports and 3D
+
+- Customer views have no matplotlib axes/mesh/debug overlays.
+- Detailed results and PDFs should include a base product render with original L/W/H where relevant.
+- PDF uses the selected result.
+- Browser interactive 3D controls are compact and placed beside the title.
+
+## Process and safety
+
+- Inspect latest repository/ZIP before coding.
+- Explain root cause first.
+- Work in small safe but coherent batches.
+- Avoid duplicate HTML/JS/business logic.
+- Do not touch production/Railway without explicit request.
+- Do not claim completion while another required layer remains pending.
