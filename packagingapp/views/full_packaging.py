@@ -200,6 +200,7 @@ def _new_pallet_step():
         "messages": [],
         "result": None,
         "image_url": None,
+        "threejs_scene": None,
         "top5": [],
         "pending_result": None,
         "results_table": [],
@@ -289,6 +290,7 @@ def _read_prefixed_pallet_post(step, idx, post):
 def _run_pallet_analysis_shared(step, steps, idx):
     step["result"] = None
     step["image_url"] = None
+    step["threejs_scene"] = None
     step["selected_result"] = None
     step["pending_result"] = None
     step["results_table"] = []
@@ -326,6 +328,7 @@ def _run_pallet_analysis_shared(step, steps, idx):
 
     step["results_table"] = serialized.get("results_table") or []
     step["selected_result_key"] = serialized.get("selected_result_key") or ""
+    step["threejs_scene"] = serialized.get("threejs_scene")
     image_rel_path = serialized.get("image_rel_path")
     step["image_url"] = settings.MEDIA_URL + image_rel_path if image_rel_path else None
 
@@ -568,6 +571,7 @@ def _invalidate_downstream(steps, start_idx):
         steps[i]["messages"] = ["This step was cleared because an upstream step changed."]
         steps[i]["result"] = None
         steps[i]["image_url"] = None
+        steps[i]["threejs_scene"] = None
         steps[i]["top5"] = []
         steps[i]["pending_result"] = None
         steps[i]["results_table"] = []

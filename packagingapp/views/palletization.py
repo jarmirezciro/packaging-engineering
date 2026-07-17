@@ -20,6 +20,7 @@ from ..tools.palletization.service import (
     get_selected_pallet_material,
 )
 from ..tools.palletization.state import default_palletization_config
+from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 
 
 def _as_bool(value):
@@ -275,7 +276,7 @@ def _build_palletization_export_payload(*, config, analysis, selected_box_materi
             ),
         },
         "analysis_report": selected_result,
-        "image_rel_path": serialized.get("image_rel_path") or "",
+        "ranking": (serialized.get("results_table") or [])[:5],
     }
 
 def _build_palletization_page_context(
@@ -314,6 +315,7 @@ def _build_palletization_page_context(
     results_table = []
     selected_result = None
     result_image_url = None
+    threejs_scene = None
     active_selected_result_key = ""
 
     should_run_analysis = run_initial_analysis
@@ -338,6 +340,7 @@ def _build_palletization_page_context(
             results_table = serialized.get("results_table") or []
             selected_result = serialized.get("selected_result")
             active_selected_result_key = serialized.get("selected_result_key") or ""
+            threejs_scene = serialized.get("threejs_scene")
             image_rel_path = serialized.get("image_rel_path")
 
             if image_rel_path:
@@ -367,6 +370,7 @@ def _build_palletization_page_context(
         "results_table": results_table,
         "selected_result": selected_result,
         "result_image_url": result_image_url,
+        "threejs_scene": threejs_scene,
         "current_box_source": config.get("box_source") or "manual",
         "current_pallet_source": config.get("pallet_source") or "manual",
         "show_advanced": bool(config.get("show_advanced", False)),
@@ -533,7 +537,32 @@ def palletization_export_pdf(request):
             content_type="text/plain",
         )
 
-    pdf_buffer = build_palletization_pdf(export_payload)
+    snapshot_rel_path = save_threejs_snapshot_from_request(
+        request,
+        relative_directory="palletization_exports/threejs",
+    )
+    if not snapshot_rel_path:
+        return HttpResponse(
+            "The current Three.js pallet view was not captured. Wait until the interactive 3D viewer is visible, then use its PDF export button and try again.",
+            status=400,
+            content_type="text/plain",
+        )
+
+    allowed_view_labels = {
+        "Current interactive 3D view - reset/corner view",
+        "Current interactive 3D view - top view",
+        "Current interactive 3D view - front view",
+        "Current interactive 3D view - side view",
+    }
+    view_label = request.POST.get("threejs_view_label") or ""
+    if view_label not in allowed_view_labels:
+        view_label = "Current interactive 3D view"
+
+    report_payload = dict(export_payload)
+    report_payload["threejs_snapshot_rel_path"] = snapshot_rel_path
+    report_payload["threejs_view_label"] = view_label
+
+    pdf_buffer = build_palletization_pdf(report_payload)
     timestamp = timezone.now().strftime("%Y%m%d_%H%M")
     filename = f"palletization_report_{timestamp}.pdf"
 

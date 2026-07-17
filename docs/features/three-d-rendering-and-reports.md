@@ -50,6 +50,20 @@ For browser 3D results:
 - no redundant paragraph explaining controls when concise labels suffice;
 - standalone, Flow, and the corresponding multi-product consumer share the same scene/placement data and UI/rendering component where applicable.
 
+### Palletization browser scene
+
+Palletization serializes the selected engine `Placement3D` set into one
+JSON-safe scene contract. The standalone tool, Packaging Flow pallet step, and
+public SEO calculator render that contract with the shared Three.js pallet
+viewer. The payload uses Python coordinates `X=length`, `Y=width`, `Z=height`;
+the browser maps them to Three.js `X=length`, `Y=height`, `Z=width`.
+
+The scene includes the pallet base, allowed overhang footprint, carton
+placements, layer indices, selected pattern metadata, and stack metrics.
+Three.js is the primary customer-facing pallet stack renderer. The historical
+Matplotlib renderer remains a backend helper only and is not the primary web or
+PDF visualization.
+
 
 ## Graphics propagation rule
 
@@ -76,6 +90,13 @@ Reference tools use ReportLab PDFs. Reports should:
 - remain concise and readable, with one-page reports preferred for single-tool results;
 - not rely on the browser’s accidental current camera state unless the product specification explicitly says so;
 - use the same normalized data as the web result.
+
+The Palletization report is an explicit exception to the fixed-camera guidance:
+the user-selected Three.js camera is part of the report specification. Its PDF
+button captures a bounded JPEG canvas data URL, the server validates and stores
+the image under `MEDIA_ROOT`, and ReportLab embeds that snapshot. A missing or
+invalid snapshot returns HTTP 400; the report must not silently fall back to the
+legacy Matplotlib stack image.
 
 ## Report verification
 

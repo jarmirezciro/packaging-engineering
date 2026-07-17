@@ -1,8 +1,4 @@
 from django.conf import settings
-import base64
-import binascii
-import os
-import uuid
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.utils import timezone
@@ -25,6 +21,7 @@ from ..tools.container.service import (
 )
 from ..tools.container.state import default_container_config
 from ..tools.container.export import build_container_selection_pdf
+from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 
 
 def _as_bool(value):
@@ -340,54 +337,10 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
 
 
 def _save_threejs_snapshot_from_request(request):
-    """
-    Save an optional Three.js canvas snapshot posted by the browser.
-
-    Returns a MEDIA_ROOT-relative path that ReportLab can use, or an empty
-    string if no valid snapshot was submitted. The PDF exporter now requires
-    this snapshot so the report matches the interactive Three.js result.
-    """
-    if request.method != "POST":
-        return ""
-
-    data_url = (request.POST.get("threejs_snapshot") or "").strip()
-    allowed_prefixes = {
-        "data:image/png;base64,": (".png", b"\x89PNG\r\n\x1a\n"),
-        "data:image/jpeg;base64,": (".jpg", b"\xff\xd8"),
-    }
-    matched = None
-    for prefix, meta in allowed_prefixes.items():
-        if data_url.startswith(prefix):
-            matched = (prefix, meta[0], meta[1])
-            break
-    if not matched:
-        return ""
-
-    # Keep the snapshot bounded. The browser sends JPEG by default to avoid
-    # Django's default request-size limits, but this still protects the server.
-    if len(data_url) > 8_000_000:
-        return ""
-
-    try:
-        encoded = data_url.split(",", 1)[1]
-        image_bytes = base64.b64decode(encoded, validate=True)
-    except (IndexError, binascii.Error, ValueError):
-        return ""
-
-    _prefix, extension, magic = matched
-    if not image_bytes.startswith(magic):
-        return ""
-
-    rel_dir = os.path.join("container_exports", "threejs")
-    file_name = f"threejs_snapshot_{uuid.uuid4().hex}{extension}"
-    rel_path = os.path.join(rel_dir, file_name)
-    abs_path = os.path.join(settings.MEDIA_ROOT, rel_path)
-
-    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-    with open(abs_path, "wb") as image_file:
-        image_file.write(image_bytes)
-
-    return rel_path
+    return save_threejs_snapshot_from_request(
+        request,
+        relative_directory="container_exports/threejs",
+    )
 
 
 def _attach_threejs_snapshot(export_payload, request):
@@ -576,4 +529,3 @@ def container_selection_export_optimal_pdf(request):
     response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
-

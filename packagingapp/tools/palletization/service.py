@@ -1,10 +1,12 @@
-from django.conf import settings
-
 from ...models import PackagingMaterial
-from ...utils.palletization.engine import run_palletization_analysis, render_selected_result
+from ...utils.palletization.engine import (
+    run_palletization_analysis,
+    selected_result_for_render,
+)
 from .serializers import (
     sanitize_palletization_config_for_session,
     serialize_pallet_analysis_result,
+    serialize_pallet_threejs_scene,
 )
 from .state import default_palletization_config
 
@@ -245,6 +247,7 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
 
     render_result = None
     image_rel_path = None
+    threejs_scene = None
     active_selected_result_key = ""
     if selected_row is not None:
         can_render_interlock = bool(selected_row.get("interlock_possible") and selected_row.get("interlock_possible_layer"))
@@ -256,21 +259,23 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
             f"{base_row_key}{INTERLOCK_RENDER_SUFFIX}" if render_interlock_preview else base_row_key
         )
 
-        render_result = render_selected_result(
-            selected_result=selected_row,
-            pallet_l=float(eff["pallet_l"]),
-            pallet_w=float(eff["pallet_w"]),
-            max_stack_height=float(eff["max_stack_height"]),
-            media_root=media_root or settings.MEDIA_ROOT,
+        render_row = selected_result_for_render(
+            selected_row,
+            float(eff["max_stack_height"]),
             render_interlock=render_interlock_preview,
         )
-        image_rel_path = render_result.image_rel_path
+        threejs_scene = serialize_pallet_threejs_scene(
+            render_row=render_row,
+            effective_config=eff,
+            selected_row=selected_row,
+        )
 
     serialized_result = serialize_pallet_analysis_result(
         raw_results=raw_results,
         selected_row=selected_row,
         image_rel_path=image_rel_path,
         selected_result_key=active_selected_result_key,
+        threejs_scene=threejs_scene,
     )
 
     return {
@@ -278,6 +283,7 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
         "messages": [],
         "effective_config": eff,
         "serialized_result": serialized_result,
+        "threejs_scene": threejs_scene,
         "result": {
             "raw_results": raw_results,
             "selected_row": selected_row,

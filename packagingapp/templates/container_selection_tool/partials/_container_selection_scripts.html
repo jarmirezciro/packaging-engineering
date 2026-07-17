@@ -1,12 +1,7 @@
 {% load static %}
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
+{% if not threejs_importmap_loaded %}
+    {% include "shared/_threejs_importmap.html" %}
+{% endif %}
 <script>
 (function () {
     function getRoot(prefix) {

@@ -1,3 +1,4 @@
+import json
 import shutil
 import tempfile
 
@@ -386,7 +387,10 @@ class PalletizationSeoExampleTests(TestCase):
         self.assertEqual(response.context["pallet_config"]["max_stack_height"], 1500)
         self.assertTrue(response.context["results_table"])
         self.assertIsNotNone(response.context["selected_result"])
-        self.assertTrue(response.context["result_image_url"])
+        self.assertIsNone(response.context["result_image_url"])
+        self.assertTrue(response.context["threejs_scene"])
+        self.assertContains(response, "data-palletization-threejs-viewer")
+        self.assertContains(response, "js/palletization_threejs_viewer.js")
         self.assertContains(response, "Live example loaded")
         self.assertContains(response, "edit any value to calculate your own pallet")
 
@@ -398,6 +402,119 @@ class PalletizationSeoExampleTests(TestCase):
         self.assertEqual(response.context["pallet_config"]["pallet_l"], "")
         self.assertEqual(response.context["results_table"], [])
         self.assertNotContains(response, "Live example loaded")
+
+
+class PalletizationThreeJsAndPdfTests(TestCase):
+    # Valid 1x1 PNG used only to exercise the server-side snapshot contract.
+    PNG_DATA_URL = (
+        "data:image/png;base64,"
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
+        "YAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+    )
+
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp(prefix="kollipack-pallet-threejs-test-")
+        self.analysis_data = {
+            "action": "run_analysis",
+            "box_source": "manual",
+            "box_l": "400",
+            "box_w": "300",
+            "box_h": "250",
+            "box_weight": "",
+            "max_weight_on_bottom_box": "",
+            "pallet_source": "manual",
+            "pallet_l": "1200",
+            "pallet_w": "800",
+            "max_stack_height": "1500",
+            "max_width_stickout": "0",
+            "max_length_stickout": "0",
+        }
+
+    def tearDown(self):
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_scene_uses_engine_placements_and_is_json_safe(self):
+        with self.settings(MEDIA_ROOT=self.media_root):
+            response = self.client.post(
+                reverse("palletization_mode1"),
+                self.analysis_data,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        scene = response.context["threejs_scene"]
+        selected = response.context["selected_result"]
+        self.assertEqual(scene["total_cases"], selected["total_boxes"])
+        self.assertEqual(len(scene["placements"]), selected["total_boxes"])
+        self.assertEqual(scene["layers"], selected["layers"])
+        self.assertEqual(scene["pallet"]["length"], 1200.0)
+        self.assertEqual(scene["pallet"]["width"], 800.0)
+        self.assertTrue(
+            all(
+                placement["z"] >= scene["pallet"]["height"]
+                for placement in scene["placements"]
+            )
+        )
+        json.dumps(scene)
+
+    def test_pdf_requires_snapshot_and_uses_posted_browser_view(self):
+        with self.settings(MEDIA_ROOT=self.media_root):
+            analysis_response = self.client.post(
+                reverse("palletization_mode1"),
+                self.analysis_data,
+            )
+            self.assertEqual(analysis_response.status_code, 200)
+
+            missing_response = self.client.get(reverse("palletization_export_pdf"))
+            self.assertEqual(missing_response.status_code, 400)
+            self.assertIn(b"current Three.js pallet view was not captured", missing_response.content)
+
+            pdf_response = self.client.post(
+                reverse("palletization_export_pdf"),
+                {
+                    "threejs_snapshot": self.PNG_DATA_URL,
+                    "threejs_view_label": "Current interactive 3D view - top view",
+                },
+            )
+
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertEqual(pdf_response["Content-Type"], "application/pdf")
+        self.assertTrue(pdf_response.content.startswith(b"%PDF"))
+        self.assertGreater(len(pdf_response.content), 1000)
+
+    def test_workflow_scene_contract_is_prefixed_and_json_safe(self):
+        add_response = self.client.post(
+            reverse("full_packaging_mode"),
+            {
+                "action": "add_step",
+                "after_index": "start",
+                "step_type": "pallet",
+            },
+        )
+        self.assertEqual(add_response.status_code, 302)
+
+        workflow_data = {
+            "action": "run_step",
+            "index": "0",
+            "step_action_0": "run_analysis",
+            **{
+                f"{key}_0": value
+                for key, value in self.analysis_data.items()
+                if key != "action"
+            },
+        }
+        with self.settings(MEDIA_ROOT=self.media_root):
+            run_response = self.client.post(
+                reverse("full_packaging_mode"),
+                workflow_data,
+            )
+            self.assertEqual(run_response.status_code, 302)
+            page_response = self.client.get(reverse("full_packaging_mode"))
+
+        self.assertEqual(page_response.status_code, 200)
+        self.assertContains(page_response, 'id="palletizationThreeJsViewer_0"', count=1)
+        self.assertContains(page_response, 'id="palletizationThreeJsScene_0"', count=1)
+        self.assertTrue(page_response.context["steps"][0]["threejs_scene"])
+        json.dumps(self.client.session["full_packaging_mode_session"])
 
 
 class ToolScrollPreservationTests(TestCase):

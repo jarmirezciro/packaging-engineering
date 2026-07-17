@@ -1,3 +1,7 @@
+{% load static %}
+{% if not threejs_importmap_loaded %}
+    {% include "shared/_threejs_importmap.html" %}
+{% endif %}
 <style>
     .tool-collapsible-head{
         display:flex;
@@ -35,6 +39,51 @@
 
     .tool-advanced-details[open] .tool-details-toggle i{
         transform:rotate(180deg);
+    }
+
+    .palletization-threejs-panel {
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        border-radius: 1rem;
+        padding: 0.85rem;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    .palletization-threejs-panel * {
+        box-sizing: border-box;
+    }
+
+    .palletization-threejs-viewer {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        min-height: 360px;
+        height: min(52vh, 500px);
+        border: 1px solid rgba(15, 23, 42, 0.10);
+        border-radius: 0.85rem;
+        overflow: hidden;
+        background: #f8fafc;
+        position: relative;
+        display: block;
+        contain: layout paint;
+    }
+
+    .palletization-threejs-viewer canvas {
+        display: block;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        max-height: 100% !important;
+    }
+
+    .palletization-threejs-fallback {
+        padding: 1rem;
+        color: #64748b;
+        font-size: 0.9rem;
     }
 </style>
 
@@ -255,3 +304,4 @@
         });
     });
 </script>
+<script type="module" src="{% static 'js/palletization_threejs_viewer.js' %}"></script>

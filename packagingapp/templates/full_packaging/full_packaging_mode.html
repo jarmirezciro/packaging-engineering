@@ -166,7 +166,7 @@
         {% endif %}
 
         {% if step.type == "pallet" %}
-        {% with pallet_ui=step.pallet_ui pallet_values=step.pallet_values mode=step.mode prefix=step.prefix current_box_source=step.current_box_source current_pallet_source=step.current_pallet_source show_advanced=step.show_advanced selected_box_material=step.selected_box_material selected_pallet_material=step.selected_pallet_material box_materials=step.box_materials pallet_materials=step.pallet_materials results_table=step.results_table selected_result=step.selected_result result_image_url=step.image_url pending_result=step.pending_result packaging_catalogues=packaging_catalogues %}
+        {% with pallet_ui=step.pallet_ui pallet_values=step.pallet_values mode=step.mode prefix=step.prefix current_box_source=step.current_box_source current_pallet_source=step.current_pallet_source show_advanced=step.show_advanced selected_box_material=step.selected_box_material selected_pallet_material=step.selected_pallet_material box_materials=step.box_materials pallet_materials=step.pallet_materials results_table=step.results_table selected_result=step.selected_result threejs_scene=step.threejs_scene pending_result=step.pending_result packaging_catalogues=packaging_catalogues %}
           {% include "palletization/palletization_wrapper.html" %}
         {% endwith %}
         {% elif step.type == "transport" %}
@@ -213,7 +213,8 @@
 {% endblock %}
 
 {% block extra_js %}
-{% include "palletization/partials/_palletization_scripts.html" %}
+{% include "shared/_threejs_importmap.html" %}
+{% include "palletization/partials/_palletization_scripts.html" with threejs_importmap_loaded=True %}
 
 <script>
 function fpForm(idx){ return document.getElementById('step-form-' + idx); }
@@ -352,7 +353,7 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 
-{% include "container_selection_tool/partials/_container_selection_scripts.html" %}
+{% include "container_selection_tool/partials/_container_selection_scripts.html" with threejs_importmap_loaded=True %}
 {% include "container_tool/partials/_transport_scripts.html" %}
 
 {% include "bag_selection/partials/_bag_selection_scripts.html" %}

@@ -52,6 +52,8 @@ def build_pallet_ui_contract(prefix=""):
             "toggle_constraints_icon": f"toggleConstraintsIcon{suffix}",
             "selected_result_key": f"selected_result_key{suffix}",
             "show_advanced": f"show_advanced{suffix}",
+            "threejs_viewer": f"palletizationThreeJsViewer{suffix}",
+            "threejs_scene": f"palletizationThreeJsScene{suffix}",
         },
         "actions": {
             "browse_box": "palletToolBrowseBoxCatalogue",

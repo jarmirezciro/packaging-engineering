@@ -36,11 +36,39 @@
                 </div>
             </div>
 
-
-            {% if result_image_url %}
-                <div class="tool-render-wrap">
-                    <img src="{{ result_image_url }}" alt="Palletization result" class="tool-render-image">
+            {% if threejs_scene %}
+                <div class="palletization-threejs-panel mt-3">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <div class="tool-summary-main me-1"><strong>Interactive 3D result</strong></div>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Pallet 3D view controls">
+                            <button type="button" class="btn btn-app-outline" data-palletization-threejs-view="reset">Reset</button>
+                            <button type="button" class="btn btn-app-outline" data-palletization-threejs-view="top">Top</button>
+                            <button type="button" class="btn btn-app-outline" data-palletization-threejs-view="front">Front</button>
+                            <button type="button" class="btn btn-app-outline" data-palletization-threejs-view="side">Side</button>
+                        </div>
+                    </div>
+                    {{ threejs_scene|json_script:pallet_ui.ids.threejs_scene }}
+                    <div id="{{ pallet_ui.ids.threejs_viewer }}"
+                         class="palletization-threejs-viewer"
+                         data-palletization-threejs-viewer
+                         data-scene-script="{{ pallet_ui.ids.threejs_scene }}">
+                    </div>
                 </div>
+
+                {% if show_pdf_export and mode != "workflow" %}
+                    <div class="app-form-actions tool-card-actions mt-3">
+                        <input type="hidden" name="threejs_snapshot" value="">
+                        <input type="hidden" name="threejs_view_label" value="">
+                        <button type="submit"
+                                class="btn btn-app-outline btn-sm"
+                                formaction="{% url 'palletization_export_pdf' %}"
+                                formmethod="post"
+                                data-palletization-threejs-pdf-button
+                                data-palletization-threejs-pdf-viewer="{{ pallet_ui.ids.threejs_viewer }}">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF with current 3D view
+                        </button>
+                    </div>
+                {% endif %}
             {% endif %}
 
             <details class="tool-summary-strip mt-3 mb-0">
@@ -146,14 +174,6 @@
                     Validate final stability, wrapping, handling, and customer-specific transport restrictions before release.
                 </div>
             </details>
-
-            {% if show_pdf_export %}
-                <div class="app-form-actions tool-card-actions mt-3">
-                    <a href="{% url 'palletization_export_pdf' %}" class="btn btn-app-outline btn-sm">
-                        <i class="bi bi-filetype-pdf me-2"></i>Download PDF report
-                    </a>
-                </div>
-            {% endif %}
 
             {% if mode == "workflow" and pending_result %}
                 <div class="app-form-actions tool-card-actions mt-3">

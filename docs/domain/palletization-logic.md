@@ -169,10 +169,11 @@ All three must reuse the shared engine/service/UI contract. Changes to inputs, c
 
 ## Visualization and report
 
-- clean 2D/3D patterns;
+- the selected engine placements are serialized once into a JSON-safe Three.js scene shared by standalone, Packaging Flow, and the SEO calculator;
+- the interactive Three.js pallet stack is the primary clean 3D result;
 - no axes/mesh in final user-facing output;
 - show carton and pallet dimensions, overhang, layers, quantity, weight, and result interpretation;
-- selected pattern visualization in the ReportLab PDF;
+- the ReportLab PDF uses the validated current Three.js browser snapshot and returns HTTP 400 when the snapshot is missing;
 - PDF should be concise, ideally one page for the standalone result where possible;
 - images from selected catalogue records should appear where relevant.
 

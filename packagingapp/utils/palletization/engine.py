@@ -47,6 +47,11 @@ class PalletizationRenderResult:
     image_rel_path: str
 
 
+PALLET_DECK_THICKNESS_MM = 18.0
+PALLET_RUNNER_HEIGHT_MM = 90.0
+PALLET_RENDER_HEIGHT_MM = PALLET_DECK_THICKNESS_MM + PALLET_RUNNER_HEIGHT_MM
+
+
 # ============================================================
 # BASIC HELPERS
 # ============================================================
@@ -2130,9 +2135,9 @@ def clean_3d_axes(ax):
 
 
 def plot_3d_result(ax, placements3d, pallet_l, pallet_w, max_h, title=None):
-    deck_thickness = 18
-    runner_height = 90
-    pallet_total_height = deck_thickness + runner_height
+    deck_thickness = PALLET_DECK_THICKNESS_MM
+    runner_height = PALLET_RUNNER_HEIGHT_MM
+    pallet_total_height = PALLET_RENDER_HEIGHT_MM
 
     # top deck
     ax.bar3d(
@@ -2254,6 +2259,22 @@ def _interlock_render_row(selected_result: Dict, max_stack_height: float) -> Dic
     return render_row
 
 
+def selected_result_for_render(
+    selected_result: Dict,
+    max_stack_height: float,
+    render_interlock: bool = False,
+) -> Dict:
+    """Return the authoritative selected placement set for any renderer.
+
+    Browser and server renderers must consume the same placements. Alternate
+    layer preview remains a presentation choice and does not alter ranking or
+    the selected analysis result.
+    """
+    if render_interlock:
+        return _interlock_render_row(selected_result, max_stack_height)
+    return selected_result
+
+
 def render_selected_result(
     selected_result: Dict,
     pallet_l: float,
@@ -2269,7 +2290,11 @@ def render_selected_result(
 
     os.makedirs(os.path.dirname(abs_path), exist_ok=True)
 
-    render_row = _interlock_render_row(selected_result, max_stack_height) if render_interlock else selected_result
+    render_row = selected_result_for_render(
+        selected_result,
+        max_stack_height,
+        render_interlock=render_interlock,
+    )
 
     fig = plt.figure(figsize=(8, 6))
     ax = fig.add_subplot(111, projection="3d")
