@@ -73,3 +73,12 @@ A task is complete only when:
 - Relevant tests/checks pass.
 - The final diff contains no unexplained unrelated changes.
 - Documentation is updated when architecture, domain rules, assumptions, or public behaviour changed.
+
+## Blog architecture
+
+- Blog articles are file-based content under `packagingapp/content/blog/articles/`.
+- Never hardcode article bodies or metadata in `packagingapp/views/marketing.py`.
+- Production article assets belong under `static/img/blog/<slug>/`.
+- Existing published slugs are stable and require redirects if changed.
+- Use the repository `$blog-article` skill for article creation, polishing, research, refresh, images, thumbnails, and validation.
+- Reuse the canonical official KolliLabs/KolliPack logo; do not regenerate it.

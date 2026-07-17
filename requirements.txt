@@ -21,3 +21,6 @@ Pillow==12.2.0
 # Safer parsing of uploaded XML-based Excel files
 defusedxml==0.7.1
 reportlab==4.2.5
+
+Markdown>=3.6,<4
+tomli>=2,<3; python_version < "3.11"

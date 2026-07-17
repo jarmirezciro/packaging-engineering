@@ -27,3 +27,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# One-time blog migration backup
+.blog-migration-backup/
