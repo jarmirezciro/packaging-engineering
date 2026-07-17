@@ -80,49 +80,49 @@
     function palletToolSubmitRefresh(prefix) {
         palletToolSetHidden("action", prefix, "refresh");
         const form = palletToolForm(prefix);
-        if (form) form.submit();
+        if (form) window.KolliPackToolScroll.submit(form);
     }
 
     function palletToolBrowseBoxCatalogue(prefix) {
         palletToolSetHidden("selected_box_id", prefix, "");
         palletToolSetHidden("action", prefix, "browse_box_packaging");
         const form = palletToolForm(prefix);
-        if (form) form.submit();
+        if (form) window.KolliPackToolScroll.submit(form);
     }
 
     function palletToolClearSelectedBox(prefix) {
         palletToolSetHidden("selected_box_id", prefix, "");
         palletToolSetHidden("action", prefix, "clear_box_packaging");
         const form = palletToolForm(prefix);
-        if (form) form.submit();
+        if (form) window.KolliPackToolScroll.submit(form);
     }
 
     function palletToolSelectBox(prefix, boxId) {
         palletToolSetHidden("selected_box_id", prefix, boxId);
         palletToolSetHidden("action", prefix, "select_box");
         const form = palletToolForm(prefix);
-        if (form) form.submit();
+        if (form) window.KolliPackToolScroll.submit(form);
     }
 
     function palletToolBrowsePalletCatalogue(prefix) {
         palletToolSetHidden("pallet_id", prefix, "");
         palletToolSetHidden("action", prefix, "browse_pallet_packaging");
         const form = palletToolForm(prefix);
-        if (form) form.submit();
+        if (form) window.KolliPackToolScroll.submit(form);
     }
 
     function palletToolClearSelectedPallet(prefix) {
         palletToolSetHidden("pallet_id", prefix, "");
         palletToolSetHidden("action", prefix, "clear_pallet_packaging");
         const form = palletToolForm(prefix);
-        if (form) form.submit();
+        if (form) window.KolliPackToolScroll.submit(form);
     }
 
     function palletToolSelectPallet(prefix, palletId) {
         palletToolSetHidden("pallet_id", prefix, palletId);
         palletToolSetHidden("action", prefix, "select_pallet");
         const form = palletToolForm(prefix);
-        if (form) form.submit();
+        if (form) window.KolliPackToolScroll.submit(form);
     }
 
     function palletToolToggleConstraints(prefix, forceOpen = null) {
@@ -158,14 +158,14 @@
     function palletToolRunAnalysis(prefix) {
         palletToolSetHidden("action", prefix, "run_analysis");
         const form = palletToolForm(prefix);
-        if (form) form.submit();
+        if (form) window.KolliPackToolScroll.submit(form);
     }
 
     function palletToolSelectResult(prefix, resultKey) {
         palletToolSetHidden("selected_result_key", prefix, resultKey);
         palletToolSetHidden("action", prefix, "select_result");
         const form = palletToolForm(prefix);
-        if (form) form.submit();
+        if (form) window.KolliPackToolScroll.submit(form);
     }
 
     function palletToolUpdateUI(prefix) {

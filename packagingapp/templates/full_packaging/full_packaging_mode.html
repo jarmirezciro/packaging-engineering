@@ -37,7 +37,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="app-page fp-page">
+<div class="app-page fp-page" data-preserve-tool-scroll="packaging-flow">
   <div class="app-hero app-hero--compact">
     <div>
       <div class="app-hero-badge">
@@ -149,7 +149,7 @@
       {% endif %}
 
       {% if step.expanded %}
-      <form method="post" id="step-form-{{ forloop.counter0 }}" class="app-page fp-step-form" data-step-type="{{ step.type }}">
+      <form method="post" id="step-form-{{ forloop.counter0 }}" class="app-page fp-step-form" data-step-type="{{ step.type }}" data-preserve-tool-scroll="workflow-step-{{ forloop.counter0 }}">
         {% csrf_token %}
         <input type="hidden" name="action" id="form_action_{{ forloop.counter0 }}" value="run_step">
         <input type="hidden" name="index" value="{{ forloop.counter0 }}">
@@ -160,7 +160,7 @@
         {% endif %}
 
         {% if step.messages and step.type != 'bag' and step.type != 'transport' %}
-          <div class="alert alert-danger mb-0">
+          <div class="alert alert-danger mb-0" role="alert" tabindex="-1" data-tool-validation-errors>
             {% for m in step.messages %}<div>{{ m }}</div>{% endfor %}
           </div>
         {% endif %}
@@ -217,11 +217,12 @@
 
 <script>
 function fpForm(idx){ return document.getElementById('step-form-' + idx); }
+function fpSubmitForm(idx){ const form=fpForm(idx); if(form) window.KolliPackToolScroll.submit(form); }
 function fpSetFormAction(idx, value){ const el = document.getElementById('form_action_' + idx); if(el) el.value = value; }
 function fpSetAction(idx, value){ const el=document.getElementById('step_action_' + idx); if(el) el.value=value; }
-function fpSubmitRefresh(idx){ fpSetFormAction(idx, 'run_step'); fpSetAction(idx, 'refresh'); fpForm(idx).submit(); }
-function fpUseStepResult(idx){ fpSetFormAction(idx, 'use_step_result'); fpForm(idx).submit(); }
-function fpSetActionAndSubmit(idx, actionName){ fpSetFormAction(idx, 'run_step'); fpSetAction(idx, actionName); fpForm(idx).submit(); }
+function fpSubmitRefresh(idx){ fpSetFormAction(idx, 'run_step'); fpSetAction(idx, 'refresh'); fpSubmitForm(idx); }
+function fpUseStepResult(idx){ fpSetFormAction(idx, 'use_step_result'); fpSubmitForm(idx); }
+function fpSetActionAndSubmit(idx, actionName){ fpSetFormAction(idx, 'run_step'); fpSetAction(idx, actionName); fpSubmitForm(idx); }
 
 function fpGetPackagingField(idx){
   return document.getElementById('container_id_' + idx) || document.getElementById('bag_id_' + idx);
@@ -232,7 +233,7 @@ function fpBrowseProduct(idx){
   const el = document.getElementById('selected_product_id_' + idx);
   if(el) el.value='';
   fpSetAction(idx, 'browse_product');
-  fpForm(idx).submit();
+  fpSubmitForm(idx);
 }
 
 function fpClearProduct(idx){
@@ -240,7 +241,7 @@ function fpClearProduct(idx){
   const el = document.getElementById('selected_product_id_' + idx);
   if(el) el.value='';
   fpSetAction(idx, 'clear_product');
-  fpForm(idx).submit();
+  fpSubmitForm(idx);
 }
 
 function fpSelectProduct(idx, productId){
@@ -248,7 +249,7 @@ function fpSelectProduct(idx, productId){
   const el = document.getElementById('selected_product_id_' + idx);
   if(el) el.value=productId;
   fpSetAction(idx, 'select_product');
-  fpForm(idx).submit();
+  fpSubmitForm(idx);
 }
 
 function fpBrowsePackaging(idx){
@@ -256,7 +257,7 @@ function fpBrowsePackaging(idx){
   const el = fpGetPackagingField(idx);
   if(el) el.value='';
   fpSetAction(idx, 'browse_packaging');
-  fpForm(idx).submit();
+  fpSubmitForm(idx);
 }
 
 function fpClearPackaging(idx){
@@ -264,7 +265,7 @@ function fpClearPackaging(idx){
   const el = fpGetPackagingField(idx);
   if(el) el.value='';
   fpSetAction(idx, 'clear_packaging');
-  fpForm(idx).submit();
+  fpSubmitForm(idx);
 }
 
 function fpSelectPackaging(idx, itemId, actionName){
@@ -272,7 +273,7 @@ function fpSelectPackaging(idx, itemId, actionName){
   const el = fpGetPackagingField(idx);
   if(el) el.value=itemId;
   fpSetAction(idx, actionName);
-  fpForm(idx).submit();
+  fpSubmitForm(idx);
 }
 
 function fpClearAndRefresh(idx, target){
@@ -286,7 +287,7 @@ function fpClearAndRefresh(idx, target){
     if(el) el.value='';
   }
   fpSetAction(idx, 'refresh');
-  fpForm(idx).submit();
+  fpSubmitForm(idx);
 }
 
 function fpUpdateContainerUI(idx){

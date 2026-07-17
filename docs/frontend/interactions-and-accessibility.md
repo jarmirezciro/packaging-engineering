@@ -22,6 +22,10 @@ Preferred solutions are lifecycle-based and accessible:
 - for asynchronous updates, update only the needed region;
 - avoid arbitrary `setTimeout` scrolling unless no stable event exists.
 
+The implemented cross-tool contract, root-cause inventory, opt-in markup,
+programmatic-submit API, validation behavior, and regression checklist are
+documented in `tool-scroll-preservation.md`.
+
 ## Prefix-safe interaction
 
 In Packaging Flow, all JavaScript must work when:

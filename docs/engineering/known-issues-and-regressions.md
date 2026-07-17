@@ -56,7 +56,10 @@ Prevention: report receives selected normalized result ID/data; no independent â
 
 Symptom: every select/calculate action loses the working position.
 
-Prevention: identify form/link/focus/DOM cause; use anchors/focus/partial update; avoid timeout hacks.
+Prevention: identify form/link/focus/DOM cause; use anchors/focus/partial update;
+avoid timeout hacks. Full-page KolliPack tool forms now use the shared contract
+in `docs/frontend/tool-scroll-preservation.md`; new programmatic submissions must
+use `window.KolliPackToolScroll.submit(form)` and stable opt-in instance keys.
 
 ## 10. Global CSS replacement for local issue
 
@@ -86,4 +89,3 @@ Prevention: map the vertical slice first and finish all required layers before f
 Symptom: standalone Bag or Container Selection receives improved graphics/result components, while Multi-product Bag Selection or Multi-product Container Selection still renders the former image style or copied template.
 
 Prevention: include both multi-product tools in the initial consumer map; reuse the shared renderer/presenter/component; verify an equivalent one-row fixture and a genuine multi-row fixture before completion.
-

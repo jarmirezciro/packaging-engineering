@@ -399,3 +399,82 @@ class PalletizationSeoExampleTests(TestCase):
         self.assertEqual(response.context["results_table"], [])
         self.assertNotContains(response, "Live example loaded")
 
+
+class ToolScrollPreservationTests(TestCase):
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp(prefix="kollipack-scroll-test-")
+
+    def tearDown(self):
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_standalone_and_seo_tools_render_scoped_scroll_markers(self):
+        expected_markers = {
+            "palletization_mode1": "palletization-standalone",
+            "container_selection_mode1": "container-selection-standalone",
+            "bag_selection_mode1": "bag-selection-standalone",
+            "container_tool": "transport-standalone",
+            "palletization_calculator": "palletization-seo",
+        }
+
+        for url_name, marker in expected_markers.items():
+            with self.subTest(url_name=url_name):
+                with self.settings(MEDIA_ROOT=self.media_root):
+                    response = self.client.get(reverse(url_name))
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(
+                    response,
+                    f'data-preserve-tool-scroll="{marker}"',
+                    count=1,
+                )
+                self.assertContains(response, "js/tool_scroll_preservation.js")
+
+    def test_packaging_flow_gives_each_repeated_tool_instance_a_unique_marker(self):
+        for _ in range(2):
+            response = self.client.post(
+                reverse("full_packaging_mode"),
+                {
+                    "action": "add_step",
+                    "after_index": "start",
+                    "step_type": "container",
+                },
+            )
+            self.assertEqual(response.status_code, 302)
+
+        response = self.client.get(reverse("full_packaging_mode"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'data-preserve-tool-scroll="packaging-flow"',
+            count=1,
+        )
+        self.assertContains(
+            response,
+            'data-preserve-tool-scroll="workflow-step-0"',
+            count=1,
+        )
+        self.assertContains(
+            response,
+            'data-preserve-tool-scroll="workflow-step-1"',
+            count=1,
+        )
+
+    def test_multi_product_tools_remain_non_navigating_ajax_surfaces(self):
+        for url_name in (
+            "multi_product_container_selection",
+            "multi_product_bag_selection",
+        ):
+            with self.subTest(url_name=url_name):
+                response = self.client.get(reverse(url_name))
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'id="runBtn" type="button"', count=1)
+                self.assertContains(response, "fetch(")
+
+    def test_transport_no_longer_renders_delayed_forced_scroll_logic(self):
+        response = self.client.get(reverse("container_tool"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "scroll_target")
+        self.assertNotContains(response, "setTimeout(function ()")
+        self.assertNotContains(response, "scrollIntoView({ behavior: 'smooth'")
+

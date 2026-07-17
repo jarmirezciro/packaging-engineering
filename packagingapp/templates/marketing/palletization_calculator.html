@@ -645,7 +645,7 @@
                     The calculator, result logic, shared UI, 3D rendering, and PDF export are maintained as one implementation.
                 </div>
             </div>
-            <form method="post" action="{% url 'palletization_calculator' %}" class="app-page">
+            <form method="post" action="{% url 'palletization_calculator' %}" class="app-page" data-preserve-tool-scroll="palletization-seo">
                 {% csrf_token %}
                 {% include "palletization/palletization_wrapper.html" %}
             </form>

@@ -13,6 +13,11 @@
       };
     }
 
+    function transportSubmitStandaloneForm() {
+      const form = document.getElementById("container-tool-form");
+      if (form) window.KolliPackToolScroll.submit(form);
+    }
+
 
     function transportSwitchView(button) {
       const targetId = button.getAttribute("data-image-target");
@@ -98,7 +103,7 @@
       if (el) el.value = String(containerId);
       const action = document.querySelector('input[name="action"]');
       if (action) action.value = 'refresh';
-      document.getElementById("container-tool-form")?.submit();
+      transportSubmitStandaloneForm();
     }
     
     function showPackagingCatalogueAgain() {
@@ -106,15 +111,13 @@
       if (el) el.value = '';
       const action = document.querySelector('input[name="action"]');
       if (action) action.value = 'refresh';
-      document.getElementById("container-tool-form")?.submit();
+      transportSubmitStandaloneForm();
     }
     
     function onProductCatalogueChange() {
-      const st = document.getElementById("scroll_target");
-      if (st) st.value = 'product_catalogue';
       const action = document.querySelector('input[name="action"]');
       if (action) action.value = 'refresh';
-      document.getElementById("container-tool-form")?.submit();
+      transportSubmitStandaloneForm();
     }
     
     function selectProductFromCatalogue(productId) {
@@ -130,7 +133,7 @@
       const action = document.querySelector('input[name="action"]');
       if (action) action.value = 'select_product';
     
-      document.getElementById("container-tool-form")?.submit();
+      transportSubmitStandaloneForm();
     }
     
     function openProductCatalogueForRow(rowIndex) {
@@ -138,9 +141,6 @@
     
       const rowField = document.getElementById("selected_row_index");
       if (rowField) rowField.value = normalizedIndex;
-    
-      const scrollField = document.getElementById("scroll_target");
-      if (scrollField) scrollField.value = 'product_catalogue';
     
       const card = document.getElementById("productCatalogueCard");
       if (card) card.style.display = 'block';
@@ -216,7 +216,7 @@
       const action = document.querySelector('input[name="action"]');
       if (action) action.value = 'refresh';
     
-      document.getElementById("container-tool-form")?.submit();
+      transportSubmitStandaloneForm();
     }
     
     /* Workflow helpers */
@@ -250,26 +250,26 @@
       const el = document.getElementById('container_id_' + idx);
       if (el) el.value = String(containerId);
       fpSetAction(idx, 'select_container');
-      fpForm(idx).submit();
+      fpSubmitForm(idx);
     }
     
     function fpTransportShowPackagingCatalogue(idx) {
       const el = document.getElementById('container_id_' + idx);
       if (el) el.value = '';
       fpSetAction(idx, 'browse_packaging');
-      fpForm(idx).submit();
+      fpSubmitForm(idx);
     }
     
     function fpTransportPackagingCatalogueChanged(idx) {
       const el = document.getElementById('container_id_' + idx);
       if (el) el.value = '';
       fpSetAction(idx, 'refresh');
-      fpForm(idx).submit();
+      fpSubmitForm(idx);
     }
     
     function fpTransportProductCatalogueChanged(idx) {
       fpSetAction(idx, 'refresh');
-      fpForm(idx).submit();
+      fpSubmitForm(idx);
     }
     
     function fpTransportSelectProduct(idx, productId) {
@@ -283,7 +283,7 @@
       if (el) el.value = String(productId);
     
       fpSetAction(idx, 'select_product');
-      fpForm(idx).submit();
+      fpSubmitForm(idx);
     }
     
     function fpTransportOpenProductCatalogueForRow(idx, rowIndex) {
@@ -352,7 +352,7 @@
       const field = document.getElementById('container_id_' + idx);
       if (field) field.value = '';
       fpSetAction(idx, 'refresh');
-      fpForm(idx).submit();
+      fpSubmitForm(idx);
     }
 
     function initStandaloneTransportUI(root) {
@@ -375,28 +375,11 @@
       }
       updateContainerSourceUI();
 
-      const scrollTargetField = root.querySelector('#scroll_target');
-      const scrollTarget = scrollTargetField ? scrollTargetField.value : '';
-      if (scrollTarget === 'product_catalogue') {
-        const productCatalogueCard = root.querySelector('#productCatalogueCard');
-        if (productCatalogueCard && productCatalogueCard.style.display !== 'none') {
-          setTimeout(function () {
-            productCatalogueCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }, 120);
-        }
-      }
-
       const autoHideField = root.querySelector('[data-transport-auto-hide-product-catalogue]');
       const autoHideProductCatalogue = !!(autoHideField && autoHideField.value === '1');
       if (autoHideProductCatalogue) {
         const productCatalogueCard = root.querySelector('#productCatalogueCard');
         if (productCatalogueCard) productCatalogueCard.style.display = 'none';
-        const productsSection = root.querySelector('#productsSectionCard');
-        if (productsSection) {
-          setTimeout(function () {
-            productsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }, 120);
-        }
       }
     }
 

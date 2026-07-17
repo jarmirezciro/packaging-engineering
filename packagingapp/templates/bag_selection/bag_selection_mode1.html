@@ -16,7 +16,7 @@
         </div>
     </div>
 
-    <form method="post" class="app-page" id="{{ bag_ui.ids.root }}_form">
+    <form method="post" class="app-page" id="{{ bag_ui.ids.root }}_form" data-preserve-tool-scroll="bag-selection-standalone">
         {% csrf_token %}
         {% include "bag_selection/bag_selection_wrapper.html" %}
     </form>

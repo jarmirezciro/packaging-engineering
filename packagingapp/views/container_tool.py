@@ -104,7 +104,6 @@ def container_tool(request):
     raw_product_catalogue_id = request.POST.get("product_catalogue_id") if request.method == "POST" else request.GET.get("product_catalogue_id", "")
     raw_product_id_to_fill = request.POST.get("product_id_to_fill") if request.method == "POST" else request.GET.get("product_id_to_fill", "")
     raw_selected_row_index = request.POST.get("selected_row_index") if request.method == "POST" else request.GET.get("selected_row_index", "")
-    raw_scroll_target = request.POST.get("scroll_target") if request.method == "POST" else request.GET.get("scroll_target", "")
 
     result = None
     image_url = None
@@ -348,7 +347,6 @@ def container_tool(request):
         "product_items": product_items,
         "selected_row_index": raw_selected_row_index,
         "auto_hide_product_catalogue": auto_hide_product_catalogue,
-        "scroll_target": raw_scroll_target,
     }
 
     return render(request, "container_tool/container_tool.html", context)

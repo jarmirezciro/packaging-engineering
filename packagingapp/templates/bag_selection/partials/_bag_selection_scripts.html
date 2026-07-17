@@ -31,7 +31,7 @@
 
     function submitForm(prefix) {
         const form = getForm(prefix);
-        if (form) form.submit();
+        if (form) window.KolliPackToolScroll.submit(form);
     }
 
     function updateUI(prefix) {

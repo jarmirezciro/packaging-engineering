@@ -17,7 +17,7 @@
         </div>
     </div>
 
-    <form method="post" class="app-page" id="{{ container_ui.ids.root }}_form">
+    <form method="post" class="app-page" id="{{ container_ui.ids.root }}_form" data-preserve-tool-scroll="container-selection-standalone">
         {% csrf_token %}
         {% include "container_selection_tool/container_selection_wrapper.html" %}
     </form>

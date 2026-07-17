@@ -39,7 +39,7 @@ Labels used in domain documents:
 | Architecture/refactor | `architecture/application-architecture.md`, `architecture/shared-tool-contract.md` |
 | Packaging Flow | `architecture/packaging-flow.md` |
 | Multi-product Bag/Container | `architecture/shared-tool-contract.md` plus the affected domain document |
-| CSS/templates/JS | `frontend/theme-and-components.md`, `frontend/interactions-and-accessibility.md` |
+| CSS/templates/JS | `frontend/theme-and-components.md`, `frontend/interactions-and-accessibility.md`; for full-page tool interactions, `frontend/tool-scroll-preservation.md` |
 | Bag logic | `domain/bag-selection-logic.md` |
 | Container/box selection | `domain/container-selection-logic.md` |
 | Palletization | `domain/palletization-logic.md` |
