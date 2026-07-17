@@ -75,6 +75,11 @@ urlpatterns = [
         container_selection.container_selection_export_pdf,
         name="container_selection_export_pdf",
     ),
+    path(
+        "container-selection/mode1/export/optimal/pdf/",
+        container_selection.container_selection_export_optimal_pdf,
+        name="container_selection_export_optimal_pdf",
+    ),
 
     path("catalogues/<int:pk>/export-excel/", packaging_catalogue.export_catalogue_excel, name="export_catalogue_excel"),
 
