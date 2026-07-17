@@ -1,27 +1,63 @@
 +++
 schema_version = 1
 status = "published"
+display_order = 2
 title = "Why packaging flow matters in KolliPack: from product dimensions to transport loading"
 slug = "why-packaging-flow-matters"
+subtitle = "A practical look at why packaging decisions should be evaluated as a connected flow, not as isolated calculations."
 excerpt = "Container selection, palletization, and transport loading are often optimized separately. KolliPack is built around the idea that better decisions appear when the whole chain is analyzed together."
-seo_title = "Why packaging flow matters in KolliPack: from product dimensions to transport loading"
-meta_description = "Container selection, palletization, and transport loading are often optimized separately. KolliPack is built around the idea that better decisions appear when the whole chain is analyzed together."
+summary = "Container selection, palletization, and transport loading are often optimized separately. KolliPack is built around the idea that better decisions appear when the whole chain is analyzed together."
+description = "A practical look at why packaging decisions should be evaluated as a connected flow, not as isolated calculations."
+seo_title = "Why Packaging Flow Matters in Engineering | KolliLabs"
+meta_description = "A practical look at why packaging decisions should be evaluated as a connected flow, not as isolated calculations."
 article_type = "business_case"
 author = "Alejandro Ramírez"
-published_at = "2026-07-03"
-updated_at = "2026-07-03"
-thumbnail = "img/blog/why-packaging-flow-matters/thumbnail.png"
+category = "Packaging optimization"
+read_time = "6 min read"
+published_at = 2026-07-03
+updated_at = 2026-07-03
+hero_icon = "bi-diagram-3"
+featured_image = ""
+thumbnail = ""
 thumbnail_alt = "Why packaging flow matters in KolliPack: from product dimensions to transport loading"
-primary_keyword = "Why packaging flow matters in KolliPack: from product dimensions to transport loading"
-body_format = "markdown"
-body_context_key = "body"
+primary_keyword = "packaging engineering workflow"
+tags = ["packaging workflow", "KolliPack", "packaging engineering"]
+related_articles = ["box-selection-3d-bin-packing-problem", "palletization-affects-transport-cost", "carton-selection-basics"]
+related_tools = ["packaging-flow"]
 canonical_path = "/blog/why-packaging-flow-matters/"
-tags = []
-related_articles = []
-related_tools = []
-legacy_json_b64 = "eyJzbHVnIjoid2h5LXBhY2thZ2luZy1mbG93LW1hdHRlcnMiLCJhcnRpY2xlX3R5cGUiOiJidXNpbmVzc19jYXNlIiwidGl0bGUiOiJXaHkgcGFja2FnaW5nIGZsb3cgbWF0dGVycyBpbiBLb2xsaVBhY2s6IGZyb20gcHJvZHVjdCBkaW1lbnNpb25zIHRvIHRyYW5zcG9ydCBsb2FkaW5nIiwic3VidGl0bGUiOiJBIHByYWN0aWNhbCBsb29rIGF0IHdoeSBwYWNrYWdpbmcgZGVjaXNpb25zIHNob3VsZCBiZSBldmFsdWF0ZWQgYXMgYSBjb25uZWN0ZWQgZmxvdywgbm90IGFzIGlzb2xhdGVkIGNhbGN1bGF0aW9ucy4iLCJjYXRlZ29yeSI6IlBhY2thZ2luZyBvcHRpbWl6YXRpb24iLCJyZWFkX3RpbWUiOiI2IG1pbiByZWFkIiwicHVibGlzaGVkX2F0IjoiMjAyNi0wNy0wMyIsImhlcm9faWNvbiI6ImJpLWRpYWdyYW0tMyIsInN1bW1hcnkiOiJDb250YWluZXIgc2VsZWN0aW9uLCBwYWxsZXRpemF0aW9uLCBhbmQgdHJhbnNwb3J0IGxvYWRpbmcgYXJlIG9mdGVuIG9wdGltaXplZCBzZXBhcmF0ZWx5LiBLb2xsaVBhY2sgaXMgYnVpbHQgYXJvdW5kIHRoZSBpZGVhIHRoYXQgYmV0dGVyIGRlY2lzaW9ucyBhcHBlYXIgd2hlbiB0aGUgd2hvbGUgY2hhaW4gaXMgYW5hbHl6ZWQgdG9nZXRoZXIuIiwic2VjdGlvbnMiOlt7ImhlYWRpbmciOiJQYWNrYWdpbmcgZGVjaXNpb25zIGFyZSBjb25uZWN0ZWQiLCJwYXJhZ3JhcGhzIjpbIkEgY2FydG9uIHRoYXQgbG9va3MgZWZmaWNpZW50IGFyb3VuZCB0aGUgcHJvZHVjdCBjYW4gcGVyZm9ybSBwb29ybHkgb24gYSBwYWxsZXQuIEEgcGFsbGV0IHBhdHRlcm4gdGhhdCBsb29rcyBzdHJvbmcgY2FuIHN0aWxsIHdhc3RlIHRyYWlsZXIgc3BhY2UuIEEgdHJhbnNwb3J0IGxheW91dCB0aGF0IG1heGltaXplcyB2b2x1bWUgY2FuIGV4Y2VlZCBwYXlsb2FkIGxpbWl0cy4gVGhpcyBpcyB3aHkgcGFja2FnaW5nIGVuZ2luZWVyaW5nIHNob3VsZCBiZSB0cmVhdGVkIGFzIGEgZmxvdy4iLCJUaGUgcHJhY3RpY2FsIGdvYWwgaXMgbm90IG9ubHkgdG8gZmluZCBhIHBhY2thZ2UgdGhhdCBmaXRzLiBUaGUgZ29hbCBpcyB0byB1bmRlcnN0YW5kIGhvdyBlYWNoIGRlY2lzaW9uIGFmZmVjdHMgdGhlIG5leHQgb25lOiBwcm9kdWN0LCBiYWcgb3IgY2FydG9uLCBwYWxsZXQsIGFuZCB0cmFuc3BvcnQgdW5pdC4iXX0seyJoZWFkaW5nIjoiQSB1c2VmdWwgcGFja2FnaW5nIGZsb3cgc3RhcnRzIHdpdGggY2xlYXIgaW5wdXRzIiwicGFyYWdyYXBocyI6WyJUaGUgZm91bmRhdGlvbiBpcyBzaW1wbGUgYnV0IGltcG9ydGFudDogcHJvZHVjdCBkaW1lbnNpb25zLCBwcm9kdWN0IHdlaWdodCwgcmVxdWlyZWQgcXVhbnRpdHksIGFsbG93ZWQgcm90YXRpb25zLCBwYWNrYWdpbmcgZGltZW5zaW9ucywgcGFsbGV0IGxpbWl0cywgYW5kIHRyYW5zcG9ydCBjb25zdHJhaW50cy4gV2hlbiB0aGVzZSBpbnB1dHMgYXJlIGNvbnNpc3RlbnQsIHRoZSBlbmdpbmVlcmluZyBkaXNjdXNzaW9uIGJlY29tZXMgZmFzdGVyIGFuZCBlYXNpZXIuIl19LHsiaGVhZGluZyI6IlZpc3VhbGl6YXRpb24gaW1wcm92ZXMgZGVjaXNpb24gY29tbXVuaWNhdGlvbiIsInBhcmFncmFwaHMiOlsiQSB2aXN1YWwgcmVzdWx0IGhlbHBzIHRlYW1zIHVuZGVyc3RhbmQgd2hhdCB0aGUgY2FsY3VsYXRpb24gbWVhbnMuIEl0IGlzIGVhc2llciB0byBkaXNjdXNzIGEgY2FydG9uIGZpbGwsIGEgcGFsbGV0IHBhdHRlcm4sIG9yIGEgbG9hZGVkIHRyYWlsZXIgd2hlbiB0aGUgcmVzdWx0IGNhbiBiZSBzZWVuIHJhdGhlciB0aGFuIG9ubHkgZGVzY3JpYmVkIGluIGEgc3ByZWFkc2hlZXQuIl19LHsiaGVhZGluZyI6IlJlcG9ydHMgbWFrZSBkZWNpc2lvbnMgZWFzaWVyIHRvIHJldXNlIiwicGFyYWdyYXBocyI6WyJQYWNrYWdpbmcgZGVjaXNpb25zIG9mdGVuIG5lZWQgdG8gYmUgZXhwbGFpbmVkIHRvIHByb2plY3QgbWFuYWdlcnMsIGxvZ2lzdGljcyB0ZWFtcywgc3VwcGxpZXJzLCBvciBjdXN0b21lcnMuIEEgc2ltcGxlIFBERiByZXBvcnQgd2l0aCB0aGUgc2VsZWN0ZWQgc29sdXRpb24sIGFzc3VtcHRpb25zLCB1dGlsaXphdGlvbiwgYW5kIGltYWdlcyBjcmVhdGVzIGEgY29tbW9uIHJlZmVyZW5jZSBmb3IgdGhlIHByb2plY3QuIl19XSwidGFrZWF3YXlzIjpbIkV2YWx1YXRlIHBhY2thZ2luZyBhcyBhIGNoYWluLCBub3QgYXMgaXNvbGF0ZWQgdG9vbHMuIiwiVXNlIGNvbnNpc3RlbnQgdW5pdHMgYW5kIGNsZWFyIGNhdGFsb2d1ZSBkYXRhLiIsIlNob3cgdGhlIGRlY2lzaW9uIGZpcnN0LCB0aGVuIHRoZSBlbmdpbmVlcmluZyBkZXRhaWxzLiIsIlVzZSB2aXN1YWxpemF0aW9uIGFuZCBQREYgcmVwb3J0cyB0byBjb21tdW5pY2F0ZSByZXN1bHRzLiJdLCJhcnRpY2xlX3R5cGVfbWV0YSI6eyJsYWJlbCI6IkJ1c2luZXNzIGNhc2UiLCJzaG9ydF9sYWJlbCI6IkJ1c2luZXNzIGFydGljbGUiLCJpY29uIjoiYmktYnJpZWZjYXNlIiwiZGVzY3JpcHRpb24iOiJNYW5hZ2VtZW50LWZyaWVuZGx5IGFydGljbGVzIGFib3V0IGNvc3QsIHNhdmluZ3MsIENP4oKCLCBwcm9jZXNzIGltcHJvdmVtZW50LCBhbmQgYnVzaW5lc3MgZGVjaXNpb25zLiJ9LCJhdXRob3IiOnsibmFtZSI6IkFsZWphbmRybyBSYW3DrXJleiIsInJvbGUiOiJGb3VuZGVyIG9mIEtvbGxpTGFicyDCtyBDaGVtaWNhbCBFbmdpbmVlciBNc2MuIiwiaW1hZ2UiOiJpbWcvYWxlamFuZHJvLXJhbWlyZXouanBnIiwiYmlvIjoiQWxlamFuZHJvIFJhbcOtcmV6IGlzIGEgQ2hlbWljYWwgRW5naW5lZXIgYW5kIGRpZ2l0YWxpemF0aW9uIHNwZWNpYWxpc3QgYmFzZWQgaW4gR290aGVuYnVyZywgU3dlZGVuLiBIZSBidWlsZHMgS29sbGlQYWNrIGZyb20gaGlzIGV4cGVyaWVuY2UgaW4gdGhlIGZpZWxkIG9mIGxvZ2lzY3RpcyBhbmQgcGFja2FnaW5nIHRvIG1ha2UgcGFja2FnaW5nIGRlY2lzaW9ucyBtb3JlIHZpc3VhbCwgc3lzdGVtYXRpYywgYW5kIGRhdGEtZHJpdmVuLiJ9LCJhcnRpY2xlX3NjaGVtYV9qc29uIjoie1wiQGNvbnRleHRcIjogXCJodHRwczovL3NjaGVtYS5vcmdcIiwgXCJAdHlwZVwiOiBcIkJsb2dQb3N0aW5nXCIsIFwiaGVhZGxpbmVcIjogXCJXaHkgcGFja2FnaW5nIGZsb3cgbWF0dGVycyBpbiBLb2xsaVBhY2s6IGZyb20gcHJvZHVjdCBkaW1lbnNpb25zIHRvIHRyYW5zcG9ydCBsb2FkaW5nXCIsIFwiZGVzY3JpcHRpb25cIjogXCJBIHByYWN0aWNhbCBsb29rIGF0IHdoeSBwYWNrYWdpbmcgZGVjaXNpb25zIHNob3VsZCBiZSBldmFsdWF0ZWQgYXMgYSBjb25uZWN0ZWQgZmxvdywgbm90IGFzIGlzb2xhdGVkIGNhbGN1bGF0aW9ucy5cIiwgXCJhdXRob3JcIjoge1wiQHR5cGVcIjogXCJQZXJzb25cIiwgXCJuYW1lXCI6IFwiQWxlamFuZHJvIFJhbcOtcmV6XCJ9LCBcInB1Ymxpc2hlclwiOiB7XCJAdHlwZVwiOiBcIk9yZ2FuaXphdGlvblwiLCBcIm5hbWVcIjogXCJLb2xsaUxhYnNcIn0sIFwiYXJ0aWNsZVNlY3Rpb25cIjogXCJQYWNrYWdpbmcgb3B0aW1pemF0aW9uXCIsIFwiYWJvdXRcIjogXCJCdXNpbmVzcyBjYXNlXCIsIFwiZGF0ZVB1Ymxpc2hlZFwiOiBcIjIwMjYtMDctMDNcIiwgXCJkYXRlTW9kaWZpZWRcIjogXCIyMDI2LTA3LTAzXCIsIFwibWFpbkVudGl0eU9mUGFnZVwiOiBcImh0dHA6Ly90ZXN0c2VydmVyL2Jsb2cvXCJ9In0="
+og_image = ""
+takeaways = ["Evaluate packaging as a chain, not as isolated tools.", "Use consistent units and clear catalogue data.", "Show the decision first, then the engineering details.", "Use visualization and PDF reports to communicate results."]
 +++
+<section class="blog-content-section" markdown="1">
 
-# Why packaging flow matters in KolliPack: from product dimensions to transport loading
+## Packaging decisions are connected
 
-Container selection, palletization, and transport loading are often optimized separately. KolliPack is built around the idea that better decisions appear when the whole chain is analyzed together.
+A carton that looks efficient around the product can perform poorly on a pallet. A pallet pattern that looks strong can still waste trailer space. A transport layout that maximizes volume can exceed payload limits. This is why packaging engineering should be treated as a flow.
+
+The practical goal is not only to find a package that fits. The goal is to understand how each decision affects the next one: product, bag or carton, pallet, and transport unit.
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## A useful packaging flow starts with clear inputs
+
+The foundation is simple but important: product dimensions, product weight, required quantity, allowed rotations, packaging dimensions, pallet limits, and transport constraints. When these inputs are consistent, the engineering discussion becomes faster and easier.
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## Visualization improves decision communication
+
+A visual result helps teams understand what the calculation means. It is easier to discuss a carton fill, a pallet pattern, or a loaded trailer when the result can be seen rather than only described in a spreadsheet.
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## Reports make decisions easier to reuse
+
+Packaging decisions often need to be explained to project managers, logistics teams, suppliers, or customers. A simple PDF report with the selected solution, assumptions, utilization, and images creates a common reference for the project.
+
+</section>

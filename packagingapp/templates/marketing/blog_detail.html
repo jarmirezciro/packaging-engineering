@@ -1,12 +1,12 @@
 {% extends "marketing_base.html" %}
 {% load static %}
 
-{% block title %}{{ post.title }} | KolliLabs Blog{% endblock %}
-{% block meta_description %}{% if post.description %}{{ post.description }}{% else %}{{ post.subtitle }}{% endif %}{% endblock %}
+{% block title %}{{ post.seo_title|default:post.title }}{% endblock %}
+{% block meta_description %}{{ post.meta_description|default:post.description|default:post.subtitle }}{% endblock %}
 {% block extra_head %}
 <meta property="og:type" content="article">
-<meta property="og:title" content="{{ post.title }}">
-<meta property="og:description" content="{% if post.description %}{{ post.description }}{% else %}{{ post.subtitle }}{% endif %}">
+<meta property="og:title" content="{{ post.seo_title|default:post.title }}">
+<meta property="og:description" content="{{ post.meta_description|default:post.description|default:post.subtitle }}">
 {% if post.featured_image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static post.featured_image %}">{% endif %}
 <script type="application/ld+json">{{ post.article_schema_json|safe }}</script>
 {% endblock %}
@@ -72,65 +72,9 @@
 
     <section class="app-card blog-content-card">
         <div class="app-card-body">
-            {% for section in post.sections %}
-            <section class="blog-content-section">
-                <h2>{{ section.heading }}</h2>
-
-                {% for paragraph in section.paragraphs %}
-                <p>{{ paragraph }}</p>
-                {% endfor %}
-
-                {% if section.quote %}
-                <blockquote class="blog-pull-quote">{{ section.quote }}</blockquote>
-                {% endif %}
-
-                {% if section.bullets %}
-                <ul class="blog-bullet-list">
-                    {% for item in section.bullets %}
-                    <li>{{ item }}</li>
-                    {% endfor %}
-                </ul>
-                {% endif %}
-
-                {% if section.table %}
-                <div class="blog-table-wrap">
-                    <table class="table table-sm blog-result-table">
-                        <thead>
-                            <tr>
-                                {% for header in section.table.headers %}
-                                <th>{{ header }}</th>
-                                {% endfor %}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in section.table.rows %}
-                            <tr>
-                                {% for cell in row %}
-                                <td>{{ cell }}</td>
-                                {% endfor %}
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% endif %}
-
-                {% if section.note %}
-                <div class="blog-note"><i class="bi bi-lightbulb me-2"></i>{{ section.note }}</div>
-                {% endif %}
-
-                {% if section.figures %}
-                <div class="blog-figure-stack">
-                    {% for figure in section.figures %}
-                    <figure class="blog-figure">
-                        <img src="{% static figure.src %}" alt="{{ figure.alt }}">
-                        <figcaption>{{ figure.caption }}</figcaption>
-                    </figure>
-                    {% endfor %}
-                </div>
-                {% endif %}
-            </section>
-            {% endfor %}
+            <div class="blog-article-body">
+                {{ post.content_html|safe }}
+            </div>
 
             <div class="takeaway-box">
                 <h3><i class="bi bi-check2-circle me-2"></i>Key takeaways</h3>

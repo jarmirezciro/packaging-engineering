@@ -28,7 +28,7 @@ Do not ask unnecessary questions. When information is not specified, infer conse
 ## Repository rules
 
 1. Read `references/blog-architecture.md` before editing.
-2. Inspect existing articles and the generated registry before choosing a topic or slug.
+2. Inspect the existing article files before choosing a topic or slug.
 3. Create or edit article files in the configured article-content directory.
 4. Store production article images under `static/img/blog/<slug>/`.
 5. Do not add article content to `marketing.py`.
@@ -110,13 +110,11 @@ When image generation is unavailable in the active environment, create a final, 
 
 ### 6. Validate
 
-Run the repository equivalents of:
+Run:
 
 ```bash
-python manage.py validate_blog_content
 python .agents/skills/blog-article/scripts/validate_article.py <article-file>
 python .agents/skills/blog-article/scripts/validate_internal_links.py
-python .agents/skills/blog-article/scripts/generate_registry.py
 python manage.py check
 ```
 

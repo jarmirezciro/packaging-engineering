@@ -71,9 +71,9 @@ box-selection-thumbnail.webp
 
 Avoid names such as `image1.png`, `final-final.png`, or generated opaque identifiers.
 
-## Registry
+## Article discovery
 
-`docs/blog/article-registry.md` is generated from front matter. It must not be manually edited as a second content database.
+The article directory is the only content registry. The repository discovers published `*.md` files directly; do not maintain a second article list.
 
 ## Brand assets
 

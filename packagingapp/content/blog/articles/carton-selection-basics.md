@@ -1,27 +1,53 @@
 +++
 schema_version = 1
 status = "published"
+display_order = 4
 title = "Carton selection basics: fit, quantity, weight, and documentation"
 slug = "carton-selection-basics"
+subtitle = "A simple guide to the practical inputs that make carton selection easier to standardize and communicate."
 excerpt = "Carton selection is more than finding a box that fits. A useful decision also considers quantity, orientation, gross weight, catalogue data, and what happens in palletization."
-seo_title = "Carton selection basics: fit, quantity, weight, and documentation"
-meta_description = "Carton selection is more than finding a box that fits. A useful decision also considers quantity, orientation, gross weight, catalogue data, and what happens in palletization."
+summary = "Carton selection is more than finding a box that fits. A useful decision also considers quantity, orientation, gross weight, catalogue data, and what happens in palletization."
+description = "A simple guide to the practical inputs that make carton selection easier to standardize and communicate."
+seo_title = "Carton Selection Basics: Fit, Quantity and Weight | KolliLabs"
+meta_description = "A simple guide to the practical inputs that make carton selection easier to standardize and communicate."
 article_type = "practical_guide"
 author = "Alejandro Ramírez"
-published_at = "2026-07-03"
-updated_at = "2026-07-03"
-thumbnail = "img/blog/carton-selection-basics/thumbnail.png"
+category = "Container selection"
+read_time = "4 min read"
+published_at = 2026-07-03
+updated_at = 2026-07-03
+hero_icon = "bi-box-seam"
+featured_image = ""
+thumbnail = ""
 thumbnail_alt = "Carton selection basics: fit, quantity, weight, and documentation"
-primary_keyword = "Carton selection basics: fit, quantity, weight, and documentation"
-body_format = "markdown"
-body_context_key = "body"
+primary_keyword = "carton selection"
+tags = ["carton selection", "packaging catalogue", "box selection"]
+related_articles = ["box-selection-3d-bin-packing-problem", "why-packaging-flow-matters"]
+related_tools = ["container-selection"]
 canonical_path = "/blog/carton-selection-basics/"
-tags = []
-related_articles = []
-related_tools = []
-legacy_json_b64 = "eyJzbHVnIjoiY2FydG9uLXNlbGVjdGlvbi1iYXNpY3MiLCJhcnRpY2xlX3R5cGUiOiJwcmFjdGljYWxfZ3VpZGUiLCJ0aXRsZSI6IkNhcnRvbiBzZWxlY3Rpb24gYmFzaWNzOiBmaXQsIHF1YW50aXR5LCB3ZWlnaHQsIGFuZCBkb2N1bWVudGF0aW9uIiwic3VidGl0bGUiOiJBIHNpbXBsZSBndWlkZSB0byB0aGUgcHJhY3RpY2FsIGlucHV0cyB0aGF0IG1ha2UgY2FydG9uIHNlbGVjdGlvbiBlYXNpZXIgdG8gc3RhbmRhcmRpemUgYW5kIGNvbW11bmljYXRlLiIsImNhdGVnb3J5IjoiQ29udGFpbmVyIHNlbGVjdGlvbiIsInJlYWRfdGltZSI6IjQgbWluIHJlYWQiLCJwdWJsaXNoZWRfYXQiOiIyMDI2LTA3LTAzIiwiaGVyb19pY29uIjoiYmktYm94LXNlYW0iLCJzdW1tYXJ5IjoiQ2FydG9uIHNlbGVjdGlvbiBpcyBtb3JlIHRoYW4gZmluZGluZyBhIGJveCB0aGF0IGZpdHMuIEEgdXNlZnVsIGRlY2lzaW9uIGFsc28gY29uc2lkZXJzIHF1YW50aXR5LCBvcmllbnRhdGlvbiwgZ3Jvc3Mgd2VpZ2h0LCBjYXRhbG9ndWUgZGF0YSwgYW5kIHdoYXQgaGFwcGVucyBpbiBwYWxsZXRpemF0aW9uLiIsInNlY3Rpb25zIjpbeyJoZWFkaW5nIjoiU3RhcnQgd2l0aCByZWxpYWJsZSBwcm9kdWN0IGRhdGEiLCJwYXJhZ3JhcGhzIjpbIlRoZSBtb3N0IGNvbW1vbiBjYXJ0b24gc2VsZWN0aW9uIHByb2JsZW1zIHN0YXJ0IHdpdGggaW5jb25zaXN0ZW50IGlucHV0cy4gUHJvZHVjdCBsZW5ndGgsIHdpZHRoLCBoZWlnaHQsIHdlaWdodCwgcXVhbnRpdHksIGFuZCBhbGxvd2VkIHJvdGF0aW9ucyBzaG91bGQgYmUgY2xlYXIgYmVmb3JlIGFsdGVybmF0aXZlcyBhcmUgY29tcGFyZWQuIl19LHsiaGVhZGluZyI6IlVzZSBvdXRzaWRlIGRpbWVuc2lvbnMgZm9yIGRvd25zdHJlYW0gc3RlcHMiLCJwYXJhZ3JhcGhzIjpbIkEgY2FydG9uIG1heSBoYXZlIGludGVybmFsIGFuZCBleHRlcm5hbCBkaW1lbnNpb25zLiBJbnRlcm5hbCBkaW1lbnNpb25zIGFyZSB1c2VmdWwgZm9yIHByb2R1Y3QgZml0LiBFeHRlcm5hbCBkaW1lbnNpb25zIGFyZSB1c3VhbGx5IHRoZSBjb3JyZWN0IGlucHV0IGZvciBwYWxsZXRpemF0aW9uIGFuZCB0cmFuc3BvcnQgYW5hbHlzaXMgYmVjYXVzZSB0aGV5IGRlc2NyaWJlIHRoZSByZWFsIHBoeXNpY2FsIGZvb3RwcmludCBvZiB0aGUgcGFja2VkIGNhcnRvbi4iXX0seyJoZWFkaW5nIjoiRG9jdW1lbnQgdGhlIHNlbGVjdGVkIGRlY2lzaW9uIiwicGFyYWdyYXBocyI6WyJBIHNlbGVjdGVkIGNhcnRvbiBzaG91bGQgYmUgZWFzeSB0byBleHBsYWluOiB3aGF0IHByb2R1Y3Qgd2FzIGFuYWx5emVkLCB3aGljaCBjYXJ0b24gd2FzIHNlbGVjdGVkLCBob3cgbWFueSB1bml0cyBmaXQsIHRoZSBncm9zcyBjYXJ0b24gd2VpZ2h0LCBhbmQgd2hldGhlciB0aGVyZSBhcmUgYW55IGNvbnN0cmFpbnRzIG9yIHdhcm5pbmdzLiJdfV0sInRha2Vhd2F5cyI6WyJTZXBhcmF0ZSBwcm9kdWN0IGZpdCBsb2dpYyBmcm9tIGRvd25zdHJlYW0gZXh0ZXJuYWwtZGltZW5zaW9uIGxvZ2ljLiIsIlF1YW50aXR5IGFuZCBncm9zcyB3ZWlnaHQgYXJlIGVzc2VudGlhbCBmb3IgdGhlIG5leHQgcGFja2FnaW5nIHN0ZXAuIiwiR29vZCBjYXJ0b24gZGVjaXNpb25zIHNob3VsZCBiZSB2aXN1YWwgYW5kIHJlcG9ydGFibGUuIiwiQ2F0YWxvZ3VlIHF1YWxpdHkgZGlyZWN0bHkgYWZmZWN0cyBlbmdpbmVlcmluZyBxdWFsaXR5LiJdLCJhcnRpY2xlX3R5cGVfbWV0YSI6eyJsYWJlbCI6IlByYWN0aWNhbCBndWlkZSIsInNob3J0X2xhYmVsIjoiSG93LXRvIGd1aWRlIiwiaWNvbiI6ImJpLWNvbXBhc3MiLCJkZXNjcmlwdGlvbiI6IlN0ZXAtYnktc3RlcCBhcnRpY2xlcyB0aGF0IGhlbHAgcGFja2FnaW5nIGFuZCBsb2dpc3RpY3MgdGVhbXMgYXBwbHkgYSBtZXRob2QgaW4gZGFpbHkgd29yay4ifSwiYXV0aG9yIjp7Im5hbWUiOiJBbGVqYW5kcm8gUmFtw61yZXoiLCJyb2xlIjoiRm91bmRlciBvZiBLb2xsaUxhYnMgwrcgQ2hlbWljYWwgRW5naW5lZXIgTXNjLiIsImltYWdlIjoiaW1nL2FsZWphbmRyby1yYW1pcmV6LmpwZyIsImJpbyI6IkFsZWphbmRybyBSYW3DrXJleiBpcyBhIENoZW1pY2FsIEVuZ2luZWVyIGFuZCBkaWdpdGFsaXphdGlvbiBzcGVjaWFsaXN0IGJhc2VkIGluIEdvdGhlbmJ1cmcsIFN3ZWRlbi4gSGUgYnVpbGRzIEtvbGxpUGFjayBmcm9tIGhpcyBleHBlcmllbmNlIGluIHRoZSBmaWVsZCBvZiBsb2dpc2N0aXMgYW5kIHBhY2thZ2luZyB0byBtYWtlIHBhY2thZ2luZyBkZWNpc2lvbnMgbW9yZSB2aXN1YWwsIHN5c3RlbWF0aWMsIGFuZCBkYXRhLWRyaXZlbi4ifSwiYXJ0aWNsZV9zY2hlbWFfanNvbiI6IntcIkBjb250ZXh0XCI6IFwiaHR0cHM6Ly9zY2hlbWEub3JnXCIsIFwiQHR5cGVcIjogXCJCbG9nUG9zdGluZ1wiLCBcImhlYWRsaW5lXCI6IFwiQ2FydG9uIHNlbGVjdGlvbiBiYXNpY3M6IGZpdCwgcXVhbnRpdHksIHdlaWdodCwgYW5kIGRvY3VtZW50YXRpb25cIiwgXCJkZXNjcmlwdGlvblwiOiBcIkEgc2ltcGxlIGd1aWRlIHRvIHRoZSBwcmFjdGljYWwgaW5wdXRzIHRoYXQgbWFrZSBjYXJ0b24gc2VsZWN0aW9uIGVhc2llciB0byBzdGFuZGFyZGl6ZSBhbmQgY29tbXVuaWNhdGUuXCIsIFwiYXV0aG9yXCI6IHtcIkB0eXBlXCI6IFwiUGVyc29uXCIsIFwibmFtZVwiOiBcIkFsZWphbmRybyBSYW3DrXJlelwifSwgXCJwdWJsaXNoZXJcIjoge1wiQHR5cGVcIjogXCJPcmdhbml6YXRpb25cIiwgXCJuYW1lXCI6IFwiS29sbGlMYWJzXCJ9LCBcImFydGljbGVTZWN0aW9uXCI6IFwiQ29udGFpbmVyIHNlbGVjdGlvblwiLCBcImFib3V0XCI6IFwiUHJhY3RpY2FsIGd1aWRlXCIsIFwiZGF0ZVB1Ymxpc2hlZFwiOiBcIjIwMjYtMDctMDNcIiwgXCJkYXRlTW9kaWZpZWRcIjogXCIyMDI2LTA3LTAzXCIsIFwibWFpbkVudGl0eU9mUGFnZVwiOiBcImh0dHA6Ly90ZXN0c2VydmVyL2Jsb2cvXCJ9In0="
+og_image = ""
+takeaways = ["Separate product fit logic from downstream external-dimension logic.", "Quantity and gross weight are essential for the next packaging step.", "Good carton decisions should be visual and reportable.", "Catalogue quality directly affects engineering quality."]
 +++
+<section class="blog-content-section" markdown="1">
 
-# Carton selection basics: fit, quantity, weight, and documentation
+## Start with reliable product data
 
-Carton selection is more than finding a box that fits. A useful decision also considers quantity, orientation, gross weight, catalogue data, and what happens in palletization.
+The most common carton selection problems start with inconsistent inputs. Product length, width, height, weight, quantity, and allowed rotations should be clear before alternatives are compared.
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## Use outside dimensions for downstream steps
+
+A carton may have internal and external dimensions. Internal dimensions are useful for product fit. External dimensions are usually the correct input for palletization and transport analysis because they describe the real physical footprint of the packed carton.
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## Document the selected decision
+
+A selected carton should be easy to explain: what product was analyzed, which carton was selected, how many units fit, the gross carton weight, and whether there are any constraints or warnings.
+
+</section>

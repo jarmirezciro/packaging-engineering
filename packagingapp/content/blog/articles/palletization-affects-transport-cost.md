@@ -1,27 +1,53 @@
 +++
 schema_version = 1
 status = "published"
+display_order = 3
 title = "How palletization affects transport loading and cost"
 slug = "palletization-affects-transport-cost"
+subtitle = "A practical explanation of why pallet patterns, stack height, and overhang decisions should be reviewed before transport loading is evaluated."
 excerpt = "Palletization is not only about fitting cartons on a pallet. The final stack can strongly affect trailer fill, payload usage, handling, and how easy the packaging solution is to explain."
-seo_title = "How palletization affects transport loading and cost"
-meta_description = "Palletization is not only about fitting cartons on a pallet. The final stack can strongly affect trailer fill, payload usage, handling, and how easy the packaging solution is to explain."
+summary = "Palletization is not only about fitting cartons on a pallet. The final stack can strongly affect trailer fill, payload usage, handling, and how easy the packaging solution is to explain."
+description = "A practical explanation of why pallet patterns, stack height, and overhang decisions should be reviewed before transport loading is evaluated."
+seo_title = "How palletization affects transport loading and cost | KolliLabs"
+meta_description = "A practical explanation of why pallet patterns, stack height, and overhang decisions should be reviewed before transport loading is evaluated."
 article_type = "business_case"
 author = "Alejandro Ramírez"
-published_at = "2026-07-03"
-updated_at = "2026-07-03"
-thumbnail = "img/blog/palletization-affects-transport-cost/thumbnail.png"
+category = "Palletization"
+read_time = "5 min read"
+published_at = 2026-07-03
+updated_at = 2026-07-03
+hero_icon = "bi-grid-3x3-gap"
+featured_image = ""
+thumbnail = ""
 thumbnail_alt = "How palletization affects transport loading and cost"
-primary_keyword = "How palletization affects transport loading and cost"
-body_format = "markdown"
-body_context_key = "body"
+primary_keyword = "palletization transport cost"
+tags = ["palletization", "transport loading", "logistics cost"]
+related_articles = ["why-packaging-flow-matters", "carton-selection-basics"]
+related_tools = ["palletization-calculator"]
 canonical_path = "/blog/palletization-affects-transport-cost/"
-tags = []
-related_articles = []
-related_tools = []
-legacy_json_b64 = "eyJzbHVnIjoicGFsbGV0aXphdGlvbi1hZmZlY3RzLXRyYW5zcG9ydC1jb3N0IiwiYXJ0aWNsZV90eXBlIjoiYnVzaW5lc3NfY2FzZSIsInRpdGxlIjoiSG93IHBhbGxldGl6YXRpb24gYWZmZWN0cyB0cmFuc3BvcnQgbG9hZGluZyBhbmQgY29zdCIsInN1YnRpdGxlIjoiQSBwcmFjdGljYWwgZXhwbGFuYXRpb24gb2Ygd2h5IHBhbGxldCBwYXR0ZXJucywgc3RhY2sgaGVpZ2h0LCBhbmQgb3ZlcmhhbmcgZGVjaXNpb25zIHNob3VsZCBiZSByZXZpZXdlZCBiZWZvcmUgdHJhbnNwb3J0IGxvYWRpbmcgaXMgZXZhbHVhdGVkLiIsImNhdGVnb3J5IjoiUGFsbGV0aXphdGlvbiIsInJlYWRfdGltZSI6IjUgbWluIHJlYWQiLCJwdWJsaXNoZWRfYXQiOiIyMDI2LTA3LTAzIiwiaGVyb19pY29uIjoiYmktZ3JpZC0zeDMtZ2FwIiwic3VtbWFyeSI6IlBhbGxldGl6YXRpb24gaXMgbm90IG9ubHkgYWJvdXQgZml0dGluZyBjYXJ0b25zIG9uIGEgcGFsbGV0LiBUaGUgZmluYWwgc3RhY2sgY2FuIHN0cm9uZ2x5IGFmZmVjdCB0cmFpbGVyIGZpbGwsIHBheWxvYWQgdXNhZ2UsIGhhbmRsaW5nLCBhbmQgaG93IGVhc3kgdGhlIHBhY2thZ2luZyBzb2x1dGlvbiBpcyB0byBleHBsYWluLiIsInNlY3Rpb25zIjpbeyJoZWFkaW5nIjoiQSBnb29kIHBhbGxldCBwYXR0ZXJuIG11c3Qgd29yayBiZXlvbmQgdGhlIHBhbGxldCIsInBhcmFncmFwaHMiOlsiQSBwYWxsZXQgcGF0dGVybiBjYW4gbG9vayBlZmZpY2llbnQgb24gdGhlIHBhbGxldCBmbG9vciBidXQgc3RpbGwgY3JlYXRlIHByb2JsZW1zIGxhdGVyIGluIHRoZSBjaGFpbi4gSWYgdGhlIHN0YWNrIGhlaWdodCBpcyB0b28gaGlnaCwgdGhlIHBhbGxldCBtYXkgbm90IGZpdCBpbiB0aGUgdHJhbnNwb3J0IHVuaXQuIElmIHRoZSBwYXR0ZXJuIGNyZWF0ZXMgdW5zdGFibGUgZWRnZXMsIHRoZSBzb2x1dGlvbiBtYXkgYmUgZGlmZmljdWx0IHRvIGhhbmRsZS4gSWYgdGhlIHBhbGxldCBkaW1lbnNpb25zIGFyZSBub3QgYWxpZ25lZCB3aXRoIHRoZSB0cmFuc3BvcnQgdW5pdCwgZmxvb3Igc3BhY2UgY2FuIGJlIHdhc3RlZC4iXX0seyJoZWFkaW5nIjoiVGhlIG1vc3QgaW1wb3J0YW50IHBhbGxldGl6YXRpb24gbWV0cmljcyIsInBhcmFncmFwaHMiOlsiVXNlZnVsIHBhbGxldGl6YXRpb24gZGlzY3Vzc2lvbnMgdXN1YWxseSBmb2N1cyBvbiBjYXJ0b25zIHBlciBsYXllciwgbnVtYmVyIG9mIGxheWVycywgdG90YWwgY2FydG9ucyBwZXIgcGFsbGV0LCBwYWxsZXQgZmxvb3IgdXNhZ2UsIHN0YWNrIHZvbHVtZSB1c2FnZSwgZ3Jvc3MgcGFsbGV0IHdlaWdodCwgYW5kIG92ZXJoYW5nLiBUaGVzZSBtZXRyaWNzIGV4cGxhaW4gYm90aCB0aGUgZW5naW5lZXJpbmcgcmVzdWx0IGFuZCB0aGUgb3BlcmF0aW9uYWwgaW1wYWN0LiJdfSx7ImhlYWRpbmciOiJUcmFuc3BvcnQgY2hhbmdlcyB0aGUgbWVhbmluZyBvZiBhbiBlZmZpY2llbnQgcGFsbGV0IiwicGFyYWdyYXBocyI6WyJBIHBhbGxldCB0aGF0IG1heGltaXplcyBjYXJ0b25zIG1heSBzdGlsbCBiZSBhIHBvb3Igb3B0aW9uIGlmIGZld2VyIHBhbGxldHMgZml0IGluIHRoZSB0cmFpbGVyIG9yIGlmIHBheWxvYWQgaXMgcmVhY2hlZCBiZWZvcmUgdm9sdW1lIGlzIHVzZWQuIFRoaXMgaXMgd2h5IHBhbGxldGl6YXRpb24gYW5kIHRyYW5zcG9ydCBsb2FkaW5nIHNob3VsZCBiZSByZXZpZXdlZCB0b2dldGhlciB3aGVuIHRoZSBkZWNpc2lvbiBoYXMgbG9naXN0aWNzIGltcGFjdC4iXX1dLCJ0YWtlYXdheXMiOlsiUmV2aWV3IHBhbGxldGl6YXRpb24gdG9nZXRoZXIgd2l0aCB0cmFuc3BvcnQgbG9hZGluZyB3aGVuIHBvc3NpYmxlLiIsIlVzZSBjbGVhciBsYW5ndWFnZTogbWFpbiBsYXllciwgYWx0ZXJuYXRlIGxheWVyLCBwYWxsZXQgZmxvb3IgdXNhZ2UsIHN0YWNrIHZvbHVtZSB1c2FnZSwgYW5kIG92ZXJoYW5nLiIsIkRvIG5vdCBvcHRpbWl6ZSBvbmx5IGNhcnRvbnMgcGVyIHBhbGxldCBpZiBpdCBjcmVhdGVzIGRvd25zdHJlYW0gdHJhbnNwb3J0IGxvc3Nlcy4iLCJBIHZpc3VhbCBwYWxsZXQgcmVwb3J0IGhlbHBzIHByb2plY3QgdGVhbXMgdW5kZXJzdGFuZCB0aGUgc2VsZWN0ZWQgc29sdXRpb24uIl0sImFydGljbGVfdHlwZV9tZXRhIjp7ImxhYmVsIjoiQnVzaW5lc3MgY2FzZSIsInNob3J0X2xhYmVsIjoiQnVzaW5lc3MgYXJ0aWNsZSIsImljb24iOiJiaS1icmllZmNhc2UiLCJkZXNjcmlwdGlvbiI6Ik1hbmFnZW1lbnQtZnJpZW5kbHkgYXJ0aWNsZXMgYWJvdXQgY29zdCwgc2F2aW5ncywgQ0/igoIsIHByb2Nlc3MgaW1wcm92ZW1lbnQsIGFuZCBidXNpbmVzcyBkZWNpc2lvbnMuIn0sImF1dGhvciI6eyJuYW1lIjoiQWxlamFuZHJvIFJhbcOtcmV6Iiwicm9sZSI6IkZvdW5kZXIgb2YgS29sbGlMYWJzIMK3IENoZW1pY2FsIEVuZ2luZWVyIE1zYy4iLCJpbWFnZSI6ImltZy9hbGVqYW5kcm8tcmFtaXJlei5qcGciLCJiaW8iOiJBbGVqYW5kcm8gUmFtw61yZXogaXMgYSBDaGVtaWNhbCBFbmdpbmVlciBhbmQgZGlnaXRhbGl6YXRpb24gc3BlY2lhbGlzdCBiYXNlZCBpbiBHb3RoZW5idXJnLCBTd2VkZW4uIEhlIGJ1aWxkcyBLb2xsaVBhY2sgZnJvbSBoaXMgZXhwZXJpZW5jZSBpbiB0aGUgZmllbGQgb2YgbG9naXNjdGlzIGFuZCBwYWNrYWdpbmcgdG8gbWFrZSBwYWNrYWdpbmcgZGVjaXNpb25zIG1vcmUgdmlzdWFsLCBzeXN0ZW1hdGljLCBhbmQgZGF0YS1kcml2ZW4uIn0sImFydGljbGVfc2NoZW1hX2pzb24iOiJ7XCJAY29udGV4dFwiOiBcImh0dHBzOi8vc2NoZW1hLm9yZ1wiLCBcIkB0eXBlXCI6IFwiQmxvZ1Bvc3RpbmdcIiwgXCJoZWFkbGluZVwiOiBcIkhvdyBwYWxsZXRpemF0aW9uIGFmZmVjdHMgdHJhbnNwb3J0IGxvYWRpbmcgYW5kIGNvc3RcIiwgXCJkZXNjcmlwdGlvblwiOiBcIkEgcHJhY3RpY2FsIGV4cGxhbmF0aW9uIG9mIHdoeSBwYWxsZXQgcGF0dGVybnMsIHN0YWNrIGhlaWdodCwgYW5kIG92ZXJoYW5nIGRlY2lzaW9ucyBzaG91bGQgYmUgcmV2aWV3ZWQgYmVmb3JlIHRyYW5zcG9ydCBsb2FkaW5nIGlzIGV2YWx1YXRlZC5cIiwgXCJhdXRob3JcIjoge1wiQHR5cGVcIjogXCJQZXJzb25cIiwgXCJuYW1lXCI6IFwiQWxlamFuZHJvIFJhbcOtcmV6XCJ9LCBcInB1Ymxpc2hlclwiOiB7XCJAdHlwZVwiOiBcIk9yZ2FuaXphdGlvblwiLCBcIm5hbWVcIjogXCJLb2xsaUxhYnNcIn0sIFwiYXJ0aWNsZVNlY3Rpb25cIjogXCJQYWxsZXRpemF0aW9uXCIsIFwiYWJvdXRcIjogXCJCdXNpbmVzcyBjYXNlXCIsIFwiZGF0ZVB1Ymxpc2hlZFwiOiBcIjIwMjYtMDctMDNcIiwgXCJkYXRlTW9kaWZpZWRcIjogXCIyMDI2LTA3LTAzXCIsIFwibWFpbkVudGl0eU9mUGFnZVwiOiBcImh0dHA6Ly90ZXN0c2VydmVyL2Jsb2cvXCJ9In0="
+og_image = ""
+takeaways = ["Review palletization together with transport loading when possible.", "Use clear language: main layer, alternate layer, pallet floor usage, stack volume usage, and overhang.", "Do not optimize only cartons per pallet if it creates downstream transport losses.", "A visual pallet report helps project teams understand the selected solution."]
 +++
+<section class="blog-content-section" markdown="1">
 
-# How palletization affects transport loading and cost
+## A good pallet pattern must work beyond the pallet
 
-Palletization is not only about fitting cartons on a pallet. The final stack can strongly affect trailer fill, payload usage, handling, and how easy the packaging solution is to explain.
+A pallet pattern can look efficient on the pallet floor but still create problems later in the chain. If the stack height is too high, the pallet may not fit in the transport unit. If the pattern creates unstable edges, the solution may be difficult to handle. If the pallet dimensions are not aligned with the transport unit, floor space can be wasted.
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## The most important palletization metrics
+
+Useful palletization discussions usually focus on cartons per layer, number of layers, total cartons per pallet, pallet floor usage, stack volume usage, gross pallet weight, and overhang. These metrics explain both the engineering result and the operational impact.
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## Transport changes the meaning of an efficient pallet
+
+A pallet that maximizes cartons may still be a poor option if fewer pallets fit in the trailer or if payload is reached before volume is used. This is why palletization and transport loading should be reviewed together when the decision has logistics impact.
+
+</section>

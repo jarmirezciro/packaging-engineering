@@ -1,27 +1,270 @@
 +++
 schema_version = 1
 status = "published"
+display_order = 1
 title = "Why Choosing the Right Box Is a 3D Bin Packing Problem"
 slug = "box-selection-3d-bin-packing-problem"
+subtitle = "A practical explanation of why box selection is more than checking if a product fits, and how KolliPack uses packing logic to optimize box space and catalogue decisions."
 excerpt = "Box selection is a 3D packing problem with many possible product orientations and leftover-space combinations. KolliPack helps evaluate these alternatives faster and more consistently than manual checks."
-seo_title = "Why Choosing the Right Box Is a 3D Bin Packing Problem"
-meta_description = "Box selection is a 3D packing problem with many possible product orientations and leftover-space combinations. KolliPack helps evaluate these alternatives faster and more consistently than manual checks."
+summary = "Box selection is a 3D packing problem with many possible product orientations and leftover-space combinations. KolliPack helps evaluate these alternatives faster and more consistently than manual checks."
+description = "Learn why choosing the right box is more complex than it looks, how 3D bin packing affects packaging cost and transport efficiency, and how KolliPack helps companies optimize packaging decisions."
+seo_title = "3D Bin Packing for Better Box Selection | KolliLabs"
+meta_description = "Learn how 3D bin-packing logic improves box selection, capacity, packaging cost, and transport efficiency with KolliPack."
 article_type = "engineering_deep_dive"
 author = "Alejandro Ramírez"
-published_at = "2026-07-09"
-updated_at = "2026-07-09"
+category = "Packaging optimization"
+read_time = "9 min read"
+published_at = 2026-07-09
+updated_at = 2026-07-09
+hero_icon = "bi-box-seam"
+featured_image = "img/blog/box-selection-3d-bin-packing-problem/blog1_thumbnail_kollipack_box_selection.png"
 thumbnail = "img/blog/box-selection-3d-bin-packing-problem/blog1_thumbnail_kollipack_box_selection.png"
 thumbnail_alt = "Why Choosing the Right Box Is a 3D Bin Packing Problem"
-primary_keyword = "Why Choosing the Right Box Is a 3D Bin Packing Problem"
-body_format = "markdown"
-body_context_key = "body"
+primary_keyword = "3D bin packing box selection"
+tags = ["box selection", "3D bin packing", "packaging optimization"]
+related_articles = ["carton-selection-basics", "why-packaging-flow-matters"]
+related_tools = ["container-selection"]
 canonical_path = "/blog/box-selection-3d-bin-packing-problem/"
-tags = []
-related_articles = []
-related_tools = []
-legacy_json_b64 = "eyJzbHVnIjoiYm94LXNlbGVjdGlvbi0zZC1iaW4tcGFja2luZy1wcm9ibGVtIiwiYXJ0aWNsZV90eXBlIjoiZW5naW5lZXJpbmdfZGVlcF9kaXZlIiwidGl0bGUiOiJXaHkgQ2hvb3NpbmcgdGhlIFJpZ2h0IEJveCBJcyBhIDNEIEJpbiBQYWNraW5nIFByb2JsZW0iLCJzdWJ0aXRsZSI6IkEgcHJhY3RpY2FsIGV4cGxhbmF0aW9uIG9mIHdoeSBib3ggc2VsZWN0aW9uIGlzIG1vcmUgdGhhbiBjaGVja2luZyBpZiBhIHByb2R1Y3QgZml0cywgYW5kIGhvdyBLb2xsaVBhY2sgdXNlcyBwYWNraW5nIGxvZ2ljIHRvIG9wdGltaXplIGJveCBzcGFjZSBhbmQgY2F0YWxvZ3VlIGRlY2lzaW9ucy4iLCJkZXNjcmlwdGlvbiI6IkxlYXJuIHdoeSBjaG9vc2luZyB0aGUgcmlnaHQgYm94IGlzIG1vcmUgY29tcGxleCB0aGFuIGl0IGxvb2tzLCBob3cgM0QgYmluIHBhY2tpbmcgYWZmZWN0cyBwYWNrYWdpbmcgY29zdCBhbmQgdHJhbnNwb3J0IGVmZmljaWVuY3ksIGFuZCBob3cgS29sbGlQYWNrIGhlbHBzIGNvbXBhbmllcyBvcHRpbWl6ZSBwYWNrYWdpbmcgZGVjaXNpb25zLiIsImNhdGVnb3J5IjoiUGFja2FnaW5nIG9wdGltaXphdGlvbiIsInJlYWRfdGltZSI6IjkgbWluIHJlYWQiLCJwdWJsaXNoZWRfYXQiOiIyMDI2LTA3LTA5IiwiaGVyb19pY29uIjoiYmktYm94LXNlYW0iLCJmZWF0dXJlZF9pbWFnZSI6ImltZy9ibG9nL2JveC1zZWxlY3Rpb24tM2QtYmluLXBhY2tpbmctcHJvYmxlbS9ibG9nMV90aHVtYm5haWxfa29sbGlwYWNrX2JveF9zZWxlY3Rpb24ucG5nIiwic3VtbWFyeSI6IkJveCBzZWxlY3Rpb24gaXMgYSAzRCBwYWNraW5nIHByb2JsZW0gd2l0aCBtYW55IHBvc3NpYmxlIHByb2R1Y3Qgb3JpZW50YXRpb25zIGFuZCBsZWZ0b3Zlci1zcGFjZSBjb21iaW5hdGlvbnMuIEtvbGxpUGFjayBoZWxwcyBldmFsdWF0ZSB0aGVzZSBhbHRlcm5hdGl2ZXMgZmFzdGVyIGFuZCBtb3JlIGNvbnNpc3RlbnRseSB0aGFuIG1hbnVhbCBjaGVja3MuIiwiZmxvd19zdGVwcyI6W3siaWNvbiI6ImJpLWJveC1zZWFtIiwibGFiZWwiOiJQcm9kdWN0In0seyJpY29uIjoiYmktZ3JpZC0zeDMtZ2FwIiwibGFiZWwiOiJCYXNlIHdheXMifSx7Imljb24iOiJiaS1ib3VuZGluZy1ib3giLCJsYWJlbCI6Ik1vc2FpYyB6b25lcyJ9LHsiaWNvbiI6ImJpLWNoZWNrMi1jaXJjbGUiLCJsYWJlbCI6IkJldHRlciBkZWNpc2lvbiJ9XSwic2VjdGlvbnMiOlt7ImhlYWRpbmciOiJXaHkgYSBzaW1wbGUgYm94IGRlY2lzaW9uIGJlY29tZXMgYW4gb3B0aW1pemF0aW9uIHByb2JsZW0iLCJwYXJhZ3JhcGhzIjpbIk1hbnVmYWN0dXJpbmcgYW5kIGxvZ2lzdGljcyBvcGVyYXRpb25zIG5lZWQgYm94ZXMsIGNvbnRhaW5lcnMsIGFuZCBvdGhlciBwYWNrYWdpbmcgbWF0ZXJpYWxzIHRvIHRyYW5zcG9ydCBmaW5pc2hlZCBhbmQgc2VtaS1maW5pc2hlZCBnb29kcy4gTW9zdCBjb21wYW5pZXMgdGhlcmVmb3JlIHdvcmsgd2l0aCBhIHN0YW5kYXJkIHBhY2thZ2luZyBhc3NvcnRtZW50OiBhIGNhdGFsb2d1ZSBvZiBib3hlcywgcGFsbGV0cywgYmFncywgYW5kIGNvbnRhaW5lcnMgdGhhdCBhcmUgYWxyZWFkeSBhcHByb3ZlZCwgcHVyY2hhc2VkLCBhbmQgYXZhaWxhYmxlIGluIHRoZSBzdXBwbHkgY2hhaW4uIiwiQXQgZmlyc3QsIGNob29zaW5nIGEgYm94IG1heSBzb3VuZCBsaWtlIGEgc2ltcGxlIHRhc2suIEEgcHJvZHVjdCBoYXMgZGltZW5zaW9ucywgdGhlIGJveCBoYXMgZGltZW5zaW9ucywgYW5kIHRoZSBwYWNrYWdpbmcgZW5naW5lZXIgb25seSBuZWVkcyB0byBjaGVjayB3aGV0aGVyIHRoZSBwcm9kdWN0IGZpdHMuIEluIHJlYWxpdHksIHRoZSBwcm9ibGVtIGlzIG11Y2ggbW9yZSBjb21wbGV4LiIsIkEgc2luZ2xlIHByb2R1Y3QgY2FuIG9mdGVuIGJlIHBsYWNlZCBpbnNpZGUgYSBib3ggaW4gc2V2ZXJhbCBkaWZmZXJlbnQgb3JpZW50YXRpb25zLiBXaGVuIG11bHRpcGxlIHBpZWNlcyBtdXN0IGJlIHBhY2tlZCB0b2dldGhlciwgdGhlIG51bWJlciBvZiBwb3NzaWJsZSBjb21iaW5hdGlvbnMgZ3Jvd3MgdmVyeSBxdWlja2x5LiBUaGlzIGlzIHdoeSBib3ggc2VsZWN0aW9uIGlzIGNsb3NlbHkgcmVsYXRlZCB0byB0aGUgM0QgYmluIHBhY2tpbmcgcHJvYmxlbTogdGhlIGNoYWxsZW5nZSBvZiBmaXR0aW5nIHRocmVlLWRpbWVuc2lvbmFsIGl0ZW1zIGludG8gYSBjb250YWluZXIgaW4gdGhlIG1vc3QgZWZmaWNpZW50IHdheSBwb3NzaWJsZS4iLCJGb3Igb25lIGZpeGVkIGJveCBhbmQgb25lIGZpeGVkIHByb2R1Y3QgdGhlIHNvbHV0aW9uIHNwYWNlIGlzIG5vdCBsaXRlcmFsbHkgaW5maW5pdGUsIGJ1dCBpbiBwcmFjdGljYWwgcGFja2FnaW5nIHdvcmsgaXQgY2FuIGZlZWwgYWxtb3N0IGVuZGxlc3MuIERpZmZlcmVudCBvcmllbnRhdGlvbnMsIGxheWVycywgbGVmdG92ZXIgc3BhY2VzLCBib3ggZGltZW5zaW9ucywgd2VpZ2h0cywgYW5kIHF1YW50aXR5IHJlcXVpcmVtZW50cyBjcmVhdGUgYSBsYXJnZSBzZWFyY2ggcHJvYmxlbS4gVGhpcyBpcyBleGFjdGx5IHRoZSB0eXBlIG9mIHByb2JsZW0gdGhhdCBzaG91bGQgbm90IGRlcGVuZCBvbmx5IG9uIG1hbnVhbCBjaGVja3Mgb3IgaW50dWl0aW9uLiBJdCBpcyBiZXR0ZXIgdG8gbGV0IEtvbGxpUGFjayBjYWxjdWxhdGUgdGhlIGFsdGVybmF0aXZlcyBmYXN0ZXIsIG1vcmUgY29uc2lzdGVudGx5LCBhbmQgbW9yZSBhY2N1cmF0ZWx5LiJdfSx7ImhlYWRpbmciOiJXaHkgYm94IHNlbGVjdGlvbiBtYXR0ZXJzIiwicGFyYWdyYXBocyI6WyJPcGVyYXRpb25zIGFuZCBjdXN0b21lcnMgb2Z0ZW4gcmVxdWlyZSBwcm9kdWN0cyB0byBiZSBzaGlwcGVkIGluIHNwZWNpZmljIG11bHRpcGxlcy4gRm9yIGV4YW1wbGUsIGEgY3VzdG9tZXIgbWF5IG5lZWQgcHJvZHVjdHMgZGVsaXZlcmVkIGluIHF1YW50aXRpZXMgb2YgMiwgNCwgOCwgMTAsIDIwLCBvciA1MCBwaWVjZXMgcGVyIHNoaXBwaW5nIHVuaXQuIiwiVG8gc2F0aXNmeSB0aGlzIHJlcXVpcmVtZW50LCBhIGNvbXBhbnkgdXN1YWxseSBoYXMgdHdvIG9wdGlvbnM6IHNlbGVjdCBhIGJveCBmcm9tIHRoZSBleGlzdGluZyBzdGFuZGFyZCBwYWNrYWdpbmcgYXNzb3J0bWVudCwgb3Igc291cmNlIGFuZCB2YWxpZGF0ZSBhIG5ldyBjdXN0b20gYm94LiBUaGUgZmlyc3Qgb3B0aW9uIGlzIHVzdWFsbHkgcHJlZmVycmVkIGJlY2F1c2UgaXQgYXZvaWRzIG5ldyBwdXJjaGFzaW5nIGFjdGl2aXRpZXMsIG5ldyBpbnZlbnRvcnksIGFuZCBhZGRpdGlvbmFsIGNvbXBsZXhpdHkuIEhvd2V2ZXIsIHNlbGVjdGluZyB0aGUgd3JvbmcgYm94IGZyb20gdGhlIHN0YW5kYXJkIGFzc29ydG1lbnQgY2FuIGNyZWF0ZSB1bm5lY2Vzc2FyeSBjb3N0cy4iXSwiYnVsbGV0cyI6WyJIaWdoZXIgcGFja2FnaW5nIG1hdGVyaWFsIGNvc3QuIiwiTW9yZSBlbXB0eSBzcGFjZSBpbnNpZGUgdGhlIHBhY2thZ2UuIiwiTG93ZXIgdHJhbnNwb3J0IGVmZmljaWVuY3kuIiwiTW9yZSBwYWxsZXRzLCB0cnVja3MsIG9yIGNvbnRhaW5lcnMgbmVlZGVkLiIsIkhpZ2hlciBDT+KCgiBlbWlzc2lvbnMuIiwiSW5jcmVhc2VkIHJpc2sgb2YgZGFtYWdlIGlmIHRoZSBwcm9kdWN0IGlzIG5vdCBwcm9wZXJseSBzdXBwb3J0ZWQuIiwiTW9yZSBjb21wbGV4aXR5IGluIHdhcmVob3VzZSBhbmQgaW52ZW50b3J5IG1hbmFnZW1lbnQuIl0sIm5vdGUiOiJGb3IgbWFueSBjb21wYW5pZXMsIHRoZSBiZXN0IHNvbHV0aW9uIGlzIG5vdCB0byBjcmVhdGUgbW9yZSBwYWNrYWdpbmcgbWF0ZXJpYWxzLCBidXQgdG8gdXNlIHRoZSBleGlzdGluZyBwYWNrYWdpbmcgY2F0YWxvZ3VlIG1vcmUgaW50ZWxsaWdlbnRseS4ifSx7ImhlYWRpbmciOiJUaGUgaGlkZGVuIGNvbXBsZXhpdHkgb2YgcGFja2luZyBhIHByb2R1Y3QgaW4gYSBib3giLCJwYXJhZ3JhcGhzIjpbIlRoZSBjaGFsbGVuZ2UgaXMgdGhhdCAnZG9lcyBpdCBmaXQ/JyBpcyBub3QgZW5vdWdoLiBBIHBhY2thZ2luZyBkZWNpc2lvbiBzaG91bGQgYWxzbyBjb25zaWRlciBwcm9kdWN0IG9yaWVudGF0aW9ucywgcXVhbnRpdHksIHdlaWdodCwgaW50ZXJuYWwgYm94IGRpbWVuc2lvbnMsIGVtcHR5IHNwYWNlLCBtYXRlcmlhbCB1dGlsaXphdGlvbiwgcHJvZHVjdCBmcmFnaWxpdHksIGFuZCB0aGUgaW1wYWN0IG9uIHBhbGxldGl6YXRpb24gYW5kIHRyYW5zcG9ydC4iLCJGb3IgZXhhbXBsZSwgYSBwcm9kdWN0IG1heSBmaXQgaW4gYSBib3ggd2hlbiBwbGFjZWQgbGVuZ3Rod2lzZSwgYnV0IHRoZSBzYW1lIHByb2R1Y3QgbWF5IGFsbG93IG1vcmUgcGllY2VzIGlmIHJvdGF0ZWQuIEFub3RoZXIgb3JpZW50YXRpb24gbWF5IGltcHJvdmUgc3BhY2UgdXRpbGl6YXRpb24gYnV0IGJlIHVuYWNjZXB0YWJsZSBiZWNhdXNlIHRoZSBwcm9kdWN0IGNhbm5vdCBiZSBzdGFja2VkIG9yIHRpbHRlZCBpbiB0aGF0IGRpcmVjdGlvbi4iLCJUaGlzIGlzIHdoZXJlIHBhY2thZ2luZyBlbmdpbmVlcmluZyBiZWNvbWVzIG1vcmUgdGhhbiBhIG1hbnVhbCBjaGVjay4gSXQgYmVjb21lcyBhbiBvcHRpbWl6YXRpb24gcHJvYmxlbS4iXX0seyJoZWFkaW5nIjoiQSBzaW1wbGUgZXhhbXBsZTogc2l4IGJhc2Ugd2F5cyBvZiBwYWNraW5nIiwicGFyYWdyYXBocyI6WyJMZXQgdXMgdGFrZSBhIHNpbXBsZSBjYXNlOiBhIHByb2R1Y3Qgb2YgMTMwIMOXIDcwIMOXIDMwIG1tIHBhY2tlZCBpbnRvIGEgYm94IG9mIDUwMCDDlyAzMDAgw5cgMjAwIG1tLiBBIGh1bWFuIGFwcHJvYWNoIG1heSBzdGFydCBieSBjaGVja2luZyB0aGUgc2l4IGJhc2ljIGF4aXMtYWxpZ25lZCBvcmllbnRhdGlvbnMgb2YgdGhlIHByb2R1Y3QgaW5zaWRlIHRoZSBib3guIFRoZXNlIGFyZSB0aGUgc2ltcGxlIHVuaWZvcm0gcGFja2luZyBhbHRlcm5hdGl2ZXMsIHdoZXJlIGV2ZXJ5IHByb2R1Y3QgaXMgcGxhY2VkIGluIHRoZSBzYW1lIG9yaWVudGF0aW9uLiIsIlRoaXMgaXMgYSByZWFzb25hYmxlIHN0YXJ0aW5nIHBvaW50LiBJdCBzaG93cyB0aGUgbW9zdCBvYnZpb3VzIHdheXMgdG8gcGxhY2UgdGhlIHByb2R1Y3QgaW4gdGhlIGJveC4gSW4gdGhpcyBleGFtcGxlLCB0aGUgYmVzdCB1bmlmb3JtLW9yaWVudGF0aW9uIHJlc3VsdCBmaXRzIDg0IHByb2R1Y3RzLiBIb3dldmVyLCB0aGlzIGlzIHN0aWxsIG9ubHkgdGhlIGJlZ2lubmluZyBvZiB0aGUgcHJvYmxlbS4iXSwiZmlndXJlcyI6W3sic3JjIjoiaW1nL2Jsb2cvYm94LXNlbGVjdGlvbi0zZC1iaW4tcGFja2luZy1wcm9ibGVtL2ZpZ3VyZV8xX3NpeF91bmlmb3JtX2Jhc2Vfd2F5cy5wbmciLCJhbHQiOiJTaXggdW5pZm9ybSAzRCBwYWNraW5nIGxheW91dHMgZm9yIGEgcHJvZHVjdCBpbnNpZGUgYSBib3giLCJjYXB0aW9uIjoiRmlndXJlIDEuIFRoZSBzaXggdW5pZm9ybSBiYXNlIG9yaWVudGF0aW9ucyBhcmUgYSB1c2VmdWwgc3RhcnRpbmcgcG9pbnQsIGJ1dCB0aGV5IGRvIG5vdCBleHBsb3JlIHRoZSBmdWxsIGxlZnRvdmVyLXNwYWNlIG9wcG9ydHVuaXR5LiJ9XX0seyJoZWFkaW5nIjoiS29sbGlQYWNrIGdvZXMgYmV5b25kIHRoZSBvYnZpb3VzIHBhY2tpbmcgcGF0dGVybnMiLCJwYXJhZ3JhcGhzIjpbIkFmdGVyIGNoZWNraW5nIHRoZSBzaXggYmFzZSBvcmllbnRhdGlvbnMsIEtvbGxpUGFjayBjYW4gY29udGludWUgdGhlIHNlYXJjaCBieSBhbmFseXppbmcgdW51c2VkIHNwYWNlIGluc2lkZSB0aGUgYm94LiBJbiBzaW1wbGUgdGVybXMsIHRoZSBhbGdvcml0aG0gZG9lcyBub3Qgc3RvcCB3aGVuIG9uZSB1bmlmb3JtIHBhY2tpbmcgYmxvY2sgaXMgY3JlYXRlZC4gSXQgY2FuIGFsc28gZXZhbHVhdGUgdGhlIGxlZnRvdmVyIHJlY3Rhbmd1bGFyIHpvbmVzIGFyb3VuZCB0aGUgbWFpbiBmaWxsZWQgYmxvY2suIFRoZXNlIHpvbmVzIGNhbiB0aGVuIGJlIHRlc3RlZCB3aXRoIGRpZmZlcmVudCBwcm9kdWN0IG9yaWVudGF0aW9ucy4iLCJUaGlzIGNyZWF0ZXMgYSByZWN0YW5ndWxhci1zdWJib3ggbW9zYWljIGxheW91dC4gVGhlIGJveCBjYW4gYmUgZGl2aWRlZCBpbnRvIHByYWN0aWNhbCB6b25lcyBzdWNoIGFzIGEgbWFpbiBmaWxsZWQgYmxvY2ssIHNpZGUgbGVmdG92ZXIgem9uZXMsIGFuZCBhIHRvcCBsZWZ0b3ZlciB6b25lLiBFYWNoIHpvbmUgY2FuIHVzZSBhIGRpZmZlcmVudCBwcm9kdWN0IG9yaWVudGF0aW9uLiIsIlRoaXMgYXBwcm9hY2ggaXMgY29udHJvbGxlZCBhbmQgZXhwbGFpbmFibGUuIEl0IGlzIG5vdCByYW5kb20uIEtvbGxpUGFjayBldmFsdWF0ZXMgc3RydWN0dXJlZCBhbHRlcm5hdGl2ZXMgdGhhdCBhcmUgcmVsZXZhbnQgZm9yIHBhY2thZ2luZyBlbmdpbmVlcmluZyBhbmQgYm94IHNlbGVjdGlvbi4iXSwiZmlndXJlcyI6W3sic3JjIjoiaW1nL2Jsb2cvYm94LXNlbGVjdGlvbi0zZC1iaW4tcGFja2luZy1wcm9ibGVtL2ZpZ3VyZV8yYl9yZWN0YW5ndWxhcl9zdWJib3hfZmFtaWx5X2FsbF9iYXNlX21vc2FpY3MucG5nIiwiYWx0IjoiUmVjdGFuZ3VsYXIgc3ViYm94IG1vc2FpYyBmYW1pbHkgZ2VuZXJhdGVkIGZyb20gdGhlIHNpeCBiYXNlIHBhY2tpbmcgb3JpZW50YXRpb25zIiwiY2FwdGlvbiI6IkZpZ3VyZSAyLiBGcm9tIGVhY2ggYmFzZSBvcmllbnRhdGlvbiwgS29sbGlQYWNrIGNhbiBldmFsdWF0ZSByZWN0YW5ndWxhciBsZWZ0b3ZlciB6b25lcyBhbmQgdGVzdCBhZGRpdGlvbmFsIHByb2R1Y3Qgcm90YXRpb25zLiJ9LHsic3JjIjoiaW1nL2Jsb2cvYm94LXNlbGVjdGlvbi0zZC1iaW4tcGFja2luZy1wcm9ibGVtL2ZpZ3VyZV8yX2RldmVsb3BlZF9tb3NhaWNfbGF5b3V0LnBuZyIsImFsdCI6IkRldmVsb3BlZCBtb3NhaWMgbGF5b3V0IHdpdGggYSBtYWluIGJsb2NrIGFuZCBsZWZ0b3ZlciB6b25lcyIsImNhcHRpb24iOiJGaWd1cmUgMy4gQSBkZXZlbG9wZWQgbW9zYWljIGxheW91dCBjYW4gdXNlIHRoZSBib3ggc3BhY2UgYmV0dGVyIHRoYW4gYSBzaW5nbGUgdW5pZm9ybSBvcmllbnRhdGlvbi4ifV19LHsiaGVhZGluZyI6IlRoZSBnb2FsIGlzIG5vdCBhbHdheXMgdG8gcGFjayBtb3JlIHByb2R1Y3RzIiwicGFyYWdyYXBocyI6WyJJbiB0aGlzIGV4YW1wbGUsIHRoZSBvcHRpbWl6ZWQgbGF5b3V0IGFsbG93cyBtb3JlIHByb2R1Y3RzIHRvIGZpdCBpbiB0aGUgc2FtZSBib3guIFRoYXQgaXMgYSBwb3dlcmZ1bCByZXN1bHQsIGJ1dCBpdCBpcyBub3QgdGhlIG9ubHkgdXNlIGNhc2UuIEluIHJlYWwgYnVzaW5lc3MsIHRoZSByZXF1aXJlbWVudCBpcyBvZnRlbiBub3QgJ3BhY2sgYXMgbWFueSBhcyBwb3NzaWJsZS4nIFRoZSByZXF1aXJlbWVudCBtYXkgYmUgdG8gcGFjayBleGFjdGx5IDQsIDEwLCAyMCwgb3IgNTAgcGllY2VzIHBlciBjYXJ0b24uIiwiVGhpcyBpcyB3aGVyZSB0aGUgc2FtZSBvcHRpbWl6YXRpb24gbG9naWMgYmVjb21lcyBldmVuIG1vcmUgdXNlZnVsLiBJZiB0aGUgYnVzaW5lc3MgaGFzIGEgcHJlZGVmaW5lZCBxdWFudGl0eSBwZXIgY2FydG9uLCBLb2xsaVBhY2sgY2FuIHVzZSB0aGUgY29tcGFueSBwYWNrYWdpbmcgY2F0YWxvZ3VlIHRvIHNlYXJjaCBmb3IgdGhlIGJveCB0aGF0IHN1aXRzIHRoYXQgcXVhbnRpdHkgYmVzdC4gSW5zdGVhZCBvZiBhc2tpbmcgb25seSwgJ0hvdyBtYW55IHByb2R1Y3RzIGZpdCBpbiB0aGlzIGJveD8nLCB0aGUgY29tcGFueSBjYW4gYXNrIGEgYmV0dGVyIHF1ZXN0aW9uLiJdLCJxdW90ZSI6IkZvciB0aGlzIHJlcXVpcmVkIHF1YW50aXR5LCB3aGljaCBib3ggZnJvbSBvdXIgY2F0YWxvZ3VlIGdpdmVzIHRoZSBiZXN0IHBhY2thZ2luZyBzb2x1dGlvbj8ifSx7ImhlYWRpbmciOiJCZXN0IHVuaWZvcm0gcGFja2luZyB2ZXJzdXMgS29sbGlQYWNrIG9wdGltaXphdGlvbiIsInBhcmFncmFwaHMiOlsiVGhlIGRpZmZlcmVuY2UgYmV0d2VlbiBiYXNpYyBtYW51YWwgcmVhc29uaW5nIGFuZCBhbGdvcml0aG1pYyBvcHRpbWl6YXRpb24gY2FuIGJlIHNob3duIGNsZWFybHkuIEluIHRoZSBzdHVkaWVkIGNhc2UsIHRoZSBiZXN0IHVuaWZvcm0gcGFja2luZyBmaXRzIDg0IHByb2R1Y3RzLCB3aGlsZSB0aGUgS29sbGlQYWNrLXN0eWxlIG1vc2FpYyBsYXlvdXQgZml0cyAxMDIgcHJvZHVjdHMuIiwiVGhpcyBkb2VzIG5vdCBtZWFuIHRoYXQgZXZlcnkgcHJvZHVjdCB3aWxsIGFsd2F5cyBwcm9kdWNlIHRoaXMgdHlwZSBvZiBpbXByb3ZlbWVudC4gU29tZSBwcm9kdWN0cyBhbmQgYm94ZXMgYXJlIGFscmVhZHkgZ2VvbWV0cmljYWxseSBlZmZpY2llbnQuIE90aGVycyBoYXZlIG11Y2ggbW9yZSBoaWRkZW4gcG90ZW50aWFsLiBUaGUgaW1wb3J0YW50IHBvaW50IGlzIHRoYXQgdGhlIGFsZ29yaXRobSBleHBsb3JlcyB0aGUgYWx0ZXJuYXRpdmVzIHN5c3RlbWF0aWNhbGx5LiBJdCBjYW4gZmluZCB3aGVuIGEgYmV0dGVyIHNvbHV0aW9uIGV4aXN0cywgYW5kIGl0IGNhbiBhbHNvIGNvbmZpcm0gd2hlbiB0aGUgY3VycmVudCBzb2x1dGlvbiBpcyBhbHJlYWR5IGdvb2QuIl0sImZpZ3VyZXMiOlt7InNyYyI6ImltZy9ibG9nL2JveC1zZWxlY3Rpb24tM2QtYmluLXBhY2tpbmctcHJvYmxlbS9maWd1cmVfM19iZXN0X3VuaWZvcm1fdnNfa29sbGlwYWNrLnBuZyIsImFsdCI6IkJlc3QgdW5pZm9ybSBwYWNraW5nIGNvbXBhcmVkIHdpdGggS29sbGlQYWNrIG9wdGltaXplZCBtb3NhaWMgcmVzdWx0IiwiY2FwdGlvbiI6IkZpZ3VyZSA0LiBJbiB0aGlzIGV4YW1wbGUsIHRoZSBLb2xsaVBhY2stc3R5bGUgbW9zYWljIHJlc3VsdCBpbXByb3ZlcyBib3ggY2FwYWNpdHkgZnJvbSA4NCB0byAxMDIgcHJvZHVjdHMuIn1dLCJ0YWJsZSI6eyJoZWFkZXJzIjpbIk1ldGhvZCIsIlF1YW50aXR5Il0sInJvd3MiOltbIkJlc3QgdW5pZm9ybSBwYWNraW5nIiwiODQgcHJvZHVjdHMiXSxbIktvbGxpUGFjayBvcHRpbWl6ZWQgbW9zYWljIGxheW91dCIsIjEwMiBwcm9kdWN0cyJdLFsiSW1wcm92ZW1lbnQiLCIrMTggcHJvZHVjdHMiXSxbIkltcHJvdmVtZW50IHBlcmNlbnRhZ2UiLCIrMjEuNCUiXV19fSx7ImhlYWRpbmciOiJXaHkgbWFueSBjb21wYW5pZXMgbG9zZSBtb25leSBpbiBwYWNrYWdpbmcgc2VsZWN0aW9uIiwicGFyYWdyYXBocyI6WyJJbiBtYW55IGNvbXBhbmllcywgdGhlIHByb2Nlc3MgZm9yIHNlbGVjdGluZyBwYWNrYWdpbmcgbWF0ZXJpYWxzIGlzIG5vdCB3ZWxsIGVzdGFibGlzaGVkIG9yIHByb3Blcmx5IGRvY3VtZW50ZWQuIERlY2lzaW9ucyBtYXkgcmVseSBvbiBvbGQgRXhjZWwgZmlsZXMsIGluZGl2aWR1YWwgZXhwZXJpZW5jZSwgbG9jYWwgaGFiaXRzLCBvciBwYWNrYWdpbmcgcnVsZXMgdGhhdCBub2JvZHkgZnVsbHkgb3ducyBhbnltb3JlLiBUaGUgcmVzdWx0IGlzIG9mdGVuIGFuIGFjY3VtdWxhdGlvbiBvZiBzbWFsbCBpbmVmZmljaWVuY2llcy4iLCJPbmUgcHJvZHVjdCBtYXkgaGF2ZSBzbGlnaHRseSB0b28gbXVjaCBlbXB0eSBzcGFjZS4gQW5vdGhlciBtYXkgdXNlIGEgYm94IHRoYXQgaXMgdG9vIHN0cm9uZyBvciB0b28gbGFyZ2UuIEFub3RoZXIgbWF5IHJlcXVpcmUgYSBjdXN0b20gYm94IGV2ZW4gdGhvdWdoIGEgYmV0dGVyIHN0YW5kYXJkIG9wdGlvbiBhbHJlYWR5IGV4aXN0cyBpbiB0aGUgY2F0YWxvZ3VlLiBJbmRpdmlkdWFsbHksIGVhY2ggY2FzZSBtYXkgbG9vayBzbWFsbC4gT3ZlciB0aG91c2FuZHMgb2YgcHJvZHVjdHMgYW5kIHNoaXBtZW50cywgdGhlIGNvc3QgaW1wYWN0IGNhbiBiZWNvbWUgc2lnbmlmaWNhbnQuIiwiVGhpcyBpcyBvbmUgb2YgdGhlIHJlYXNvbnMgd2h5IHBhY2thZ2luZyBvcHRpbWl6YXRpb24gaGFzIHN0cm9uZyBzYXZpbmdzIHBvdGVudGlhbC4gQmV0dGVyIHBhY2thZ2luZyBkZWNpc2lvbnMgY2FuIHJlZHVjZSBtYXRlcmlhbCBjb3N0LCBpbXByb3ZlIHRyYW5zcG9ydCBlZmZpY2llbmN5LCBzaW1wbGlmeSBjYXRhbG9ndWVzLCBhbmQgc3VwcG9ydCBzdXN0YWluYWJpbGl0eSB0YXJnZXRzLiJdfSx7ImhlYWRpbmciOiJIb3cgS29sbGlQYWNrIGhlbHBzIHdpdGggYm94IGFuZCBjb250YWluZXIgc2VsZWN0aW9uIiwicGFyYWdyYXBocyI6WyJLb2xsaVBhY2sgaXMgZGVzaWduZWQgdG8gaGVscCBjb21wYW5pZXMgbWFrZSBiZXR0ZXIgcGFja2FnaW5nIGRlY2lzaW9ucyB1c2luZyBzdHJ1Y3R1cmVkIGRhdGEgYW5kIG9wdGltaXphdGlvbiBsb2dpYy4gVGhlIENvbnRhaW5lciBTZWxlY3Rpb24gVG9vbCBhbmFseXplcyBwcm9kdWN0IGRpbWVuc2lvbnMsIHdlaWdodCwgYWxsb3dlZCBvcmllbnRhdGlvbnMsIHJlcXVpcmVkIHF1YW50aXRpZXMsIGFuZCBhdmFpbGFibGUgcGFja2FnaW5nIG9wdGlvbnMuIEl0IGNhbiBjYWxjdWxhdGUgaG93IG1hbnkgcHJvZHVjdHMgZml0IGluc2lkZSBhIGNvbnRhaW5lciBhbmQgY29tcGFyZSBkaWZmZXJlbnQgYWx0ZXJuYXRpdmVzIGZyb20gdGhlIHBhY2thZ2luZyBjYXRhbG9ndWUuIiwiSW5zdGVhZCBvZiBtYW51YWxseSBjaGVja2luZyBvbmUgYm94IGF0IGEgdGltZSwgS29sbGlQYWNrIGNhbiBldmFsdWF0ZSBzZXZlcmFsIHBhY2thZ2luZyBhbHRlcm5hdGl2ZXMgYW5kIGlkZW50aWZ5IHdoaWNoIG9wdGlvbiBnaXZlcyB0aGUgYmVzdCBmaXQgZm9yIHRoZSBidXNpbmVzcyByZXF1aXJlbWVudC4iXSwiYnVsbGV0cyI6WyJXaGljaCBzdGFuZGFyZCBib3ggc2hvdWxkIGJlIHVzZWQgZm9yIHRoaXMgcHJvZHVjdD8iLCJIb3cgbWFueSBwaWVjZXMgZml0IGluIGVhY2ggYm94PyIsIldoaWNoIHByb2R1Y3Qgb3JpZW50YXRpb24gZ2l2ZXMgdGhlIGJlc3QgdXRpbGl6YXRpb24/IiwiSXMgdGhlIGN1cnJlbnQgcGFja2FnaW5nIG92ZXJzaXplZD8iLCJDb3VsZCBhbm90aGVyIGJveCBmcm9tIHRoZSBjYXRhbG9ndWUgcmVkdWNlIGVtcHR5IHNwYWNlPyIsIklzIGEgY3VzdG9tIGJveCByZWFsbHkgbmVlZGVkPyIsIldoYXQgaXMgdGhlIGJlc3QgYWx0ZXJuYXRpdmUgZm9yIGEgZ2l2ZW4gc2hpcHBpbmcgbXVsdGlwbGU/IiwiV2hpY2ggY2F0YWxvZ3VlIGJveCBpcyBiZXN0IGZvciBhIHByZWRlZmluZWQgcXVhbnRpdHkgcGVyIGNhcnRvbj8iXSwibm90ZSI6IlRoZSBwYWNrYWdpbmcgY2F0YWxvZ3VlIGJlY29tZXMgbW9yZSB0aGFuIGEgbGlzdCBvZiBhdmFpbGFibGUgYm94ZXMuIEl0IGJlY29tZXMgYSBkZWNpc2lvbi1tYWtpbmcgc3lzdGVtLiJ9LHsiaGVhZGluZyI6IkEgcHJhY3RpY2FsIGNvc3Qtc2F2aW5nIHByb2plY3QiLCJwYXJhZ3JhcGhzIjpbIk9uZSBwcmFjdGljYWwgcHJvamVjdCB0aGF0IGNvbXBhbmllcyBjYW4gcnVuIHdpdGggS29sbGlQYWNrIGlzIHRvIGNvbXBhcmUgdGhlaXIgY3VycmVudCBwYWNrYWdpbmcgZGVjaXNpb25zIGFnYWluc3QgdGhlIG9wdGltaXplZCBhbHRlcm5hdGl2ZXMgc3VnZ2VzdGVkIGJ5IHRoZSB0b29sLiBNYW55IHBhY2thZ2luZyBpbmVmZmljaWVuY2llcyBhcmUgbm90IHZpc2libGUgdW50aWwgdGhlIGRhdGEgaXMgYW5hbHl6ZWQgc3lzdGVtYXRpY2FsbHkuIl0sImJ1bGxldHMiOlsiRXhwb3J0IGEgbGlzdCBvZiBwcm9kdWN0cyBhbmQgdGhlaXIgY3VycmVudCBwYWNrYWdpbmcuIiwiTG9hZCB0aGUgY29tcGFueSBwYWNrYWdpbmcgY2F0YWxvZ3VlIGludG8gS29sbGlQYWNrLiIsIkRlZmluZSB0aGUgYnVzaW5lc3MgcXVhbnRpdHkgcmVxdWlyZWQgcGVyIGNhcnRvbi4iLCJSdW4gdGhlIENvbnRhaW5lciBTZWxlY3Rpb24gVG9vbCBmb3IgZWFjaCBwcm9kdWN0IGFuZCBxdWFudGl0eSByZXF1aXJlbWVudC4iLCJDb21wYXJlIHRoZSBjdXJyZW50IHBhY2thZ2luZyBhZ2FpbnN0IHRoZSBiZXN0IHN1Z2dlc3RlZCBhbHRlcm5hdGl2ZXMuIiwiSWRlbnRpZnkgb3ZlcnNpemVkIGJveGVzLCBpbmVmZmljaWVudCBwYWNraW5nIHBhdHRlcm5zLCBhbmQgdW5uZWNlc3NhcnkgY3VzdG9tIHBhY2thZ2luZy4iLCJQcmlvcml0aXplIHRoZSBwcm9kdWN0cyB3aXRoIHRoZSBoaWdoZXN0IHNhdmluZ3MgcG90ZW50aWFsLiJdLCJub3RlIjoiRXZlbiBzbWFsbCBpbXByb3ZlbWVudHMgaW4gYm94IHNlbGVjdGlvbiBjYW4gY3JlYXRlIHZhbHVlIHdoZW4gdGhleSBhcmUgcmVwZWF0ZWQgYWNyb3NzIG1hbnkgcHJvZHVjdHMsIHNoaXBtZW50cywgd2FyZWhvdXNlcywgYW5kIG1hcmtldHMuIn0seyJoZWFkaW5nIjoiUGFja2FnaW5nIG9wdGltaXphdGlvbiBhbHNvIHN1cHBvcnRzIHN1c3RhaW5hYmlsaXR5IiwicGFyYWdyYXBocyI6WyJBIGJldHRlciBib3ggc2VsZWN0aW9uIHByb2Nlc3MgaXMgbm90IG9ubHkgYWJvdXQgY29zdC4gT3ZlcnNpemVkIHBhY2thZ2luZyB1c3VhbGx5IG1lYW5zIG1vcmUgcGFwZXIsIG1vcmUgZW1wdHkgc3BhY2UsIGFuZCBsZXNzIGVmZmljaWVudCB0cmFuc3BvcnRhdGlvbi4gRW1wdHkgc3BhY2UgaXMgdHJhbnNwb3J0ZWQgdGhyb3VnaCB0aGUgc3VwcGx5IGNoYWluIGFzIGlmIGl0IHdlcmUgcHJvZHVjdCwgY29uc3VtaW5nIHBhbGxldCBwb3NpdGlvbnMsIHdhcmVob3VzZSBzcGFjZSwgdHJ1Y2sgY2FwYWNpdHksIGFuZCBjb250YWluZXIgdm9sdW1lLiIsIkJ5IGltcHJvdmluZyBtYXRlcmlhbCB1dGlsaXphdGlvbiwgY29tcGFuaWVzIGNhbiByZWR1Y2UgdW5uZWNlc3NhcnkgcGFja2FnaW5nIG1hdGVyaWFsIGFuZCBpbXByb3ZlIHRyYW5zcG9ydCBlZmZpY2llbmN5LiBUaGlzIGNhbiBjb250cmlidXRlIHRvIGxvd2VyIENP4oKCIGVtaXNzaW9ucyBhbmQgYmV0dGVyIGVudmlyb25tZW50YWwgcGVyZm9ybWFuY2UuIEFzIGVudmlyb25tZW50YWwgY29tcGxpYW5jZSBhbmQgc3VzdGFpbmFiaWxpdHkgcmVwb3J0aW5nIGJlY29tZSBtb3JlIGltcG9ydGFudCwgcGFja2FnaW5nIG9wdGltaXphdGlvbiBpcyBiZWNvbWluZyBhIHByYWN0aWNhbCB3YXkgdG8gY29ubmVjdCBjb3N0IHJlZHVjdGlvbiB3aXRoIGVudmlyb25tZW50YWwgcmVzcG9uc2liaWxpdHkuIl19LHsiaGVhZGluZyI6IkNvbmNsdXNpb24iLCJwYXJhZ3JhcGhzIjpbIkNob29zaW5nIHRoZSByaWdodCBib3ggaXMgbW9yZSBjb21wbGV4IHRoYW4gaXQgbG9va3MuIFdoYXQgbWF5IGFwcGVhciB0byBiZSBhIHNpbXBsZSBwYWNrYWdpbmcgZGVjaXNpb24gaXMgb2Z0ZW4gYSAzRCBiaW4gcGFja2luZyBwcm9ibGVtIGludm9sdmluZyBkaW1lbnNpb25zLCBvcmllbnRhdGlvbnMsIHF1YW50aXRpZXMsIHdlaWdodHMsIGNhdGFsb2d1ZSBhdmFpbGFiaWxpdHksIGNvc3QsIGFuZCB0cmFuc3BvcnQgZWZmaWNpZW5jeS4iLCJLb2xsaVBhY2sgaGVscHMgbWFrZSB0aGlzIHByb2Nlc3MgbW9yZSBzdHJ1Y3R1cmVkLCB2aXN1YWwsIGFuZCBkYXRhLWRyaXZlbi4gQnkgdXNpbmcgYWR2YW5jZWQgcGFja2luZyBsb2dpYyB0b2dldGhlciB3aXRoIGEgdXNlci1mcmllbmRseSBwYWNrYWdpbmcgY2F0YWxvZ3VlIHNldHVwLCBjb21wYW5pZXMgY2FuIGlkZW50aWZ5IGJldHRlciBwYWNrYWdpbmcgYWx0ZXJuYXRpdmVzLCByZWR1Y2UgZW1wdHkgc3BhY2UsIGxvd2VyIG1hdGVyaWFsIGNvbnN1bXB0aW9uLCBhbmQgaW1wcm92ZSB0cmFuc3BvcnQgZWZmaWNpZW5jeS4iLCJJbiB0aGUgZXhhbXBsZSBzdHVkaWVkLCBLb2xsaVBhY2sgZmluZHMgYSBiZXR0ZXIgbGF5b3V0IHRoYXQgaW5jcmVhc2VzIHRoZSBudW1iZXIgb2YgcHJvZHVjdHMgaW4gdGhlIHNhbWUgYm94LiBJbiBvdGhlciBidXNpbmVzcyBjYXNlcywgdGhlIHNhbWUgbG9naWMgY2FuIGJlIHVzZWQgdG8gZmluZCB0aGUgYmVzdCBjYXRhbG9ndWUgYm94IGZvciBhIHByZWRlZmluZWQgcXVhbnRpdHkgcGVyIGNhcnRvbi4gVGhpcyBpcyB0aGUgcmVhbCB2YWx1ZSBvZiBwYWNrYWdpbmcgb3B0aW1pemF0aW9uOiBub3Qgb25seSBwYWNraW5nIG1vcmUsIGJ1dCBtYWtpbmcgYmV0dGVyIHBhY2thZ2luZyBkZWNpc2lvbnMuIiwiSW4gdXBjb21pbmcgYXJ0aWNsZXMsIHdlIHdpbGwgZXhwbG9yZSBob3cgcGFja2FnaW5nIGdlb21ldHJ5IGFmZmVjdHMgbWF0ZXJpYWwgdXRpbGl6YXRpb24sIGhvdyBwcm9kdWN0IG9yaWVudGF0aW9uIGluZmx1ZW5jZXMgdGhlIHJlc3VsdCwgYW5kIGhvdyB0byBkZWZpbmUgdGhlIHJpZ2h0IGlucHV0IGRhdGEgZm9yIGJldHRlciBwYWNrYWdpbmcgb3B0aW1pemF0aW9uIGluIEtvbGxpUGFjay4iXX1dLCJ0YWtlYXdheXMiOlsiQm94IHNlbGVjdGlvbiBpcyBhIDNEIG9wdGltaXphdGlvbiBwcm9ibGVtLCBub3Qgb25seSBhIGZpdCBjaGVjay4iLCJUaGUgc2l4IHVuaWZvcm0gcHJvZHVjdCBvcmllbnRhdGlvbnMgYXJlIG9ubHkgdGhlIGZpcnN0IGxldmVsIG9mIHJlYXNvbmluZy4iLCJLb2xsaVBhY2sgY2FuIGFuYWx5emUgbGVmdG92ZXIgcmVjdGFuZ3VsYXIgem9uZXMgdG8gaW1wcm92ZSBzcGFjZSB1dGlsaXphdGlvbi4iLCJUaGUgc2FtZSBsb2dpYyBjYW4gZmluZCB0aGUgYmVzdCBjYXRhbG9ndWUgYm94IGZvciBhIHByZWRlZmluZWQgcXVhbnRpdHkgcGVyIGNhcnRvbi4iLCJCZXR0ZXIgYm94IHNlbGVjdGlvbiBjYW4gcmVkdWNlIG1hdGVyaWFsIGNvc3QsIGVtcHR5IHNwYWNlLCB0cmFuc3BvcnQgd2FzdGUsIGFuZCBDT+KCgiBpbXBhY3QuIl0sImFydGljbGVfdHlwZV9tZXRhIjp7ImxhYmVsIjoiRW5naW5lZXJpbmcgZGVlcCBkaXZlIiwic2hvcnRfbGFiZWwiOiJOZXJkIGFydGljbGUiLCJpY29uIjoiYmktY3B1IiwiZGVzY3JpcHRpb24iOiJUZWNobmljYWwgYXJ0aWNsZXMgd2l0aCBhbGdvcml0aG1zLCBnZW9tZXRyeSwgY2FsY3VsYXRpb25zLCBhbmQgZGV0YWlsZWQgcGFja2FnaW5nIGxvZ2ljLiJ9LCJhdXRob3IiOnsibmFtZSI6IkFsZWphbmRybyBSYW3DrXJleiIsInJvbGUiOiJGb3VuZGVyIG9mIEtvbGxpTGFicyDCtyBDaGVtaWNhbCBFbmdpbmVlciBNc2MuIiwiaW1hZ2UiOiJpbWcvYWxlamFuZHJvLXJhbWlyZXouanBnIiwiYmlvIjoiQWxlamFuZHJvIFJhbcOtcmV6IGlzIGEgQ2hlbWljYWwgRW5naW5lZXIgYW5kIGRpZ2l0YWxpemF0aW9uIHNwZWNpYWxpc3QgYmFzZWQgaW4gR290aGVuYnVyZywgU3dlZGVuLiBIZSBidWlsZHMgS29sbGlQYWNrIGZyb20gaGlzIGV4cGVyaWVuY2UgaW4gdGhlIGZpZWxkIG9mIGxvZ2lzY3RpcyBhbmQgcGFja2FnaW5nIHRvIG1ha2UgcGFja2FnaW5nIGRlY2lzaW9ucyBtb3JlIHZpc3VhbCwgc3lzdGVtYXRpYywgYW5kIGRhdGEtZHJpdmVuLiJ9LCJhcnRpY2xlX3NjaGVtYV9qc29uIjoie1wiQGNvbnRleHRcIjogXCJodHRwczovL3NjaGVtYS5vcmdcIiwgXCJAdHlwZVwiOiBcIkJsb2dQb3N0aW5nXCIsIFwiaGVhZGxpbmVcIjogXCJXaHkgQ2hvb3NpbmcgdGhlIFJpZ2h0IEJveCBJcyBhIDNEIEJpbiBQYWNraW5nIFByb2JsZW1cIiwgXCJkZXNjcmlwdGlvblwiOiBcIkxlYXJuIHdoeSBjaG9vc2luZyB0aGUgcmlnaHQgYm94IGlzIG1vcmUgY29tcGxleCB0aGFuIGl0IGxvb2tzLCBob3cgM0QgYmluIHBhY2tpbmcgYWZmZWN0cyBwYWNrYWdpbmcgY29zdCBhbmQgdHJhbnNwb3J0IGVmZmljaWVuY3ksIGFuZCBob3cgS29sbGlQYWNrIGhlbHBzIGNvbXBhbmllcyBvcHRpbWl6ZSBwYWNrYWdpbmcgZGVjaXNpb25zLlwiLCBcImF1dGhvclwiOiB7XCJAdHlwZVwiOiBcIlBlcnNvblwiLCBcIm5hbWVcIjogXCJBbGVqYW5kcm8gUmFtw61yZXpcIn0sIFwicHVibGlzaGVyXCI6IHtcIkB0eXBlXCI6IFwiT3JnYW5pemF0aW9uXCIsIFwibmFtZVwiOiBcIktvbGxpTGFic1wifSwgXCJhcnRpY2xlU2VjdGlvblwiOiBcIlBhY2thZ2luZyBvcHRpbWl6YXRpb25cIiwgXCJhYm91dFwiOiBcIkVuZ2luZWVyaW5nIGRlZXAgZGl2ZVwiLCBcImRhdGVQdWJsaXNoZWRcIjogXCIyMDI2LTA3LTA5XCIsIFwiZGF0ZU1vZGlmaWVkXCI6IFwiMjAyNi0wNy0wOVwiLCBcIm1haW5FbnRpdHlPZlBhZ2VcIjogXCJodHRwOi8vdGVzdHNlcnZlci9ibG9nL1wiLCBcImltYWdlXCI6IFtcImh0dHA6Ly90ZXN0c2VydmVyL3N0YXRpYy9pbWcvYmxvZy9ib3gtc2VsZWN0aW9uLTNkLWJpbi1wYWNraW5nLXByb2JsZW0vYmxvZzFfdGh1bWJuYWlsX2tvbGxpcGFja19ib3hfc2VsZWN0aW9uLnBuZ1wiXX0ifQ=="
+og_image = "img/blog/box-selection-3d-bin-packing-problem/blog1_thumbnail_kollipack_box_selection.png"
+takeaways = ["Box selection is a 3D optimization problem, not only a fit check.", "The six uniform product orientations are only the first level of reasoning.", "KolliPack can analyze leftover rectangular zones to improve space utilization.", "The same logic can find the best catalogue box for a predefined quantity per carton.", "Better box selection can reduce material cost, empty space, transport waste, and CO₂ impact."]
+
+[[flow_steps]]
+icon = "bi-box-seam"
+label = "Product"
+
+[[flow_steps]]
+icon = "bi-grid-3x3-gap"
+label = "Base ways"
+
+[[flow_steps]]
+icon = "bi-bounding-box"
+label = "Mosaic zones"
+
+[[flow_steps]]
+icon = "bi-check2-circle"
+label = "Better decision"
 +++
+<section class="blog-content-section" markdown="1">
 
-# Why Choosing the Right Box Is a 3D Bin Packing Problem
+## Why a simple box decision becomes an optimization problem
 
-Box selection is a 3D packing problem with many possible product orientations and leftover-space combinations. KolliPack helps evaluate these alternatives faster and more consistently than manual checks.
+Manufacturing and logistics operations need boxes, containers, and other packaging materials to transport finished and semi-finished goods. Most companies therefore work with a standard packaging assortment: a catalogue of boxes, pallets, bags, and containers that are already approved, purchased, and available in the supply chain.
+
+At first, choosing a box may sound like a simple task. A product has dimensions, the box has dimensions, and the packaging engineer only needs to check whether the product fits. In reality, the problem is much more complex.
+
+A single product can often be placed inside a box in several different orientations. When multiple pieces must be packed together, the number of possible combinations grows very quickly. This is why box selection is closely related to the 3D bin packing problem: the challenge of fitting three-dimensional items into a container in the most efficient way possible.
+
+For one fixed box and one fixed product the solution space is not literally infinite, but in practical packaging work it can feel almost endless. Different orientations, layers, leftover spaces, box dimensions, weights, and quantity requirements create a large search problem. This is exactly the type of problem that should not depend only on manual checks or intuition. It is better to let KolliPack calculate the alternatives faster, more consistently, and more accurately.
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## Why box selection matters
+
+Operations and customers often require products to be shipped in specific multiples. For example, a customer may need products delivered in quantities of 2, 4, 8, 10, 20, or 50 pieces per shipping unit.
+
+To satisfy this requirement, a company usually has two options: select a box from the existing standard packaging assortment, or source and validate a new custom box. The first option is usually preferred because it avoids new purchasing activities, new inventory, and additional complexity. However, selecting the wrong box from the standard assortment can create unnecessary costs.
+
+<ul class="blog-bullet-list">
+  <li>Higher packaging material cost.</li>
+  <li>More empty space inside the package.</li>
+  <li>Lower transport efficiency.</li>
+  <li>More pallets, trucks, or containers needed.</li>
+  <li>Higher CO₂ emissions.</li>
+  <li>Increased risk of damage if the product is not properly supported.</li>
+  <li>More complexity in warehouse and inventory management.</li>
+</ul>
+
+<div class="blog-note"><i class="bi bi-lightbulb me-2"></i>For many companies, the best solution is not to create more packaging materials, but to use the existing packaging catalogue more intelligently.</div>
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## The hidden complexity of packing a product in a box
+
+The challenge is that 'does it fit?' is not enough. A packaging decision should also consider product orientations, quantity, weight, internal box dimensions, empty space, material utilization, product fragility, and the impact on palletization and transport.
+
+For example, a product may fit in a box when placed lengthwise, but the same product may allow more pieces if rotated. Another orientation may improve space utilization but be unacceptable because the product cannot be stacked or tilted in that direction.
+
+This is where packaging engineering becomes more than a manual check. It becomes an optimization problem.
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## A simple example: six base ways of packing
+
+Let us take a simple case: a product of 130 × 70 × 30 mm packed into a box of 500 × 300 × 200 mm. A human approach may start by checking the six basic axis-aligned orientations of the product inside the box. These are the simple uniform packing alternatives, where every product is placed in the same orientation.
+
+This is a reasonable starting point. It shows the most obvious ways to place the product in the box. In this example, the best uniform-orientation result fits 84 products. However, this is still only the beginning of the problem.
+
+<div class="blog-figure-stack">
+  <figure class="blog-figure">
+    <img src="static://img/blog/box-selection-3d-bin-packing-problem/figure_1_six_uniform_base_ways.png" alt="Six uniform 3D packing layouts for a product inside a box">
+    <figcaption>Figure 1. The six uniform base orientations are a useful starting point, but they do not explore the full leftover-space opportunity.</figcaption>
+  </figure>
+</div>
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## KolliPack goes beyond the obvious packing patterns
+
+After checking the six base orientations, KolliPack can continue the search by analyzing unused space inside the box. In simple terms, the algorithm does not stop when one uniform packing block is created. It can also evaluate the leftover rectangular zones around the main filled block. These zones can then be tested with different product orientations.
+
+This creates a rectangular-subbox mosaic layout. The box can be divided into practical zones such as a main filled block, side leftover zones, and a top leftover zone. Each zone can use a different product orientation.
+
+This approach is controlled and explainable. It is not random. KolliPack evaluates structured alternatives that are relevant for packaging engineering and box selection.
+
+<div class="blog-figure-stack">
+  <figure class="blog-figure">
+    <img src="static://img/blog/box-selection-3d-bin-packing-problem/figure_2b_rectangular_subbox_family_all_base_mosaics.png" alt="Rectangular subbox mosaic family generated from the six base packing orientations">
+    <figcaption>Figure 2. From each base orientation, KolliPack can evaluate rectangular leftover zones and test additional product rotations.</figcaption>
+  </figure>
+  <figure class="blog-figure">
+    <img src="static://img/blog/box-selection-3d-bin-packing-problem/figure_2_developed_mosaic_layout.png" alt="Developed mosaic layout with a main block and leftover zones">
+    <figcaption>Figure 3. A developed mosaic layout can use the box space better than a single uniform orientation.</figcaption>
+  </figure>
+</div>
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## The goal is not always to pack more products
+
+In this example, the optimized layout allows more products to fit in the same box. That is a powerful result, but it is not the only use case. In real business, the requirement is often not 'pack as many as possible.' The requirement may be to pack exactly 4, 10, 20, or 50 pieces per carton.
+
+This is where the same optimization logic becomes even more useful. If the business has a predefined quantity per carton, KolliPack can use the company packaging catalogue to search for the box that suits that quantity best. Instead of asking only, 'How many products fit in this box?', the company can ask a better question.
+
+<blockquote class="blog-pull-quote">For this required quantity, which box from our catalogue gives the best packaging solution?</blockquote>
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## Best uniform packing versus KolliPack optimization
+
+The difference between basic manual reasoning and algorithmic optimization can be shown clearly. In the studied case, the best uniform packing fits 84 products, while the KolliPack-style mosaic layout fits 102 products.
+
+This does not mean that every product will always produce this type of improvement. Some products and boxes are already geometrically efficient. Others have much more hidden potential. The important point is that the algorithm explores the alternatives systematically. It can find when a better solution exists, and it can also confirm when the current solution is already good.
+
+<div class="blog-table-wrap">
+<table class="table table-sm blog-result-table">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Quantity</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Best uniform packing</td>
+      <td>84 products</td>
+    </tr>
+    <tr>
+      <td>KolliPack optimized mosaic layout</td>
+      <td>102 products</td>
+    </tr>
+    <tr>
+      <td>Improvement</td>
+      <td>+18 products</td>
+    </tr>
+    <tr>
+      <td>Improvement percentage</td>
+      <td>+21.4%</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="blog-figure-stack">
+  <figure class="blog-figure">
+    <img src="static://img/blog/box-selection-3d-bin-packing-problem/figure_3_best_uniform_vs_kollipack.png" alt="Best uniform packing compared with KolliPack optimized mosaic result">
+    <figcaption>Figure 4. In this example, the KolliPack-style mosaic result improves box capacity from 84 to 102 products.</figcaption>
+  </figure>
+</div>
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## Why many companies lose money in packaging selection
+
+In many companies, the process for selecting packaging materials is not well established or properly documented. Decisions may rely on old Excel files, individual experience, local habits, or packaging rules that nobody fully owns anymore. The result is often an accumulation of small inefficiencies.
+
+One product may have slightly too much empty space. Another may use a box that is too strong or too large. Another may require a custom box even though a better standard option already exists in the catalogue. Individually, each case may look small. Over thousands of products and shipments, the cost impact can become significant.
+
+This is one of the reasons why packaging optimization has strong savings potential. Better packaging decisions can reduce material cost, improve transport efficiency, simplify catalogues, and support sustainability targets.
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## How KolliPack helps with box and container selection
+
+KolliPack is designed to help companies make better packaging decisions using structured data and optimization logic. The Container Selection Tool analyzes product dimensions, weight, allowed orientations, required quantities, and available packaging options. It can calculate how many products fit inside a container and compare different alternatives from the packaging catalogue.
+
+Instead of manually checking one box at a time, KolliPack can evaluate several packaging alternatives and identify which option gives the best fit for the business requirement.
+
+<ul class="blog-bullet-list">
+  <li>Which standard box should be used for this product?</li>
+  <li>How many pieces fit in each box?</li>
+  <li>Which product orientation gives the best utilization?</li>
+  <li>Is the current packaging oversized?</li>
+  <li>Could another box from the catalogue reduce empty space?</li>
+  <li>Is a custom box really needed?</li>
+  <li>What is the best alternative for a given shipping multiple?</li>
+  <li>Which catalogue box is best for a predefined quantity per carton?</li>
+</ul>
+
+<div class="blog-note"><i class="bi bi-lightbulb me-2"></i>The packaging catalogue becomes more than a list of available boxes. It becomes a decision-making system.</div>
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## A practical cost-saving project
+
+One practical project that companies can run with KolliPack is to compare their current packaging decisions against the optimized alternatives suggested by the tool. Many packaging inefficiencies are not visible until the data is analyzed systematically.
+
+<ul class="blog-bullet-list">
+  <li>Export a list of products and their current packaging.</li>
+  <li>Load the company packaging catalogue into KolliPack.</li>
+  <li>Define the business quantity required per carton.</li>
+  <li>Run the Container Selection Tool for each product and quantity requirement.</li>
+  <li>Compare the current packaging against the best suggested alternatives.</li>
+  <li>Identify oversized boxes, inefficient packing patterns, and unnecessary custom packaging.</li>
+  <li>Prioritize the products with the highest savings potential.</li>
+</ul>
+
+<div class="blog-note"><i class="bi bi-lightbulb me-2"></i>Even small improvements in box selection can create value when they are repeated across many products, shipments, warehouses, and markets.</div>
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## Packaging optimization also supports sustainability
+
+A better box selection process is not only about cost. Oversized packaging usually means more paper, more empty space, and less efficient transportation. Empty space is transported through the supply chain as if it were product, consuming pallet positions, warehouse space, truck capacity, and container volume.
+
+By improving material utilization, companies can reduce unnecessary packaging material and improve transport efficiency. This can contribute to lower CO₂ emissions and better environmental performance. As environmental compliance and sustainability reporting become more important, packaging optimization is becoming a practical way to connect cost reduction with environmental responsibility.
+
+</section>
+
+<section class="blog-content-section" markdown="1">
+
+## Conclusion
+
+Choosing the right box is more complex than it looks. What may appear to be a simple packaging decision is often a 3D bin packing problem involving dimensions, orientations, quantities, weights, catalogue availability, cost, and transport efficiency.
+
+KolliPack helps make this process more structured, visual, and data-driven. By using advanced packing logic together with a user-friendly packaging catalogue setup, companies can identify better packaging alternatives, reduce empty space, lower material consumption, and improve transport efficiency.
+
+In the example studied, KolliPack finds a better layout that increases the number of products in the same box. In other business cases, the same logic can be used to find the best catalogue box for a predefined quantity per carton. This is the real value of packaging optimization: not only packing more, but making better packaging decisions.
+
+In upcoming articles, we will explore how packaging geometry affects material utilization, how product orientation influences the result, and how to define the right input data for better packaging optimization in KolliPack.
+
+</section>
