@@ -242,9 +242,9 @@ def multi_product_container_draw(request: HttpRequest) -> JsonResponse:
     return JsonResponse(
         {
             "ok": True,
-            "image_url": settings.MEDIA_URL + result.image_rel_path,
             "max_quantity": int(result.max_quantity),
             "desired_qty": desired_qty,
+            "threejs_scene": result.threejs_scene,
         }
     )
 

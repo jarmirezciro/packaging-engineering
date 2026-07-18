@@ -21,8 +21,8 @@ function getViewerSize(el) {
     // Use the parent width as a hard reference so the canvas cannot make
     // the viewer wider, then use setSize(..., false) to avoid style feedback.
     const rawWidth = rect.width || el.clientWidth || (parentRect ? parentRect.width : 0) || 600;
-    const parentWidth = parentRect ? parentRect.width : rawWidth;
-    const width = Math.max(320, Math.min(rawWidth, parentWidth, 1200));
+    const parentWidth = parentRect && parentRect.width > 0 ? parentRect.width : rawWidth;
+    const width = Math.max(1, Math.min(rawWidth, parentWidth, 1200));
 
     const rawHeight = rect.height || el.clientHeight || 420;
     const height = Math.max(320, Math.min(rawHeight, 620));

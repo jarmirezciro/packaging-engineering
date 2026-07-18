@@ -1,6 +1,8 @@
 import json
 import shutil
 import tempfile
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -517,6 +519,92 @@ class PalletizationThreeJsAndPdfTests(TestCase):
         json.dumps(self.client.session["full_packaging_mode_session"])
 
 
+class MultiProductContainerThreeJsTests(TestCase):
+    def setUp(self):
+        self.product_catalogue = ProductCatalogue.objects.create(
+            name="Multi Product Three.js Products",
+            is_public=True,
+        )
+        self.product = Product.objects.create(
+            catalogue=self.product_catalogue,
+            product_id="MP-THREE-1",
+            product_name="Three.js test product",
+            product_length=100,
+            product_width=80,
+            product_height=50,
+            desired_qty=3,
+        )
+        self.packaging_catalogue = PackagingCatalogue.objects.create(
+            name="Multi Product Three.js Packaging",
+            is_public=True,
+        )
+        self.material = PackagingMaterial.objects.create(
+            catalogue=self.packaging_catalogue,
+            part_number="MP-BOX-1",
+            part_description="Three.js test box",
+            packaging_type="BOX",
+            branding="Brand1",
+            packaging_materials="Corrugated board",
+            part_length=600,
+            part_width=400,
+            part_height=300,
+        )
+
+    def test_page_loads_shared_threejs_viewer_and_controls_without_png_preview(self):
+        response = self.client.get(reverse("multi_product_container_selection"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "js/container_threejs_viewer.js")
+        self.assertContains(response, 'data-container-threejs-view="reset"')
+        self.assertContains(response, 'data-container-threejs-view="top"')
+        self.assertContains(response, 'data-container-threejs-view="front"')
+        self.assertContains(response, 'data-container-threejs-view="side"')
+        self.assertNotContains(response, "data.image_url")
+        self.assertNotContains(response, "Generating image")
+
+    @patch("packagingapp.views.multi_product_container.run_mode1_and_render")
+    def test_draw_returns_engine_scene_as_json_safe_payload(self, render_mock):
+        scene = {
+            "version": 1,
+            "units": "mm",
+            "container": {"length": 600.0, "width": 400.0, "height": 300.0},
+            "products": [
+                {
+                    "kind": "product",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0,
+                    "dx": 100.0,
+                    "dy": 80.0,
+                    "dz": 50.0,
+                    "color": "#f59e0b",
+                    "opacity": 1.0,
+                }
+            ],
+            "subboxes": [],
+        }
+        render_mock.return_value = SimpleNamespace(
+            max_quantity=24,
+            image_rel_path="box_selection/unused.png",
+            threejs_scene=scene,
+        )
+
+        response = self.client.post(
+            reverse("multi_product_container_draw"),
+            {"product_id": self.product.pk, "container_id": self.material.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["max_quantity"], 24)
+        self.assertEqual(payload["desired_qty"], 3)
+        self.assertEqual(payload["threejs_scene"], scene)
+        self.assertNotIn("image_url", payload)
+        json.dumps(payload)
+        self.assertEqual(render_mock.call_args.kwargs["draw_limit"], 3)
+
+
 class ToolScrollPreservationTests(TestCase):
     def setUp(self):
         self.media_root = tempfile.mkdtemp(prefix="kollipack-scroll-test-")
@@ -594,4 +682,3 @@ class ToolScrollPreservationTests(TestCase):
         self.assertNotContains(response, "scroll_target")
         self.assertNotContains(response, "setTimeout(function ()")
         self.assertNotContains(response, "scrollIntoView({ behavior: 'smooth'")
-
