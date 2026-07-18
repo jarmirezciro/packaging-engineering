@@ -7,6 +7,8 @@ from django.utils import timezone
 from ..models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
 from ..utils.box_selection.engine import run_mode1_and_render, compute_max_quantity_only
 from ..utils.bag_selection.engine import (
+    SEALING_AREA,
+    TOLERANCE,
     build_required_bag_options,
     best_usage_for_bag,
     run_bag_mode1_and_render,
@@ -847,13 +849,10 @@ def _resolve_product_for_bag(cfg, selected_product):
 def _resolve_visual_bag_box(selected_bag, inner_box):
     bag_len, bag_w = selected_bag
     bl, bw, bh = inner_box
-    tolerance = 2.0
-    sealing_area = 10.0
-
     # Bag dimensions are physical L × W values and must not be swapped.
     # Length carries sealing; width is the opening side and carries tolerance only.
-    bag_box_length = bag_len - tolerance - sealing_area - bh
-    bag_box_width = bag_w - tolerance - bh
+    bag_box_length = bag_len - TOLERANCE - SEALING_AREA - bh
+    bag_box_width = bag_w - TOLERANCE - bh
 
     if bag_box_length <= 0 or bag_box_width <= 0:
         return None

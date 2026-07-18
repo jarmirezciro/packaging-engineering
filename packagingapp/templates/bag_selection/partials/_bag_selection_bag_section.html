@@ -3,6 +3,18 @@
         <div class="app-section-title">Packaging / Bag</div>
         <div class="app-section-subtitle">Manual size or packaging catalogue selection. Bag dimensions are flat dimensions in mm.</div>
 
+        <div class="tool-compact-grid-two mb-3" aria-label="Shared bag fit assumptions">
+            <div class="tool-field-group mb-0">
+                <label class="form-label">Sealing allowance <span class="text-muted">(mm)</span></label>
+                <div class="form-control bg-light" data-bag-sealing-allowance>{{ bag_ui.assumptions.sealing_allowance_mm|floatformat:-2 }}</div>
+            </div>
+            <div class="tool-field-group mb-0">
+                <label class="form-label">Fit tolerance <span class="text-muted">(mm)</span></label>
+                <div class="form-control bg-light" data-bag-fit-tolerance>{{ bag_ui.assumptions.tolerance_mm|floatformat:-2 }}</div>
+            </div>
+        </div>
+        <div class="app-form-note mb-3">These fixed shared-engine allowances are shown for transparency. Sealing is reserved along bag length; width receives tolerance only.</div>
+
         <div class="tool-field-group">
             <label class="form-label">Bag Source</label>
             <div class="tool-radio-group">

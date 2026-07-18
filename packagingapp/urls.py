@@ -35,6 +35,11 @@ urlpatterns = [
         palletization.palletization_calculator,
         name="palletization_calculator",
     ),
+    path(
+        "tools/bag-size-calculator/",
+        bag_selection.bag_selection_calculator,
+        name="bag_selection_calculator",
+    ),
 
     # KolliPack application
     path("kollipack/", home, name="home"),

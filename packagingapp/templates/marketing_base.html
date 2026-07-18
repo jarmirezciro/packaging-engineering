@@ -179,7 +179,13 @@
                         <li class="nav-item"><a class="nav-link public-nav-link" href="{% url 'company_home' %}#software">Software</a></li>
                         <li class="nav-item"><a class="nav-link public-nav-link" href="{% url 'company_home' %}#consultancy">Consultancy</a></li>
                         <li class="nav-item"><a class="nav-link public-nav-link" href="{% url 'company_home' %}#education">Education</a></li>
-                        <li class="nav-item"><a class="nav-link public-nav-link" href="{% url 'palletization_calculator' %}">Free Tools</a></li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link public-nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Free Tools</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{% url 'palletization_calculator' %}">Palletization Calculator</a></li>
+                                <li><a class="dropdown-item" href="{% url 'bag_selection_calculator' %}">Bag Size Calculator</a></li>
+                            </ul>
+                        </li>
                         <li class="nav-item"><a class="nav-link public-nav-link" href="{% url 'blog_list' %}">Blog</a></li>
                         <li class="nav-item"><a class="nav-link public-nav-link" href="{% url 'company_home' %}#contact">Contact</a></li>
                     </ul>
@@ -215,6 +221,7 @@
             <div class="d-flex flex-wrap gap-3">
                 <a href="{% url 'blog_list' %}">Blog</a>
                 <a href="{% url 'palletization_calculator' %}">Palletization Calculator</a>
+                <a href="{% url 'bag_selection_calculator' %}">Bag Size Calculator</a>
                 <a href="{% url 'company_home' %}#contact">Contact</a>
                 <a href="{% url 'home' %}">KolliPack</a>
             </div>

@@ -1,0 +1,508 @@
+{% extends "marketing_base.html" %}
+
+{% block title %}Bag Size Calculator | Product-to-Bag Selection | KolliPack{% endblock %}
+
+{% block meta_description %}Calculate product-to-bag fit, maximum quantity, bag usage, weight, payload usage, and remaining capacity with the free KolliPack flexible packaging calculator.{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ canonical_url }}">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Bag Size Calculator | Product-to-Bag Selection | KolliPack">
+<meta property="og:description" content="Calculate a practical flat bag size and check quantity, bag usage, packed weight, and payload with the KolliPack Bag Selection engine.">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:site_name" content="KolliLabs">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">{{ seo_schema_json|safe }}</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bag-seo-page {
+        --bag-seo-max: 1420px;
+        max-width: var(--bag-seo-max);
+        margin: 0 auto;
+    }
+
+    .bag-seo-content {
+        max-width: 1180px;
+        margin-inline: auto;
+    }
+
+    .bag-seo-breadcrumb {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: .45rem;
+        margin-bottom: 1rem;
+        color: var(--app-text-muted, #64748b);
+        font-size: .9rem;
+    }
+
+    .bag-seo-breadcrumb a {
+        color: var(--app-primary-dark, #0b7a60);
+        text-decoration: none;
+        font-weight: 700;
+    }
+
+    .bag-seo-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr);
+        gap: 2.5rem;
+        align-items: center;
+        overflow: hidden;
+        padding: clamp(2rem, 5vw, 4rem);
+        border-radius: 30px;
+        color: #fff;
+        background:
+            radial-gradient(circle at 86% 12%, rgba(52, 211, 153, .34), transparent 28%),
+            radial-gradient(circle at 10% 100%, rgba(59, 130, 246, .18), transparent 34%),
+            linear-gradient(135deg, #0f172a 0%, #12344d 48%, #10a37f 100%);
+        box-shadow: 0 26px 54px rgba(15, 23, 42, .18);
+    }
+
+    .bag-seo-eyebrow,
+    .bag-seo-proof span {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        border: 1px solid rgba(255, 255, 255, .16);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .10);
+    }
+
+    .bag-seo-eyebrow {
+        padding: .45rem .75rem;
+        margin-bottom: 1rem;
+        font-size: .88rem;
+        font-weight: 750;
+    }
+
+    .bag-seo-hero h1 {
+        max-width: 820px;
+        margin: 0 0 1rem;
+        font-size: clamp(2.25rem, 5vw, 4.65rem);
+        line-height: 1.01;
+        letter-spacing: -.045em;
+        font-weight: 900;
+    }
+
+    .bag-seo-lead {
+        max-width: 760px;
+        margin: 0;
+        color: rgba(255, 255, 255, .84);
+        font-size: clamp(1rem, 1.7vw, 1.17rem);
+        line-height: 1.7;
+    }
+
+    .bag-seo-actions,
+    .bag-seo-proof {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .7rem;
+        margin-top: 1.35rem;
+    }
+
+    .bag-seo-proof span {
+        padding: .42rem .66rem;
+        color: rgba(255, 255, 255, .84);
+        font-size: .82rem;
+        font-weight: 650;
+    }
+
+    .bag-seo-visual {
+        padding: 1.35rem;
+        border: 1px solid rgba(255, 255, 255, .28);
+        border-radius: 26px;
+        background: rgba(255, 255, 255, .95);
+        color: #0f172a;
+        box-shadow: 0 24px 48px rgba(15, 23, 42, .24);
+    }
+
+    .bag-seo-visual h2 {
+        margin: 0 0 .25rem;
+        font-size: 1.12rem;
+        font-weight: 830;
+    }
+
+    .bag-seo-visual > p {
+        margin-bottom: 1rem;
+        color: #64748b;
+        font-size: .9rem;
+    }
+
+    .bag-seo-sketch {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-height: 225px;
+        border-radius: 18px;
+        background:
+            linear-gradient(rgba(15, 23, 42, .04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(15, 23, 42, .04) 1px, transparent 1px),
+            linear-gradient(180deg, #f8fafc, #eef7f3);
+        background-size: 24px 24px, 24px 24px, auto;
+    }
+
+    .bag-seo-outline {
+        position: relative;
+        width: min(86%, 310px);
+        height: 175px;
+        border: 4px solid #0b7a60;
+        border-radius: 12px 12px 5px 5px;
+        background: rgba(110, 231, 183, .24);
+        box-shadow: 10px 14px 24px rgba(15, 23, 42, .12);
+    }
+
+    .bag-seo-outline::before {
+        content: "Reserved sealing area";
+        position: absolute;
+        inset: 0 0 auto;
+        height: 29px;
+        display: grid;
+        place-items: center;
+        border-bottom: 2px dashed #0b7a60;
+        color: #166534;
+        background: rgba(220, 252, 231, .92);
+        font-size: .7rem;
+        font-weight: 800;
+    }
+
+    .bag-seo-product {
+        position: absolute;
+        left: 15%;
+        right: 15%;
+        bottom: 18px;
+        height: 92px;
+        display: grid;
+        place-items: center;
+        border: 2px solid #2563eb;
+        border-radius: 8px;
+        background: rgba(191, 219, 254, .75);
+        color: #1e3a8a;
+        font-size: .78rem;
+        font-weight: 800;
+    }
+
+    .bag-seo-section {
+        padding: 4rem 0 0;
+        scroll-margin-top: 96px;
+    }
+
+    .bag-seo-section-head {
+        max-width: 820px;
+        margin-bottom: 1.4rem;
+    }
+
+    .bag-seo-kicker {
+        color: var(--app-primary-dark, #0b7a60);
+        font-size: .78rem;
+        font-weight: 850;
+        letter-spacing: .09em;
+        text-transform: uppercase;
+    }
+
+    .bag-seo-section h2 {
+        margin: .45rem 0 .7rem;
+        font-size: clamp(1.75rem, 3vw, 2.8rem);
+        line-height: 1.08;
+        letter-spacing: -.03em;
+        font-weight: 875;
+    }
+
+    .bag-seo-section-head p,
+    .bag-seo-card p,
+    .bag-seo-card li,
+    .bag-seo-faq-answer {
+        color: #64748b;
+        line-height: 1.7;
+    }
+
+    .bag-tool-shell {
+        padding: clamp(.7rem, 2vw, 1.25rem);
+        border: 1px solid rgba(16, 163, 127, .24);
+        border-radius: 26px;
+        background: linear-gradient(180deg, #f0fdf8 0%, #f8fafc 150px, #f8fafc 100%);
+        box-shadow: 0 20px 44px rgba(15, 23, 42, .08);
+    }
+
+    .bag-seo-banner,
+    .bag-seo-disclosure {
+        display: flex;
+        align-items: flex-start;
+        gap: .8rem;
+        margin-bottom: 1rem;
+        padding: 1rem 1.1rem;
+        border-radius: 16px;
+    }
+
+    .bag-seo-banner {
+        border: 1px solid #a7f3d0;
+        background: linear-gradient(135deg, #ecfdf5, #f0fdfa);
+        color: #14532d;
+    }
+
+    .bag-seo-disclosure {
+        border: 1px solid #dbeee7;
+        background: #fff;
+        color: #475569;
+    }
+
+    .bag-seo-banner p,
+    .bag-seo-disclosure p {
+        margin: .12rem 0 0;
+        line-height: 1.55;
+    }
+
+    .bag-seo-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .bag-seo-card,
+    .bag-seo-faq details {
+        border: 1px solid var(--app-border, #e5e7eb);
+        border-radius: 20px;
+        background: #fff;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, .045);
+    }
+
+    .bag-seo-card {
+        height: 100%;
+        padding: 1.35rem;
+    }
+
+    .bag-seo-card h3 {
+        font-size: 1.08rem;
+        font-weight: 820;
+    }
+
+    .bag-seo-card-icon {
+        width: 44px;
+        height: 44px;
+        display: inline-grid;
+        place-items: center;
+        margin-bottom: .8rem;
+        border-radius: 14px;
+        background: #ecfdf5;
+        color: #0b7a60;
+        font-size: 1.2rem;
+    }
+
+    .bag-seo-faq {
+        display: grid;
+        gap: .75rem;
+    }
+
+    .bag-seo-faq summary {
+        cursor: pointer;
+        padding: 1rem 1.1rem;
+        font-weight: 780;
+    }
+
+    .bag-seo-faq-answer {
+        padding: 0 1.1rem 1.1rem;
+    }
+
+    .bag-seo-cta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1.25rem;
+        margin-top: 4rem;
+        padding: clamp(1.5rem, 4vw, 2.5rem);
+        border-radius: 25px;
+        color: #fff;
+        background: linear-gradient(135deg, #0f172a, #12344d 55%, #0b7a60);
+    }
+
+    .bag-seo-cta h2 {
+        margin: 0 0 .4rem;
+        font-size: clamp(1.5rem, 3vw, 2.25rem);
+        font-weight: 850;
+    }
+
+    .bag-seo-cta p {
+        max-width: 700px;
+        margin: 0;
+        color: rgba(255, 255, 255, .78);
+    }
+
+    @media (max-width: 1199.98px) {
+        .bag-seo-hero { grid-template-columns: 1fr; }
+        .bag-seo-visual { max-width: 720px; }
+    }
+
+    @media (max-width: 991.98px) {
+        .bag-seo-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 575.98px) {
+        .bag-seo-hero { padding: 1.6rem; border-radius: 22px; }
+        .bag-seo-visual { padding: 1rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bag-seo-page">
+    <div class="bag-seo-content">
+        <nav class="bag-seo-breadcrumb" aria-label="Breadcrumb">
+            <a href="{% url 'company_home' %}">KolliLabs</a>
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            <span>Tools</span>
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            <span aria-current="page">Bag Size Calculator</span>
+        </nav>
+    </div>
+
+    <section class="bag-seo-hero" aria-labelledby="bag-calculator-title">
+        <div>
+            <div class="bag-seo-eyebrow"><i class="bi bi-handbag"></i>Free flexible packaging calculator</div>
+            <h1 id="bag-calculator-title">Bag Size Calculator</h1>
+            <p class="bag-seo-lead">
+                Match a rectangular product to a flat flexible bag, calculate the maximum feasible quantity,
+                and review bag usage, packed weight, payload usage, and remaining capacity. The calculator uses
+                the same Bag Selection engine as KolliPack.
+            </p>
+            <div class="bag-seo-actions">
+                <a href="#calculator" class="btn btn-light btn-lg"><i class="bi bi-calculator me-2"></i>Use the calculator</a>
+                <a href="{% url 'bag_selection_mode1' %}" class="btn btn-outline-light btn-lg"><i class="bi bi-box-seam me-2"></i>Open in KolliPack</a>
+            </div>
+            <div class="bag-seo-proof" aria-label="Calculator benefits">
+                <span><i class="bi bi-check2-circle"></i>No account required</span>
+                <span><i class="bi bi-check2-circle"></i>Shared engineering engine</span>
+                <span><i class="bi bi-check2-circle"></i>Bag orientation preview</span>
+                <span><i class="bi bi-check2-circle"></i>PDF report</span>
+            </div>
+        </div>
+
+        <div class="bag-seo-visual" aria-label="Diagram showing the reserved sealing area and usable product area in a flat bag">
+            <h2>Flat bag interpretation</h2>
+            <p>Length carries the sealing allowance. Width is the bag opening direction.</p>
+            <div class="bag-seo-sketch" aria-hidden="true">
+                <div class="bag-seo-outline">
+                    <div class="bag-seo-product">Usable product arrangement</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="calculator" class="bag-seo-section" aria-labelledby="calculator-heading">
+        <div class="bag-seo-section-head bag-seo-content">
+            <span class="bag-seo-kicker"><i class="bi bi-play-circle me-1"></i>Interactive calculator</span>
+            <h2 id="calculator-heading">Calculate product-to-bag fit</h2>
+            <p>Enter product and flat bag dimensions in millimetres. Add weights and payload when you want a complete packed-weight check.</p>
+        </div>
+
+        <div class="bag-tool-shell">
+            {% if is_initial_example %}
+                <div class="bag-seo-banner" role="status">
+                    <i class="bi bi-lightning-charge-fill fs-5" aria-hidden="true"></i>
+                    <div>
+                        <strong>Live example loaded - edit any value to calculate your own bag.</strong>
+                        <p>
+                            Product {{ example_product_dimensions }} in a {{ example_bag_dimensions }} flat bag,
+                            including product weight, packaging weight, payload, and the shared engine's
+                            {{ bag_ui.assumptions.sealing_allowance_mm|floatformat:-2 }} mm sealing allowance and
+                            {{ bag_ui.assumptions.tolerance_mm|floatformat:-2 }} mm tolerance. The visible result was generated by the real Bag Selection engine.
+                        </p>
+                    </div>
+                </div>
+            {% endif %}
+            <div class="bag-seo-disclosure">
+                <i class="bi bi-diagram-3 fs-5" aria-hidden="true"></i>
+                <p><strong>One shared implementation.</strong> This public page, standalone Bag Selection, Packaging Flow, and applicable multi-product calculations use the authoritative KolliPack bag logic and rendering path.</p>
+            </div>
+            <form method="post" action="{% url 'bag_selection_calculator' %}" class="app-page" data-preserve-tool-scroll="bag-selection-seo">
+                {% csrf_token %}
+                {% include "bag_selection/bag_selection_wrapper.html" %}
+            </form>
+        </div>
+    </section>
+
+    <div class="bag-seo-content">
+        <section class="bag-seo-section" aria-labelledby="outputs-heading">
+            <div class="bag-seo-section-head">
+                <span class="bag-seo-kicker">Calculator outputs</span>
+                <h2 id="outputs-heading">Understand capacity, usage, and weight</h2>
+                <p>The result separates geometric bag fit from optional weight and payload checks so each restriction stays visible.</p>
+            </div>
+            <div class="bag-seo-grid">
+                <article class="bag-seo-card">
+                    <span class="bag-seo-card-icon"><i class="bi bi-boxes"></i></span>
+                    <h3>Quantity and remaining capacity</h3>
+                    <p>Maximum quantity is the largest supported arrangement that fits. Remaining capacity compares that maximum with the current quantity.</p>
+                </article>
+                <article class="bag-seo-card">
+                    <span class="bag-seo-card-icon"><i class="bi bi-bounding-box"></i></span>
+                    <h3>Current and maximum bag usage</h3>
+                    <p>Usage compares required flat area with selected bag area for the current quantity and for the calculated maximum quantity.</p>
+                </article>
+                <article class="bag-seo-card">
+                    <span class="bag-seo-card-icon"><i class="bi bi-speedometer2"></i></span>
+                    <h3>Weight and payload</h3>
+                    <p>Product weight drives net weight. Packaging tare adds total weight, while maximum payload enables payload usage.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="bag-seo-section" aria-labelledby="how-heading">
+            <div class="bag-seo-section-head">
+                <span class="bag-seo-kicker">How to use it</span>
+                <h2 id="how-heading">Three steps to evaluate a bag</h2>
+            </div>
+            <div class="bag-seo-grid">
+                <article class="bag-seo-card"><span class="bag-seo-card-icon">1</span><h3>Measure the product</h3><p>Use the rectangular external length, width, and height of the product or grouped base unit.</p></article>
+                <article class="bag-seo-card"><span class="bag-seo-card-icon">2</span><h3>Enter the flat bag</h3><p>Use physical bag length and width. Add product weight, bag tare, and maximum payload when available.</p></article>
+                <article class="bag-seo-card"><span class="bag-seo-card-icon">3</span><h3>Run and review</h3><p>Check fit, quantity, usage, weights, payload, orientation graphic, assumptions, and the downloadable shared PDF report.</p></article>
+            </div>
+        </section>
+
+        <section class="bag-seo-section" aria-labelledby="limits-heading">
+            <div class="bag-seo-section-head">
+                <span class="bag-seo-kicker">Engineering restrictions</span>
+                <h2 id="limits-heading">What the result assumes</h2>
+                <p>The calculator models rectangular bounding geometry and supported deterministic arrangements. It does not infer film stretch, gussets, valves, compression, or irregular product deformation.</p>
+            </div>
+            <div class="bag-seo-grid">
+                <article class="bag-seo-card"><h3>Length, sealing, and tolerance</h3><p>Bag length includes the reserved sealing allowance and tolerance. Bag width is the opening direction and receives tolerance only.</p></article>
+                <article class="bag-seo-card"><h3>Payload is a separate constraint</h3><p>A geometric fit can still be unsuitable if net product weight exceeds the real bag's payload, seal strength, or handling limit.</p></article>
+                <article class="bag-seo-card"><h3>Validate the physical pack</h3><p>Confirm the selected material, closure, protection, handling, quality, and production process with an actual packaging trial.</p></article>
+            </div>
+        </section>
+
+        <section class="bag-seo-section" aria-labelledby="faq-heading">
+            <div class="bag-seo-section-head">
+                <span class="bag-seo-kicker">Frequently asked questions</span>
+                <h2 id="faq-heading">Bag size calculator FAQ</h2>
+            </div>
+            <div class="bag-seo-faq">
+                {% for question, answer in faq_items %}
+                    <details>
+                        <summary>{{ question }}</summary>
+                        <div class="bag-seo-faq-answer">{{ answer }}</div>
+                    </details>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="bag-seo-cta" aria-labelledby="bag-cta-heading">
+            <div>
+                <h2 id="bag-cta-heading">Continue your packaging analysis in KolliPack</h2>
+                <p>Use catalogue-based Bag Selection and Packaging Flow, compare pallet patterns with the <a class="link-light" href="{% url 'palletization_calculator' %}">Palletization Calculator</a>, or explore practical packaging articles.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{% url 'bag_selection_mode1' %}" class="btn btn-light btn-lg">Open Bag Selection</a>
+                <a href="{% url 'blog_list' %}" class="btn btn-outline-light btn-lg">Read articles</a>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% include "bag_selection/partials/_bag_selection_scripts.html" %}
+{% endblock %}

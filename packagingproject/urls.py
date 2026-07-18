@@ -2,13 +2,17 @@
 
 from django.conf import settings
 from django.contrib import admin
+from django.contrib.sitemaps.views import sitemap
 from django.urls import include, path, re_path
 from django.views.static import serve as serve_media
+
+from packagingapp.sitemaps import PublicStaticSitemap
 
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("django.contrib.auth.urls")),
+    path("sitemap.xml", sitemap, {"sitemaps": {"public": PublicStaticSitemap}}, name="sitemap"),
     path("", include("packagingapp.urls")),
 ]
 

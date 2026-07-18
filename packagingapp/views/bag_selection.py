@@ -1,5 +1,9 @@
+import json
+
+from django.conf import settings
 from django.shortcuts import render
 from django.http import HttpResponse
+from django.urls import reverse
 from django.utils import timezone
 
 from ..tools.bag.presenter import selected_bag_summary, selected_product_summary
@@ -17,10 +21,30 @@ from ..tools.bag.service import (
 )
 from ..tools.bag.state import default_bag_config
 from ..tools.bag.export import build_bag_selection_pdf
+from ..utils.bag_selection.engine import SEALING_AREA, TOLERANCE
 
 
-def _read_raw_bag_config(request):
+SEO_BAG_SELECTION_EXAMPLE_CONFIG = {
+    "mode": "single",
+    "action": "run_single",
+    "product_source": "manual",
+    "product_l": 180,
+    "product_w": 120,
+    "product_h": 40,
+    "product_weight": 250,
+    "desired_qty": 4,
+    "bag_source": "manual",
+    "bag_length": 450,
+    "bag_width": 330,
+    "bag_weight": 18,
+    "bag_max_payload": 5000,
+}
+
+
+def _read_raw_bag_config(request, *, initial_config=None):
     cfg = default_bag_config()
+    if initial_config:
+        cfg.update(initial_config)
 
     if request.method == "POST":
         source = request.POST
@@ -58,6 +82,10 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
     return {
         "prefix": prefix,
         "render_action_hidden": render_action_hidden,
+        "assumptions": {
+            "tolerance_mm": TOLERANCE,
+            "sealing_allowance_mm": SEALING_AREA,
+        },
         "names": {
             "action": action_name,
             "mode": f"mode{suffix}",
@@ -265,11 +293,18 @@ def _build_optimal_export_payload(*, form, analysis, top5, selected_product, sel
 
 
 
-def bag_selection_mode1(request):
+def _build_bag_selection_page_context(
+    request,
+    *,
+    mode,
+    initial_config=None,
+    run_initial_analysis=False,
+):
+    """Build the shared Bag Selection view model for standalone and SEO pages."""
     packaging_catalogues = get_packaging_catalogues(request.user)
     product_catalogues = get_product_catalogues(request.user)
 
-    config = _read_raw_bag_config(request)
+    config = _read_raw_bag_config(request, initial_config=initial_config)
 
     selected_product = get_selected_product(config)
     selected_material = get_selected_material(config)
@@ -291,13 +326,17 @@ def bag_selection_mode1(request):
     pending_result = None
     analysis_report = None
 
-    if request.method == "POST" and form.is_valid():
+    form_is_valid = form.is_valid() if request.method == "POST" else True
+    should_analyze = run_initial_analysis or request.method == "POST"
+
+    if should_analyze and form_is_valid:
         analysis = analyze_bag_config(
             config=config,
-            action=config.get("action") or "",
+            action=config.get("action") or ("run_single" if run_initial_analysis else ""),
             selected_product=selected_product,
             selected_material=selected_material,
             materials=materials,
+            media_root=settings.MEDIA_ROOT,
         )
         result = analysis["result"]
         image_url = analysis["image_url"]
@@ -305,16 +344,27 @@ def bag_selection_mode1(request):
         pending_result = analysis["pending_result"]
         analysis_report = analysis.get("analysis_report")
 
-        current_form_mode = form.cleaned_data.get("mode") or "single"
+        current_form_mode = (
+            form.cleaned_data.get("mode")
+            if request.method == "POST"
+            else config.get("mode")
+        ) or "single"
         current_action = config.get("action") or ""
 
         if result and analysis_report and current_form_mode == "single":
+            export_form = form
+            if request.method != "POST":
+                export_form = form.__class__(config)
+                apply_catalogue_choices(export_form, packaging_catalogues, product_catalogues)
+                if not export_form.is_valid():
+                    export_form = None
+
             export_payload = _build_single_export_payload(
-                form=form,
+                form=export_form,
                 analysis=analysis,
                 selected_product=selected_product,
                 selected_material=selected_material,
-            )
+            ) if export_form is not None else None
             if export_payload:
                 request.session["bag_selection_last_export"] = export_payload
                 request.session["bag_selection_single_export"] = export_payload
@@ -345,7 +395,7 @@ def bag_selection_mode1(request):
         data=form if request.method == "POST" else config,
     )
 
-    context = {
+    return {
         "form": form,
         "bag_form": form,
         "bag_config": config,
@@ -364,12 +414,144 @@ def bag_selection_mode1(request):
         "current_mode": config.get("mode") or "single",
         "current_product_source": config.get("product_source") or "manual",
         "current_bag_source": config.get("bag_source") or "manual",
-        "mode": "standalone",
+        "mode": mode,
         "prefix": "",
         "bag_ui": _build_shared_bag_ui_contract(prefix=""),
+        "bag_assumptions": {
+            "tolerance_mm": TOLERANCE,
+            "sealing_allowance_mm": SEALING_AREA,
+        },
         "allow_product_catalogue": True,
     }
-    return render(request, "bag_selection/bag_selection_mode1.html", context)
+
+
+def _build_bag_selection_seo_schema(request):
+    canonical_url = request.build_absolute_uri(reverse("bag_selection_calculator"))
+    company_url = request.build_absolute_uri(reverse("company_home"))
+    app_url = request.build_absolute_uri(reverse("bag_selection_mode1"))
+
+    faq_items = [
+        (
+            "How does the bag size calculator determine the required bag size?",
+            "It evaluates supported product arrangements with the shared KolliPack Bag Selection engine, then applies the current fit tolerance and reserves sealing space along bag length.",
+        ),
+        (
+            "Which bag dimensions should I enter?",
+            "Enter the flat bag length and width in millimetres. Bag length includes the reserved sealing allowance; bag width is the opening span and receives the fit tolerance defined by the engine.",
+        ),
+        (
+            "What does bag usage mean?",
+            "Bag usage compares the calculated required flat bag area with the selected bag area for the current or maximum feasible quantity.",
+        ),
+        (
+            "Does the calculator check payload?",
+            "Yes. When product weight and maximum payload are supplied, the result shows net product weight, total weight, payload usage, and remaining quantity capacity.",
+        ),
+        (
+            "Does this result replace a packaging trial?",
+            "No. Flexible materials, seals, product shape, handling, protection, and manufacturing tolerances should still be validated with the actual bag and product.",
+        ),
+    ]
+
+    schema = [
+        {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "KolliPack Bag Size Calculator",
+            "applicationCategory": "BusinessApplication",
+            "applicationSubCategory": "Packaging engineering calculator",
+            "operatingSystem": "Any web browser",
+            "url": canonical_url,
+            "description": (
+                "Calculate product-to-bag fit, maximum quantity, bag usage, weight, "
+                "payload usage, and remaining capacity with a flexible packaging calculator."
+            ),
+            "provider": {
+                "@type": "Organization",
+                "name": "KolliLabs",
+                "url": company_url,
+            },
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD",
+                "availability": "https://schema.org/InStock",
+            },
+            "isAccessibleForFree": True,
+            "browserRequirements": "Requires JavaScript and a modern web browser",
+            "featureList": [
+                "Maximum product quantity per bag",
+                "Current and maximum bag usage",
+                "Net product and total packed weight",
+                "Payload usage and remaining capacity",
+                "Bag orientation visualization",
+                "PDF engineering report",
+            ],
+            "potentialAction": {"@type": "UseAction", "target": canonical_url},
+            "sameAs": [app_url],
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": question,
+                    "acceptedAnswer": {"@type": "Answer", "text": answer},
+                }
+                for question, answer in faq_items
+            ],
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+                {
+                    "@type": "ListItem",
+                    "position": 1,
+                    "name": "KolliLabs",
+                    "item": company_url,
+                },
+                {
+                    "@type": "ListItem",
+                    "position": 2,
+                    "name": "Bag Size Calculator",
+                    "item": canonical_url,
+                },
+            ],
+        },
+    ]
+    return canonical_url, faq_items, json.dumps(schema, ensure_ascii=False)
+
+
+def bag_selection_mode1(request):
+    return render(
+        request,
+        "bag_selection/bag_selection_mode1.html",
+        _build_bag_selection_page_context(request, mode="standalone"),
+    )
+
+
+def bag_selection_calculator(request):
+    is_initial_example = request.method == "GET" and not request.GET
+    context = _build_bag_selection_page_context(
+        request,
+        mode="seo",
+        initial_config=SEO_BAG_SELECTION_EXAMPLE_CONFIG if is_initial_example else None,
+        run_initial_analysis=is_initial_example,
+    )
+    canonical_url, faq_items, schema_json = _build_bag_selection_seo_schema(request)
+    context.update(
+        {
+            "canonical_url": canonical_url,
+            "faq_items": faq_items,
+            "seo_schema_json": schema_json,
+            "is_initial_example": is_initial_example,
+            "example_product_dimensions": "180 x 120 x 40 mm",
+            "example_bag_dimensions": "450 x 330 mm",
+        }
+    )
+    return render(request, "marketing/bag_selection_calculator.html", context)
 
 
 def bag_selection_export_pdf(request):

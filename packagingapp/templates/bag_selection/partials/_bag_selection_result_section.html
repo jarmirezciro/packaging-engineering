@@ -55,7 +55,7 @@
                 </div>
             {% endif %}
 
-            {% if mode == "standalone" and analysis_report %}
+            {% if mode != "workflow" and analysis_report %}
                 <div class="app-form-actions tool-card-actions mt-3">
                     {% if current_mode == "single" %}
                         <a href="{% url 'bag_selection_export_pdf' %}" class="btn btn-app-outline btn-sm">

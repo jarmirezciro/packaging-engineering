@@ -4,6 +4,8 @@ from ...access import visible_packaging_catalogues, visible_product_catalogues
 from ...forms import BagSelectionForm
 from ...models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
 from ...utils.bag_selection.engine import (
+    SEALING_AREA,
+    TOLERANCE,
     build_required_bag_options,
     best_usage_for_bag,
     compute_max_quantity_for_bag,
@@ -242,15 +244,12 @@ def _resolve_visual_bag_box(selected_bag, inner_box):
     bag_len, bag_w = selected_bag
     body_length, body_width, body_height = inner_box
 
-    tolerance = 2.0
-    sealing_area = 10.0
-
     # Bag L and W are physical dimensions. Length carries the sealing allowance;
     # width is the opening side and only carries tolerance. They should not be
     # swapped here. The engine already chooses the correct product-arrangement
     # orientation before returning inner_box.
-    bag_box_length = bag_len - tolerance - sealing_area - body_height
-    bag_box_width = bag_w - tolerance - body_height
+    bag_box_length = bag_len - TOLERANCE - SEALING_AREA - body_height
+    bag_box_width = bag_w - TOLERANCE - body_height
 
     if bag_box_length <= 0 or bag_box_width <= 0:
         return None

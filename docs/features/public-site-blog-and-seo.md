@@ -74,6 +74,13 @@ shared engine/service/UI contract
 
 The public page may have prefilled demo values and a visible initial result. Demo defaults belong to the SEO page only.
 
+The Bag Size Calculator follows the same contract at
+`/tools/bag-size-calculator/`. It consumes the shared Bag Selection page
+context, form, service, engine, renderer, result partials, and PDF export.
+Its public demo values are injected only by the SEO view. The engine's fixed
+fit tolerance and sealing allowance are displayed as read-only assumptions;
+they are not parallel SEO inputs or calculations.
+
 ## SEO content rules
 
 Each calculator page should include:
