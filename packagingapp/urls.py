@@ -40,6 +40,11 @@ urlpatterns = [
         bag_selection.bag_selection_calculator,
         name="bag_selection_calculator",
     ),
+    path(
+        "tools/container-loading-calculator/",
+        container_tool.transport_container_calculator,
+        name="transport_container_calculator",
+    ),
 
     # KolliPack application
     path("kollipack/", home, name="home"),

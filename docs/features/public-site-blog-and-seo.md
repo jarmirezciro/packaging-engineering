@@ -81,6 +81,13 @@ Its public demo values are injected only by the SEO view. The engine's fixed
 fit tolerance and sealing allowance are displayed as read-only assumptions;
 they are not parallel SEO inputs or calculations.
 
+The Container Loading Calculator follows the same contract at
+`/tools/container-loading-calculator/`. It consumes the shared Transport
+Container form orchestration, service, engine, result partials, Three.js scene
+and viewer, public catalogue visibility rules, and snapshot-backed PDF export.
+Its demonstration transport unit and load row are injected only by the SEO
+view; standalone and Packaging Flow defaults are unchanged.
+
 ## SEO content rules
 
 Each calculator page should include:

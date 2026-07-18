@@ -10,7 +10,7 @@ The contract applies to:
 
 - standalone Palletization, Container Selection, Bag Selection, and Transport
   Container tools;
-- Palletization on the public SEO calculator page;
+- Palletization and Transport Container on their public SEO calculator pages;
 - Packaging Flow step forms, including repeated instances of the same tool;
 - native form submissions and tool scripts that submit programmatically.
 
@@ -127,6 +127,7 @@ When changing shared tool forms or scripts, verify:
 | Packaging Flow | Each step restores only its own prefixed form; repeat the check with two instances of the same tool type. |
 | Multi-product Container/Bag | Run, row expansion, drawing, and result selection remain non-navigating `fetch()` updates. |
 | SEO Palletization | The calculator preserves position without affecting public-page anchors. |
+| SEO Transport Container | The calculator preserves position while shared catalogue, Max qty, analysis, camera, and PDF controls remain unchanged. |
 | Navigation | Direct entry, valid fragments, refresh, Back/Forward, copied URLs, and a new tab retain native behavior. |
 
 Also check the browser console at desktop and mobile widths. Automated template

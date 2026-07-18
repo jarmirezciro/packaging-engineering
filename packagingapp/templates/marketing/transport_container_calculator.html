@@ -1,0 +1,171 @@
+{% extends "marketing_base.html" %}
+
+{% block title %}Container Loading Calculator | Truck and Shipping Capacity | KolliPack{% endblock %}
+
+{% block meta_description %}Calculate shipping container and truck loading capacity, quantity, volume utilization, cargo weight, payload use, remaining space, and 3D load placement with KolliPack.{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ canonical_url }}">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Container Loading Calculator | Truck and Shipping Capacity | KolliPack">
+<meta property="og:description" content="Calculate transport-unit capacity, loaded quantity, volume use, cargo weight, payload use, remaining space, and an interactive 3D loading plan.">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:site_name" content="KolliLabs">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">{{ seo_schema_json|safe }}</script>
+{% endblock %}
+
+{% block extra_css %}
+{% include "container_tool/partials/_transport_styles.html" %}
+<style>
+    .transport-seo-page { max-width: 1420px; margin: 0 auto; }
+    .transport-seo-content { max-width: 1180px; margin-inline: auto; }
+    .transport-seo-breadcrumb { display:flex; align-items:center; flex-wrap:wrap; gap:.45rem; margin-bottom:1rem; color:#64748b; font-size:.9rem; }
+    .transport-seo-breadcrumb a { color:var(--app-primary-dark, #0b7a60); text-decoration:none; font-weight:700; }
+    .transport-seo-hero { display:grid; grid-template-columns:minmax(0,1.12fr) minmax(300px,.88fr); align-items:center; gap:2.5rem; overflow:hidden; padding:clamp(2rem,5vw,4rem); border-radius:30px; color:#fff; background:radial-gradient(circle at 86% 12%,rgba(52,211,153,.34),transparent 28%),radial-gradient(circle at 10% 100%,rgba(59,130,246,.18),transparent 34%),linear-gradient(135deg,#0f172a 0%,#12344d 48%,#10a37f 100%); box-shadow:0 26px 54px rgba(15,23,42,.18); }
+    .transport-seo-eyebrow,.transport-seo-proof span { display:inline-flex; align-items:center; gap:.45rem; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(255,255,255,.1); }
+    .transport-seo-eyebrow { margin-bottom:1rem; padding:.45rem .75rem; font-size:.88rem; font-weight:750; }
+    .transport-seo-hero h1 { max-width:820px; margin:0 0 1rem; font-size:clamp(2.25rem,5vw,4.65rem); line-height:1.01; letter-spacing:-.045em; font-weight:900; }
+    .transport-seo-lead { max-width:760px; margin:0; color:rgba(255,255,255,.84); font-size:clamp(1rem,1.7vw,1.17rem); line-height:1.7; }
+    .transport-seo-actions,.transport-seo-proof { display:flex; flex-wrap:wrap; gap:.7rem; margin-top:1.35rem; }
+    .transport-seo-proof span { padding:.42rem .66rem; color:rgba(255,255,255,.84); font-size:.82rem; font-weight:650; }
+    .transport-seo-visual { padding:1.35rem; border:1px solid rgba(255,255,255,.28); border-radius:26px; background:rgba(255,255,255,.95); color:#0f172a; box-shadow:0 24px 48px rgba(15,23,42,.24); }
+    .transport-seo-visual h2 { margin:0 0 .25rem; font-size:1.12rem; font-weight:830; }
+    .transport-seo-visual > p { margin-bottom:1rem; color:#64748b; font-size:.9rem; }
+    .transport-seo-sketch { position:relative; min-height:225px; overflow:hidden; border-radius:18px; background:linear-gradient(rgba(15,23,42,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(15,23,42,.04) 1px,transparent 1px),linear-gradient(180deg,#f8fafc,#eef7f3); background-size:24px 24px,24px 24px,auto; }
+    .transport-seo-box { position:absolute; inset:32px 42px 30px 24px; display:grid; grid-template-columns:repeat(5,1fr); grid-template-rows:repeat(2,1fr); gap:5px; padding:12px; border:3px solid #334155; border-radius:5px; transform:skewY(-4deg); background:rgba(203,213,225,.22); box-shadow:14px 18px 28px rgba(15,23,42,.14); }
+    .transport-seo-box span { border:1px solid #92400e; border-radius:3px; background:linear-gradient(135deg,#fbbf24,#f59e0b); }
+    .transport-seo-door { position:absolute; top:32px; right:12px; width:32px; height:163px; border:3px solid #475569; border-left-width:1px; transform:skewY(10deg); transform-origin:left; background:rgba(203,213,225,.45); }
+    .transport-seo-section { padding:4rem 0 0; scroll-margin-top:96px; }
+    .transport-seo-section-head { max-width:850px; margin-bottom:1.4rem; }
+    .transport-seo-kicker { color:var(--app-primary-dark, #0b7a60); font-size:.78rem; font-weight:850; letter-spacing:.09em; text-transform:uppercase; }
+    .transport-seo-section h2 { margin:.45rem 0 .7rem; font-size:clamp(1.75rem,3vw,2.8rem); line-height:1.08; letter-spacing:-.03em; font-weight:875; }
+    .transport-seo-section-head p,.transport-seo-card p,.transport-seo-card li,.transport-seo-faq-answer { color:#64748b; line-height:1.7; }
+    .transport-tool-shell { padding:clamp(.7rem,2vw,1.25rem); border:1px solid rgba(16,163,127,.24); border-radius:26px; background:linear-gradient(180deg,#f0fdf8 0%,#f8fafc 150px,#f8fafc 100%); box-shadow:0 20px 44px rgba(15,23,42,.08); }
+    .transport-seo-banner,.transport-seo-disclosure { display:flex; align-items:flex-start; gap:.8rem; margin-bottom:1rem; padding:1rem 1.1rem; border-radius:16px; }
+    .transport-seo-banner { border:1px solid #a7f3d0; background:linear-gradient(135deg,#ecfdf5,#f0fdfa); color:#14532d; }
+    .transport-seo-disclosure { border:1px solid #dbeee7; background:#fff; color:#475569; }
+    .transport-seo-banner p,.transport-seo-disclosure p { margin:.12rem 0 0; line-height:1.55; }
+    .transport-seo-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; }
+    .transport-seo-card,.transport-seo-faq details { border:1px solid var(--app-border,#e5e7eb); border-radius:20px; background:#fff; box-shadow:0 12px 28px rgba(15,23,42,.045); }
+    .transport-seo-card { height:100%; padding:1.35rem; }
+    .transport-seo-card h3 { font-size:1.08rem; font-weight:820; }
+    .transport-seo-card-icon { width:44px; height:44px; display:inline-grid; place-items:center; margin-bottom:.8rem; border-radius:14px; background:#ecfdf5; color:#0b7a60; font-size:1.2rem; }
+    .transport-seo-faq { display:grid; gap:.75rem; }
+    .transport-seo-faq summary { cursor:pointer; padding:1rem 1.1rem; font-weight:780; }
+    .transport-seo-faq-answer { padding:0 1.1rem 1.1rem; }
+    .transport-seo-cta { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1.25rem; margin-top:4rem; padding:clamp(1.5rem,4vw,2.5rem); border-radius:25px; color:#fff; background:linear-gradient(135deg,#0f172a,#12344d 55%,#0b7a60); }
+    .transport-seo-cta h2 { margin:0 0 .4rem; font-size:clamp(1.5rem,3vw,2.25rem); font-weight:850; }
+    .transport-seo-cta p { max-width:720px; margin:0; color:rgba(255,255,255,.78); }
+    @media (max-width:1199.98px){ .transport-seo-hero{grid-template-columns:1fr;} .transport-seo-visual{max-width:720px;} }
+    @media (max-width:991.98px){ .transport-seo-grid{grid-template-columns:1fr;} }
+    @media (max-width:575.98px){ .transport-seo-hero{padding:1.6rem;border-radius:22px;} .transport-seo-visual{padding:1rem;} }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="transport-seo-page">
+    <div class="transport-seo-content">
+        <nav class="transport-seo-breadcrumb" aria-label="Breadcrumb">
+            <a href="{% url 'company_home' %}">KolliLabs</a><i class="bi bi-chevron-right" aria-hidden="true"></i><span>Tools</span><i class="bi bi-chevron-right" aria-hidden="true"></i><span aria-current="page">Container Loading Calculator</span>
+        </nav>
+    </div>
+
+    <section class="transport-seo-hero" aria-labelledby="transport-calculator-title">
+        <div>
+            <div class="transport-seo-eyebrow"><i class="bi bi-truck"></i>Free packaging transport calculator</div>
+            <h1 id="transport-calculator-title">Container Loading Calculator</h1>
+            <p class="transport-seo-lead">Estimate shipping-container, trailer, truck, pallet, or crate loading capacity from real load-unit dimensions. Review quantity, volumetric use, cargo weight, payload, remaining space, and the calculated placement in an interactive 3D scene.</p>
+            <div class="transport-seo-actions">
+                <a href="#calculator" class="btn btn-light btn-lg"><i class="bi bi-calculator me-2"></i>Use the calculator</a>
+                <a href="{% url 'container_tool' %}" class="btn btn-outline-light btn-lg"><i class="bi bi-box-seam me-2"></i>Open in KolliPack</a>
+            </div>
+            <div class="transport-seo-proof" aria-label="Calculator benefits">
+                <span><i class="bi bi-check2-circle"></i>No account required</span>
+                <span><i class="bi bi-check2-circle"></i>Shared Transport engine</span>
+                <span><i class="bi bi-check2-circle"></i>Interactive Three.js view</span>
+                <span><i class="bi bi-check2-circle"></i>Snapshot-backed PDF</span>
+            </div>
+        </div>
+        <div class="transport-seo-visual" aria-label="Illustration of palletized loads inside a transport container">
+            <h2>Transport capacity analysis</h2>
+            <p>Geometry and payload remain visible as separate constraints.</p>
+            <div class="transport-seo-sketch" aria-hidden="true"><div class="transport-seo-box">{% for _ in "1234567890" %}<span></span>{% endfor %}</div><div class="transport-seo-door"></div></div>
+        </div>
+    </section>
+
+    <section id="calculator" class="transport-seo-section" aria-labelledby="calculator-heading">
+        <div class="transport-seo-section-head transport-seo-content">
+            <span class="transport-seo-kicker"><i class="bi bi-play-circle me-1"></i>Interactive calculator</span>
+            <h2 id="calculator-heading">Calculate transport-unit capacity</h2>
+            <p>Start with usable internal transport-unit dimensions, then add the external dimensions, quantity, unit weight, loading sequence, and permitted rotations for each packaged load.</p>
+        </div>
+        <div class="transport-tool-shell">
+            {% if is_initial_example %}
+            <div class="transport-seo-banner" role="status">
+                <i class="bi bi-lightning-charge-fill fs-5" aria-hidden="true"></i>
+                <div><strong>Live example loaded - edit any value to calculate your own transport load.</strong><p>{{ example_quantity }} palletized units at {{ example_load_dimensions }} and {{ example_load_weight }} each are evaluated in a {{ example_transport_dimensions }} internal envelope with {{ example_payload }} maximum payload. The visible result comes from the real KolliPack Transport engine.</p></div>
+            </div>
+            {% endif %}
+            <div class="transport-seo-disclosure"><i class="bi bi-diagram-3 fs-5" aria-hidden="true"></i><p><strong>One shared implementation.</strong> This public calculator and standalone Transport Container Selection use the same request context, form, engine service, result partials, Three.js viewer, catalogue access rules, and PDF export path. Packaging Flow uses the same service and shared prefixed Transport components.</p></div>
+            <form method="post" action="{% url 'transport_container_calculator' %}" id="container-tool-form" class="container-tool-form" data-preserve-tool-scroll="transport-seo">
+                {% csrf_token %}
+                {% include "container_tool/transport_wrapper.html" with mode="seo" is_workflow=False prefix="0" form=form messages=row_errors current_container_source=current_container_source selected_material=selected_material container_summary=container_summary current_catalogue_id=current_catalogue_id materials=materials packaging_catalogues=packaging_catalogues result=result threejs_scene=threejs_scene product_rows=product_rows auto_hide_product_catalogue=auto_hide_product_catalogue selected_row_index=selected_row_index product_catalogue_id=product_catalogue_id product_catalogues=product_catalogues product_items=product_items product_id_to_fill="" is_first_step=True %}
+            </form>
+        </div>
+    </section>
+
+    <div class="transport-seo-content">
+        <section class="transport-seo-section" aria-labelledby="outputs-heading">
+            <div class="transport-seo-section-head"><span class="transport-seo-kicker">Calculator outputs</span><h2 id="outputs-heading">Read quantity, volume, weight, and remaining space</h2><p>The result keeps geometric use and payload use separate so you can see which entered restriction limits the load.</p></div>
+            <div class="transport-seo-grid">
+                <article class="transport-seo-card"><span class="transport-seo-card-icon"><i class="bi bi-boxes"></i></span><h3>Loaded and unplaced quantity</h3><p>Placed units come directly from the engine placement list. Unplaced units are requested units that could not be assigned within the current geometry, rotation, sequence, and payload settings.</p></article>
+                <article class="transport-seo-card"><span class="transport-seo-card-icon"><i class="bi bi-bounding-box"></i></span><h3>Volumetric use</h3><p>Volume utilization compares the volume of placed load units with the usable internal transport-unit volume. Occupied and residual dimensions help describe the calculated envelope.</p></article>
+                <article class="transport-seo-card"><span class="transport-seo-card-icon"><i class="bi bi-speedometer2"></i></span><h3>Weight and payload</h3><p>Loaded weight is cargo weight. Payload utilization compares cargo weight with the entered maximum payload. Optional tare is added separately to report gross loaded weight.</p></article>
+            </div>
+        </section>
+
+        <section class="transport-seo-section" aria-labelledby="guide-heading">
+            <div class="transport-seo-section-head"><span class="transport-seo-kicker">Input guide</span><h2 id="guide-heading">Three steps to build a transport loading estimate</h2></div>
+            <div class="transport-seo-grid">
+                <article class="transport-seo-card"><span class="transport-seo-card-icon">1</span><h3>Select the transport unit</h3><p>Enter usable internal dimensions manually or choose a transport container, trailer, pallet, crate, or other load unit from a public catalogue when one is available.</p></article>
+                <article class="transport-seo-card"><span class="transport-seo-card-icon">2</span><h3>Describe the packaged loads</h3><p>Add one or more product, carton, pallet, or crate rows. Enter external dimensions, required quantity or Max qty, unit weight, sequence, and only physically permitted rotations.</p></article>
+                <article class="transport-seo-card"><span class="transport-seo-card-icon">3</span><h3>Inspect and validate</h3><p>Compare quantity, volume and payload metrics, inspect the same placements from reset, top, front and side cameras, then use the shared PDF path for fixed Main, Top, and Opposite snapshots.</p></article>
+            </div>
+        </section>
+
+        <section class="transport-seo-section" aria-labelledby="alternatives-heading">
+            <div class="transport-seo-section-head"><span class="transport-seo-kicker">Rotations and views</span><h2 id="alternatives-heading">Understand loading alternatives</h2><p>R1, R2, and R3 control the supported orthogonal orientation groups used by the shared packing heuristic. The current Transport tool produces one deterministic placement for the entered sequence and restrictions; the camera buttons inspect that same placement rather than presenting separate optimization claims.</p></div>
+            <div class="transport-seo-grid">
+                <article class="transport-seo-card"><h3>Max qty</h3><p>For a checked row, the service searches the maximum quantity the real packing heuristic can place while respecting fixed rows and payload. It does not use a template-side capacity formula.</p></article>
+                <article class="transport-seo-card"><h3>Rotation restrictions</h3><p>Disable orientations that are not physically allowed because of stability, fragility, upright handling, liquids, stack strength, or access requirements.</p></article>
+                <article class="transport-seo-card"><h3>One scene, several cameras</h3><p>The interactive renderer uses one serialized placement list. Its open rear doors remain at the established end and are displayed at approximately 135 degrees.</p></article>
+            </div>
+        </section>
+
+        <section class="transport-seo-section" aria-labelledby="limits-heading">
+            <div class="transport-seo-section-head"><span class="transport-seo-kicker">Engineering scope</span><h2 id="limits-heading">What the transport estimate does not certify</h2><p>This is geometric and entered-payload decision support. It does not certify real loading access or route legality.</p></div>
+            <div class="transport-seo-grid">
+                <article class="transport-seo-card"><h3>Access and sequence</h3><p>Confirm door aperture, forklift access, practical loading and unloading order, dunnage, clearances, and handling equipment with the actual unit.</p></article>
+                <article class="transport-seo-card"><h3>Stability and securement</h3><p>Validate center of gravity, axle loads, floor loading, stacking strength, blocking, bracing, lashing, airflow, and load securing separately.</p></article>
+                <article class="transport-seo-card"><h3>Catalogue dimensions</h3><p>Public catalogue entries are runtime data, not universal specifications. Confirm usable dimensions, tare, payload, manufacturer data, and local rules for the selected equipment.</p></article>
+            </div>
+        </section>
+
+        <section class="transport-seo-section" aria-labelledby="faq-heading">
+            <div class="transport-seo-section-head"><span class="transport-seo-kicker">Frequently asked questions</span><h2 id="faq-heading">Container loading calculator FAQ</h2></div>
+            <div class="transport-seo-faq">{% for question, answer in faq_items %}<details><summary>{{ question }}</summary><div class="transport-seo-faq-answer">{{ answer }}</div></details>{% endfor %}</div>
+        </section>
+
+        <section class="transport-seo-cta" aria-labelledby="transport-cta-heading">
+            <div><h2 id="transport-cta-heading">Continue the packaging chain in KolliPack</h2><p>Use catalogue-based Transport Container Selection and <a class="link-light" href="{% url 'full_packaging_mode' %}">Packaging Flow</a>, compare upstream stacks with the <a class="link-light" href="{% url 'palletization_calculator' %}">Palletization Calculator</a>, or read how <a class="link-light" href="{% url 'blog_detail' 'palletization-affects-transport-cost' %}">palletization affects transport loading</a>.</p></div>
+            <div class="d-flex flex-wrap gap-2"><a href="{% url 'container_tool' %}" class="btn btn-light btn-lg">Open Transport Tool</a><a href="{% url 'blog_list' %}" class="btn btn-outline-light btn-lg">Read articles</a></div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% include "container_tool/partials/_transport_scripts.html" %}
+{% endblock %}

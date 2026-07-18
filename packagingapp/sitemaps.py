@@ -10,6 +10,7 @@ class PublicStaticSitemap(Sitemap):
         "blog_list": {"changefreq": "weekly", "priority": 0.8},
         "palletization_calculator": {"changefreq": "monthly", "priority": 0.9},
         "bag_selection_calculator": {"changefreq": "monthly", "priority": 0.9},
+        "transport_container_calculator": {"changefreq": "monthly", "priority": 0.9},
     }
 
     def items(self):
