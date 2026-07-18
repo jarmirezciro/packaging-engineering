@@ -11,6 +11,7 @@ from ..tools.transport.presenter import selected_container_summary
 from ..tools.transport.serializers import sanitize_transport_rows_for_session
 from ..tools.transport.service import analyze_transport_config, read_product_rows_raw
 from ..tools.transport.state import default_product_rows
+from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 
 
 def _format_number(value, decimals=0):
@@ -106,6 +107,7 @@ def container_tool(request):
     raw_selected_row_index = request.POST.get("selected_row_index") if request.method == "POST" else request.GET.get("selected_row_index", "")
 
     result = None
+    threejs_scene = None
     image_url = None
     image_urls = {}
     row_errors = []
@@ -248,6 +250,7 @@ def container_tool(request):
 
             if analysis["ok"]:
                 result = analysis["serialized_result"]
+                threejs_scene = analysis["threejs_scene"]
                 image_url = analysis["image_url"]
                 image_urls = analysis.get("image_urls") or {}
                 export_payload = _build_transport_export_payload(
@@ -332,6 +335,7 @@ def container_tool(request):
     context = {
         "form": form,
         "result": result,
+        "threejs_scene": threejs_scene,
         "image_url": image_url,
         "image_urls": image_urls,
         "row_errors": row_errors,
@@ -361,7 +365,29 @@ def container_tool_export_pdf(request):
             content_type="text/plain",
         )
 
-    pdf_buffer = build_transport_container_pdf(export_payload)
+    snapshot_fields = {
+        "main": "transport_threejs_snapshot_main",
+        "top": "transport_threejs_snapshot_top",
+        "opposite": "transport_threejs_snapshot_opposite",
+    }
+    snapshot_rel_paths = {
+        view_name: save_threejs_snapshot_from_request(
+            request,
+            relative_directory="generated/transport_container/threejs",
+            field_name=field_name,
+        )
+        for view_name, field_name in snapshot_fields.items()
+    }
+    if not all(snapshot_rel_paths.values()):
+        return HttpResponse(
+            "The Three.js Main, Top and Opposite side transport views are required for PDF export.",
+            status=400,
+            content_type="text/plain",
+        )
+
+    pdf_payload = dict(export_payload)
+    pdf_payload["threejs_snapshot_rel_paths"] = snapshot_rel_paths
+    pdf_buffer = build_transport_container_pdf(pdf_payload)
     timestamp = timezone.now().strftime("%Y%m%d_%H%M")
     filename = f"transport_container_report_{timestamp}.pdf"
 

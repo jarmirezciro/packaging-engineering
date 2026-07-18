@@ -293,7 +293,7 @@ def _validation_note(summary):
 
 
 def build_transport_container_pdf(export_payload):
-    """Build a compact one-page standalone Transport Container PDF report."""
+    """Build the Transport report from validated browser-rendered snapshots."""
     buffer = BytesIO()
     doc = _build_doc(buffer)
     story = []
@@ -301,7 +301,7 @@ def build_transport_container_pdf(export_payload):
     generated_at = export_payload.get("generated_at") or timezone.now().strftime("%Y-%m-%d %H:%M")
     unit = export_payload.get("transport_unit") or {}
     summary = export_payload.get("summary") or {}
-    image_rel_paths = export_payload.get("image_rel_paths") or {}
+    snapshot_rel_paths = export_payload.get("threejs_snapshot_rel_paths") or {}
 
     story.append(Paragraph("Transport Container Analysis Report", _STYLES["TransportReportTitle"]))
     story.append(Paragraph(f"Standalone transport loading analysis - Generated {generated_at}", _STYLES["TransportReportSubtitle"]))
@@ -346,12 +346,12 @@ def build_transport_container_pdf(export_payload):
     right_column = [
         _section_title("Main loading view"),
     ]
-    right_column.extend(_image_block(image_rel_paths.get("main") or export_payload.get("image_rel_path"), 123 * mm, 52 * mm, "Main view - same default perspective as the tool."))
+    right_column.extend(_image_block(snapshot_rel_paths.get("main"), 123 * mm, 52 * mm, "Main view - Three.js default perspective."))
     right_column.append(Spacer(1, 2 * mm))
 
     image_cells = []
-    top_block = _image_block(image_rel_paths.get("top"), 60 * mm, 38 * mm, "Top view")
-    opposite_block = _image_block(image_rel_paths.get("opposite"), 60 * mm, 38 * mm, "Opposite side")
+    top_block = _image_block(snapshot_rel_paths.get("top"), 60 * mm, 38 * mm, "Top view")
+    opposite_block = _image_block(snapshot_rel_paths.get("opposite"), 60 * mm, 38 * mm, "Opposite side")
     image_cells.append([top_block, opposite_block])
 
     views_table = Table(image_cells, colWidths=[63 * mm, 63 * mm])
@@ -367,7 +367,7 @@ def build_transport_container_pdf(export_payload):
         views_table,
         Spacer(1, 3 * mm),
         Paragraph(
-            "The extra views use the same calculated placement. They only change the camera angle to help inspect hidden placements and floor usage.",
+            "The Three.js views use the same calculated placement. They only change the camera angle to help inspect hidden placements and floor usage.",
             _STYLES["TransportBodySmall"],
         ),
     ])

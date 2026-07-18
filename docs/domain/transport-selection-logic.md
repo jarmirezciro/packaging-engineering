@@ -108,7 +108,7 @@ Approved views:
 
 User-facing render direction:
 
-- clean matplotlib/3D appearance;
+- shared interactive Three.js scene in standalone and Packaging Flow;
 - doors clearly at the correct end;
 - preferred main perspective preserved;
 - no axes/mesh in final output;
@@ -125,7 +125,8 @@ Historical fixes added a missing workflow helper such as `_transport_rows_from_s
 - when Transport is first step, it must be functionally identical to standalone;
 - workflow layout and result controls must match standalone;
 - hidden fields and scripts must be prefix-safe;
-- standalone PDF export must use the selected shared result.
+- standalone PDF export must use validated Three.js Main, Top, and Opposite-side
+  snapshots from the selected shared result, with no Matplotlib fallback.
 
 A historical export route was:
 

@@ -28,9 +28,69 @@ def sanitize_transport_rows_for_session(rows):
     return safe_rows
 
 
-def serialize_transport_result(result):
-    summary = result.get("summary", {}) or {}
+_TRANSPORT_ITEM_COLORS = (
+    "#f59e0b",
+    "#2563eb",
+    "#0d9488",
+    "#dc2626",
+    "#7c3aed",
+    "#65a30d",
+    "#ea580c",
+    "#0891b2",
+)
+
+
+def serialize_transport_threejs_scene(container, placements, summary):
+    """Serialize authoritative engine placements for the browser renderer.
+
+    Engine/Python coordinates use X=length, Y=width, Z=height. The Three.js
+    viewer owns only the coordinate-axis mapping and presentation.
+    """
+    container = container or {}
+    summary = summary or {}
+    color_by_name = {}
+    items = []
+
+    for placement in placements or []:
+        label = str(getattr(placement, "product_name", "") or "Load unit")
+        if label not in color_by_name:
+            color_by_name[label] = _TRANSPORT_ITEM_COLORS[
+                len(color_by_name) % len(_TRANSPORT_ITEM_COLORS)
+            ]
+        items.append({
+            "x": float(getattr(placement, "x", 0) or 0),
+            "y": float(getattr(placement, "y", 0) or 0),
+            "z": float(getattr(placement, "z", 0) or 0),
+            "dx": float(getattr(placement, "l", 0) or 0),
+            "dy": float(getattr(placement, "w", 0) or 0),
+            "dz": float(getattr(placement, "h", 0) or 0),
+            "label": label,
+            "kind": "load_unit",
+            "color": color_by_name[label],
+            "opacity": 1.0,
+        })
+
     return {
+        "version": 1,
+        "units": "mm",
+        "transport_unit": {
+            "length": float(container.get("L", 0) or 0),
+            "width": float(container.get("W", 0) or 0),
+            "height": float(container.get("H", 0) or 0),
+            "type": str(container.get("type", "TRANSPORT_UNIT") or "TRANSPORT_UNIT"),
+        },
+        "items": items,
+        "metadata": {
+            "total_items": int(summary.get("placed_units", len(items)) or 0),
+            "used_length": float(summary.get("occupied_length", 0) or 0),
+            "remaining_length": float(summary.get("residual_length", 0) or 0),
+        },
+    }
+
+
+def serialize_transport_result(result, threejs_scene=None):
+    summary = result.get("summary", {}) or {}
+    serialized = {
         "summary": {
             "container_volume": float(summary.get("container_volume", 0) or 0),
             "packed_volume": float(summary.get("packed_volume", 0) or 0),
@@ -67,3 +127,6 @@ def serialize_transport_result(result):
             ],
         }
     }
+    if threejs_scene is not None:
+        serialized["threejs_scene"] = threejs_scene
+    return serialized

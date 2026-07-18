@@ -1,7 +1,11 @@
 from django.conf import settings
 
 from .state import default_product_rows
-from .serializers import sanitize_transport_rows_for_session, serialize_transport_result
+from .serializers import (
+    sanitize_transport_rows_for_session,
+    serialize_transport_result,
+    serialize_transport_threejs_scene,
+)
 from ...utils.container_tool.engine import pack_container, run_container_tool
 
 
@@ -175,6 +179,7 @@ def build_container_from_config(cfg, selected_material=None):
                 "H": float(selected_material.part_height),
                 "max_weight": max_weight,
                 "tare_weight": tare_weight,
+                "type": str(selected_material.packaging_type or "TRANSPORT_UNIT"),
             }
         except Exception:
             messages.append("Selected packaging item has invalid dimensions.")
@@ -187,6 +192,7 @@ def build_container_from_config(cfg, selected_material=None):
                 "H": float(cfg.get("container_h")),
                 "max_weight": max_weight,
                 "tare_weight": tare_weight,
+                "type": "MANUAL",
             }
         except Exception:
             messages.append("Please enter all manual container dimensions.")
@@ -388,9 +394,15 @@ def run_transport_analysis(container, products, media_root=None):
     )
     image_rel_paths = result.get("image_rel_paths") or {}
     image_urls = {key: settings.MEDIA_URL + rel_path for key, rel_path in image_rel_paths.items() if rel_path}
+    threejs_scene = serialize_transport_threejs_scene(
+        container,
+        result.get("placements") or [],
+        result.get("summary") or {},
+    )
     return {
         "result": result,
-        "serialized_result": serialize_transport_result(result),
+        "serialized_result": serialize_transport_result(result, threejs_scene=threejs_scene),
+        "threejs_scene": threejs_scene,
         "image_url": settings.MEDIA_URL + result["image_rel_path"],
         "image_urls": image_urls,
     }
@@ -412,6 +424,7 @@ def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=N
             "container": container,
             "result": None,
             "serialized_result": None,
+            "threejs_scene": None,
             "image_url": None,
             "image_urls": None,
         }
@@ -428,6 +441,7 @@ def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=N
             "container": container,
             "result": None,
             "serialized_result": None,
+            "threejs_scene": None,
             "image_url": None,
             "image_urls": None,
         }
@@ -451,6 +465,7 @@ def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=N
         "container": container,
         "result": analysis["result"],
         "serialized_result": serialized_result,
+        "threejs_scene": analysis["threejs_scene"],
         "image_url": analysis["image_url"],
         "image_urls": analysis.get("image_urls") or {},
     }

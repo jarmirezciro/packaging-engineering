@@ -1,3 +1,7 @@
+{% load static %}
+{% if not threejs_importmap_loaded %}
+  {% include "shared/_threejs_importmap.html" %}
+{% endif %}
 <script>
     if (typeof window.setAction !== "function") {
       window.setAction = function(value) {
@@ -18,22 +22,6 @@
       if (form) window.KolliPackToolScroll.submit(form);
     }
 
-
-    function transportSwitchView(button) {
-      const targetId = button.getAttribute("data-image-target");
-      const src = button.getAttribute("data-image-src");
-      if (!targetId || !src) return false;
-
-      const img = document.getElementById(targetId);
-      if (img) img.src = src;
-
-      const wrap = button.closest('.transport-view-toggle');
-      if (wrap) {
-        wrap.querySelectorAll('.transport-view-btn').forEach(btn => btn.classList.remove('is-active'));
-      }
-      button.classList.add('is-active');
-      return false;
-    }
 
     function syncCheckboxHidden(checkbox) {
       const hidden = checkbox.parentElement.querySelector('input[type="hidden"]');
@@ -70,7 +58,8 @@
     }
 
     function transportToggleInstructions(button) {
-      const body = document.getElementById("transportInstructionsBody");
+      const targetId = button ? button.dataset.transportInstructionsTarget : "";
+      const body = targetId ? document.getElementById(targetId) : null;
       if (!body) return;
 
       const collapsed = body.classList.toggle("section-collapsed");
@@ -408,3 +397,4 @@
       });
     });
     </script>
+<script type="module" src="{% static 'js/transport_container_threejs_viewer.js' %}"></script>

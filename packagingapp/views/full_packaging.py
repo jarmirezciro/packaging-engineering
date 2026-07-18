@@ -166,6 +166,7 @@ def _new_transport_step():
         "result": None,
         "image_url": None,
         "image_urls": {},
+        "threejs_scene": None,
         "top5": [],
         "pending_result": None,
         "analysis_ran": False,
@@ -571,6 +572,7 @@ def _invalidate_downstream(steps, start_idx):
         steps[i]["messages"] = ["This step was cleared because an upstream step changed."]
         steps[i]["result"] = None
         steps[i]["image_url"] = None
+        steps[i]["image_urls"] = {}
         steps[i]["threejs_scene"] = None
         steps[i]["top5"] = []
         steps[i]["pending_result"] = None
@@ -1321,6 +1323,7 @@ def _process_transport_step(step, steps, idx, post):
     step["result"] = None
     step["image_url"] = None
     step["image_urls"] = {}
+    step["threejs_scene"] = None
     step["pending_result"] = None
     step["auto_hide_product_catalogue"] = False
 
@@ -1714,6 +1717,7 @@ def _run_transport_analysis(step, steps, idx):
     step["result"] = None
     step["image_url"] = None
     step["image_urls"] = {}
+    step["threejs_scene"] = None
     step["pending_result"] = None
 
     selected_material = PackagingMaterial.objects.filter(
@@ -1746,6 +1750,7 @@ def _run_transport_analysis(step, steps, idx):
     step["result"] = analysis["serialized_result"]
     step["image_url"] = analysis["image_url"]
     step["image_urls"] = analysis.get("image_urls") or {}
+    step["threejs_scene"] = analysis["threejs_scene"]
 
     prev = _selected_input_for_step(steps, idx)
     upstream_units = prev.get("total_base_units", 1) if prev else 1

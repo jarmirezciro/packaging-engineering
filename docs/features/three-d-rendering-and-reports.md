@@ -64,6 +64,20 @@ Three.js is the primary customer-facing pallet stack renderer. The historical
 Matplotlib renderer remains a backend helper only and is not the primary web or
 PDF visualization.
 
+### Transport browser scene
+
+Transport loading serializes the authoritative engine `Placement` objects into
+one JSON-safe scene used by the standalone tool and the Packaging Flow transport
+step. Python coordinates use `X=length`, `Y=width`, `Z=height`; the browser maps
+them to Three.js `X=length`, `Y=height`, `Z=width`.
+
+Three.js is the primary customer-facing transport renderer. Standalone Transport
+PDF export captures fixed Main, Top, and Opposite-side JPEG views from the shared
+viewer. The server validates and stores all three snapshots under `MEDIA_ROOT`;
+missing or invalid snapshots return HTTP 400 and never fall back to the legacy
+Matplotlib report images. Legacy server images remain transitional inputs only
+for the separate combined Packaging Flow report.
+
 
 ## Graphics propagation rule
 

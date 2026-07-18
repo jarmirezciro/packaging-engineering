@@ -9,12 +9,13 @@
       </div>
       <button type="button"
               class="btn btn-app-outline btn-sm"
+              data-transport-instructions-target="transportInstructionsBody_{{ step_index|default:'0' }}"
               onclick="transportToggleInstructions(this)">
         <i class="bi bi-chevron-down"></i>
       </button>
     </div>
 
-    <div id="transportInstructionsBody" class="transport-instructions-body section-collapsed">
+    <div id="transportInstructionsBody_{{ step_index|default:'0' }}" class="transport-instructions-body section-collapsed">
       <div class="transport-instructions-grid">
         <div class="transport-instruction-box">
           <div class="transport-instruction-icon"><i class="bi bi-truck"></i></div>

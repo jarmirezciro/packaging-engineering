@@ -519,6 +519,123 @@ class PalletizationThreeJsAndPdfTests(TestCase):
         json.dumps(self.client.session["full_packaging_mode_session"])
 
 
+class TransportThreeJsAndPdfTests(TestCase):
+    PNG_DATA_URL = (
+        "data:image/png;base64,"
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
+        "YAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+    )
+
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp(prefix="kollipack-transport-threejs-test-")
+        self.analysis_data = {
+            "action": "run_analysis",
+            "container_source": "manual",
+            "container_l": "2400",
+            "container_w": "1200",
+            "container_h": "1200",
+            "max_weight": "1000",
+            "tare_weight": "200",
+            "item_name[]": ["Pallet A"],
+            "item_length[]": ["1200"],
+            "item_width[]": ["800"],
+            "item_height[]": ["1000"],
+            "item_qty[]": ["2"],
+            "item_max_qty[]": ["0"],
+            "item_weight[]": ["100"],
+            "item_sequence[]": ["1"],
+            "item_r1[]": ["1"],
+            "item_r2[]": ["0"],
+            "item_r3[]": ["0"],
+        }
+
+    def tearDown(self):
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_standalone_scene_uses_engine_placements_and_pdf_requires_three_views(self):
+        with self.settings(MEDIA_ROOT=self.media_root):
+            analysis_response = self.client.post(
+                reverse("container_tool"),
+                self.analysis_data,
+            )
+
+            self.assertEqual(analysis_response.status_code, 200)
+            scene = analysis_response.context["threejs_scene"]
+            result = analysis_response.context["result"]
+            self.assertEqual(scene["metadata"]["total_items"], result["summary"]["placed_units"])
+            self.assertEqual(len(scene["items"]), result["summary"]["placed_units"])
+            self.assertEqual(scene["transport_unit"]["length"], 2400.0)
+            self.assertEqual(scene["transport_unit"]["width"], 1200.0)
+            self.assertEqual(scene["transport_unit"]["height"], 1200.0)
+            self.assertTrue(all(item["kind"] == "load_unit" for item in scene["items"]))
+            json.dumps(scene)
+
+            self.assertContains(analysis_response, 'id="transportThreeJsViewer_0"', count=1)
+            self.assertContains(analysis_response, 'id="transportThreeJsScene_0"', count=1)
+            self.assertContains(analysis_response, "js/transport_container_threejs_viewer.js")
+            self.assertContains(analysis_response, 'data-transport-threejs-view="reset"')
+            self.assertContains(analysis_response, 'data-transport-threejs-view="top"')
+            self.assertContains(analysis_response, 'data-transport-threejs-view="front"')
+            self.assertContains(analysis_response, 'data-transport-threejs-view="side"')
+            self.assertNotContains(analysis_response, "transportRenderImage_")
+
+            missing_response = self.client.get(reverse("container_tool_export_pdf"))
+            self.assertEqual(missing_response.status_code, 400)
+            self.assertIn(b"Main, Top and Opposite side", missing_response.content)
+
+            pdf_response = self.client.post(
+                reverse("container_tool_export_pdf"),
+                {
+                    "transport_threejs_snapshot_main": self.PNG_DATA_URL,
+                    "transport_threejs_snapshot_top": self.PNG_DATA_URL,
+                    "transport_threejs_snapshot_opposite": self.PNG_DATA_URL,
+                },
+            )
+
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertEqual(pdf_response["Content-Type"], "application/pdf")
+        self.assertTrue(pdf_response.content.startswith(b"%PDF"))
+        self.assertGreater(len(pdf_response.content), 1000)
+
+    def test_workflow_transport_scene_is_prefixed_and_session_safe(self):
+        add_response = self.client.post(
+            reverse("full_packaging_mode"),
+            {
+                "action": "add_step",
+                "after_index": "start",
+                "step_type": "transport",
+            },
+        )
+        self.assertEqual(add_response.status_code, 302)
+
+        workflow_data = dict(self.analysis_data)
+        workflow_data.update({
+            "action": "run_step",
+            "index": "0",
+            "step_action_0": "run_analysis",
+            "container_source_0": "manual",
+            "container_l_0": "2400",
+            "container_w_0": "1200",
+            "container_h_0": "1200",
+            "max_weight_0": "1000",
+            "tare_weight_0": "200",
+        })
+
+        with self.settings(MEDIA_ROOT=self.media_root):
+            run_response = self.client.post(
+                reverse("full_packaging_mode"),
+                workflow_data,
+            )
+            self.assertEqual(run_response.status_code, 302)
+            page_response = self.client.get(reverse("full_packaging_mode"))
+
+        self.assertEqual(page_response.status_code, 200)
+        self.assertContains(page_response, 'id="transportThreeJsViewer_0"', count=1)
+        self.assertContains(page_response, 'id="transportThreeJsScene_0"', count=1)
+        self.assertTrue(page_response.context["steps"][0]["threejs_scene"])
+        json.dumps(self.client.session["full_packaging_mode_session"])
+
+
 class MultiProductContainerThreeJsTests(TestCase):
     def setUp(self):
         self.product_catalogue = ProductCatalogue.objects.create(

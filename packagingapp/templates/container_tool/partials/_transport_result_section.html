@@ -1,19 +1,24 @@
 <div class="container-tool-top">
-  <div class="app-card">
+  <div class="app-card transport-threejs-panel">
     <div class="app-card-body">
-      <div class="app-section-title">3D loading result</div>
-      <div class="app-section-subtitle">Transport unit loading arrangement preview. The default main view keeps the current perspective, and the additional views help inspect the hidden side and floor usage.</div>
-      {% if image_url %}
-        {% if image_urls %}
-        <div class="transport-view-toggle">
-          <button type="button" class="btn btn-app-outline btn-sm transport-view-btn is-active" data-image-target="transportRenderImage_{{ step_index|default:'0' }}" data-image-src="{{ image_urls.main|default:image_url }}" onclick="transportSwitchView(this)">Main view</button>
-          {% if image_urls.opposite %}<button type="button" class="btn btn-app-outline btn-sm transport-view-btn" data-image-target="transportRenderImage_{{ step_index|default:'0' }}" data-image-src="{{ image_urls.opposite }}" onclick="transportSwitchView(this)">Opposite side</button>{% endif %}
-          {% if image_urls.top %}<button type="button" class="btn btn-app-outline btn-sm transport-view-btn" data-image-target="transportRenderImage_{{ step_index|default:'0' }}" data-image-src="{{ image_urls.top }}" onclick="transportSwitchView(this)">Top view</button>{% endif %}
-          {% if image_urls.side %}<button type="button" class="btn btn-app-outline btn-sm transport-view-btn" data-image-target="transportRenderImage_{{ step_index|default:'0' }}" data-image-src="{{ image_urls.side }}" onclick="transportSwitchView(this)">Side view</button>{% endif %}
+      <div class="container-tool-card-head mb-2">
+        <div class="app-section-title mb-0">Interactive 3D result</div>
+        {% if threejs_scene %}
+        <div class="transport-threejs-controls" aria-label="Transport 3D view controls">
+          <button type="button" class="btn btn-app-outline btn-sm" data-transport-threejs-view="reset">Reset</button>
+          <button type="button" class="btn btn-app-outline btn-sm" data-transport-threejs-view="top">Top</button>
+          <button type="button" class="btn btn-app-outline btn-sm" data-transport-threejs-view="front">Front</button>
+          <button type="button" class="btn btn-app-outline btn-sm" data-transport-threejs-view="side">Side</button>
         </div>
         {% endif %}
-        <div class="tool-render-wrap container-tool-render-wrap">
-          <img src="{{ image_url }}" id="transportRenderImage_{{ step_index|default:'0' }}" alt="Transport container loading result" class="tool-render-image container-tool-render-image">
+      </div>
+      {% if threejs_scene %}
+        {{ threejs_scene|json_script:threejs_scene_id }}
+        <div class="transport-threejs-viewer"
+             id="{{ threejs_viewer_id }}"
+             data-transport-threejs-viewer
+             data-scene-script="{{ threejs_scene_id }}"
+             aria-label="Interactive transport container loading result">
         </div>
       {% else %}
         <div class="app-empty-state container-tool-empty"><i class="bi bi-box2-heart fs-2 d-block mb-2"></i><div>Run the tool to generate the 3D transport loading view.</div></div>
@@ -28,7 +33,14 @@
           <div class="app-section-subtitle mb-0">Loaded units, usage and occupied space.</div>
         </div>
         {% if result and not is_workflow %}
-        <a class="btn btn-app-outline btn-sm" href="{% url 'container_tool_export_pdf' %}"><i class="bi bi-file-earmark-pdf me-2"></i>PDF report</a>
+        <button type="submit"
+                class="btn btn-app-outline btn-sm"
+                formaction="{% url 'container_tool_export_pdf' %}"
+                formmethod="post"
+                data-transport-threejs-pdf-button
+                data-transport-threejs-pdf-viewer="{{ threejs_viewer_id }}">
+          <i class="bi bi-file-earmark-pdf me-2"></i>PDF report
+        </button>
         {% endif %}
       </div>
       {% if result %}
