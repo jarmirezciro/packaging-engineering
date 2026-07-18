@@ -736,6 +736,7 @@ class ToolScrollPreservationTests(TestCase):
             "bag_selection_mode1": "bag-selection-standalone",
             "container_tool": "transport-standalone",
             "palletization_calculator": "palletization-seo",
+            "container_selection_calculator": "container-selection-seo",
         }
 
         for url_name, marker in expected_markers.items():

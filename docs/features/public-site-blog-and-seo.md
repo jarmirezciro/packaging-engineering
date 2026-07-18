@@ -88,6 +88,13 @@ and viewer, public catalogue visibility rules, and snapshot-backed PDF export.
 Its demonstration transport unit and load row are injected only by the SEO
 view; standalone and Packaging Flow defaults are unchanged.
 
+The Box Size Calculator follows the Container Selection shared contract at
+`/tools/box-size-calculator/`. Its public demo uses manual product and box
+values, the shared R1/R2/R3 restrictions, Container engine, result metrics,
+Three.js RSC viewer, public-only catalogue visibility, and snapshot-backed PDF
+path. SEO defaults and marketing content do not alter standalone, Packaging
+Flow, or Multi-product Container Selection state.
+
 ## SEO content rules
 
 Each calculator page should include:

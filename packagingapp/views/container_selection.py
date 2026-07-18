@@ -1,6 +1,9 @@
+import json
+
 from django.conf import settings
 from django.shortcuts import render
 from django.http import HttpResponse
+from django.urls import reverse
 from django.utils import timezone
 
 from ..tools.container.presenter import (
@@ -24,12 +27,35 @@ from ..tools.container.export import build_container_selection_pdf
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 
 
+SEO_CONTAINER_SELECTION_EXAMPLE_CONFIG = {
+    "mode": "single",
+    "action": "run_single",
+    "product_source": "manual",
+    "product_l": 180,
+    "product_w": 120,
+    "product_h": 80,
+    "product_weight": 450,
+    "desired_qty": 24,
+    "r1": True,
+    "r2": True,
+    "r3": True,
+    "container_source": "manual",
+    "box_l": 600,
+    "box_w": 400,
+    "box_h": 320,
+    "box_weight": 950,
+    "box_max_payload": 20000,
+}
+
+
 def _as_bool(value):
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
-def _read_raw_container_config(request):
+def _read_raw_container_config(request, *, initial_config=None):
     cfg = default_container_config()
+    if initial_config:
+        cfg.update(initial_config)
 
     if request.method == "POST":
         source = request.POST
@@ -359,17 +385,26 @@ def _missing_threejs_snapshot_response():
         content_type="text/plain",
     )
 
-def container_selection_mode1(request):
-    packaging_catalogues = get_packaging_catalogues(request.user)
-    product_catalogues = get_product_catalogues(request.user)
+def _build_container_selection_page_context(
+    request,
+    *,
+    mode,
+    initial_config=None,
+    run_initial_analysis=False,
+):
+    """Build the shared Container Selection view model for standalone and SEO pages."""
+    # SEO catalogue access is public-only, including for signed-in visitors.
+    catalogue_user = None if mode == "seo" else request.user
+    packaging_catalogues = get_packaging_catalogues(catalogue_user)
+    product_catalogues = get_product_catalogues(catalogue_user)
 
-    config = _read_raw_container_config(request)
+    config = _read_raw_container_config(request, initial_config=initial_config)
 
-    selected_product = get_selected_product(config)
-    selected_material = get_selected_material(config)
+    selected_product = get_selected_product(config, user=catalogue_user)
+    selected_material = get_selected_material(config, user=catalogue_user)
 
-    products = get_products_for_catalogue(config)
-    materials = get_materials_for_catalogue(config)
+    products = get_products_for_catalogue(config, user=catalogue_user)
+    materials = get_materials_for_catalogue(config, user=catalogue_user)
 
     form = build_container_form(
         request=request,
@@ -386,9 +421,16 @@ def container_selection_mode1(request):
     threejs_scene = None
     product_base_image_url = None
 
-    if request.method == "POST" and form.is_valid():
+    analysis_form = form
+    form_is_valid = form.is_valid() if request.method == "POST" else True
+    if run_initial_analysis and request.method != "POST":
+        analysis_form = form.__class__(config)
+        apply_catalogue_choices(analysis_form, packaging_catalogues, product_catalogues)
+        form_is_valid = analysis_form.is_valid()
+
+    if (request.method == "POST" or run_initial_analysis) and form_is_valid:
         analysis = analyze_container_form(
-            form=form,
+            form=analysis_form,
             config=config,
             selected_product=selected_product,
             selected_material=selected_material,
@@ -402,7 +444,7 @@ def container_selection_mode1(request):
         threejs_scene = analysis.get("threejs_scene")
         product_base_image_url = analysis.get("product_base_image_url")
 
-        current_form_mode = form.cleaned_data.get("mode") or "single"
+        current_form_mode = analysis_form.cleaned_data.get("mode") or "single"
 
         if (
             analysis.get("ok")
@@ -411,7 +453,7 @@ def container_selection_mode1(request):
             and result
         ):
             export_payload = _build_single_export_payload(
-                form=form,
+                form=analysis_form,
                 analysis=analysis,
                 selected_product=selected_product,
                 selected_material=selected_material,
@@ -423,7 +465,7 @@ def container_selection_mode1(request):
 
         if analysis.get("ok") and current_form_mode == "optimal" and top5:
             optimal_export_payload = _build_optimal_export_payload(
-                form=form,
+                form=analysis_form,
                 top5=top5,
                 selected_product=selected_product,
                 analysis=analysis,
@@ -470,17 +512,129 @@ def container_selection_mode1(request):
         "current_product_source": config.get("product_source") or "manual",
         "current_container_source": config.get("container_source") or "manual",
 
-        "mode": "standalone",
+        "mode": mode,
         "prefix": "",
         "container_ui": _build_shared_container_ui_contract(prefix=""),
         "container_values": config,
     }
 
+    return context
+
+
+def _build_container_selection_seo_schema(request):
+    canonical_url = request.build_absolute_uri(reverse("container_selection_calculator"))
+    company_url = request.build_absolute_uri(reverse("company_home"))
+    app_url = request.build_absolute_uri(reverse("container_selection_mode1"))
+
+    faq_items = [
+        (
+            "How many products fit in a box?",
+            "Enter the product and usable internal box dimensions, then select every permitted vertical orientation. The calculator evaluates the shared KolliPack packing engine and reports maximum capacity.",
+        ),
+        (
+            "Which box dimensions should I use?",
+            "Use usable internal length, width, and height in millimetres. External dimensions are relevant later for palletization and transport but do not describe the product space inside the box.",
+        ),
+        (
+            "What do R1, R2, and R3 mean?",
+            "R1 permits the original product length to be vertical, R2 permits width to be vertical, and R3 permits height to be vertical. Disable any orientation that handling or product rules prohibit.",
+        ),
+        (
+            "What is volumetric efficiency?",
+            "It compares the volume occupied by the packed products with the usable internal container volume. Weight and payload are evaluated separately because a geometric fit can still exceed a safe load limit.",
+        ),
+        (
+            "Does the result replace a packaging trial?",
+            "No. Confirm clearances, material strength, cushioning, compression, handling, closure, and product protection with the real product and packaging.",
+        ),
+    ]
+
+    schema = [
+        {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "KolliPack Box Size and Container Selection Calculator",
+            "applicationCategory": "BusinessApplication",
+            "applicationSubCategory": "Packaging engineering calculator",
+            "operatingSystem": "Any web browser",
+            "url": canonical_url,
+            "description": (
+                "Calculate how many products fit in a box, compare current and maximum volumetric "
+                "efficiency, and check packed weight, payload usage, and remaining capacity."
+            ),
+            "provider": {"@type": "Organization", "name": "KolliLabs", "url": company_url},
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD",
+                "availability": "https://schema.org/InStock",
+            },
+            "isAccessibleForFree": True,
+            "browserRequirements": "Requires JavaScript and a modern web browser",
+            "featureList": [
+                "Maximum product quantity per box",
+                "R1, R2 and R3 orientation restrictions",
+                "Current and maximum volumetric efficiency",
+                "Product, packaging and payload weight checks",
+                "Interactive 3D RSC box visualization",
+                "Top 5 public catalogue alternatives",
+                "PDF engineering report with 3D snapshot",
+            ],
+            "potentialAction": {"@type": "UseAction", "target": canonical_url},
+            "sameAs": [app_url],
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": question,
+                    "acceptedAnswer": {"@type": "Answer", "text": answer},
+                }
+                for question, answer in faq_items
+            ],
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+                {"@type": "ListItem", "position": 1, "name": "KolliLabs", "item": company_url},
+                {"@type": "ListItem", "position": 2, "name": "Box Size Calculator", "item": canonical_url},
+            ],
+        },
+    ]
+    return canonical_url, faq_items, json.dumps(schema, ensure_ascii=False)
+
+
+def container_selection_mode1(request):
     return render(
         request,
         "container_selection/container_selection_mode1.html",
-        context,
+        _build_container_selection_page_context(request, mode="standalone"),
     )
+
+
+def container_selection_calculator(request):
+    is_initial_example = request.method == "GET" and not request.GET
+    context = _build_container_selection_page_context(
+        request,
+        mode="seo",
+        initial_config=SEO_CONTAINER_SELECTION_EXAMPLE_CONFIG if is_initial_example else None,
+        run_initial_analysis=is_initial_example,
+    )
+    canonical_url, faq_items, schema_json = _build_container_selection_seo_schema(request)
+    context.update(
+        {
+            "canonical_url": canonical_url,
+            "faq_items": faq_items,
+            "seo_schema_json": schema_json,
+            "is_initial_example": is_initial_example,
+            "example_product_dimensions": "180 × 120 × 80 mm",
+            "example_container_dimensions": "600 × 400 × 320 mm",
+        }
+    )
+    return render(request, "marketing/container_selection_calculator.html", context)
 
 def container_selection_export_pdf(request):
     export_payload = (

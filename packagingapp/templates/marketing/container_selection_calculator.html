@@ -1,0 +1,174 @@
+{% extends "marketing_base.html" %}
+
+{% block title %}Box Size Calculator | Container Selection & Product Packing{% endblock %}
+{% block meta_description %}Use KolliPack's free box size and container selection calculator to find how many products fit in a box and check volume efficiency, weight, payload, and 3D packing.{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ canonical_url }}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Box Size Calculator | Container Selection & Product Packing">
+<meta property="og:description" content="Calculate how many products fit in a box, review volumetric efficiency and payload, and inspect the packing in interactive 3D.">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:site_name" content="KolliLabs">
+<script type="application/ld+json">{{ seo_schema_json|safe }}</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .box-seo-page { --box-seo-green: #0b7a60; color: #0f172a; }
+    .box-seo-content { width: min(1180px, 100%); margin-inline: auto; }
+    .box-seo-breadcrumb { display: flex; align-items: center; gap: .45rem; margin: .1rem 0 1rem; color: #64748b; font-size: .88rem; }
+    .box-seo-breadcrumb a { color: var(--box-seo-green); text-decoration: none; font-weight: 700; }
+    .box-seo-hero { width: min(1320px, 100%); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr); gap: clamp(1.5rem, 4vw, 3.5rem); align-items: center; padding: clamp(2rem, 5vw, 4.5rem); border-radius: 30px; color: #fff; background: radial-gradient(circle at 90% 10%, rgba(52, 211, 153, .26), transparent 31%), linear-gradient(135deg, #0f172a, #12344d 55%, #0b7a60); box-shadow: 0 26px 54px rgba(15, 23, 42, .18); }
+    .box-seo-eyebrow, .box-seo-proof span { display: inline-flex; align-items: center; gap: .45rem; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; background: rgba(255,255,255,.1); }
+    .box-seo-eyebrow { padding: .45rem .75rem; margin-bottom: 1rem; font-size: .88rem; font-weight: 750; }
+    .box-seo-hero h1 { max-width: 850px; margin: 0 0 1rem; font-size: clamp(2.2rem, 5vw, 4.5rem); line-height: 1.01; letter-spacing: -.045em; font-weight: 900; }
+    .box-seo-lead { max-width: 780px; margin: 0; color: rgba(255,255,255,.84); font-size: clamp(1rem, 1.7vw, 1.17rem); line-height: 1.7; }
+    .box-seo-actions, .box-seo-proof { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: 1.35rem; }
+    .box-seo-proof span { padding: .42rem .66rem; color: rgba(255,255,255,.84); font-size: .82rem; font-weight: 650; }
+    .box-seo-visual { padding: 1.35rem; border: 1px solid rgba(255,255,255,.28); border-radius: 26px; background: rgba(255,255,255,.96); color: #0f172a; box-shadow: 0 24px 48px rgba(15,23,42,.24); }
+    .box-seo-visual h2 { margin: 0 0 .25rem; font-size: 1.12rem; font-weight: 830; }
+    .box-seo-visual p { margin-bottom: 1rem; color: #64748b; font-size: .9rem; }
+    .box-seo-sketch { min-height: 225px; display: grid; place-items: center; perspective: 750px; border-radius: 18px; overflow: hidden; background: linear-gradient(rgba(15,23,42,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.04) 1px, transparent 1px), linear-gradient(180deg, #f8fafc, #eef7f3); background-size: 24px 24px, 24px 24px, auto; }
+    .box-seo-cube { position: relative; width: 245px; height: 145px; transform: rotateX(57deg) rotateZ(-30deg); border: 4px solid #0b7a60; background: rgba(110,231,183,.18); box-shadow: 18px 20px 30px rgba(15,23,42,.16); }
+    .box-seo-cube::before, .box-seo-cube::after { content: ""; position: absolute; border: 3px solid #0b7a60; background: rgba(16,185,129,.12); }
+    .box-seo-cube::before { left: 12px; right: 12px; top: 12px; bottom: 12px; background: repeating-linear-gradient(90deg, rgba(245,158,11,.78) 0 26px, rgba(255,255,255,.5) 26px 29px); }
+    .box-seo-cube::after { left: -4px; right: -4px; top: -42px; height: 38px; transform-origin: bottom; transform: rotateX(35deg); background: rgba(201,166,107,.4); }
+    .box-seo-section { padding: 4rem 0 0; scroll-margin-top: 96px; }
+    .box-seo-section-head { max-width: 850px; margin-bottom: 1.4rem; }
+    .box-seo-kicker { color: var(--box-seo-green); font-size: .78rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+    .box-seo-section h2 { margin: .45rem 0 .7rem; font-size: clamp(1.7rem, 3vw, 2.75rem); line-height: 1.08; letter-spacing: -.03em; font-weight: 875; }
+    .box-seo-section-head p, .box-seo-card p, .box-seo-card li, .box-seo-faq-answer { color: #64748b; line-height: 1.7; }
+    .box-tool-shell { padding: clamp(.7rem, 2vw, 1.25rem); border: 1px solid rgba(16,163,127,.24); border-radius: 26px; background: linear-gradient(180deg, #f0fdf8 0%, #f8fafc 150px, #f8fafc 100%); box-shadow: 0 20px 44px rgba(15,23,42,.08); }
+    .box-seo-banner, .box-seo-disclosure { display: flex; align-items: flex-start; gap: .8rem; margin-bottom: 1rem; padding: 1rem 1.1rem; border-radius: 16px; }
+    .box-seo-banner { border: 1px solid #a7f3d0; background: linear-gradient(135deg, #ecfdf5, #f0fdfa); color: #14532d; }
+    .box-seo-disclosure { border: 1px solid #dbeee7; background: #fff; color: #475569; }
+    .box-seo-banner p, .box-seo-disclosure p { margin: .12rem 0 0; line-height: 1.55; }
+    .box-seo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+    .box-seo-card, .box-seo-faq details { border: 1px solid var(--app-border, #e5e7eb); border-radius: 20px; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.045); }
+    .box-seo-card { height: 100%; padding: 1.35rem; }
+    .box-seo-card h3 { font-size: 1.08rem; font-weight: 820; }
+    .box-seo-card-icon { width: 44px; height: 44px; display: inline-grid; place-items: center; margin-bottom: .8rem; border-radius: 14px; background: #ecfdf5; color: var(--box-seo-green); font-size: 1.2rem; }
+    .box-seo-faq { display: grid; gap: .75rem; }
+    .box-seo-faq summary { cursor: pointer; padding: 1rem 1.1rem; font-weight: 780; }
+    .box-seo-faq-answer { padding: 0 1.1rem 1.1rem; }
+    .box-seo-links { display: flex; flex-wrap: wrap; gap: .6rem; }
+    .box-seo-links a { text-decoration: none; }
+    .box-seo-cta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.25rem; margin-top: 4rem; padding: clamp(1.5rem, 4vw, 2.5rem); border-radius: 25px; color: #fff; background: linear-gradient(135deg, #0f172a, #12344d 55%, #0b7a60); }
+    .box-seo-cta h2 { margin: 0 0 .4rem; font-size: clamp(1.5rem, 3vw, 2.25rem); font-weight: 850; }
+    .box-seo-cta p { max-width: 720px; margin: 0; color: rgba(255,255,255,.78); }
+    @media (max-width: 1199.98px) { .box-seo-hero { grid-template-columns: 1fr; } .box-seo-visual { max-width: 720px; } }
+    @media (max-width: 991.98px) { .box-seo-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 575.98px) { .box-seo-hero { padding: 1.6rem; border-radius: 22px; } .box-seo-visual { padding: 1rem; } .box-seo-cube { width: 190px; height: 120px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="box-seo-page">
+    <div class="box-seo-content">
+        <nav class="box-seo-breadcrumb" aria-label="Breadcrumb">
+            <a href="{% url 'company_home' %}">KolliLabs</a><i class="bi bi-chevron-right" aria-hidden="true"></i><span>Tools</span><i class="bi bi-chevron-right" aria-hidden="true"></i><span aria-current="page">Box Size Calculator</span>
+        </nav>
+    </div>
+
+    <section class="box-seo-hero" aria-labelledby="box-calculator-title">
+        <div>
+            <div class="box-seo-eyebrow"><i class="bi bi-box-seam"></i>Free packaging box calculator</div>
+            <h1 id="box-calculator-title">Box Size &amp; Container Selection Calculator</h1>
+            <p class="box-seo-lead">Find how many products fit in a box, crate, or rectangular container. Compare volumetric efficiency, product and packed weight, payload usage, remaining capacity, and the calculated arrangement in interactive 3D using the same Container Selection engine as KolliPack.</p>
+            <div class="box-seo-actions">
+                <a href="#calculator" class="btn btn-light btn-lg"><i class="bi bi-calculator me-2"></i>Use the calculator</a>
+                <a href="{% url 'container_selection_mode1' %}" class="btn btn-outline-light btn-lg"><i class="bi bi-boxes me-2"></i>Open Container Selection</a>
+            </div>
+            <div class="box-seo-proof" aria-label="Calculator benefits">
+                <span><i class="bi bi-check2-circle"></i>No account required</span>
+                <span><i class="bi bi-check2-circle"></i>Shared engineering engine</span>
+                <span><i class="bi bi-check2-circle"></i>Interactive RSC box</span>
+                <span><i class="bi bi-check2-circle"></i>PDF report</span>
+            </div>
+        </div>
+        <div class="box-seo-visual" aria-label="Illustration of products arranged in an open box">
+            <h2>Product packing interpretation</h2>
+            <p>Usable internal dimensions define capacity. Orientation permissions control which original product dimension may be vertical.</p>
+            <div class="box-seo-sketch" aria-hidden="true"><div class="box-seo-cube"></div></div>
+        </div>
+    </section>
+
+    <section id="calculator" class="box-seo-section" aria-labelledby="calculator-heading">
+        <div class="box-seo-section-head box-seo-content">
+            <span class="box-seo-kicker"><i class="bi bi-play-circle me-1"></i>Interactive calculator</span>
+            <h2 id="calculator-heading">Calculate product-to-box capacity</h2>
+            <p>Enter rectangular product and usable internal container dimensions in millimetres. Add product quantity, product weight, packaging tare, and maximum payload for a fuller capacity check.</p>
+        </div>
+        <div class="box-tool-shell">
+            {% if is_initial_example %}
+                <div class="box-seo-banner" role="status">
+                    <i class="bi bi-lightning-charge-fill fs-5" aria-hidden="true"></i>
+                    <div><strong>Live example loaded — edit any value to calculate your own box.</strong><p>Product {{ example_product_dimensions }} in a {{ example_container_dimensions }} RSC-style box. The visible metrics and 3D placement were generated by the real shared Container Selection calculation path.</p></div>
+                </div>
+            {% endif %}
+            <div class="box-seo-disclosure"><i class="bi bi-diagram-3 fs-5" aria-hidden="true"></i><p><strong>One shared implementation.</strong> This public calculator and standalone Container Selection use the same form, validation, solver, result metrics, Three.js scene and viewer, public catalogue rules, Top-5 ranking, and snapshot-backed PDF path. Packaging Flow consumes the same prefixed components.</p></div>
+            <form method="post" action="{% url 'container_selection_calculator' %}" class="app-page" data-preserve-tool-scroll="container-selection-seo">
+                {% csrf_token %}
+                {% include "container_selection_tool/container_selection_wrapper.html" %}
+            </form>
+        </div>
+    </section>
+
+    <div class="box-seo-content">
+        <section class="box-seo-section" aria-labelledby="how-heading">
+            <div class="box-seo-section-head"><span class="box-seo-kicker">How to use it</span><h2 id="how-heading">Three steps to evaluate a packaging box</h2><p>Use real product bounding dimensions and the packaging's usable internal dimensions, not its external shipping dimensions.</p></div>
+            <div class="box-seo-grid">
+                <article class="box-seo-card"><span class="box-seo-card-icon">1</span><h3>Describe the product</h3><p>Enter product length, width, height, quantity, and unit weight. Choose a public catalogue item when available or keep the manual path.</p></article>
+                <article class="box-seo-card"><span class="box-seo-card-icon">2</span><h3>Enter the container</h3><p>Provide usable internal length, width, and height. Packaging weight and maximum payload enable the packed-weight checks.</p></article>
+                <article class="box-seo-card"><span class="box-seo-card-icon">3</span><h3>Calculate and inspect</h3><p>Review capacity and efficiency, rotate or pan the 3D scene, use fixed camera views, hide the box shell when useful, and export the current view to PDF.</p></article>
+            </div>
+        </section>
+
+        <section class="box-seo-section" aria-labelledby="orientation-heading">
+            <div class="box-seo-section-head"><span class="box-seo-kicker">Orientation restrictions</span><h2 id="orientation-heading">Control which product dimension may be vertical</h2><p>The restriction applies throughout the shared calculation, including leftover regions. Enable only orientations the product, closure, labels, liquids, components, or handling process permit.</p></div>
+            <div class="box-seo-grid">
+                <article class="box-seo-card"><span class="box-seo-card-icon">R1</span><h3>Length vertical</h3><p>The original product length may become the vertical dimension.</p></article>
+                <article class="box-seo-card"><span class="box-seo-card-icon">R2</span><h3>Width vertical</h3><p>The original product width may become the vertical dimension.</p></article>
+                <article class="box-seo-card"><span class="box-seo-card-icon">R3</span><h3>Height vertical</h3><p>The original product height may remain or become the vertical dimension.</p></article>
+            </div>
+        </section>
+
+        <section class="box-seo-section" aria-labelledby="outputs-heading">
+            <div class="box-seo-section-head"><span class="box-seo-kicker">Calculator outputs</span><h2 id="outputs-heading">Interpret quantity, efficiency, weight, and payload</h2><p>Geometry and payload are separate constraints. A box can have adequate volume while exceeding its safe load limit.</p></div>
+            <div class="box-seo-grid">
+                <article class="box-seo-card"><span class="box-seo-card-icon"><i class="bi bi-boxes"></i></span><h3>Quantity and remaining capacity</h3><p>Maximum quantity is the calculated capacity for the allowed orientations. Remaining capacity shows the difference from the current quantity used by the selected analysis mode.</p></article>
+                <article class="box-seo-card"><span class="box-seo-card-icon"><i class="bi bi-bounding-box"></i></span><h3>Volumetric efficiency</h3><p>Current and maximum efficiency compare packed product volume with usable internal container volume. The packing heuristic can also reuse suitable leftover rectangular regions.</p></article>
+                <article class="box-seo-card"><span class="box-seo-card-icon"><i class="bi bi-speedometer2"></i></span><h3>Weight and payload</h3><p>Net product weight plus packaging tare gives current total weight. Maximum payload enables payload usage; validate the real box strength separately.</p></article>
+            </div>
+        </section>
+
+        <section class="box-seo-section" aria-labelledby="related-heading">
+            <div class="box-seo-section-head"><span class="box-seo-kicker">Continue the packaging flow</span><h2 id="related-heading">Connect box selection to the rest of the packaging chain</h2><p>Box capacity is one decision. Continue with palletization and transport loading, or evaluate a flexible bag when that packaging format is more suitable.</p></div>
+            <div class="box-seo-links">
+                <a class="btn btn-app-outline" href="{% url 'home' %}">KolliPack</a>
+                <a class="btn btn-app-outline" href="{% url 'full_packaging_mode' %}">Full Packaging Flow</a>
+                <a class="btn btn-app-outline" href="{% url 'palletization_calculator' %}">Palletization Calculator</a>
+                <a class="btn btn-app-outline" href="{% url 'bag_selection_calculator' %}">Bag Size Calculator</a>
+                <a class="btn btn-app-outline" href="{% url 'transport_container_calculator' %}">Transport Container Loading</a>
+                <a class="btn btn-app-outline" href="{% url 'blog_detail' 'carton-selection-basics' %}">Carton selection basics</a>
+                <a class="btn btn-app-outline" href="{% url 'blog_detail' 'box-selection-3d-bin-packing-problem' %}">3D box selection article</a>
+            </div>
+        </section>
+
+        <section class="box-seo-section" aria-labelledby="faq-heading">
+            <div class="box-seo-section-head"><span class="box-seo-kicker">Frequently asked questions</span><h2 id="faq-heading">Box size calculator FAQ</h2></div>
+            <div class="box-seo-faq">{% for question, answer in faq_items %}<details><summary>{{ question }}</summary><div class="box-seo-faq-answer">{{ answer }}</div></details>{% endfor %}</div>
+        </section>
+
+        <section class="box-seo-cta" aria-labelledby="box-cta-heading">
+            <div><h2 id="box-cta-heading">Continue the engineering analysis in KolliPack</h2><p>Use catalogue-based Container Selection, compare Top-5 alternatives, and carry the selected packaging into palletization and transport through Full Packaging Flow.</p></div>
+            <div class="d-flex flex-wrap gap-2"><a href="{% url 'container_selection_mode1' %}" class="btn btn-light btn-lg">Open Container Selection</a><a href="{% url 'full_packaging_mode' %}" class="btn btn-outline-light btn-lg">Open Packaging Flow</a></div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% include "container_selection_tool/partials/_container_selection_scripts.html" %}
+{% endblock %}

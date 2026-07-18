@@ -11,6 +11,7 @@ from .serializers import sanitize_container_config_for_session
 # Packaging types that behave like rectangular/cuboid containers in this module.
 # BAG is handled by Bag Selection; PALLET is handled by Palletization.
 CONTAINER_SELECTION_ALLOWED_PACKAGING_TYPES = ("BOX", "CRATE", "CONTAINER", "TRAILER")
+_UNSCOPED_CATALOGUE_USER = object()
 
 
 def get_packaging_catalogues(user=None):
@@ -21,46 +22,58 @@ def get_product_catalogues(user=None):
     return visible_product_catalogues(user).order_by("name")
 
 
-def get_products_for_catalogue(config):
+def get_products_for_catalogue(config, user=_UNSCOPED_CATALOGUE_USER):
     product_catalogue_id = config.get("product_catalogue_id")
     if not product_catalogue_id:
         return Product.objects.none()
 
-    return Product.objects.filter(
+    products = Product.objects.filter(
         catalogue_id=product_catalogue_id
-    ).select_related("catalogue").order_by("-created_at")
+    )
+    if user is not _UNSCOPED_CATALOGUE_USER:
+        products = products.filter(catalogue__in=visible_product_catalogues(user))
+    return products.select_related("catalogue").order_by("-created_at")
 
 
-def get_materials_for_catalogue(config):
+def get_materials_for_catalogue(config, user=_UNSCOPED_CATALOGUE_USER):
     catalogue_id = config.get("catalogue_id")
     if not catalogue_id:
         return PackagingMaterial.objects.none()
 
-    return PackagingMaterial.objects.filter(
+    materials = PackagingMaterial.objects.filter(
         catalogue_id=catalogue_id,
         packaging_type__in=CONTAINER_SELECTION_ALLOWED_PACKAGING_TYPES,
-    ).select_related("catalogue").order_by("packaging_type", "part_number")
+    )
+    if user is not _UNSCOPED_CATALOGUE_USER:
+        materials = materials.filter(catalogue__in=visible_packaging_catalogues(user))
+    return materials.select_related("catalogue").order_by("packaging_type", "part_number")
 
 
-def get_selected_product(config):
+def get_selected_product(config, user=_UNSCOPED_CATALOGUE_USER):
     selected_product_id = config.get("selected_product_id")
     if not selected_product_id:
         return None
 
-    return Product.objects.filter(
+    products = Product.objects.filter(
         id=selected_product_id
-    ).select_related("catalogue").first()
+    )
+    if user is not _UNSCOPED_CATALOGUE_USER:
+        products = products.filter(catalogue__in=visible_product_catalogues(user))
+    return products.select_related("catalogue").first()
 
 
-def get_selected_material(config):
+def get_selected_material(config, user=_UNSCOPED_CATALOGUE_USER):
     container_id = config.get("container_id")
     if not container_id:
         return None
 
-    return PackagingMaterial.objects.filter(
+    materials = PackagingMaterial.objects.filter(
         id=container_id,
         packaging_type__in=CONTAINER_SELECTION_ALLOWED_PACKAGING_TYPES,
-    ).select_related("catalogue").first()
+    )
+    if user is not _UNSCOPED_CATALOGUE_USER:
+        materials = materials.filter(catalogue__in=visible_packaging_catalogues(user))
+    return materials.select_related("catalogue").first()
 
 
 def build_hydrated_post_data(raw_post, config, selected_product=None, selected_material=None):

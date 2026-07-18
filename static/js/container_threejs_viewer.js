@@ -342,6 +342,14 @@ function initViewer(el) {
         subboxGroup.visible = false;
     }
 
+    const containerToggle = panel.querySelector('[data-container-threejs-toggle="container"]');
+    if (containerToggle) {
+        containerToggle.addEventListener("change", () => {
+            containerGroup.visible = Boolean(containerToggle.checked);
+        });
+        containerGroup.visible = Boolean(containerToggle.checked);
+    }
+
     instances.set(el, {
         el,
         scene,

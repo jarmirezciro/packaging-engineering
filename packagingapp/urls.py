@@ -41,6 +41,11 @@ urlpatterns = [
         name="bag_selection_calculator",
     ),
     path(
+        "tools/box-size-calculator/",
+        container_selection.container_selection_calculator,
+        name="container_selection_calculator",
+    ),
+    path(
         "tools/container-loading-calculator/",
         container_tool.transport_container_calculator,
         name="transport_container_calculator",
