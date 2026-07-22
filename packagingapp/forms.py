@@ -451,10 +451,6 @@ class BagSelectionForm(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"})
     )
 
-    r1 = forms.BooleanField(required=False, initial=True, label="Allow length vertical")
-    r2 = forms.BooleanField(required=False, initial=True, label="Allow width vertical")
-    r3 = forms.BooleanField(required=False, initial=True, label="Allow height vertical")
-
     bag_source = forms.ChoiceField(
         choices=BAG_SOURCE_CHOICES,
         initial="manual",

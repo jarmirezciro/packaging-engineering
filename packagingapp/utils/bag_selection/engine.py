@@ -230,9 +230,17 @@ def build_bag_design_candidates(
     r2: int = 1,
     r3: int = 1,
 ) -> Dict[str, Any]:
-    """Map every canonical 3D arrangement to one required flat-bag design."""
+    """Map every canonical 3D arrangement to one required flat-bag design.
+
+    ``r1``, ``r2`` and ``r3`` remain in the signature for backwards
+    compatibility with older callers, but Bag Design deliberately ignores
+    orientation restrictions. A flexible bag arrangement may be rotated as a
+    complete bundle during handling, so every axis-aligned product orientation
+    is evaluated.
+    """
+    del r1, r2, r3
     product = (float(product_l), float(product_w), float(product_h))
-    design = build_canonical_design_arrangements(product, desired_quantity, r1, r2, r3)
+    design = build_canonical_design_arrangements(product, desired_quantity, 1, 1, 1)
     candidates = []
     for arrangement in design["arrangements"]:
         bundle_l = arrangement["bundle_length"]

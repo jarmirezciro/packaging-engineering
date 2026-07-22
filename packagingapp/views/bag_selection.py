@@ -53,12 +53,6 @@ def _read_raw_bag_config(request, *, initial_config=None):
     else:
         source = request.GET
 
-    has_explicit_rotation_submission = (
-        request.method == "POST"
-        and bool(source.get("rotation_permissions_present"))
-        and source.get("action") in ("run_design", "select_design_candidate")
-    )
-
     cfg.update({
         "mode": normalize_selection_mode({
             "mode": source.get("mode", normalize_selection_mode(cfg)),
@@ -73,9 +67,6 @@ def _read_raw_bag_config(request, *, initial_config=None):
         "product_h": source.get("product_h", cfg["product_h"]),
         "product_weight": source.get("product_weight", cfg["product_weight"]),
         "desired_qty": source.get("desired_qty", cfg["desired_qty"]),
-        "r1": source.get("r1") is not None if has_explicit_rotation_submission else cfg["r1"],
-        "r2": source.get("r2") is not None if has_explicit_rotation_submission else cfg["r2"],
-        "r3": source.get("r3") is not None if has_explicit_rotation_submission else cfg["r3"],
         "bag_source": source.get("bag_source", cfg["bag_source"]),
         "catalogue_id": source.get("catalogue_id", cfg["catalogue_id"]),
         "bag_id": source.get("bag_id", cfg["bag_id"]),
@@ -112,10 +103,6 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "product_h": f"product_h{suffix}",
             "product_weight": f"product_weight{suffix}",
             "desired_qty": f"desired_qty{suffix}",
-            "r1": f"r1{suffix}",
-            "r2": f"r2{suffix}",
-            "r3": f"r3{suffix}",
-            "rotation_permissions_present": f"rotation_permissions_present{suffix}",
             "bag_source": f"bag_source{suffix}",
             "catalogue_id": f"catalogue_id{suffix}",
             "bag_id": f"bag_id{suffix}",
@@ -134,7 +121,6 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "product_catalogue_chooser": f"productCatalogueChooser{suffix}" if prefix else "productCatalogueChooser",
             "manual_product_fields": f"manualProductFields{suffix}" if prefix else "manualProductFields",
             "manual_desired_qty_wrap": f"manualDesiredQtyWrap{suffix}" if prefix else "manualDesiredQtyWrap",
-            "rotation_fields": f"bagRotationFields{suffix}" if prefix else "bagRotationFields",
             "global_catalogue_chooser": f"globalCatalogueChooser{suffix}" if prefix else "globalCatalogueChooser",
             "single_bag_controls": f"singleBagControls{suffix}" if prefix else "singleBagControls",
             "optimal_bag_controls": f"optimalBagControls{suffix}" if prefix else "optimalBagControls",
@@ -210,7 +196,7 @@ def _product_payload(*, form, selected_product):
         "dimensions": _format_dims(product_l, product_w, product_h),
         "weight": _format_optional_weight(product_weight),
         "desired_qty": f"{desired_qty} pcs",
-        "orientation": "Fixed product orientation; bag opening is on the width side.",
+        "orientation": "The packed arrangement may be rotated freely; the bag opening is on the width side.",
     }
 
 

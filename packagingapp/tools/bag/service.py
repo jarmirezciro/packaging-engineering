@@ -128,12 +128,6 @@ def build_hydrated_post_data(raw_post, config, selected_product=None, selected_m
 
     if (config or {}).get("mode") == "design":
         post_data.setdefault("bag_source", "manual")
-        if not raw_post.get("rotation_permissions_present"):
-            for name in ("r1", "r2", "r3"):
-                if config.get(name, True):
-                    post_data[name] = "on"
-                else:
-                    post_data.pop(name, None)
 
     if config.get("product_source") == "catalogue" and selected_product is not None:
         post_data["product_l"] = "" if selected_product.product_length is None else str(selected_product.product_length)
@@ -222,16 +216,6 @@ def _resolve_product_weight(config, selected_product=None):
     if (config or {}).get("product_source") == "catalogue" and selected_product is not None:
         return _to_float(getattr(selected_product, "weight", None))
     return _to_float((config or {}).get("product_weight"))
-
-
-def _resolve_rotation_flags(config, selected_product=None):
-    if (config or {}).get("product_source") == "catalogue" and selected_product is not None:
-        return (
-            1 if selected_product.rotation_1 else 0,
-            1 if selected_product.rotation_2 else 0,
-            1 if selected_product.rotation_3 else 0,
-        )
-    return tuple(1 if (config or {}).get(name, True) else 0 for name in ("r1", "r2", "r3"))
 
 
 def _resolve_bag_weight(config, selected_material=None):
@@ -437,9 +421,6 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
         messages.append("Enter product length, width, and height greater than zero in millimetres.")
     if desired_quantity is None:
         messages.append("Enter the desired quantity as a positive whole number.")
-    rotation_flags = _resolve_rotation_flags(config, selected_product)
-    if not any(rotation_flags):
-        messages.append("Allow at least one product orientation to generate bag designs.")
     if action not in ("run_design", "select_design_candidate") or messages:
         return {
             "messages": messages,
@@ -454,8 +435,11 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
             "analysis_report": None,
         }
 
+    # Bag Design has no R1/R2/R3 restriction. The complete packed bundle may
+    # be rotated freely during handling, so all product orientations are always
+    # evaluated regardless of catalogue product rotation flags or legacy state.
     design = build_bag_design_candidates(
-        product[0], product[1], product[2], desired_quantity, *rotation_flags
+        product[0], product[1], product[2], desired_quantity
     )
     candidates = [
         _add_bag_design_metrics(row, config, selected_product)

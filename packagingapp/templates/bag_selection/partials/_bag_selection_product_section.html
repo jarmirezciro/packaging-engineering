@@ -58,23 +58,7 @@
                 <div class="tool-field-group mb-0"><label class="form-label">Weight <span class="text-muted">(g)</span></label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ bag_ui.names.product_weight }}" value="{{ bag_values.product_weight|default:'' }}">{% else %}{{ form.product_weight }}{% endif %}</div>
                 <div id="{{ bag_ui.ids.manual_desired_qty_wrap }}" class="tool-field-group mb-0"><label class="form-label">Desired quantity</label>{% if mode == "workflow" %}<input type="number" step="1" min="1" class="form-control" name="{{ bag_ui.names.desired_qty }}" value="{{ bag_values.desired_qty|default:'1' }}">{% else %}{{ form.desired_qty }}{% endif %}</div>
             </div>
-            <div id="{{ bag_ui.ids.rotation_fields }}" class="tool-field-group tool-tight-gap">
-                <input type="hidden" name="{{ bag_ui.names.rotation_permissions_present }}" value="1">
-                <label class="form-label">Rotation permissions</label>
-                <div class="tool-checkbox-group tool-checkbox-group--inline">
-                    {% if mode == "workflow" %}
-                        <label class="tool-check-option"><input type="checkbox" name="{{ bag_ui.names.r1 }}" {% if bag_values.r1 %}checked{% endif %}><span><strong>R1</strong> Length vertical</span></label>
-                        <label class="tool-check-option"><input type="checkbox" name="{{ bag_ui.names.r2 }}" {% if bag_values.r2 %}checked{% endif %}><span><strong>R2</strong> Width vertical</span></label>
-                        <label class="tool-check-option"><input type="checkbox" name="{{ bag_ui.names.r3 }}" {% if bag_values.r3 %}checked{% endif %}><span><strong>R3</strong> Height vertical</span></label>
-                    {% else %}
-                        <label class="tool-check-option"><input type="checkbox" name="{{ bag_ui.names.r1 }}" {% if bag_values.r1 %}checked{% endif %}><span><strong>R1</strong> Length vertical</span></label>
-                        <label class="tool-check-option"><input type="checkbox" name="{{ bag_ui.names.r2 }}" {% if bag_values.r2 %}checked{% endif %}><span><strong>R2</strong> Width vertical</span></label>
-                        <label class="tool-check-option"><input type="checkbox" name="{{ bag_ui.names.r3 }}" {% if bag_values.r3 %}checked{% endif %}><span><strong>R3</strong> Height vertical</span></label>
-                    {% endif %}
-                </div>
-                <div class="app-form-note mt-2">Used by Design Mode; each option controls which original product dimension may be vertical.</div>
-            </div>
-            <div class="app-form-note mt-2">Single bag analysis calculates the maximum quantity automatically. Target quantity is only used in Optimal mode.</div>
+            <div class="app-form-note mt-2">Single bag analysis calculates the maximum quantity automatically. Desired quantity is used in Design and Optimal modes.</div>
         </div>
 
         {% if selected_product %}

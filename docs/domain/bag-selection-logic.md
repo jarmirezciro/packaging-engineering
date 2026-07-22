@@ -69,7 +69,7 @@ Unless current code says otherwise:
 - material thickness, stretch, gusset mechanics, valve geometry, and irregular product compressibility are not inferred automatically;
 - sealing space is unavailable for product occupancy;
 - catalogue dimensions use the same measurement convention as the engine;
-- orientation restrictions and quantity arrangement are deterministic and enumerated.
+- supported quantity arrangements are deterministic and enumerated; Bag Design does not expose R1/R2/R3 restrictions because the complete flexible-bag arrangement may be rotated during handling.
 
 ## Constraints and invariants
 
@@ -117,10 +117,13 @@ For Design Mode, the design quantity is the first smooth quantity greater than
 or equal to the requested quantity. Bag Design and Container Design consume the
 same canonical three-axis arrangement generator in
 `packagingapp/utils/package_design_arrangements.py`. It enumerates every
-permitted rows x columns x layers grid, applies the authoritative R1/R2/R3
-orientation mapping, normalizes horizontal axes so bundle length is not shorter
-than bundle width, keeps height distinct, and retains one deterministic
-representative for each canonical bundle `(L, W, H)`. For an arrangement body
+rows x columns x layers grid and every axis-aligned product orientation. Bag
+Design deliberately does not apply R1/R2/R3 restrictions: unlike an RSC, the
+complete flexible-bag arrangement may be rotated freely during handling to meet
+product-orientation needs. The shared generator then normalizes horizontal axes
+so bundle length is not shorter than bundle width, keeps height distinct, and
+retains one deterministic representative for each canonical bundle `(L, W, H)`.
+For an arrangement body
 `(L, W, H)`, the existing equations remain:
 
 ```text
@@ -132,7 +135,8 @@ The horizontal bundle normalization makes the first formula result the bag
 length and the second the bag width; no second 90-degree bag option is created.
 The opening is on bag width. There is exactly one Bag proposal per shared
 canonical arrangement, and Bag rows use the same arrangement IDs, cubicity
-ranking, representative orientation, and ordering as Container Design.
+ranking, representative orientation, and ordering as Container Design when all
+Container orientations are enabled.
 Squareness is not a Bag Design metric. Design Mode accepts only product weight
 for optional net-content weight. Packaging weight, total package weight, and
 payload metrics belong to later package evaluation and are not read or

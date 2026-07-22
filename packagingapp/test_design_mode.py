@@ -101,14 +101,20 @@ class BagDesignEngineTests(TestCase):
             [row["arrangement_id"] for row in container_case["candidates"]],
         )
 
-    def test_rotation_restrictions_match_container_arrangements(self):
-        bag = build_bag_design_candidates(100, 80, 20, 18, 0, 0, 1)
-        container = build_container_design_candidates((100, 80, 20), 18, 0, 0, 1)
+    def test_bag_design_always_allows_every_orientation(self):
+        unrestricted = build_bag_design_candidates(100, 80, 20, 18)
+        legacy_restricted_call = build_bag_design_candidates(100, 80, 20, 18, 0, 0, 1)
+        container_all_orientations = build_container_design_candidates((100, 80, 20), 18, 1, 1, 1)
+
         self.assertEqual(
-            [row["arrangement_id"] for row in bag["candidates"]],
-            [row["arrangement_id"] for row in container["candidates"]],
+            [row["candidate_id"] for row in unrestricted["candidates"]],
+            [row["candidate_id"] for row in legacy_restricted_call["candidates"]],
         )
-        self.assertTrue(all(row["orientation_index"] in (0, 2) for row in bag["candidates"]))
+        self.assertEqual(
+            [row["arrangement_id"] for row in unrestricted["candidates"]],
+            [row["arrangement_id"] for row in container_all_orientations["candidates"]],
+        )
+        self.assertTrue(any(row["orientation_index"] not in (0, 2) for row in unrestricted["candidates"]))
 
     def test_selection_mode_calculation_is_unchanged(self):
         info = compute_max_quantity_for_bag(100, 80, 20, 132, 102)
@@ -193,7 +199,6 @@ class DesignModeSurfaceParityTests(TestCase):
         "mode": "design", "action": "run_design", "product_source": "manual",
         "product_l": "100", "product_w": "80", "product_h": "20", "product_weight": "50",
         "desired_qty": "17", "bag_weight": "10", "bag_max_payload": "1000",
-        "rotation_permissions_present": "1", "r1": "on", "r2": "on", "r3": "on",
     }
     container_data = {
         "mode": "design", "action": "run_design", "product_source": "manual",
@@ -206,6 +211,9 @@ class DesignModeSurfaceParityTests(TestCase):
         bag = self.client.post(reverse("bag_selection_mode1"), self.bag_data)
         self.assertEqual(bag.status_code, 200)
         self.assertContains(bag, "Bag design alternatives")
+        self.assertNotContains(bag, "Rotation permissions")
+        for field_name in ("r1", "r2", "r3", "rotation_permissions_present"):
+            self.assertNotContains(bag, f'name="{field_name}"')
         self.assertEqual(bag.context["result"]["candidate_id"], bag.context["design_candidates"][0]["candidate_id"])
         json.dumps(bag.context["threejs_scene"])
 
@@ -282,11 +290,13 @@ class DesignModeSurfaceParityTests(TestCase):
 
 
 class DesignModeValidationTests(TestCase):
-    def test_missing_invalid_quantity_and_no_orientation_messages(self):
+    def test_missing_quantity_and_container_orientation_validation(self):
         missing = self.client.post(reverse("bag_selection_mode1"), {
             "mode": "design", "product_source": "manual", "product_l": 100, "product_w": 80, "product_h": 20,
         })
         self.assertContains(missing, "positive whole number")
+        self.assertNotContains(missing, "permitted product orientation")
+
         invalid = self.client.post(reverse("container_selection_mode1"), {
             "mode": "design", "product_source": "manual", "product_l": 100, "product_w": 80,
             "product_h": 20, "desired_qty": 3, "container_source": "manual", "action": "run_design",
@@ -301,6 +311,8 @@ class DesignModeContractTests(TestCase):
         self.assertEqual([value for value, _label in ContainerSelectionMode1Form.base_fields["mode"].choices], expected)
         self.assertNotIn("tool_mode", BagSelectionForm.base_fields)
         self.assertNotIn("tool_mode", ContainerSelectionMode1Form.base_fields)
+        for field_name in ("r1", "r2", "r3"):
+            self.assertNotIn(field_name, BagSelectionForm.base_fields)
         for url in (reverse("bag_selection_mode1"), reverse("container_selection_mode1")):
             response = self.client.get(url)
             self.assertEqual(response.content.count(b'name="mode"'), 1)
@@ -320,6 +332,9 @@ class DesignModeContractTests(TestCase):
             self.assertEqual(optimal["mode"], "optimal")
             self.assertNotIn("tool_mode", single)
             self.assertNotIn("tool_mode", optimal)
+
+        sanitized_bag = sanitize_bag_config_for_session({"mode": "design", "r1": False, "r2": False, "r3": False})
+        self.assertFalse({"r1", "r2", "r3"} & sanitized_bag.keys())
 
         legacy = self.client.post(reverse("bag_selection_mode1"), {
             "tool_mode": "design", "mode": "single", "action": "run_design", "product_source": "manual",

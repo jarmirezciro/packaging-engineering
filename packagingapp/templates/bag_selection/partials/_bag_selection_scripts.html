@@ -54,7 +54,6 @@
         const globalCatalogueChooser = document.getElementById(prefix ? ('globalCatalogueChooser_' + prefix) : 'globalCatalogueChooser');
         const selectionPackageControls = document.getElementById(prefix ? ('selectionPackageControls_' + prefix) : 'selectionPackageControls');
         const designPackagingFields = document.getElementById(prefix ? ('designPackagingFields_' + prefix) : 'designPackagingFields');
-        const rotationFields = document.getElementById(prefix ? ('bagRotationFields_' + prefix) : 'bagRotationFields');
 
         function toggleBlock(block, visible) {
             if (!block) return;
@@ -63,7 +62,6 @@
         }
         toggleBlock(selectionPackageControls, mode !== 'design');
         toggleBlock(designPackagingFields, mode === 'design');
-        toggleBlock(rotationFields, mode === 'design');
 
         if (allowProductCatalogue && productCatalogueChooser) {
             if (productSource === 'catalogue') {
