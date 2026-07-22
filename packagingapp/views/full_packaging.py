@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
 from django.http import HttpResponse
@@ -79,6 +81,8 @@ from ..tools.full_packaging.export import (
 
 
 SESSION_KEY = "full_packaging_mode_session"
+PALLETIZATION_VISUAL_SOURCE = "palletization_result"
+PALLETIZATION_VISUAL_TOLERANCE_MM = 1e-6
 
 
 def _init_workflow_session(request):
@@ -357,6 +361,7 @@ def _run_pallet_analysis_shared(step, steps, idx):
         step["pending_result"].setdefault("transport_qty", 1)
         step["pending_result"]["source_step_type"] = "pallet"
         step["pending_result"]["package_type"] = "pallet"
+        step["pending_result"]["source_type"] = PALLETIZATION_VISUAL_SOURCE
 
 
 def _compute_pallet_view_model(step, steps, idx):
@@ -749,6 +754,176 @@ def _transport_rows_from_selected(selected):
             "r3": True,
         }
     ])
+
+
+def _matches_dimensions(actual, expected):
+    return all(
+        abs(float(actual_value) - float(expected_value)) <= PALLETIZATION_VISUAL_TOLERANCE_MM
+        for actual_value, expected_value in zip(actual, expected)
+    )
+
+
+def _pallet_placement_orientation(item, source_bounds):
+    """Map an engine cuboid orientation back to the pallet assembly axes."""
+    length = float(source_bounds["length"])
+    width = float(source_bounds["width"])
+    height = float(source_bounds["height"])
+    placed = (
+        float(item.get("dx") or 0),
+        float(item.get("dy") or 0),
+        float(item.get("dz") or 0),
+    )
+    orientations = (
+        ("lwh", (length, width, height)),
+        ("wlh", (width, length, height)),
+        ("lhw", (length, height, width)),
+        ("hlw", (height, length, width)),
+        ("whl", (width, height, length)),
+        ("hwl", (height, width, length)),
+    )
+    for name, dimensions in orientations:
+        if _matches_dimensions(placed, dimensions):
+            return name
+    return None
+
+
+def _normalize_pallet_visualization_for_transport(upstream):
+    """Return a JSON-safe pallet scene aligned to the calculated load cuboid.
+
+    Palletization's browser pallet is 108 mm high, while the established Flow
+    handoff uses a 100 mm pallet allowance. Carton geometry is not scaled. The
+    pallet base height and carton elevation are explicitly remapped to that
+    existing calculation allowance, then the complete assembly is bounds
+    checked. Unsupported overhang or malformed scenes retain the generic load
+    cuboid instead of leaking outside the calculated placement.
+    """
+    if not upstream or upstream.get("source_type") != PALLETIZATION_VISUAL_SOURCE:
+        return None
+
+    source_scene = upstream.get("pallet_visualization")
+    if not isinstance(source_scene, dict):
+        return None
+
+    try:
+        bounds = {
+            "length": float(upstream.get("length")),
+            "width": float(upstream.get("width")),
+            "height": float(upstream.get("height")),
+        }
+    except (TypeError, ValueError):
+        return None
+    if any(value <= 0 for value in bounds.values()):
+        return None
+
+    scene = deepcopy(source_scene)
+    pallet = scene.get("pallet") or {}
+    placements = scene.get("placements") or []
+    if not pallet or not placements:
+        return None
+
+    try:
+        original_base_height = float(pallet.get("height") or 0)
+        cargo_height = max(
+            float(placement.get("z") or 0) + float(placement.get("dz") or 0)
+            for placement in placements
+        ) - original_base_height
+        target_base_height = bounds["height"] - cargo_height
+        deck_thickness = min(
+            float(pallet.get("deck_thickness") or 0),
+            target_base_height,
+        )
+    except (TypeError, ValueError):
+        return None
+    if target_base_height <= 0 or deck_thickness <= 0:
+        return None
+
+    elevation_delta = target_base_height - original_base_height
+    for placement in placements:
+        placement["z"] = float(placement.get("z") or 0) + elevation_delta
+    pallet["height"] = target_base_height
+    pallet["deck_thickness"] = deck_thickness
+    pallet["runner_height"] = max(target_base_height - deck_thickness, 0.0)
+
+    metadata = scene.setdefault("metadata", {})
+    metadata["total_render_height_mm"] = bounds["height"]
+    metadata["transport_base_height_mm"] = target_base_height
+
+    cuboids = [
+        {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "dx": float(pallet.get("length") or 0),
+            "dy": float(pallet.get("width") or 0),
+            "dz": target_base_height,
+        },
+        *placements,
+    ]
+    tolerance = PALLETIZATION_VISUAL_TOLERANCE_MM
+    for cuboid in cuboids:
+        try:
+            minimums = (
+                float(cuboid.get("x") or 0),
+                float(cuboid.get("y") or 0),
+                float(cuboid.get("z") or 0),
+            )
+            maximums = (
+                minimums[0] + float(cuboid.get("dx") or 0),
+                minimums[1] + float(cuboid.get("dy") or 0),
+                minimums[2] + float(cuboid.get("dz") or 0),
+            )
+        except (TypeError, ValueError):
+            return None
+        if any(value < -tolerance for value in minimums):
+            return None
+        if (
+            maximums[0] > bounds["length"] + tolerance
+            or maximums[1] > bounds["width"] + tolerance
+            or maximums[2] > bounds["height"] + tolerance
+        ):
+            return None
+
+    return {"bounds": bounds, "scene": scene}
+
+
+def _decorate_transport_scene_with_pallet_visualization(transport_scene, upstream):
+    """Decorate only a direct Flow pallet-to-transport scene for rendering."""
+    visualization = _normalize_pallet_visualization_for_transport(upstream)
+    if not visualization or not isinstance(transport_scene, dict):
+        return transport_scene
+
+    detailed_items = 0
+    for item in transport_scene.get("items") or []:
+        orientation = _pallet_placement_orientation(item, visualization["bounds"])
+        if not orientation:
+            continue
+        item["source_type"] = PALLETIZATION_VISUAL_SOURCE
+        item["visualization_ref"] = "palletized_load"
+        item["pallet_orientation"] = orientation
+        detailed_items += 1
+
+    if detailed_items:
+        transport_scene["workflow_visualizations"] = {
+            "palletized_load": visualization,
+        }
+        transport_scene.setdefault("metadata", {})["detailed_pallet_items"] = detailed_items
+    return transport_scene
+
+
+def _direct_pallet_visualization_input(steps, idx):
+    """Join the direct upstream marker with its step-owned scene transiently."""
+    upstream = _selected_input_for_step(steps, idx)
+    if (
+        not upstream
+        or idx <= 0
+        or steps[idx - 1].get("type") != "pallet"
+        or upstream.get("source_type") != PALLETIZATION_VISUAL_SOURCE
+    ):
+        return upstream
+
+    visual_input = dict(upstream)
+    visual_input["pallet_visualization"] = steps[idx - 1].get("threejs_scene")
+    return visual_input
 
 
 def _merge_transport_inherited_rows(existing_rows, inherited_rows):
@@ -1804,7 +1979,13 @@ def _run_transport_analysis(step, steps, idx):
     step["result"] = analysis["serialized_result"]
     step["image_url"] = analysis["image_url"]
     step["image_urls"] = analysis.get("image_urls") or {}
-    step["threejs_scene"] = analysis["threejs_scene"]
+    transport_scene = analysis["threejs_scene"]
+    if idx > 0:
+        transport_scene = _decorate_transport_scene_with_pallet_visualization(
+            transport_scene,
+            _direct_pallet_visualization_input(steps, idx),
+        )
+    step["threejs_scene"] = transport_scene
 
     prev = _selected_input_for_step(steps, idx)
     upstream_units = prev.get("total_base_units", 1) if prev else 1

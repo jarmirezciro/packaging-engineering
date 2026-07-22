@@ -79,6 +79,14 @@ missing or invalid snapshots return HTTP 400 and never fall back to the legacy
 Matplotlib report images. Legacy server images remain transitional inputs only
 for the separate combined Packaging Flow report.
 
+For the direct Packaging Flow sequence Palletization -> Transport, the Flow
+scene may additionally reference the upstream authoritative pallet scene. Each
+marked transport cuboid is rendered by the shared pallet assembly builder as a
+parent group containing the pallet base and carton placements. The group is
+centered on the engine cuboid and receives the matching orthogonal orientation;
+the cuboid remains the sole calculation, collision, capacity, and metrics
+model. Other Transport consumers and inputs continue to render generic cuboids.
+
 
 ## Graphics propagation rule
 

@@ -1,13 +1,12 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import {
+    buildPalletizedLoadGroup,
+    getPalletizedLoadDimensions,
+} from "./palletized_load_threejs.js";
 
 const initialized = new WeakSet();
 const instances = new Map();
-
-function number(value, fallback = 0) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-}
 
 function getViewerSize(el) {
     const rect = el.getBoundingClientRect();
@@ -22,156 +21,7 @@ function getViewerSize(el) {
 }
 
 function getSceneDimensions(sceneData) {
-    const pallet = sceneData.pallet || {};
-    const allowed = sceneData.allowed_footprint || {};
-    const metadata = sceneData.metadata || {};
-    const length = Math.max(number(allowed.length, pallet.length), number(pallet.length, 1), 1);
-    const width = Math.max(number(allowed.width, pallet.width), number(pallet.width, 1), 1);
-    const height = Math.max(
-        number(metadata.total_render_height_mm),
-        number(pallet.height) + number(metadata.stack_height_mm),
-        1,
-    );
-    return { length, width, height };
-}
-
-function mapPosition(x, y, z, dims) {
-    // Python: X=length, Y=width, Z=height.
-    // Three.js: X=length, Y=height, Z=width.
-    return new THREE.Vector3(
-        number(x) - dims.length / 2,
-        number(z),
-        number(y) - dims.width / 2,
-    );
-}
-
-function centerPosition(cuboid, dims) {
-    return mapPosition(
-        number(cuboid.x) + number(cuboid.dx) / 2,
-        number(cuboid.y) + number(cuboid.dy) / 2,
-        number(cuboid.z) + number(cuboid.dz) / 2,
-        dims,
-    );
-}
-
-function addEdges(mesh, target, edgeColor = 0x0f172a, opacity = 0.62) {
-    const lines = new THREE.LineSegments(
-        new THREE.EdgesGeometry(mesh.geometry),
-        new THREE.LineBasicMaterial({
-            color: edgeColor,
-            transparent: opacity < 1,
-            opacity: opacity,
-        }),
-    );
-    lines.position.copy(mesh.position);
-    target.add(lines);
-}
-
-function addCuboid(target, cuboid, dims, options = {}) {
-    const dx = Math.max(number(cuboid.dx), 0.001);
-    const dy = Math.max(number(cuboid.dy), 0.001);
-    const dz = Math.max(number(cuboid.dz), 0.001);
-    const geometry = new THREE.BoxGeometry(dx, dz, dy);
-    const material = options.material || new THREE.MeshStandardMaterial({
-        color: options.color || "#2563eb",
-        roughness: options.roughness ?? 0.7,
-        metalness: options.metalness ?? 0.01,
-        transparent: (options.opacity ?? 1) < 0.999,
-        opacity: options.opacity ?? 1,
-    });
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.copy(centerPosition(cuboid, dims));
-    target.add(mesh);
-    if (options.edges !== false) {
-        addEdges(mesh, target, options.edgeColor, options.edgeOpacity);
-    }
-    return mesh;
-}
-
-function addPallet(target, sceneData, dims) {
-    const pallet = sceneData.pallet || {};
-    const length = Math.max(number(pallet.length), 1);
-    const width = Math.max(number(pallet.width), 1);
-    const height = Math.max(number(pallet.height), 1);
-    const deckThickness = Math.min(
-        Math.max(number(pallet.deck_thickness, height * 0.17), 1),
-        height,
-    );
-    const runnerHeight = Math.max(height - deckThickness, 1);
-    const wood = new THREE.MeshStandardMaterial({
-        color: 0xc69a62,
-        roughness: 0.88,
-        metalness: 0,
-    });
-    const runnerWood = new THREE.MeshStandardMaterial({
-        color: 0xa97842,
-        roughness: 0.92,
-        metalness: 0,
-    });
-
-    addCuboid(target, {
-        x: 0,
-        y: 0,
-        z: runnerHeight,
-        dx: length,
-        dy: width,
-        dz: deckThickness,
-    }, dims, { material: wood, edgeColor: 0x6b4423, edgeOpacity: 0.55 });
-
-    const runnerWidth = Math.max(Math.min(width / 6, 100), 24);
-    [0, (width - runnerWidth) / 2, width - runnerWidth].forEach((y) => {
-        addCuboid(target, {
-            x: 0,
-            y: y,
-            z: 0,
-            dx: length,
-            dy: runnerWidth,
-            dz: runnerHeight,
-        }, dims, { material: runnerWood, edgeColor: 0x5b3b22, edgeOpacity: 0.5 });
-    });
-}
-
-function addAllowedFootprint(target, sceneData, dims) {
-    const pallet = sceneData.pallet || {};
-    const allowed = sceneData.allowed_footprint || {};
-    const lengthOverhang = number(allowed.length_overhang);
-    const widthOverhang = number(allowed.width_overhang);
-    if (lengthOverhang <= 0 && widthOverhang <= 0) return;
-
-    const length = Math.max(number(allowed.length), number(pallet.length), 1);
-    const width = Math.max(number(allowed.width), number(pallet.width), 1);
-    const geometry = new THREE.BoxGeometry(length, 1, width);
-    const outline = new THREE.LineSegments(
-        new THREE.EdgesGeometry(geometry),
-        new THREE.LineBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.8 }),
-    );
-    outline.position.copy(mapPosition(
-        length / 2,
-        width / 2,
-        number(pallet.height) + 2,
-        dims,
-    ));
-    target.add(outline);
-}
-
-function caseColor(placement) {
-    const layer = Math.max(number(placement.layer, 1), 1);
-    const alternate = placement.layer_kind === "interlock";
-    const palettes = alternate
-        ? ["#0f766e", "#0d9488", "#14b8a6"]
-        : ["#1d4ed8", "#2563eb", "#3b82f6"];
-    return palettes[(layer - 1) % palettes.length];
-}
-
-function addCases(target, sceneData, dims) {
-    (sceneData.placements || []).forEach((placement) => {
-        addCuboid(target, placement, dims, {
-            color: caseColor(placement),
-            edgeColor: 0x0f172a,
-            edgeOpacity: 0.72,
-            roughness: 0.66,
-        });
-    });
+    return getPalletizedLoadDimensions(sceneData);
 }
 
 function computeViewSize(dims, aspect) {
@@ -287,9 +137,9 @@ function initViewer(el) {
 
     const root = new THREE.Group();
     scene.add(root);
-    addPallet(root, sceneData, dims);
-    addAllowedFootprint(root, sceneData, dims);
-    addCases(root, sceneData, dims);
+    const palletizedLoad = buildPalletizedLoadGroup(sceneData);
+    palletizedLoad.position.y = dims.height / 2;
+    root.add(palletizedLoad);
 
     let currentViewName = "reset";
     setCameraView(camera, controls, dims, currentViewName);
