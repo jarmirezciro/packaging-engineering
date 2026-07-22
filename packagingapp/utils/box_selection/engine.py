@@ -23,10 +23,43 @@ Point = Tuple[float, float, float]
 
 
 @dataclass(frozen=True)
+class Placement:
+    """One axis-aligned product placement in container coordinates."""
+
+    origin: Point
+    dimensions: Dims
+    level: int
+    region_type: str
+
+
+@dataclass(frozen=True)
 class Mode1Result:
     max_quantity: int
     image_rel_path: str
     threejs_scene: Optional[dict] = None
+    placements: Tuple[Placement, ...] = ()
+
+
+@dataclass(frozen=True)
+class _MainBoxSolution:
+    """Normalized geometry returned by one unchanged ``MainBox`` call."""
+
+    max_quantity: int
+    residual_dimensions: Tuple[Dims, Dims, Dims]
+    residual_orientations: Tuple[Dims, Dims, Dims]
+    main_orientation: Dims
+    residual_origins: Tuple[Point, Point, Point]
+    main_dimensions: Dims
+
+
+@dataclass(frozen=True)
+class _PackedRegion:
+    """A grid-filled region retained for optional debug wireframes."""
+
+    origin: Point
+    dimensions: Dims
+    level: int
+    region_type: str
 
 
 def draw_cube(ax, x, y, z, dx, dy, dz,
@@ -124,58 +157,6 @@ def draw_rsc_top_flaps(ax, lc, ac, hc,
 
 
 
-def fill_subbox(ax,
-                subbox_origin: Point,
-                subbox_dimensions: Dims,
-                cube_dimensions: Dims,
-                cube_color="orange",
-                cube_edge_color="blue",
-                cube_alpha=0.9,
-                cube_alpha_edges=0.7,
-                remaining: Optional[List[int]] = None,
-                scene_items: Optional[List[dict]] = None):
-    """
-    Fill a subbox volume with a regular grid of cubes (rectangular items) of cube_dimensions.
-
-    NEW: If remaining is a mutable one-item list like [N], we stop drawing once remaining[0] reaches 0.
-         This lets Optimal mode draw only 'desired_qty' units, while Single mode draws maximum.
-    """
-    subbox_x, subbox_y, subbox_z = subbox_origin
-    subbox_dx, subbox_dy, subbox_dz = subbox_dimensions
-    cube_dx, cube_dy, cube_dz = cube_dimensions
-
-    # Guard against zeros to avoid infinite loops
-    if cube_dx <= 0 or cube_dy <= 0 or cube_dz <= 0:
-        return
-
-    for x in np.arange(subbox_x, subbox_x + subbox_dx, cube_dx):
-        for y in np.arange(subbox_y, subbox_y + subbox_dy, cube_dy):
-            for z in np.arange(subbox_z, subbox_z + subbox_dz, cube_dz):
-                if remaining is not None and remaining[0] <= 0:
-                    return
-
-                if (
-                    x + cube_dx <= subbox_x + subbox_dx
-                    and y + cube_dy <= subbox_y + subbox_dy
-                    and z + cube_dz <= subbox_z + subbox_dz
-                ):
-                    draw_cube(
-                        ax, x, y, z, cube_dx, cube_dy, cube_dz,
-                        color=cube_color, edge_color=cube_edge_color,
-                        alpha=cube_alpha, alpha_edges=cube_alpha_edges
-                    )
-                    _append_threejs_cuboid(
-                        scene_items,
-                        (x, y, z),
-                        (cube_dx, cube_dy, cube_dz),
-                        kind="product",
-                        color="#f59e0b",
-                        opacity=cube_alpha,
-                    )
-                    if remaining is not None:
-                        remaining[0] -= 1
-
-
 def _mainbox(product: Dims, region: Dims, origin: Point, r1: int, r2: int, r3: int):
     """
     Thin wrapper around MainBox so the tuple unpack is centralized and consistent.
@@ -185,24 +166,178 @@ def _mainbox(product: Dims, region: Dims, origin: Point, r1: int, r2: int, r3: i
     l, a, h = product
     lc, ac, hc = region
     origin_coordinates = [origin[0], origin[1], origin[2]]
-    return MainBox(l, a, h, lc, ac, hc, r1, r2, r3, origin_coordinates)
+    raw = MainBox(l, a, h, lc, ac, hc, r1, r2, r3, origin_coordinates)
+    (
+        max_quantity,
+        cl_max,
+        ca_max,
+        ch_max,
+        cl_xyz_max,
+        ca_xyz_max,
+        ch_xyz_max,
+        b_xyz_max,
+        coordinates_subbox_max,
+        dimensions_subbox_max,
+    ) = raw
+    return _MainBoxSolution(
+        max_quantity=int(max_quantity or 0),
+        residual_dimensions=tuple(tuple(float(value) for value in dims) for dims in (cl_max, ca_max, ch_max)),
+        residual_orientations=tuple(
+            tuple(float(value) for value in dims)
+            for dims in (cl_xyz_max, ca_xyz_max, ch_xyz_max)
+        ),
+        main_orientation=tuple(float(value) for value in b_xyz_max),
+        residual_origins=tuple(
+            tuple(float(value) for value in point)
+            for point in coordinates_subbox_max
+        ),
+        main_dimensions=tuple(float(value) for value in dimensions_subbox_max),
+    )
+
+
+def _grid_placements(
+    origin: Point,
+    region: Dims,
+    orientation: Dims,
+    *,
+    level: int,
+    region_type: str,
+) -> List[Placement]:
+    """Materialize the regular grid represented by one ``MainBox`` region."""
+    if not all(value > 0 for value in (*region, *orientation)):
+        return []
+
+    counts = tuple(int(region[index] / orientation[index]) for index in range(3))
+    placements = []
+    for ix in range(counts[0]):
+        for iy in range(counts[1]):
+            for iz in range(counts[2]):
+                placements.append(
+                    Placement(
+                        origin=(
+                            origin[0] + ix * orientation[0],
+                            origin[1] + iy * orientation[1],
+                            origin[2] + iz * orientation[2],
+                        ),
+                        dimensions=orientation,
+                        level=level,
+                        region_type=region_type,
+                    )
+                )
+    return placements
+
+
+def _materialize_mainbox_solution(
+    solution: _MainBoxSolution,
+    origin: Point,
+    *,
+    level: int,
+) -> Tuple[List[Placement], List[_PackedRegion]]:
+    """Materialize a selected main grid and its three direct residual fills."""
+    placements = _grid_placements(
+        origin,
+        solution.main_dimensions,
+        solution.main_orientation,
+        level=level,
+        region_type="main",
+    )
+    regions = []
+    if placements:
+        regions.append(_PackedRegion(origin, solution.main_dimensions, level, "main"))
+
+    for residual_origin, residual_dimensions, residual_orientation in zip(
+        solution.residual_origins,
+        solution.residual_dimensions,
+        solution.residual_orientations,
+    ):
+        residual_placements = _grid_placements(
+            residual_origin,
+            residual_dimensions,
+            residual_orientation,
+            level=level,
+            region_type="residual",
+        )
+        placements.extend(residual_placements)
+        if residual_placements:
+            regions.append(
+                _PackedRegion(residual_origin, residual_dimensions, level, "residual")
+            )
+
+    return placements, regions
+
+
+def _calculate_pilot_solution(
+    product: Dims,
+    container: Dims,
+    r1: int,
+    r2: int,
+    r3: int,
+) -> Tuple[List[Placement], List[_PackedRegion]]:
+    """
+    Reproduce the original pilot's bounded residual-space sequence.
+
+    The complete container is evaluated once. Its provisional direct residual
+    fills are discarded: only the selected root main grid is retained. Each of
+    the root's three residual regions then receives one complete ``MainBox``
+    analysis, whose selected main grid and direct residual fills are retained.
+    The process stops there. Therefore the root ``MainBox.max_quantity`` must
+    not be added to the child results; doing that would count its provisional
+    residual fills twice.
+    """
+    product = tuple(float(value) for value in product)
+    container = tuple(float(value) for value in container)
+    if not all(value > 0 for value in (*product, *container)):
+        return [], []
+
+    root_origin = (0.0, 0.0, 0.0)
+    root = _mainbox(product, container, root_origin, r1, r2, r3)
+    if root.max_quantity <= 0:
+        return [], []
+
+    placements = _grid_placements(
+        root_origin,
+        root.main_dimensions,
+        root.main_orientation,
+        level=0,
+        region_type="main",
+    )
+    regions = []
+    if placements:
+        regions.append(_PackedRegion(root_origin, root.main_dimensions, 0, "main"))
+
+    for residual_dimensions, residual_origin in zip(
+        root.residual_dimensions,
+        root.residual_origins,
+    ):
+        if not all(value > 0 for value in residual_dimensions):
+            continue
+        child = _mainbox(product, residual_dimensions, residual_origin, r1, r2, r3)
+        if child.max_quantity <= 0:
+            continue
+        child_placements, child_regions = _materialize_mainbox_solution(
+            child,
+            residual_origin,
+            level=1,
+        )
+        placements.extend(child_placements)
+        regions.extend(child_regions)
+
+    return placements, regions
+
+
+def calculate_placements(product: Dims, container: Dims, r1: int, r2: int, r3: int) -> List[Placement]:
+    """Return the authoritative pilot-parity product placement collection."""
+    placements, _regions = _calculate_pilot_solution(product, container, r1, r2, r3)
+    return placements
 
 
 def compute_max_quantity_only(product: Dims, container: Dims, r1: int, r2: int, r3: int) -> int:
     """
-    Fast: returns max_quantity from MainBox without any plotting.
-    Useful for Optimal Top-5 ranking.
+    Return the capacity from the same placements used by both renderers.
+
+    This remains the non-plotting path used for Optimal/Top-5 ranking.
     """
-    product = (float(product[0]), float(product[1]), float(product[2]))
-    container = (float(container[0]), float(container[1]), float(container[2]))
-
-    origin = (0.0, 0.0, 0.0)
-    l, a, h = product
-    lc, ac, hc = container
-    origin_coordinates = [origin[0], origin[1], origin[2]]
-
-    max_quantity, *_rest = MainBox(l, a, h, lc, ac, hc, r1, r2, r3, origin_coordinates)
-    return int(max_quantity)
+    return len(calculate_placements(product, container, r1, r2, r3))
 
 
 
@@ -236,7 +371,17 @@ def _build_threejs_scene(container: Dims) -> dict:
     }
 
 
-def _append_threejs_cuboid(collection, origin: Point, dimensions: Dims, *, kind: str, color: str, opacity: float = 1.0):
+def _append_threejs_cuboid(
+    collection,
+    origin: Point,
+    dimensions: Dims,
+    *,
+    kind: str,
+    color: str,
+    opacity: float = 1.0,
+    level: Optional[int] = None,
+    region_type: Optional[str] = None,
+):
     if collection is None:
         return
 
@@ -245,7 +390,7 @@ def _append_threejs_cuboid(collection, origin: Point, dimensions: Dims, *, kind:
     if dx <= 0 or dy <= 0 or dz <= 0:
         return
 
-    collection.append({
+    item = {
         "kind": kind,
         "x": _scene_number(x),
         "y": _scene_number(y),
@@ -255,144 +400,12 @@ def _append_threejs_cuboid(collection, origin: Point, dimensions: Dims, *, kind:
         "dz": _scene_number(dz),
         "color": color,
         "opacity": float(opacity),
-    })
-
-
-def _draw_region_solution(ax, product: Dims, region: Dims, origin: Point, r1: int, r2: int, r3: int,
-                          draw_wireframes: bool = True,
-                          remaining: Optional[List[int]] = None,
-                          threejs_scene: Optional[dict] = None):
-    """
-    Matches your pilot behavior per MainBox call:
-      1) Fill the chosen main subbox (dimensions_subbox_max) with b_xyz_max
-      2) ALSO fill the 3 leftover regions: cl_max, ca_max, ch_max using cl_xyz_max, ca_xyz_max, ch_xyz_max
-
-    NEW: pass 'remaining' to limit drawn items when desired.
-    """
-    (
-        max_quantity,
-        cl_max, ca_max, ch_max,
-        cl_xyz_max, ca_xyz_max, ch_xyz_max,
-        b_xyz_max,
-        coordinates_subbox_max,
-        dimensions_subbox_max
-    ) = _mainbox(product, region, origin, r1, r2, r3)
-
-    if int(max_quantity or 0) <= 0:
-        return 0, []
-
-    main_origin = origin
-    main_dims = tuple(dimensions_subbox_max)
-    main_cube = tuple(b_xyz_max)
-
-    if all(d > 0 for d in main_dims) and all(d > 0 for d in main_cube):
-        if draw_wireframes:
-            draw_cube(ax, *main_origin, *main_dims, color="blue", edge_color="black", alpha=0.08, alpha_edges=0.08)
-        if threejs_scene is not None:
-            _append_threejs_cuboid(
-                threejs_scene.get("subboxes"),
-                main_origin,
-                main_dims,
-                kind="main",
-                color="#2563eb",
-                opacity=0.10,
-            )
-        fill_subbox(
-            ax,
-            main_origin,
-            main_dims,
-            main_cube,
-            cube_color="orange",
-            cube_edge_color="blue",
-            remaining=remaining,
-            scene_items=(threejs_scene or {}).get("products"),
-        )
-
-    if remaining is not None and remaining[0] <= 0:
-        return int(max_quantity), []
-
-    leftovers = [
-        (tuple(coordinates_subbox_max[0]), tuple(cl_max), tuple(cl_xyz_max), "green"),
-        (tuple(coordinates_subbox_max[1]), tuple(ca_max), tuple(ca_xyz_max), "red"),
-        (tuple(coordinates_subbox_max[2]), tuple(ch_max), tuple(ch_xyz_max), "yellow"),
-    ]
-
-    for sub_origin, sub_dims, sub_cube, wire_color in leftovers:
-        if remaining is not None and remaining[0] <= 0:
-            break
-        if (
-            sub_dims[0] > 0 and sub_dims[1] > 0 and sub_dims[2] > 0
-            and sub_cube[0] > 0 and sub_cube[1] > 0 and sub_cube[2] > 0
-        ):
-            if draw_wireframes:
-                draw_cube(ax, *sub_origin, *sub_dims, color=wire_color, edge_color="black",
-                          alpha=0.08, alpha_edges=0.08)
-            if threejs_scene is not None:
-                _append_threejs_cuboid(
-                    threejs_scene.get("subboxes"),
-                    sub_origin,
-                    sub_dims,
-                    kind="leftover",
-                    color={"green": "#22c55e", "red": "#ef4444", "yellow": "#eab308"}.get(wire_color, "#94a3b8"),
-                    opacity=0.10,
-                )
-            fill_subbox(
-                ax,
-                sub_origin,
-                sub_dims,
-                sub_cube,
-                cube_color="orange",
-                cube_edge_color="blue",
-                remaining=remaining,
-                scene_items=(threejs_scene or {}).get("products"),
-            )
-
-    return int(max_quantity), leftovers
-
-
-def _recurse(ax, product: Dims, region: Dims, origin: Point, r1: int, r2: int, r3: int,
-             depth: int, max_depth: int,
-             remaining: Optional[List[int]] = None,
-             draw_wireframes: bool = True,
-             threejs_scene: Optional[dict] = None):
-    """
-    Recursive continuation similar to your pilot's repeated MainBox calls on leftover regions.
-    We keep it bounded by max_depth for safety.
-
-    NEW: If 'remaining' hits 0, we stop recursing/drawing.
-    """
-    if depth >= max_depth:
-        return
-    if remaining is not None and remaining[0] <= 0:
-        return
-
-    _, leftovers = _draw_region_solution(
-        ax,
-        product,
-        region,
-        origin,
-        r1,
-        r2,
-        r3,
-        draw_wireframes=draw_wireframes,
-        remaining=remaining,
-        threejs_scene=threejs_scene,
-    )
-
-    if remaining is not None and remaining[0] <= 0:
-        return
-
-    for sub_origin, sub_dims, _sub_cube, _wire_color in leftovers:
-        if remaining is not None and remaining[0] <= 0:
-            return
-        if sub_dims[0] > 0 and sub_dims[1] > 0 and sub_dims[2] > 0:
-            _recurse(
-                ax, product, sub_dims, sub_origin, r1, r2, r3,
-                depth + 1, max_depth,
-                remaining=remaining,
-                draw_wireframes=draw_wireframes,
-                threejs_scene=threejs_scene,
-            )
+    }
+    if level is not None:
+        item["level"] = int(level)
+    if region_type is not None:
+        item["region_type"] = region_type
+    collection.append(item)
 
 
 def run_mode1_and_render(product: Dims,
@@ -404,26 +417,25 @@ def run_mode1_and_render(product: Dims,
     """
     Mode render:
       - Draw container wireframe
-      - Draw + fill main subbox AND leftover subboxes (pilot parity)
-      - Recursively repeat on leftovers (bounded)
+      - Calculate the bounded pilot-parity placements once
+      - Draw the same placement slice in Matplotlib and Three.js
       - Save image to MEDIA_ROOT/box_selection/<uuid>.png
 
-    NEW:
-      - draw_limit=None (default) => draw maximum packed items (Single mode)
-      - draw_limit=N              => draw only N items (Optimal mode, desired quantity)
-      - render_style="debug"      => keep development empty-space/subbox overlays
-      - render_style="clean"      => final user-facing view with product inside an open box
+    ``draw_limit`` affects only the rendered slice. ``max_quantity`` and the
+    returned placement collection always describe the full calculated capacity.
     """
     product = (float(product[0]), float(product[1]), float(product[2]))
     container = (float(container[0]), float(container[1]), float(container[2]))
 
     lc, ac, hc = container
-    origin = (0.0, 0.0, 0.0)
-
-    remaining = [int(draw_limit)] if draw_limit is not None else None
     clean_render = str(render_style or "").lower() == "clean"
     show_debug_subboxes = not clean_render
     threejs_scene = _build_threejs_scene(container)
+    placements, packed_regions = _calculate_pilot_solution(product, container, r1, r2, r3)
+    max_qty = len(placements)
+    rendered_placements = placements
+    if draw_limit is not None:
+        rendered_placements = placements[:max(int(draw_limit), 0)]
 
     fig = plt.figure(figsize=(7.6, 4.8))
     ax = fig.add_subplot(111, projection="3d")
@@ -438,36 +450,50 @@ def run_mode1_and_render(product: Dims,
     else:
         draw_cube(ax, 0, 0, 0, lc, ac, hc, color="lightgrey", edge_color="black", alpha=0.20, alpha_edges=0.35)
 
-    max_qty, _leftovers = _draw_region_solution(
-        ax,
-        product,
-        container,
-        origin,
-        r1,
-        r2,
-        r3,
-        draw_wireframes=show_debug_subboxes,
-        remaining=remaining,
-        threejs_scene=threejs_scene,
-    )
+    for region in packed_regions:
+        color = "blue" if region.region_type == "main" else "green"
+        scene_color = "#2563eb" if region.region_type == "main" else "#22c55e"
+        if show_debug_subboxes:
+            draw_cube(
+                ax,
+                *region.origin,
+                *region.dimensions,
+                color=color,
+                edge_color="black",
+                alpha=0.08,
+                alpha_edges=0.08,
+            )
+        _append_threejs_cuboid(
+            threejs_scene["subboxes"],
+            region.origin,
+            region.dimensions,
+            kind=region.region_type,
+            color=scene_color,
+            opacity=0.10,
+            level=region.level,
+            region_type=region.region_type,
+        )
 
-    _recurse(
-        ax,
-        product,
-        container,
-        origin,
-        r1,
-        r2,
-        r3,
-        depth=0,
-        max_depth=6,
-        remaining=remaining,
-        draw_wireframes=show_debug_subboxes,
-        # The Matplotlib renderer keeps the previous recursive visual behavior.
-        # The interactive Three.js preview stays quantity-faithful by using
-        # the first MainBox solution only, avoiding duplicate/recursive overdraw.
-        threejs_scene=None,
-    )
+    for placement in rendered_placements:
+        draw_cube(
+            ax,
+            *placement.origin,
+            *placement.dimensions,
+            color="orange",
+            edge_color="blue",
+            alpha=0.9,
+            alpha_edges=0.7,
+        )
+        _append_threejs_cuboid(
+            threejs_scene["products"],
+            placement.origin,
+            placement.dimensions,
+            kind="product",
+            color="#f59e0b",
+            opacity=0.9,
+            level=placement.level,
+            region_type=placement.region_type,
+        )
 
     ax.set_xlim([-flap_margin, lc + flap_margin])
     ax.set_ylim([-flap_margin, ac + flap_margin])
@@ -500,7 +526,12 @@ def run_mode1_and_render(product: Dims,
     plt.savefig(abs_path, dpi=160, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
-    return Mode1Result(max_quantity=max_qty, image_rel_path=rel_path, threejs_scene=threejs_scene)
+    return Mode1Result(
+        max_quantity=max_qty,
+        image_rel_path=rel_path,
+        threejs_scene=threejs_scene,
+        placements=tuple(placements),
+    )
 
 def render_product_base_unit(product: Dims, media_root: str) -> str:
     """
@@ -579,4 +610,3 @@ def render_product_base_unit(product: Dims, media_root: str) -> str:
     plt.close(fig)
 
     return rel_path
-

@@ -552,6 +552,68 @@ class TransportThreeJsAndPdfTests(TestCase):
     def tearDown(self):
         shutil.rmtree(self.media_root, ignore_errors=True)
 
+    def _run_pallet_to_transport_flow(self, *, container_l=2400, container_w=1600, qty=2):
+        self.client.post(
+            reverse("full_packaging_mode"),
+            {"action": "add_step", "after_index": "start", "step_type": "pallet"},
+        )
+        pallet_data = {
+            "action": "run_step",
+            "index": "0",
+            "step_action_0": "run_analysis",
+            "box_source_0": "manual",
+            "box_l_0": "400",
+            "box_w_0": "400",
+            "box_h_0": "250",
+            "box_weight_0": "5",
+            "max_weight_on_bottom_box_0": "",
+            "pallet_source_0": "manual",
+            "pallet_l_0": "1200",
+            "pallet_w_0": "800",
+            "max_stack_height_0": "750",
+            "max_width_stickout_0": "0",
+            "max_length_stickout_0": "0",
+        }
+        with self.settings(MEDIA_ROOT=self.media_root):
+            self.client.post(reverse("full_packaging_mode"), pallet_data)
+
+        pallet_step = self.client.session["full_packaging_mode_session"]["steps"][0]
+        self.assertEqual(pallet_step["pending_result"]["source_type"], "palletization_result")
+        self.assertNotIn("pallet_visualization", pallet_step["pending_result"])
+        self.assertTrue(pallet_step["threejs_scene"])
+
+        self.client.post(
+            reverse("full_packaging_mode"),
+            {"action": "add_step", "after_index": "0", "step_type": "transport"},
+        )
+        transport_data = {
+            "action": "run_step",
+            "index": "1",
+            "step_action_1": "run_analysis",
+            "container_source_1": "manual",
+            "container_l_1": str(container_l),
+            "container_w_1": str(container_w),
+            "container_h_1": "1000",
+            "max_weight_1": "5000",
+            "tare_weight_1": "500",
+            "item_name[]": ["Inherited pallet"],
+            "item_length[]": ["1200"],
+            "item_width[]": ["800"],
+            "item_height[]": ["850"],
+            "item_qty[]": [str(qty)],
+            "item_max_qty[]": ["0"],
+            "item_weight[]": ["100"],
+            "item_sequence[]": ["1"],
+            "item_r1[]": ["1"],
+            "item_r2[]": ["0"],
+            "item_r3[]": ["0"],
+        }
+        with self.settings(MEDIA_ROOT=self.media_root):
+            response = self.client.post(reverse("full_packaging_mode"), transport_data)
+            self.assertEqual(response.status_code, 302)
+            page = self.client.get(reverse("full_packaging_mode"))
+        return page, page.context["steps"][1]
+
     def test_standalone_scene_uses_engine_placements_and_pdf_requires_three_views(self):
         with self.settings(MEDIA_ROOT=self.media_root):
             analysis_response = self.client.post(
@@ -568,6 +630,7 @@ class TransportThreeJsAndPdfTests(TestCase):
             self.assertEqual(scene["transport_unit"]["width"], 1200.0)
             self.assertEqual(scene["transport_unit"]["height"], 1200.0)
             self.assertTrue(all(item["kind"] == "load_unit" for item in scene["items"]))
+            self.assertNotIn("workflow_visualizations", scene)
             json.dumps(scene)
 
             self.assertContains(analysis_response, 'id="transportThreeJsViewer_0"', count=1)
@@ -633,7 +696,100 @@ class TransportThreeJsAndPdfTests(TestCase):
         self.assertContains(page_response, 'id="transportThreeJsViewer_0"', count=1)
         self.assertContains(page_response, 'id="transportThreeJsScene_0"', count=1)
         self.assertTrue(page_response.context["steps"][0]["threejs_scene"])
+        self.assertNotIn(
+            "workflow_visualizations",
+            page_response.context["steps"][0]["threejs_scene"],
+        )
         json.dumps(self.client.session["full_packaging_mode_session"])
+
+    def test_direct_pallet_flow_decorates_every_authoritative_transport_placement(self):
+        page, transport_step = self._run_pallet_to_transport_flow()
+
+        scene = transport_step["threejs_scene"]
+        generic_scene = transport_step["result"]["threejs_scene"]
+        visualization = scene["workflow_visualizations"]["palletized_load"]
+
+        self.assertEqual(len(scene["items"]), 2)
+        self.assertEqual(scene["metadata"]["detailed_pallet_items"], 2)
+        self.assertEqual(
+            scene["metadata"]["total_items"],
+            transport_step["result"]["summary"]["placed_units"],
+        )
+        self.assertTrue(all(item["source_type"] == "palletization_result" for item in scene["items"]))
+        self.assertTrue(all(item["visualization_ref"] == "palletized_load" for item in scene["items"]))
+        self.assertTrue(all(item["pallet_orientation"] == "lwh" for item in scene["items"]))
+        self.assertEqual(
+            [tuple(item[key] for key in ("x", "y", "z", "dx", "dy", "dz")) for item in scene["items"]],
+            [tuple(item[key] for key in ("x", "y", "z", "dx", "dy", "dz")) for item in generic_scene["items"]],
+        )
+        self.assertEqual(visualization["bounds"], {"length": 1200.0, "width": 800.0, "height": 850.0})
+        self.assertEqual(visualization["scene"]["pallet"]["height"], 100.0)
+        self.assertEqual(visualization["scene"]["layers"], 3)
+        self.assertEqual(
+            len(visualization["scene"]["placements"]),
+            visualization["scene"]["total_cases"],
+        )
+        self.assertContains(page, "palletization_result")
+        with self.settings(MEDIA_ROOT=self.media_root):
+            report = self.client.get(reverse("full_packaging_export_pdf"))
+        self.assertEqual(report.status_code, 200)
+        self.assertEqual(report["Content-Type"], "application/pdf")
+        self.assertTrue(report.content.startswith(b"%PDF"))
+        json.dumps(self.client.session["full_packaging_mode_session"])
+
+    def test_direct_pallet_flow_maps_rotated_engine_cuboid_to_one_parent_orientation(self):
+        _page, transport_step = self._run_pallet_to_transport_flow(
+            container_l=900,
+            container_w=1300,
+            qty=1,
+        )
+
+        scene = transport_step["threejs_scene"]
+        self.assertEqual(len(scene["items"]), 1)
+        self.assertEqual(scene["items"][0]["pallet_orientation"], "wlh")
+        self.assertEqual(
+            (scene["items"][0]["dx"], scene["items"][0]["dy"], scene["items"][0]["dz"]),
+            (800.0, 1200.0, 850.0),
+        )
+
+    def test_detailed_scene_requires_explicit_source_and_in_bounds_geometry(self):
+        from .views.full_packaging import _decorate_transport_scene_with_pallet_visualization
+
+        def transport_scene():
+            return {
+                "items": [{"x": 0, "y": 0, "z": 0, "dx": 1200, "dy": 800, "dz": 850}],
+                "metadata": {"total_items": 1},
+            }
+
+        valid_pallet_scene = {
+            "pallet": {"length": 1200, "width": 800, "height": 108, "deck_thickness": 18},
+            "placements": [{"x": 0, "y": 0, "z": 108, "dx": 400, "dy": 400, "dz": 750}],
+        }
+        out_of_bounds_pallet_scene = {
+            "pallet": {"length": 1200, "width": 800, "height": 108, "deck_thickness": 18},
+            "placements": [{"x": 1100, "y": 0, "z": 108, "dx": 200, "dy": 400, "dz": 750}],
+        }
+        wrong_source = {
+            "source_type": "container_result",
+            "length": 1200,
+            "width": 800,
+            "height": 850,
+            "pallet_visualization": valid_pallet_scene,
+        }
+        wrong_source_result = _decorate_transport_scene_with_pallet_visualization(
+            transport_scene(),
+            wrong_source,
+        )
+        self.assertNotIn("workflow_visualizations", wrong_source_result)
+
+        out_of_bounds = dict(wrong_source)
+        out_of_bounds["source_type"] = "palletization_result"
+        out_of_bounds["pallet_visualization"] = out_of_bounds_pallet_scene
+        out_of_bounds_result = _decorate_transport_scene_with_pallet_visualization(
+            transport_scene(),
+            out_of_bounds,
+        )
+        self.assertNotIn("workflow_visualizations", out_of_bounds_result)
 
 
 class MultiProductContainerThreeJsTests(TestCase):

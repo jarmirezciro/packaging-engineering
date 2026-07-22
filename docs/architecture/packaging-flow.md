@@ -98,6 +98,23 @@ A historically approved workflow transport arrangement was:
 
 The current standalone wrapper is still the source of truth. Workflow should adapt it, not recreate it.
 
+## Direct pallet-to-transport visualization
+
+When a Palletization step directly precedes Transport, the pallet output keeps
+the authoritative JSON-safe pallet browser scene beside its existing transport
+bounding dimensions under an explicit `palletization_result` source marker.
+Transport calculations still consume only the inherited rectangular row. After
+the shared transport service returns its authoritative cuboid placements, the
+Flow view decorates those scene items with a reference to the one shared pallet
+visualization payload and an orthogonal orientation code. The browser then
+clones one detailed pallet assembly per placement and applies the cuboid center
+and orientation to the parent group.
+
+This decoration is Flow-only. Standalone Transport, the public calculator, and
+non-palletized Flow inputs retain generic load cuboids. The adapter validates
+the complete pallet-and-carton assembly against the calculated bounds and falls
+back to the cuboid if the source scene is incomplete or extends outside them.
+
 ## Future combined report
 
 A proposed Packaging Flow Report would use selected/effective results from each step and present:

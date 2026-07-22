@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { buildPalletizedLoadGroup } from "./palletized_load_threejs.js";
 
 const initialized = new WeakSet();
 const instances = new Map();
@@ -168,8 +169,64 @@ function addTransportUnit(target, dims) {
     ], dims);
 }
 
+const PALLET_ORIENTATION_BASES = {
+    lwh: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+    wlh: [[0, 0, -1], [0, 1, 0], [1, 0, 0]],
+    lhw: [[1, 0, 0], [0, 0, -1], [0, 1, 0]],
+    hlw: [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
+    whl: [[0, 1, 0], [0, 0, 1], [1, 0, 0]],
+    hwl: [[0, 1, 0], [-1, 0, 0], [0, 0, 1]],
+};
+
+function setPalletOrientation(group, orientation) {
+    const basis = PALLET_ORIENTATION_BASES[orientation];
+    if (!basis) return false;
+    const matrix = new THREE.Matrix4().makeBasis(
+        new THREE.Vector3(...basis[0]),
+        new THREE.Vector3(...basis[1]),
+        new THREE.Vector3(...basis[2]),
+    );
+    group.setRotationFromMatrix(matrix);
+    return true;
+}
+
 function addItems(target, sceneData, dims) {
+    const visualizations = sceneData.workflow_visualizations || {};
+    const palletPrototypes = new Map();
+
     (sceneData.items || []).forEach((item) => {
+        const visualization = visualizations[item.visualization_ref];
+        if (
+            item.source_type === "palletization_result"
+            && visualization
+            && visualization.scene
+            && visualization.bounds
+            && item.pallet_orientation
+        ) {
+            let prototype = palletPrototypes.get(item.visualization_ref);
+            if (!prototype) {
+                prototype = buildPalletizedLoadGroup(visualization.scene, {
+                    bounds: visualization.bounds,
+                    showAllowedFootprint: false,
+                });
+                palletPrototypes.set(item.visualization_ref, prototype);
+            }
+            const palletizedLoad = prototype.clone(true);
+            if (setPalletOrientation(palletizedLoad, item.pallet_orientation)) {
+                palletizedLoad.position.copy(centerPosition(item, dims));
+                palletizedLoad.userData.transportPlacement = {
+                    x: number(item.x),
+                    y: number(item.y),
+                    z: number(item.z),
+                    dx: number(item.dx),
+                    dy: number(item.dy),
+                    dz: number(item.dz),
+                };
+                target.add(palletizedLoad);
+                return;
+            }
+        }
+
         addCuboid(target, item, dims, {
             color: item.color || "#f59e0b",
             opacity: number(item.opacity, 1),
