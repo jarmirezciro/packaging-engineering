@@ -282,7 +282,7 @@ def multi_product_bag_draw(request: HttpRequest) -> JsonResponse:
     return JsonResponse(
         {
             "ok": True,
-            "image_url": settings.MEDIA_URL + render_result.image_rel_path,
+            "threejs_scene": render_result.threejs_scene,
             "desired_qty": desired_qty,
             "smooth_qty": smooth_qty,
             "bag_len": bag_len,

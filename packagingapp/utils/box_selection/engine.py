@@ -17,8 +17,8 @@ from matplotlib.colors import to_rgba
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 # IMPORTANT: this must match where you placed the file
-from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordinates import MainBox, allowed_product_orientations
-from packagingapp.utils.quantity_decomposition import generate_factor_arrangements, next_smooth_quantity
+from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordinates import MainBox
+from packagingapp.utils.package_design_arrangements import build_canonical_design_arrangements
 
 
 Dims = Tuple[float, float, float]
@@ -425,102 +425,41 @@ def build_container_design_candidates(
     r3: int,
 ) -> dict:
     """Build and rank distinct regular-grid container design alternatives."""
-    product = (float(product[0]), float(product[1]), float(product[2]))
-    if any(value <= 0 for value in product):
-        raise ValueError("Product dimensions must be greater than zero.")
-    desired = int(desired_quantity)
-    design_quantity = next_smooth_quantity(desired)
-    additional_capacity = design_quantity - desired
-    orientations = allowed_product_orientations(product, r1, r2, r3)
-    if not orientations:
-        return {
-            "desired_quantity": desired,
-            "design_quantity": design_quantity,
-            "additional_capacity": additional_capacity,
-            "candidates": [],
+    design = build_canonical_design_arrangements(product, desired_quantity, r1, r2, r3)
+    candidates = []
+    for arrangement in design["arrangements"]:
+        container_l = arrangement["bundle_length"]
+        container_w = arrangement["bundle_width"]
+        container_h = arrangement["bundle_height"]
+        scene = _build_threejs_scene((container_l, container_w, container_h))
+        scene["mode"] = "design"
+        scene["products"] = arrangement["products"]
+        candidate = {
+            "desired_quantity": arrangement["desired_quantity"],
+            "design_quantity": arrangement["design_quantity"],
+            "additional_capacity": arrangement["additional_capacity"],
+            "arrangement": arrangement["arrangement"],
+            "product_orientation": arrangement["product_orientation"],
+            "orientation_index": arrangement["orientation_index"],
+            "rows": arrangement["rows"],
+            "columns": arrangement["columns"],
+            "layers": arrangement["layers"],
+            "arrangement_id": arrangement["arrangement_id"],
+            "container_length": round(container_l, 2),
+            "container_width": round(container_w, 2),
+            "container_height": round(container_h, 2),
+            "container_cubicity_score": arrangement["bundle_cubicity_score"],
+            "required_container_volume": arrangement["bundle_volume"],
+            "volumetric_efficiency": 1.0,
+            "render_data": scene,
+            "_canonical_key": arrangement["canonical_arrangement_key"],
+            "_representative_key": arrangement["representative_key"],
         }
-
-    canonical_candidates = {}
-    generated_candidate_count = 0
-    horizontal_orientation_swap = {0: 2, 2: 0, 1: 5, 5: 1, 3: 4, 4: 3}
-    orientation_labels = ["L × W × H", "L × H × W", "W × L × H", "W × H × L", "H × W × L", "H × L × W"]
-    for rows, columns, layers in generate_factor_arrangements(design_quantity, 3):
-        for orientation in orientations:
-            generated_candidate_count += 1
-            unit_l, unit_w, unit_h = orientation["dimensions"]
-            container_l = rows * unit_l
-            container_w = columns * unit_w
-            container_h = layers * unit_h
-            normalized_rows = int(rows)
-            normalized_columns = int(columns)
-            normalized_orientation_index = int(orientation["index"])
-            if container_l < container_w:
-                container_l, container_w = container_w, container_l
-                unit_l, unit_w = unit_w, unit_l
-                normalized_rows, normalized_columns = normalized_columns, normalized_rows
-                normalized_orientation_index = horizontal_orientation_swap[normalized_orientation_index]
-
-            scene = _build_threejs_scene((container_l, container_w, container_h))
-            scene["mode"] = "design"
-            scene["products"] = []
-            for row in range(normalized_rows):
-                for column in range(normalized_columns):
-                    for layer in range(layers):
-                        _append_threejs_cuboid(
-                            scene["products"],
-                            (row * unit_l, column * unit_w, layer * unit_h),
-                            (unit_l, unit_w, unit_h),
-                            kind="product",
-                            color="#f59e0b",
-                            opacity=1.0,
-                        )
-
-            canonical_key = (round(container_l, 6), round(container_w, 6), round(container_h, 6))
-            required_volume = container_l * container_w * container_h
-            cubicity = min(container_l, container_w, container_h) / max(container_l, container_w, container_h)
-            representative_key = (
-                normalized_orientation_index,
-                normalized_rows,
-                normalized_columns,
-                int(layers),
-                generated_candidate_count,
-            )
-            candidate = {
-                "desired_quantity": desired,
-                "design_quantity": design_quantity,
-                "additional_capacity": additional_capacity,
-                "arrangement": f"{normalized_rows} × {normalized_columns} × {layers}",
-                "product_orientation": orientation_labels[normalized_orientation_index],
-                "orientation_index": normalized_orientation_index,
-                "rows": normalized_rows,
-                "columns": normalized_columns,
-                "layers": int(layers),
-                "container_length": round(container_l, 2),
-                "container_width": round(container_w, 2),
-                "container_height": round(container_h, 2),
-                "container_cubicity_score": round(cubicity, 6),
-                "required_container_volume": round(required_volume, 2),
-                "volumetric_efficiency": 1.0,
-                "render_data": scene,
-                "_canonical_key": canonical_key,
-                "_representative_key": representative_key,
-            }
-            retained = canonical_candidates.get(canonical_key)
-            if retained is None or representative_key < retained["_representative_key"]:
-                canonical_candidates[canonical_key] = candidate
-
-    candidates = list(canonical_candidates.values())
-    candidates.sort(key=lambda item: (
-        -item["container_cubicity_score"],
-        item["additional_capacity"],
-        item["required_container_volume"],
-        item["_canonical_key"],
-        item["_representative_key"],
-    ))
+        candidates.append(candidate)
     for rank, candidate in enumerate(candidates, start=1):
         identity = {
             "mode": "design",
-            "design_quantity": design_quantity,
+            "design_quantity": design["design_quantity"],
             "container_dimensions": candidate["_canonical_key"],
             "arrangement": (candidate["rows"], candidate["columns"], candidate["layers"]),
             "orientation_index": candidate["orientation_index"],
@@ -530,10 +469,10 @@ def build_container_design_candidates(
         candidate.pop("_canonical_key", None)
         candidate.pop("_representative_key", None)
     return {
-        "desired_quantity": desired,
-        "design_quantity": design_quantity,
-        "additional_capacity": additional_capacity,
-        "generated_candidate_count": generated_candidate_count,
+        "desired_quantity": design["desired_quantity"],
+        "design_quantity": design["design_quantity"],
+        "additional_capacity": design["additional_capacity"],
+        "generated_candidate_count": design["generated_candidate_count"],
         "candidates": candidates,
     }
 

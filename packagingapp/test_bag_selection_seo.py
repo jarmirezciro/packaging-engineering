@@ -50,7 +50,9 @@ class BagSelectionSeoCalculatorTests(TestCase):
         self.assertIsNotNone(response.context["result"])
         self.assertIsNotNone(response.context["analysis_report"])
         self.assertGreater(response.context["analysis_report"]["max_quantity"], 0)
-        self.assertTrue(response.context["image_url"])
+        self.assertIsNone(response.context["image_url"])
+        self.assertEqual(response.context["threejs_scene"]["packageType"], "bag")
+        self.assertContains(response, "data-container-threejs-viewer")
         self.assertContains(response, "Live example loaded")
         self.assertContains(response, 'data-bag-sealing-allowance')
         self.assertContains(response, 'data-bag-fit-tolerance')
@@ -92,10 +94,17 @@ class BagSelectionSeoCalculatorTests(TestCase):
                 self.assertIn("bag_max_payload", response.context["form"].errors)
                 self.assertContains(response, "data-tool-validation-errors")
 
-    def test_initial_shared_pdf_export_remains_available(self):
+    def test_initial_shared_pdf_export_uses_threejs_snapshot(self):
+        snapshot = (
+            "data:image/png;base64,"
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
+            "YAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+        )
         with self.settings(MEDIA_ROOT=self.media_root):
             initial = self.client.get(reverse("bag_selection_calculator"))
-            response = self.client.get(reverse("bag_selection_export_pdf"))
+            response = self.client.post(reverse("bag_selection_export_pdf"), {
+                "single_export": "1", "threejs_snapshot": snapshot,
+            })
 
         self.assertEqual(initial.status_code, 200)
         self.assertEqual(response.status_code, 200)

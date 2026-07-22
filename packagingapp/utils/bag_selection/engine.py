@@ -3,8 +3,6 @@ from dataclasses import dataclass
 from typing import List, Tuple, Dict, Any, Set, Optional
 import hashlib
 import json
-import os
-import uuid
 
 from packagingapp.utils.quantity_decomposition import (
     generate_factor_arrangements,
@@ -12,11 +10,7 @@ from packagingapp.utils.quantity_decomposition import (
     is_smooth,
     next_smooth_quantity,
 )
-
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
+from packagingapp.utils.package_design_arrangements import build_canonical_design_arrangements
 
 
 # ---------------------------
@@ -191,37 +185,21 @@ def _stable_design_candidate_id(prefix: str, payload: Dict[str, Any]) -> str:
     return f"{prefix}-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
-def _bag_design_scene(
+def _build_bag_threejs_scene(
     *,
     bag_width: float,
     bag_length: float,
     body_length: float,
     body_width: float,
     body_height: float,
-    rows: int,
-    columns: int,
-    unit_length: float,
-    unit_width: float,
-    unit_height: float,
+    products: List[Dict[str, Any]],
+    mode: str,
 ) -> Dict[str, Any]:
-    products = []
-    for row in range(rows):
-        for column in range(columns):
-            products.append({
-                "kind": "product",
-                "x": round(row * unit_length, 6),
-                "y": round(column * unit_width, 6),
-                "z": 0.0,
-                "dx": round(unit_length, 6),
-                "dy": round(unit_width, 6),
-                "dz": round(unit_height, 6),
-                "color": "#f59e0b",
-                "opacity": 1.0,
-            })
     return {
         "version": 1,
         "units": "mm",
         "packageType": "bag",
+        "mode": mode,
         "container": {
             "length": round(body_length + SEALING_AREA, 6),
             "width": round(body_width, 6),
@@ -248,139 +226,68 @@ def build_bag_design_candidates(
     product_w: float,
     product_h: float,
     desired_quantity: int,
+    r1: int = 1,
+    r2: int = 1,
+    r3: int = 1,
 ) -> Dict[str, Any]:
-    """Return every distinct 2D flat-bag design ranked by squareness.
-
-    Selection Mode continues to use ``get_final_packing_solution``.  Design
-    Mode deliberately uses planar rows/columns, applies the same bag equations,
-    then normalizes the final flat dimensions so width is the shorter opening.
-    """
+    """Map every canonical 3D arrangement to one required flat-bag design."""
     product = (float(product_l), float(product_w), float(product_h))
-    if any(value <= 0 for value in product):
-        raise ValueError("Product dimensions must be greater than zero.")
-    desired = int(desired_quantity)
-    design_quantity = next_smooth_quantity(desired)
-    additional_capacity = design_quantity - desired
-
-    canonical_candidates = {}
-    generated_candidate_count = 0
-    orientations = [
-        (0, "L × W footprint", product[0], product[1]),
-        (1, "W × L footprint", product[1], product[0]),
-    ]
-
-    for rows, columns in generate_factor_arrangements(design_quantity, 2):
-        for orientation_index, orientation, unit_x, unit_y in orientations:
-            arrangement_x = rows * unit_x
-            arrangement_y = columns * unit_y
-            raw_options = [
-                (
-                    arrangement_x + product[2] + TOLERANCE + SEALING_AREA,
-                    arrangement_y + product[2] + TOLERANCE,
-                    arrangement_x,
-                    arrangement_y,
-                    rows,
-                    columns,
-                    unit_x,
-                    unit_y,
-                ),
-                (
-                    arrangement_y + product[2] + TOLERANCE + SEALING_AREA,
-                    arrangement_x + product[2] + TOLERANCE,
-                    arrangement_y,
-                    arrangement_x,
-                    columns,
-                    rows,
-                    unit_y,
-                    unit_x,
-                ),
-            ]
-            for raw_length, raw_width, body_l, body_w, scene_rows, scene_columns, scene_unit_l, scene_unit_w in raw_options:
-                generated_candidate_count += 1
-                bag_width = min(raw_length, raw_width)
-                bag_length = max(raw_length, raw_width)
-                if raw_length < raw_width:
-                    body_l, body_w = body_w, body_l
-                    scene_rows, scene_columns = scene_columns, scene_rows
-                    scene_unit_l, scene_unit_w = scene_unit_w, scene_unit_l
-
-                normalized_orientation_index = (
-                    0
-                    if abs(scene_unit_l - product[0]) <= EPSILON and abs(scene_unit_w - product[1]) <= EPSILON
-                    else 1
-                )
-                normalized_orientation = orientations[normalized_orientation_index][1]
-
-                scene = _bag_design_scene(
-                    bag_width=bag_width,
-                    bag_length=bag_length,
-                    body_length=body_l,
-                    body_width=body_w,
-                    body_height=product[2],
-                    rows=scene_rows,
-                    columns=scene_columns,
-                    unit_length=scene_unit_l,
-                    unit_width=scene_unit_w,
-                    unit_height=product[2],
-                )
-                canonical_key = (round(bag_width, 6), round(bag_length, 6))
-                bag_area = bag_width * bag_length
-                squareness = bag_width / bag_length
-                representative_key = (
-                    normalized_orientation_index,
-                    int(scene_rows),
-                    int(scene_columns),
-                    generated_candidate_count,
-                )
-                candidate = {
-                    "desired_quantity": desired,
-                    "design_quantity": design_quantity,
-                    "additional_capacity": additional_capacity,
-                    "arrangement": f"{scene_rows} × {scene_columns}",
-                    "product_orientation": normalized_orientation,
-                    "orientation_index": normalized_orientation_index,
-                    "rows": int(scene_rows),
-                    "columns": int(scene_columns),
-                    "bag_width": round(bag_width, 2),
-                    "bag_length": round(bag_length, 2),
-                    "bag_squareness_score": round(squareness, 6),
-                    "bag_area": round(bag_area, 2),
-                    "bag_usage": 1.0,
-                    "opening_dimension": "width",
-                    "render_data": scene,
-                    "_canonical_key": canonical_key,
-                    "_representative_key": representative_key,
-                }
-                retained = canonical_candidates.get(canonical_key)
-                if retained is None or representative_key < retained["_representative_key"]:
-                    canonical_candidates[canonical_key] = candidate
-
-    candidates = list(canonical_candidates.values())
-    candidates.sort(key=lambda item: (
-        -item["bag_squareness_score"],
-        item["additional_capacity"],
-        item["bag_area"],
-        item["_canonical_key"],
-        item["_representative_key"],
-    ))
+    design = build_canonical_design_arrangements(product, desired_quantity, r1, r2, r3)
+    candidates = []
+    for arrangement in design["arrangements"]:
+        bundle_l = arrangement["bundle_length"]
+        bundle_w = arrangement["bundle_width"]
+        bundle_h = arrangement["bundle_height"]
+        bag_length = bundle_l + bundle_h + TOLERANCE + SEALING_AREA
+        bag_width = bundle_w + bundle_h + TOLERANCE
+        scene = _build_bag_threejs_scene(
+            bag_width=bag_width,
+            bag_length=bag_length,
+            body_length=bundle_l,
+            body_width=bundle_w,
+            body_height=bundle_h,
+            products=arrangement["products"],
+            mode="design",
+        )
+        candidates.append({
+            "desired_quantity": arrangement["desired_quantity"],
+            "design_quantity": arrangement["design_quantity"],
+            "additional_capacity": arrangement["additional_capacity"],
+            "arrangement_id": arrangement["arrangement_id"],
+            "arrangement": arrangement["arrangement"],
+            "product_orientation": arrangement["product_orientation"],
+            "orientation_index": arrangement["orientation_index"],
+            "rows": arrangement["rows"],
+            "columns": arrangement["columns"],
+            "layers": arrangement["layers"],
+            "bundle_length": bundle_l,
+            "bundle_width": bundle_w,
+            "bundle_height": bundle_h,
+            "bundle_cubicity_score": arrangement["bundle_cubicity_score"],
+            "bag_width": round(bag_width, 2),
+            "bag_length": round(bag_length, 2),
+            "bag_area": round(bag_width * bag_length, 2),
+            "bag_usage": 1.0,
+            "opening_dimension": "width",
+            "render_data": scene,
+        })
     for rank, candidate in enumerate(candidates, start=1):
         identity = {
             "mode": "design",
-            "design_quantity": design_quantity,
-            "bag_dimensions": candidate["_canonical_key"],
-            "arrangement": (candidate["rows"], candidate["columns"]),
+            "design_quantity": design["design_quantity"],
+            "arrangement_id": candidate["arrangement_id"],
+            "bag_dimensions": (round(candidate["bag_width"], 6), round(candidate["bag_length"], 6)),
+            "arrangement": (candidate["rows"], candidate["columns"], candidate["layers"]),
             "orientation_index": candidate["orientation_index"],
         }
         candidate["candidate_id"] = _stable_design_candidate_id("bag-design", identity)
         candidate["rank"] = rank
-        candidate.pop("_canonical_key", None)
-        candidate.pop("_representative_key", None)
 
     return {
-        "desired_quantity": desired,
-        "design_quantity": design_quantity,
-        "additional_capacity": additional_capacity,
-        "generated_candidate_count": generated_candidate_count,
+        "desired_quantity": design["desired_quantity"],
+        "design_quantity": design["design_quantity"],
+        "additional_capacity": design["additional_capacity"],
+        "generated_candidate_count": design["generated_candidate_count"],
         "candidates": candidates,
     }
 
@@ -560,80 +467,7 @@ class BagRenderResult:
     used_layout: Tuple[int, int, int]
     inner_box: Tuple[float, float, float]   # visual arrangement body as placed in bag: L,W,H
     required_bag: Tuple[float, float]       # req_len, req_w
-
-
-def _cuboid_points(x, y, z, dx, dy, dz):
-    return [
-        (x, y, z),
-        (x + dx, y, z),
-        (x + dx, y + dy, z),
-        (x, y + dy, z),
-        (x, y, z + dz),
-        (x + dx, y, z + dz),
-        (x + dx, y + dy, z + dz),
-        (x, y + dy, z + dz),
-    ]
-
-
-def _cuboid_face_map(x, y, z, dx, dy, dz):
-    p = _cuboid_points(x, y, z, dx, dy, dz)
-    return {
-        "bottom": [p[0], p[1], p[2], p[3]],
-        "top": [p[4], p[5], p[6], p[7]],
-        "front": [p[0], p[1], p[5], p[4]],
-        "back": [p[2], p[3], p[7], p[6]],
-        # x_max face. This face has W × H dimensions and represents the bag mouth/opening.
-        "opening": [p[1], p[2], p[6], p[5]],
-        "left": [p[0], p[3], p[7], p[4]],
-    }
-
-
-def _cuboid_faces(x, y, z, dx, dy, dz, omitted_faces: Optional[Set[str]] = None):
-    omitted_faces = omitted_faces or set()
-    face_map = _cuboid_face_map(x, y, z, dx, dy, dz)
-    return [face for name, face in face_map.items() if name not in omitted_faces]
-
-
-def _face_edges(face):
-    return [[face[i], face[(i + 1) % len(face)]] for i in range(len(face))]
-
-
-def _set_axes_equal(ax):
-    x_limits = ax.get_xlim3d()
-    y_limits = ax.get_ylim3d()
-    z_limits = ax.get_zlim3d()
-
-    x_range = abs(x_limits[1] - x_limits[0])
-    x_middle = sum(x_limits) / 2
-    y_range = abs(y_limits[1] - y_limits[0])
-    y_middle = sum(y_limits) / 2
-    z_range = abs(z_limits[1] - z_limits[0])
-    z_middle = sum(z_limits) / 2
-
-    plot_radius = 0.5 * max([x_range, y_range, z_range])
-    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
-    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
-    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
-
-
-def _clean_3d_axes(ax):
-    ax.set_axis_off()
-    ax.grid(False)
-    ax.set_xlabel("")
-    ax.set_ylabel("")
-    ax.set_zlabel("")
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_zticks([])
-    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
-        try:
-            axis.pane.set_visible(False)
-        except Exception:
-            pass
-        try:
-            axis.line.set_visible(False)
-        except Exception:
-            pass
+    threejs_scene: Dict[str, Any]
 
 
 def _fallback_bag_options_for_solution(sol: Dict[str, Any], product: Tuple[float, float, float]) -> List[Dict[str, Any]]:
@@ -721,22 +555,9 @@ def run_bag_mode1_and_render(
     draw_limit: Optional[int] = None,
     clean: bool = True,
     selected_required_bag: Optional[Tuple[float, float]] = None,
+    render_mode: str = "single",
 ) -> BagRenderResult:
-    """
-    Visualize the selected bag as ONE open bag body.
-
-    The calculation creates two required flat-bag options per arrangement. Those
-    options are not just dimensions; they also define which product-arrangement
-    side is placed along bag length and which side is placed along bag width.
-    Rendering must use the same selected option, otherwise the best bag can be
-    correct while the graphic shows the arrangement rotated incorrectly.
-
-    Result:
-    - one outer cuboid = selected physical bag body
-    - W × H mouth/opening face removed at one L-end
-    - product cuboids visible inside in the selected orientation
-    - extra physical bag capacity remains visible around the arrangement
-    """
+    """Serialize the authoritative selected Single/Optimal solution for Three.js."""
     product = (float(product[0]), float(product[1]), float(product[2]))
     bag_len, bag_w = float(selected_bag[0]), float(selected_bag[1])
     draw_limit = draw_limit or desired_qty
@@ -788,75 +609,17 @@ def run_bag_mode1_and_render(
         usable_body_length = max(usable_body_length, body_length)
         usable_body_width = max(usable_body_width, body_width)
 
-    # The outer 3D body represents only the usable filled volume of the bag.
-    # A separate flat sealing strip is drawn after the usable body so users can
-    # see that products are not consuming the sealing allowance.
     bag_box_length = usable_body_length
     bag_box_width = usable_body_width
-    seal_strip_length = SEALING_AREA
-    visual_length_with_seal = bag_box_length + seal_strip_length
 
-    # 3) Render path
-    rel_dir = os.path.join("bag_selection")
-    out_dir = os.path.join(media_root, rel_dir)
-    os.makedirs(out_dir, exist_ok=True)
-    filename = f"bag_{uuid.uuid4().hex}.png"
-    abs_path = os.path.join(out_dir, filename)
-
-    fig = plt.figure(figsize=(9, 7))
-    ax = fig.add_subplot(111, projection="3d")
-
-    # Outer physical bag body. Flat bag L is drawn as the bag depth, and flat
-    # bag W is the mouth/opening direction. The W × H face at the open end is omitted.
-    outer_faces = _cuboid_faces(
-        0,
-        0,
-        0,
-        bag_box_length,
-        bag_box_width,
-        bag_box_height,
-        omitted_faces={"opening"},
-    )
-    outer_pc = Poly3DCollection(outer_faces, alpha=0.10, edgecolor="k", linewidths=0.9)
-    ax.add_collection3d(outer_pc)
-
-    opening_face = _cuboid_face_map(0, 0, 0, bag_box_length, bag_box_width, bag_box_height)["opening"]
-    opening_lip = Line3DCollection(_face_edges(opening_face), colors="k", linewidths=2.2, alpha=0.95)
-    ax.add_collection3d(opening_lip)
-
-    # Reserved sealing strip on the length direction. This is deliberately flat
-    # rather than a cuboid: it is bag material left free for closing/sealing, not
-    # product-usable volume.
-    seal_x0 = bag_box_length
-    seal_x1 = bag_box_length + seal_strip_length
-    seal_bottom = [[
-        (seal_x0, 0, 0),
-        (seal_x1, 0, 0),
-        (seal_x1, bag_box_width, 0),
-        (seal_x0, bag_box_width, 0),
-    ]]
-    seal_top = [[
-        (seal_x0, 0, bag_box_height),
-        (seal_x1, 0, bag_box_height),
-        (seal_x1, bag_box_width, bag_box_height),
-        (seal_x0, bag_box_width, bag_box_height),
-    ]]
-    seal_pc = Poly3DCollection(seal_bottom + seal_top, facecolor="#F59E0B", alpha=0.35, edgecolor="k", linewidths=0.8)
-    ax.add_collection3d(seal_pc)
-    seal_edges = [
-        [(seal_x0, 0, 0), (seal_x0, bag_box_width, 0)],
-        [(seal_x0, 0, bag_box_height), (seal_x0, bag_box_width, bag_box_height)],
-        [(seal_x1, 0, 0), (seal_x1, bag_box_width, 0)],
-        [(seal_x1, 0, bag_box_height), (seal_x1, bag_box_width, bag_box_height)],
-    ]
-    ax.add_collection3d(Line3DCollection(seal_edges, colors="k", linewidths=1.4, alpha=0.9))
-
-    # 4) Draw products using the selected required-bag option orientation.
+    # Serialize products from the selected required-bag option. This is the same
+    # authoritative axis mapping the previous renderer consumed.
     x_axis, y_axis, z_axis = body_axes
     x_count, x_unit = int(x_axis["count"]), float(x_axis["unit"])
     y_count, y_unit = int(y_axis["count"]), float(y_axis["unit"])
     z_count, z_unit = int(z_axis["count"]), float(z_axis["unit"])
 
+    products = []
     drawn = 0
     for kz in range(z_count):
         for ky in range(y_count):
@@ -871,9 +634,17 @@ def run_bag_mode1_and_render(
                 if x + x_unit > bag_box_length + EPSILON or y + y_unit > bag_box_width + EPSILON or z + z_unit > bag_box_height + EPSILON:
                     continue
 
-                prod_faces = _cuboid_faces(x, y, z, x_unit, y_unit, z_unit)
-                prod_pc = Poly3DCollection(prod_faces, alpha=0.38, edgecolor="k", linewidths=0.35)
-                ax.add_collection3d(prod_pc)
+                products.append({
+                    "kind": "product",
+                    "x": round(x, 6),
+                    "y": round(y, 6),
+                    "z": round(z, 6),
+                    "dx": round(x_unit, 6),
+                    "dy": round(y_unit, 6),
+                    "dz": round(z_unit, 6),
+                    "color": "#f59e0b",
+                    "opacity": 1.0,
+                })
                 drawn += 1
 
             if drawn >= draw_limit:
@@ -881,34 +652,24 @@ def run_bag_mode1_and_render(
         if drawn >= draw_limit:
             break
 
-    ax.set_xlim(0, visual_length_with_seal)
-    ax.set_ylim(0, bag_box_width)
-    ax.set_zlim(0, bag_box_height)
-    ax.view_init(elev=22, azim=-55)
-    _set_axes_equal(ax)
-
-    if clean:
-        _clean_3d_axes(ax)
-    else:
-        ax.set_xlabel("Bag length / depth")
-        ax.set_ylabel("Bag width / opening")
-        ax.set_zlabel("Arrangement height")
-        ax.set_title(
-            f"Usable body: {bag_box_length:.2f} × {bag_box_width:.2f} × {bag_box_height:.2f} | "
-            f"Seal strip on L: {seal_strip_length:.2f} | "
-            f"Arrangement: {body_length:.2f} × {body_width:.2f} × {body_height:.2f} | "
-            f"Physical bag: {bag_len:.2f} × {bag_w:.2f} | Required bag: {best['req_len']:.2f} × {best['req_w']:.2f} | "
-            f"Drawn: {drawn}/{desired_qty}"
-        )
-
-    plt.tight_layout(pad=0)
-    plt.savefig(abs_path, dpi=160, bbox_inches="tight", pad_inches=0.02)
-    plt.close(fig)
-
-    image_rel_path = os.path.join(rel_dir, filename).replace("\\", "/")
+    scene = _build_bag_threejs_scene(
+        bag_width=bag_w,
+        bag_length=bag_len,
+        body_length=usable_body_length,
+        body_width=usable_body_width,
+        body_height=bag_box_height,
+        products=products,
+        mode=str(render_mode or "single"),
+    )
+    scene["selectedRequiredBag"] = {
+        "length": round(float(best["req_len"]), 6),
+        "width": round(float(best["req_w"]), 6),
+    }
+    scene["usedLayout"] = [int(nx), int(ny), int(nz)]
     return BagRenderResult(
-        image_rel_path=image_rel_path,
+        image_rel_path="",
         used_layout=(nx, ny, nz),
         inner_box=(round(body_length, 2), round(body_width, 2), round(body_height, 2)),
         required_bag=(best["req_len"], best["req_w"]),
+        threejs_scene=scene,
     )

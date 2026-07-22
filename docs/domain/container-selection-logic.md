@@ -158,9 +158,11 @@ The exact semantic mapping of R1/R2/R3 must be read from current forms/engine an
 
 ## Design Mode
 
-Container Design Mode uses the same shared smooth-quantity and prime-factor
-distribution helper as Bag Design Mode. It distributes the design quantity over
-three axes to enumerate every ordered rows x columns x layers grid. Permitted
+Container Design Mode and Bag Design Mode use the same canonical arrangement
+generator in `packagingapp/utils/package_design_arrangements.py`, including the
+shared smooth-quantity and prime-factor distribution helpers. It distributes
+the design quantity over three axes to enumerate every ordered rows x columns x
+layers grid. Permitted
 orientations come from the existing authoritative R1/R2/R3 mapping in
 `box_selection_tool_arrays_2_origin_coordinates.allowed_product_orientations`.
 
@@ -182,3 +184,5 @@ then assigned. Design Mode optionally reports net-content product weight only;
 container tare, total package weight, and payload metrics are not inputs or
 serialized results. Single and Optimal modes keep their existing evaluation.
 Selection Mode continues to use `MainBox` and its existing leftover-space logic.
+The extraction preserves Container Design's existing candidate dimensions,
+ordering, representative choices, render geometry, and candidate identifiers.

@@ -264,7 +264,7 @@ def build_bag_selection_single_pdf(export_payload):
             ("Designed qty", f"{analysis.get('max_quantity', '-')} pcs"),
             ("Bag usage", analysis.get("bag_usage_max_display")),
             ("Net content", analysis.get("net_content_weight_display")),
-            ("Squareness", analysis.get("shape_score_display")),
+            ("Bundle cubicity", analysis.get("shape_score_display")),
             ("Bag area", analysis.get("bag_area")),
         ]
     else:
@@ -312,7 +312,7 @@ def build_bag_selection_single_pdf(export_payload):
     story.append(info_grid)
     story.append(Spacer(1, 5))
 
-    detail_table = _key_value_table([
+    detail_rows = [
         ("Requested quantity", f"{analysis.get('desired_quantity', analysis.get('current_quantity', '-'))} pcs"),
         ("Designed capacity", f"{analysis.get('design_quantity', analysis.get('max_quantity', '-'))} pcs"),
         ("Additional capacity", f"{analysis.get('additional_capacity', analysis.get('remaining_capacity', '-'))} pcs"),
@@ -324,7 +324,13 @@ def build_bag_selection_single_pdf(export_payload):
         ("Bag usage - max quantity", analysis.get("bag_usage_max_display")),
         ("Remaining capacity", f"{analysis.get('remaining_capacity', '-')} pcs"),
         ("Calculation note", analysis.get("calculation_note")),
-    ], [40 * mm, 132 * mm])
+    ]
+    if is_design:
+        detail_rows.insert(5, (
+            "Bundle dimensions",
+            f"{analysis.get('bundle_length', '-')} × {analysis.get('bundle_width', '-')} × {analysis.get('bundle_height', '-')} mm",
+        ))
+    detail_table = _key_value_table(detail_rows, [40 * mm, 132 * mm])
     story.append(_section_title("Result interpretation"))
     story.append(detail_table)
     story.append(Spacer(1, 5))
@@ -418,7 +424,7 @@ def build_bag_selection_optimal_pdf(export_payload):
     story.append(_top5_table(top5))
     story.append(Spacer(1, 5))
 
-    image_path = _safe_media_path(export_payload.get("image_rel_path"))
+    image_path = _safe_media_path(export_payload.get("threejs_snapshot_rel_path") or export_payload.get("image_rel_path"))
     if image_path:
         story.append(_section_title("Selected candidate bag visualization"))
         selected_text = recommendation.get("part_number")

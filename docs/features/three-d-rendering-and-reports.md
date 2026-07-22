@@ -87,6 +87,21 @@ centered on the engine cuboid and receives the matching orthogonal orientation;
 the cuboid remains the sole calculation, collision, capacity, and metrics
 model. Other Transport consumers and inputs continue to render generic cuboids.
 
+### Bag Selection browser scene
+
+Bag Design, Single bag analysis, and the selected Optimal Bag result serialize
+the authoritative engine arrangement into one JSON-safe `packageType=bag`
+scene. The shared viewer draws the usable bag body, width-side opening, reserved
+length sealing strip, and exactly the selected product cuboids. Standalone Bag
+Selection, Packaging Flow, the public calculator, and Multi-product Bag
+Selection consume this same scene contract.
+
+The active Bag result path does not create a Matplotlib PNG. Single, Optimal,
+and Design PDF actions capture the current shared Three.js canvas, validate the
+snapshot on the server, and embed it through the existing ReportLab builder.
+The selected table row therefore remains the source for both the browser scene
+and the PDF image.
+
 
 ## Graphics propagation rule
 

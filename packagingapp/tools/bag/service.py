@@ -128,6 +128,12 @@ def build_hydrated_post_data(raw_post, config, selected_product=None, selected_m
 
     if (config or {}).get("mode") == "design":
         post_data.setdefault("bag_source", "manual")
+        if not raw_post.get("rotation_permissions_present"):
+            for name in ("r1", "r2", "r3"):
+                if config.get(name, True):
+                    post_data[name] = "on"
+                else:
+                    post_data.pop(name, None)
 
     if config.get("product_source") == "catalogue" and selected_product is not None:
         post_data["product_l"] = "" if selected_product.product_length is None else str(selected_product.product_length)
@@ -216,6 +222,16 @@ def _resolve_product_weight(config, selected_product=None):
     if (config or {}).get("product_source") == "catalogue" and selected_product is not None:
         return _to_float(getattr(selected_product, "weight", None))
     return _to_float((config or {}).get("product_weight"))
+
+
+def _resolve_rotation_flags(config, selected_product=None):
+    if (config or {}).get("product_source") == "catalogue" and selected_product is not None:
+        return (
+            1 if selected_product.rotation_1 else 0,
+            1 if selected_product.rotation_2 else 0,
+            1 if selected_product.rotation_3 else 0,
+        )
+    return tuple(1 if (config or {}).get(name, True) else 0 for name in ("r1", "r2", "r3"))
 
 
 def _resolve_bag_weight(config, selected_material=None):
@@ -421,6 +437,9 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
         messages.append("Enter product length, width, and height greater than zero in millimetres.")
     if desired_quantity is None:
         messages.append("Enter the desired quantity as a positive whole number.")
+    rotation_flags = _resolve_rotation_flags(config, selected_product)
+    if not any(rotation_flags):
+        messages.append("Allow at least one product orientation to generate bag designs.")
     if action not in ("run_design", "select_design_candidate") or messages:
         return {
             "messages": messages,
@@ -435,7 +454,9 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
             "analysis_report": None,
         }
 
-    design = build_bag_design_candidates(product[0], product[1], product[2], desired_quantity)
+    design = build_bag_design_candidates(
+        product[0], product[1], product[2], desired_quantity, *rotation_flags
+    )
     candidates = [
         _add_bag_design_metrics(row, config, selected_product)
         for row in design["candidates"]
@@ -465,7 +486,7 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
         )
     analysis_report = {
         **selected,
-        "shape_score_display": _format_percent(selected["bag_squareness_score"] * 100),
+        "shape_score_display": _format_percent(selected["bundle_cubicity_score"] * 100),
         "bag_usage_display": _format_percent(selected["bag_usage"] * 100),
         "has_net_content_weight": selected["net_content_weight"] is not None,
         "design_mode": True,
@@ -474,7 +495,7 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
         "label": "Designed bag",
         "length": selected["bag_length"],
         "width": selected["bag_width"],
-        "height": round(float(product[2]), 2),
+        "height": selected["bundle_height"],
         "units_per_parent": selected["design_quantity"],
         "total_base_units": selected["design_quantity"],
         "mode": "design",
@@ -482,9 +503,14 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
         "design_quantity": selected["design_quantity"],
         "additional_capacity": selected["additional_capacity"],
         "selected_candidate_id": selected["candidate_id"],
+        "selected_arrangement_id": selected["arrangement_id"],
         "selected_arrangement": selected["arrangement"],
         "selected_orientation": selected["product_orientation"],
-        "metrics": {"squareness": selected["bag_squareness_score"], "bag_area": selected["bag_area"]},
+        "metrics": {
+            "cubicity": selected["bundle_cubicity_score"],
+            "bag_area": selected["bag_area"],
+            "bundle_volume": selected["bundle_length"] * selected["bundle_width"] * selected["bundle_height"],
+        },
         "render_data": selected["render_data"],
     }
     if selected["net_content_weight"] is not None:
@@ -514,6 +540,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
     top5 = []
     pending_result = None
     analysis_report = None
+    threejs_scene = None
     messages = []
 
     product = resolve_product_tuple(cfg, selected_product)
@@ -590,9 +617,11 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                     selected_required_bag=result.get("best_required"),
                 )
                 result["image_rel_path"] = render_res.image_rel_path
-                image_url = settings.MEDIA_URL + render_res.image_rel_path
+                result["threejs_scene"] = render_res.threejs_scene
+                threejs_scene = render_res.threejs_scene
                 label = selected_material.part_number if selected_material else "Manual Bag"
                 pending_result = _build_pending_result(label, (bag[0], bag[1]), render_res, max_qty)
+                pending_result["render_data"] = render_res.threejs_scene
 
     if mode == "optimal" and action in ("find_top5", "select_candidate"):
         if product_source == "catalogue" and not selected_product:
@@ -665,17 +694,20 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                             media_root=media_root or settings.MEDIA_ROOT,
                             draw_limit=min(desired_qty, BAG_DRAW_LIMIT),
                             selected_required_bag=result.get("best_required"),
+                            render_mode="optimal",
                         )
                         result["image_rel_path"] = render_res.image_rel_path
-                        image_url = settings.MEDIA_URL + render_res.image_rel_path
+                        result["threejs_scene"] = render_res.threejs_scene
+                        threejs_scene = render_res.threejs_scene
                         pending_result = _build_pending_result(selected_material.part_number, (bag[0], bag[1]), render_res, desired_qty)
+                        pending_result["render_data"] = render_res.threejs_scene
 
     return {
         "messages": messages,
         "notices": [],
         "result": result,
         "image_url": image_url,
-        "threejs_scene": None,
+        "threejs_scene": threejs_scene,
         "top5": top5,
         "design_candidates": [],
         "selected_design_candidate_id": "",

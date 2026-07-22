@@ -11,9 +11,6 @@ from ..utils.box_selection.engine import run_mode1_and_render, compute_max_quant
 from ..utils.bag_selection.engine import (
     SEALING_AREA,
     TOLERANCE,
-    build_required_bag_options,
-    best_usage_for_bag,
-    run_bag_mode1_and_render,
 )
 from ..tools.palletization.presenter import (
     build_pallet_ui_contract,
@@ -1460,6 +1457,19 @@ def _process_bag_step(step, steps, idx, post):
         f"desired_qty{suffix}",
         post.get(f"desired_qty_{idx}", cfg.get("desired_qty", "1")),
     )
+    posted_bag_action = post.get(f"action{suffix}", post.get(f"step_action_{idx}", ""))
+    has_prefixed_rotation_inputs = (
+        bool(post.get(f"rotation_permissions_present{suffix}"))
+        and posted_bag_action in ("run_design", "select_design_candidate")
+    )
+    if has_prefixed_rotation_inputs:
+        cfg["r1"] = post.get(f"r1{suffix}") is not None
+        cfg["r2"] = post.get(f"r2{suffix}") is not None
+        cfg["r3"] = post.get(f"r3{suffix}") is not None
+    elif cfg.get("mode") == "design":
+        cfg["r1"] = _as_bool(post, f"r1_{idx}", cfg.get("r1", True))
+        cfg["r2"] = _as_bool(post, f"r2_{idx}", cfg.get("r2", True))
+        cfg["r3"] = _as_bool(post, f"r3_{idx}", cfg.get("r3", True))
     cfg["catalogue_id"] = post.get(
         f"catalogue_id{suffix}",
         post.get(f"catalogue_id_{idx}", cfg.get("catalogue_id", "")),

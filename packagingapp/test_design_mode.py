@@ -57,10 +57,13 @@ class BagDesignEngineTests(TestCase):
         self.assertGreater(len(candidates), 1)
         self.assertTrue(all(row["bag_width"] <= row["bag_length"] for row in candidates))
         self.assertTrue(all(row["opening_dimension"] == "width" for row in candidates))
-        self.assertTrue(all(abs(row["bag_squareness_score"] - row["bag_width"] / row["bag_length"]) < 1e-6 for row in candidates))
-        self.assertEqual(candidates[0]["bag_squareness_score"], max(row["bag_squareness_score"] for row in candidates))
-        keys = [(r["bag_width"], r["bag_length"]) for r in candidates]
-        self.assertEqual(len(keys), len(set(keys)))
+        self.assertTrue(all(
+            row["bag_length"] == row["bundle_length"] + row["bundle_height"] + 12
+            and row["bag_width"] == row["bundle_width"] + row["bundle_height"] + 2
+            for row in candidates
+        ))
+        self.assertEqual(candidates[0]["bundle_cubicity_score"], max(row["bundle_cubicity_score"] for row in candidates))
+        self.assertTrue(all("bag_squareness_score" not in row for row in candidates))
 
     def test_net_content_weight_ignores_stale_package_values(self):
         config = default_bag_config()
@@ -82,16 +85,30 @@ class BagDesignEngineTests(TestCase):
             with self.subTest(case=case):
                 first = build_bag_design_candidates(*case)
                 second = build_bag_design_candidates(*case)
-                keys = [(row["bag_width"], row["bag_length"]) for row in first["candidates"]]
+                keys = [row["arrangement_id"] for row in first["candidates"]]
                 self.assertEqual(len(keys), len(set(keys)))
-                self.assertTrue(all(width <= length for width, length in keys))
+                self.assertTrue(all(row["bag_width"] <= row["bag_length"] for row in first["candidates"]))
                 self.assertEqual(
-                    [(row["candidate_id"], row["arrangement"], row["product_orientation"]) for row in first["candidates"]],
-                    [(row["candidate_id"], row["arrangement"], row["product_orientation"]) for row in second["candidates"]],
+                    [(row["candidate_id"], row["arrangement_id"], row["arrangement"], row["product_orientation"]) for row in first["candidates"]],
+                    [(row["candidate_id"], row["arrangement_id"], row["arrangement"], row["product_orientation"]) for row in second["candidates"]],
                 )
         duplicate_case = build_bag_design_candidates(400, 200, 200, 12)
-        self.assertEqual(duplicate_case["generated_candidate_count"], 24)
-        self.assertEqual(len(duplicate_case["candidates"]), 8)
+        container_case = build_container_design_candidates((400, 200, 200), 12, 1, 1, 1)
+        self.assertEqual(duplicate_case["generated_candidate_count"], 54)
+        self.assertEqual(len(duplicate_case["candidates"]), 16)
+        self.assertEqual(
+            [row["arrangement_id"] for row in duplicate_case["candidates"]],
+            [row["arrangement_id"] for row in container_case["candidates"]],
+        )
+
+    def test_rotation_restrictions_match_container_arrangements(self):
+        bag = build_bag_design_candidates(100, 80, 20, 18, 0, 0, 1)
+        container = build_container_design_candidates((100, 80, 20), 18, 0, 0, 1)
+        self.assertEqual(
+            [row["arrangement_id"] for row in bag["candidates"]],
+            [row["arrangement_id"] for row in container["candidates"]],
+        )
+        self.assertTrue(all(row["orientation_index"] in (0, 2) for row in bag["candidates"]))
 
     def test_selection_mode_calculation_is_unchanged(self):
         info = compute_max_quantity_for_bag(100, 80, 20, 132, 102)
@@ -176,6 +193,7 @@ class DesignModeSurfaceParityTests(TestCase):
         "mode": "design", "action": "run_design", "product_source": "manual",
         "product_l": "100", "product_w": "80", "product_h": "20", "product_weight": "50",
         "desired_qty": "17", "bag_weight": "10", "bag_max_payload": "1000",
+        "rotation_permissions_present": "1", "r1": "on", "r2": "on", "r3": "on",
     }
     container_data = {
         "mode": "design", "action": "run_design", "product_source": "manual",
@@ -232,6 +250,10 @@ class DesignModeSurfaceParityTests(TestCase):
         step = self.client.session["full_packaging_mode_session"]["steps"][0]
         self.assertEqual([row["candidate_id"] for row in step["design_candidates"]], standalone_ids)
         self.assertEqual(step["result"]["render_data"], standalone.context["result"]["render_data"])
+        self.assertEqual(
+            [row["arrangement_id"] for row in step["design_candidates"]],
+            [row["arrangement_id"] for row in standalone.context["design_candidates"]],
+        )
         self.assertNotIn("tool_mode", step["config"])
 
     def test_stale_package_inputs_do_not_change_candidates_or_serialization(self):

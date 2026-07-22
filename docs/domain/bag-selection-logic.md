@@ -114,25 +114,33 @@ prime-factor distribution now live in
 functions import that source so Selection Mode behavior is preserved.
 
 For Design Mode, the design quantity is the first smooth quantity greater than
-or equal to the requested quantity. Prime factors are distributed over two axes
-to enumerate rows and columns. Both planar product orientations are evaluated.
-For an arrangement body `(L, W, H)`, the existing equations remain:
+or equal to the requested quantity. Bag Design and Container Design consume the
+same canonical three-axis arrangement generator in
+`packagingapp/utils/package_design_arrangements.py`. It enumerates every
+permitted rows x columns x layers grid, applies the authoritative R1/R2/R3
+orientation mapping, normalizes horizontal axes so bundle length is not shorter
+than bundle width, keeps height distinct, and retains one deterministic
+representative for each canonical bundle `(L, W, H)`. For an arrangement body
+`(L, W, H)`, the existing equations remain:
 
 ```text
 required_length = L + H + fit_tolerance + sealing_allowance
 required_width  = W + H + fit_tolerance
 ```
 
-After those equations are applied, Design Mode alone normalizes the final flat
-dimensions so `bag_width <= bag_length`; the opening is on bag width. Candidates
-are grouped by the canonical final-dimension key `(bag_width, bag_length)` at
-the engine's six-decimal scene precision. The retained representative uses the
-authoritative orientation order, then the smallest normalized `(rows, columns)`
-tuple, then generation order. Only after this grouping are candidates ranked by
-squareness (`bag_width / bag_length`) descending, additional capacity ascending,
-flat area ascending, and a stable canonical tie-breaker; ranks and IDs are then
-assigned. Design Mode accepts only product weight for optional net-content
-weight. Packaging weight, total package weight, and payload metrics belong to
-later package evaluation and are not read or serialized by Design Mode.
-Selection Mode's length/opening convention, weight/payload handling, and ranking
-are unchanged.
+The horizontal bundle normalization makes the first formula result the bag
+length and the second the bag width; no second 90-degree bag option is created.
+The opening is on bag width. There is exactly one Bag proposal per shared
+canonical arrangement, and Bag rows use the same arrangement IDs, cubicity
+ranking, representative orientation, and ordering as Container Design.
+Squareness is not a Bag Design metric. Design Mode accepts only product weight
+for optional net-content weight. Packaging weight, total package weight, and
+payload metrics belong to later package evaluation and are not read or
+serialized by Design Mode. Selection Mode's calculations, length/opening
+convention, weight/payload handling, and Top 5 ranking are unchanged.
+
+Single, Optimal, and Design results serialize the selected authoritative bag
+arrangement into the shared `packageType=bag` Three.js scene. The standalone,
+Packaging Flow, public calculator, and Multi-product Bag consumer all render
+that contract. No active Bag result path writes a Matplotlib PNG. Standalone
+PDFs embed the validated current Three.js snapshot.
