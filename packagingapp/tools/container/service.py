@@ -3,7 +3,12 @@ from django.conf import settings
 from ...access import visible_packaging_catalogues, visible_product_catalogues
 from ...forms import ContainerSelectionMode1Form
 from ...models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
-from ...utils.box_selection.engine import run_mode1_and_render, compute_max_quantity_only, render_product_base_unit
+from ...utils.box_selection.engine import (
+    build_container_design_candidates,
+    compute_max_quantity_only,
+    render_product_base_unit,
+    run_mode1_and_render,
+)
 
 from .serializers import sanitize_container_config_for_session
 
@@ -78,6 +83,10 @@ def get_selected_material(config, user=_UNSCOPED_CATALOGUE_USER):
 
 def build_hydrated_post_data(raw_post, config, selected_product=None, selected_material=None):
     post_data = raw_post.copy()
+    post_data["mode"] = (config or {}).get("mode") or "single"
+
+    if (config or {}).get("mode") == "design":
+        post_data.setdefault("container_source", "manual")
 
     if config.get("product_source") == "catalogue" and selected_product is not None:
         post_data["product_l"] = "" if selected_product.product_length is None else str(selected_product.product_length)
@@ -443,6 +452,83 @@ def build_container_analysis_report(
         "has_payload_usage": payload_usage_pct is not None,
     }
 
+
+def _add_container_design_metrics(candidate, form, product_source, selected_product):
+    row = dict(candidate)
+    product_weight = _resolve_product_weight(form, product_source, selected_product)
+    quantity = int(row["design_quantity"])
+    net_weight = product_weight * quantity if product_weight is not None else None
+    row.update({
+        "net_content_weight": _round_or_none(net_weight, 3),
+        "net_content_weight_display": _format_weight(net_weight),
+    })
+    return row
+
+
+def _analyze_container_design(form, product, r1, r2, r3, product_source, container_source, selected_product, selected_material):
+    messages = []
+    notices = []
+    desired_quantity = form.cleaned_data.get("desired_qty")
+    action = form.cleaned_data.get("action") or ""
+    if product is None or any(float(value) <= 0 for value in product):
+        messages.append("Enter product length, width, and height greater than zero in millimetres.")
+    if desired_quantity is None or int(desired_quantity) <= 0:
+        messages.append("Enter the desired quantity as a positive whole number.")
+    if not any((r1, r2, r3)):
+        messages.append("Enable at least one permitted product orientation.")
+    base = {
+        "messages": messages,
+        "notices": notices,
+        "result": None,
+        "image_url": None,
+        "threejs_scene": None,
+        "analysis_report": None,
+        "product_base_image_rel_path": "",
+        "product_base_image_url": None,
+        "top5": [],
+        "design_candidates": [],
+        "selected_design_candidate_id": form.cleaned_data.get("selected_design_candidate_id") or "",
+    }
+    if action not in ("run_design", "select_design_candidate") or messages:
+        base["ok"] = not messages
+        return base
+
+    design = build_container_design_candidates(product, int(desired_quantity), r1, r2, r3)
+    candidates = [
+        _add_container_design_metrics(row, form, product_source, selected_product)
+        for row in design["candidates"]
+    ]
+    if not candidates:
+        messages.append("No valid container design candidate could be generated for the permitted orientations.")
+        base["ok"] = False
+        return base
+
+    requested_id = str(form.cleaned_data.get("selected_design_candidate_id") or "")
+    selected = next((row for row in candidates if row["candidate_id"] == requested_id), candidates[0])
+    if design["additional_capacity"]:
+        notices.append(
+            f"The requested quantity was {design['desired_quantity']}. The container was designed for "
+            f"{design['design_quantity']} units to create a practical arrangement "
+            f"({design['additional_capacity']} additional capacity)."
+        )
+    analysis_report = {
+        **selected,
+        "shape_score_display": _format_percent(selected["container_cubicity_score"] * 100),
+        "volumetric_efficiency_display": _format_percent(selected["volumetric_efficiency"] * 100),
+        "has_net_content_weight": selected["net_content_weight"] is not None,
+        "design_mode": True,
+    }
+    base.update({
+        "ok": True,
+        "result": selected,
+        "threejs_scene": selected["render_data"],
+        "analysis_report": analysis_report,
+        "design_candidates": candidates,
+        "selected_design_candidate_id": selected["candidate_id"],
+    })
+    return base
+
+
 def analyze_container_form(
     form,
     config,
@@ -470,6 +556,11 @@ def analyze_container_form(
         product_source=product_source,
         selected_product=selected_product,
     )
+
+    if mode == "design":
+        return _analyze_container_design(
+            form, product, r1, r2, r3, product_source, container_source, selected_product, selected_material
+        )
 
     if r1 == 0 and r2 == 0 and r3 == 0:
         messages.append("Please enable at least one rotation option.")
@@ -600,6 +691,7 @@ def analyze_container_form(
     return {
         "ok": len(messages) == 0,
         "messages": messages,
+        "notices": [],
         "result": result,
         "image_url": image_url,
         "threejs_scene": getattr(result, "threejs_scene", None) if result is not None else None,
@@ -607,4 +699,6 @@ def analyze_container_form(
         "product_base_image_rel_path": product_base_image_rel_path,
         "product_base_image_url": product_base_image_url,
         "top5": top5,
+        "design_candidates": [],
+        "selected_design_candidate_id": "",
     }

@@ -33,6 +33,7 @@ from ..tools.bag.presenter import (
     selected_product_summary as selected_product_summary_bag,
 )
 from ..tools.bag.serializers import sanitize_bag_config_for_session
+from ..tools.selection_mode import normalize_selection_mode
 from ..tools.bag.service import (
     analyze_bag_config as analyze_bag_config_shared,
     get_materials_for_catalogue as get_bag_materials_for_catalogue,
@@ -116,27 +117,10 @@ def _new_container_step():
         "analysis_report": None,
         "selected_result": None,
         "top5": [],
+        "design_candidates": [],
+        "selected_design_candidate_id": "",
         "pending_result": None,
-        "config": {
-            "mode": "single",
-            "product_source": "manual",
-            "container_source": "manual",
-            "product_catalogue_id": "",
-            "selected_product_id": "",
-            "product_l": "",
-            "product_w": "",
-            "product_h": "",
-            "product_weight": "",
-            "desired_qty": 1,
-            "r1": True,
-            "r2": True,
-            "r3": True,
-            "catalogue_id": "",
-            "container_id": "",
-            "box_l": "",
-            "box_w": "",
-            "box_h": "",
-        },
+        "config": default_container_config(),
     }
 
 
@@ -150,6 +134,8 @@ def _new_bag_step():
         "result": None,
         "image_url": None,
         "top5": [],
+        "design_candidates": [],
+        "selected_design_candidate_id": "",
         "pending_result": None,
         "config": default_bag_config(),
     }
@@ -931,6 +917,9 @@ def _prepare_container_step_view_model(step, idx):
     step["current_product_source"] = cfg.get("product_source") or "manual"
     step["current_container_source"] = cfg.get("container_source") or "manual"
     step["container_top5_rows"] = _inflate_container_top5_rows(step.get("top5", []))
+    step["design_candidates"] = step.get("design_candidates") or []
+    step["selected_design_candidate_id"] = step.get("selected_design_candidate_id") or cfg.get("selected_design_candidate_id") or ""
+    step["notices"] = step.get("notices") or []
     step["analysis_report"] = step.get("analysis_report") or (step.get("result") or {}).get("analysis_report")
     step["threejs_scene"] = step.get("threejs_scene") or (step.get("result") or {}).get("threejs_scene")
     step["product_base_image_url"] = step.get("product_base_image_url") or (step.get("result") or {}).get("product_base_image_url")
@@ -971,6 +960,10 @@ def _prepare_bag_step_view_model(step, idx):
     step["current_bag_source"] = cfg.get("bag_source") or "manual"
     step["allow_product_catalogue"] = idx == 0
     step["analysis_report"] = step.get("analysis_report") or (step.get("result") or {}).get("analysis_report")
+    step["threejs_scene"] = step.get("threejs_scene") or (step.get("result") or {}).get("render_data")
+    step["design_candidates"] = step.get("design_candidates") or []
+    step["selected_design_candidate_id"] = step.get("selected_design_candidate_id") or cfg.get("selected_design_candidate_id") or ""
+    step["notices"] = step.get("notices") or []
 
 
 def _process_container_step(step, steps, idx, post):
@@ -979,7 +972,11 @@ def _process_container_step(step, steps, idx, post):
     cfg.update(existing_cfg)
 
     suffix = f"_{idx}"
-    cfg["mode"] = post.get(f"mode{suffix}", post.get(f"mode_{idx}", cfg.get("mode", "single")))
+    cfg["mode"] = normalize_selection_mode({
+        "mode": post.get(f"mode{suffix}", post.get(f"mode_{idx}", normalize_selection_mode(cfg))),
+        "tool_mode": post.get(f"tool_mode{suffix}", post.get(f"tool_mode_{idx}", "")),
+    })
+    cfg.pop("tool_mode", None)
 
     if idx == 0:
         cfg["product_source"] = post.get(
@@ -1050,6 +1047,10 @@ def _process_container_step(step, steps, idx, post):
         f"action{suffix}",
         post.get(f"step_action_{idx}", cfg.get("action", "refresh"))
     )
+    cfg["selected_design_candidate_id"] = post.get(
+        f"selected_design_candidate_id{suffix}",
+        post.get(f"selected_design_candidate_id_{idx}", cfg.get("selected_design_candidate_id", "")),
+    )
 
     if idx != 0:
         cfg["product_source"] = "manual"
@@ -1082,6 +1083,7 @@ def _process_container_step(step, steps, idx, post):
         "box_h": cfg.get("box_h", ""),
         "box_weight": cfg.get("box_weight", ""),
         "box_max_payload": cfg.get("box_max_payload", ""),
+        "selected_design_candidate_id": cfg.get("selected_design_candidate_id", ""),
     }
     if cfg.get("r1"):
         normalized_post["r1"] = "on"
@@ -1141,8 +1143,40 @@ def _process_container_step(step, steps, idx, post):
             for row in (analysis.get("top5") or [])
             if row.get("material") is not None
         ]
+        design_candidates = analysis.get("design_candidates") or []
+        selected_design_candidate_id = analysis.get("selected_design_candidate_id") or ""
 
-        if render_result is not None:
+        if render_result is not None and cfg.get("mode") == "design":
+            result_payload = dict(render_result)
+            selected_design_candidate_id = render_result["candidate_id"]
+            cfg["selected_design_candidate_id"] = selected_design_candidate_id
+            desired_qty = int(render_result["desired_quantity"])
+            units_per_parent = int(render_result["design_quantity"])
+            prev = _selected_input_for_step(steps, idx)
+            upstream_units = _to_int(prev.get("total_base_units"), 1) if prev else 1
+            pending_result = {
+                "label": "Designed Container",
+                "length": render_result["container_length"],
+                "width": render_result["container_width"],
+                "height": render_result["container_height"],
+                "units_per_parent": units_per_parent,
+                "total_base_units": units_per_parent * int(upstream_units or 1),
+                "transport_qty": 1,
+                "source_step_type": "container",
+                "package_type": "container",
+                "mode": "design",
+                "desired_quantity": desired_qty,
+                "design_quantity": units_per_parent,
+                "additional_capacity": render_result["additional_capacity"],
+                "selected_candidate_id": selected_design_candidate_id,
+                "selected_arrangement": render_result["arrangement"],
+                "selected_orientation": render_result["product_orientation"],
+                "metrics": {"cubicity": render_result["container_cubicity_score"], "volume": render_result["required_container_volume"]},
+                "render_data": render_result["render_data"],
+            }
+            if render_result.get("net_content_weight") is not None:
+                pending_result["net_content_weight_g"] = render_result["net_content_weight"]
+        elif render_result is not None:
             result_payload = {
                 "kind": "container",
                 "max_quantity": getattr(render_result, "max_quantity", None),
@@ -1198,6 +1232,9 @@ def _process_container_step(step, steps, idx, post):
     step["threejs_scene"] = threejs_scene
     step["product_base_image_url"] = product_base_image_url
     step["top5"] = top5_payload
+    step["design_candidates"] = locals().get("design_candidates", [])
+    step["selected_design_candidate_id"] = locals().get("selected_design_candidate_id", "")
+    step["notices"] = analysis.get("notices") if form.is_valid() else []
     step["pending_result"] = pending_result
     step["messages"] = messages
     step["expanded"] = True
@@ -1209,7 +1246,11 @@ def _process_bag_step(step, steps, idx, post):
     cfg.update(existing_cfg)
 
     suffix = f"_{idx}"
-    cfg["mode"] = post.get(f"mode{suffix}", post.get(f"mode_{idx}", cfg.get("mode", "single")))
+    cfg["mode"] = normalize_selection_mode({
+        "mode": post.get(f"mode{suffix}", post.get(f"mode_{idx}", normalize_selection_mode(cfg))),
+        "tool_mode": post.get(f"tool_mode{suffix}", post.get(f"tool_mode_{idx}", "")),
+    })
+    cfg.pop("tool_mode", None)
 
     if idx == 0:
         cfg["product_source"] = post.get(
@@ -1266,6 +1307,10 @@ def _process_bag_step(step, steps, idx, post):
         f"action{suffix}",
         post.get(f"step_action_{idx}", cfg.get("action", "refresh")),
     )
+    cfg["selected_design_candidate_id"] = post.get(
+        f"selected_design_candidate_id{suffix}",
+        post.get(f"selected_design_candidate_id_{idx}", cfg.get("selected_design_candidate_id", "")),
+    )
 
     if cfg["action"] == "browse_product" and idx == 0:
         cfg["selected_product_id"] = ""
@@ -1302,16 +1347,26 @@ def _process_bag_step(step, steps, idx, post):
         pending_result["source_step_type"] = "bag"
         pending_result["package_type"] = "bag"
         pending_result.setdefault("transport_qty", 1)
-        pending_result = _enrich_package_payload_weight(
-            pending_result,
-            product_weight_g=_resolve_product_weight_g(cfg, selected_product),
-            packaging_weight_g=_resolve_packaging_weight_g(cfg, "bag_weight", selected_material),
-        )
+        if cfg.get("mode") != "design":
+            pending_result = _enrich_package_payload_weight(
+                pending_result,
+                product_weight_g=_resolve_product_weight_g(cfg, selected_product),
+                packaging_weight_g=_resolve_packaging_weight_g(cfg, "bag_weight", selected_material),
+            )
+        previous = _selected_input_for_step(steps, idx)
+        upstream_units = _to_int(previous.get("total_base_units"), 1) if previous else 1
+        pending_result["total_base_units"] = int(pending_result.get("units_per_parent") or 1) * int(upstream_units or 1)
 
     step["config"] = cfg
     step["result"] = analysis.get("result")
     step["image_url"] = analysis.get("image_url")
     step["top5"] = analysis.get("top5") or []
+    step["design_candidates"] = analysis.get("design_candidates") or []
+    step["selected_design_candidate_id"] = analysis.get("selected_design_candidate_id") or ""
+    if step["selected_design_candidate_id"]:
+        cfg["selected_design_candidate_id"] = step["selected_design_candidate_id"]
+    step["threejs_scene"] = analysis.get("threejs_scene")
+    step["notices"] = analysis.get("notices") or []
     step["pending_result"] = pending_result
     step["analysis_report"] = analysis.get("analysis_report")
     step["messages"] = analysis.get("messages") or []

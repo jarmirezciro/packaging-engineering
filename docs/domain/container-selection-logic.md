@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Determine how many rectangular products fit in a rectangular packaging container, or rank packaging candidates for a required quantity, using allowed orthogonal orientations and recursive use of leftover rectangular regions.
+Determine how many rectangular products fit in a rectangular packaging container, or rank packaging candidates for a required quantity, using allowed orthogonal orientations and the original pilot's bounded residual-space heuristic.
 
 ## Established engine model
 
@@ -14,9 +14,8 @@ The project’s box-selection algorithm uses:
 - six orthogonal product orientations, filtered by allowed rotations;
 - a `MainBox` calculation that selects a best main rectangular subbox/grid;
 - up to three leftover regions along length, width, and height;
-- recursive packing of valid leftover regions;
-- bounded recursion for safety;
-- separate fast quantity calculation and rendering.
+- one complete `MainBox` analysis in each of the root result's three leftover regions;
+- a shared authoritative placement collection for quantity and rendering.
 
 A supplied engine version imported:
 
@@ -59,28 +58,39 @@ quantity = nx × ny × nz
 5. Record the orientation used in the main subbox.
 6. Partition the remaining rectangular space into length-, width-, and height-side leftovers without overlap.
 7. Compute a valid orientation for each leftover.
-8. Recurse into positive leftover regions until no product fits or the safety depth is reached.
-9. Sum placements/counts without double-counting.
-10. Apply desired-quantity draw limits only to visualization; do not change the maximum-capacity calculation.
+8. Retain only the selected main-grid placements from the complete-container result; its provisional residual fills are not final.
+9. Run one complete `MainBox` analysis independently in each of the three root residual regions.
+10. Retain each child result's selected main grid and three direct residual fills, then stop at that pilot-defined depth.
+11. Calculate capacity from the final placement collection and use that same collection for Matplotlib and Three.js.
+12. Apply desired-quantity draw limits only to visualization; do not change the maximum-capacity calculation.
+
+The root `MainBox.max_quantity` already includes provisional direct residual fills. It must not be added to the child results because those provisional fills are replaced by the complete child analyses. The final quantity is the root main grid plus the three complete child solutions.
 
 ## Current implementation notes
 
-A supplied render path used:
+A former render path used:
 
 - recursion depth limit `max_depth=6`;
 - a mutable `remaining=[N]` draw limit for Optimal mode;
+- a second solve beginning from the complete container during rendering;
+- Three.js suppression of the recursive placements to avoid duplicate display;
+
+The authoritative Selection Mode engine now uses:
+
+- one root `MainBox` call and up to three Level 1 `MainBox` calls;
+- explicit placements carrying origin, orientation, level, and region type;
+- `len(placements)` for both fast capacity ranking and rendered result capacity;
+- placement slicing for Optimal-mode draw limits;
 - `render_style="debug"` with subbox overlays;
 - `render_style="clean"` with an open RSC-style box shell;
 - server-safe matplotlib `Agg` backend;
 - output below `MEDIA_ROOT/box_selection/`.
 
-Verify these values and paths in the current branch.
-
 ## Rotation restrictions
 
 A critical rule from prior fixes:
 
-> Rotation restrictions are global and must apply to every box, main subbox, leftover subbox, recursive call, and render placement.
+> Rotation restrictions are global and must apply to every box, main subbox, leftover subbox, Level 1 call, and render placement.
 
 Do not apply `R1/R2/R3` only to the first region while allowing unrestricted orientations in leftovers.
 
@@ -109,8 +119,8 @@ The exact semantic mapping of R1/R2/R3 must be read from current forms/engine an
 - placements are orthogonal, not arbitrarily angled;
 - no deformation, nesting, or irregular shape interaction;
 - usable internal dimensions are supplied correctly;
-- recursive leftover decomposition is a heuristic and is not a proof of global 3D-bin-packing optimality;
-- recursion depth is a safety/complexity trade-off;
+- the bounded residual-space decomposition is a heuristic and is not a proof of global 3D-bin-packing optimality;
+- calculation stops after each Level 1 `MainBox` result's direct residual fills;
 - the RSC flaps are visual only unless explicitly used in usable dimensions.
 
 ## Invariants
@@ -119,7 +129,7 @@ The exact semantic mapping of R1/R2/R3 must be read from current forms/engine an
 - no placements overlap;
 - reported count equals placement count when full placements are generated;
 - all orientation dimensions are positive;
-- no zero-step numpy range or recursion loop;
+- no zero-dimension placement or duplicate coordinate;
 - all candidate results are deterministic for the same inputs;
 - manual/catalogue/Flow/Multi-product Container consumers use the same authoritative service rules and rotation policy where the operation is shared;
 - a graphics or presenter upgrade cannot leave Multi-product Container Selection on a legacy renderer without an explicit documented exception.
@@ -138,10 +148,37 @@ The exact semantic mapping of R1/R2/R3 must be read from current forms/engine an
 - exact fit;
 - no fit;
 - a leftover region improves count over uniform-only packing;
-- recursion terminates on zero/near-zero dimensions;
+- zero/near-zero residual dimensions produce no placement;
 - desired draw limit does not change maximum count;
 - selected Top-5 result controls the exported image;
 - product plus packaging weight respects max payload;
 - standalone, Flow, and report counts agree for equivalent single-product fixtures;
 - Multi-product Container Selection reproduces the same placements/graphics for an equivalent one-row fixture;
 - clean-render and product-detail improvements appear in the multi-product result and report where applicable.
+
+## Design Mode
+
+Container Design Mode uses the same shared smooth-quantity and prime-factor
+distribution helper as Bag Design Mode. It distributes the design quantity over
+three axes to enumerate every ordered rows x columns x layers grid. Permitted
+orientations come from the existing authoritative R1/R2/R3 mapping in
+`box_selection_tool_arrays_2_origin_coordinates.allowed_product_orientations`.
+
+Each candidate's required internal rectangular bounding box is the grid count
+multiplied by the oriented product dimensions. The RSC remains a browser visual
+representation; it is not part of the bounding-box calculation. Horizontal
+dimensions are normalized so `length >= width` while height remains the vertical
+axis. Rows/columns, product X/Y dimensions and coordinates, and the RSC scene are
+rotated with that normalization. Candidates are grouped by the final canonical
+key `(length, width, height)` at six-decimal scene precision. Different heights
+remain different designs. The retained representative uses the authoritative
+orientation order, then the smallest normalized `(rows, columns, layers)` tuple,
+then generation order.
+
+Only after grouping are candidates ranked by cubicity
+(`min(L, W, H) / max(L, W, H)`) descending, additional capacity ascending,
+internal volume ascending, and a stable canonical tie-breaker; ranks and IDs are
+then assigned. Design Mode optionally reports net-content product weight only;
+container tare, total package weight, and payload metrics are not inputs or
+serialized results. Single and Optimal modes keep their existing evaluation.
+Selection Mode continues to use `MainBox` and its existing leftover-space logic.

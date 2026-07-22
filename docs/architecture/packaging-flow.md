@@ -88,6 +88,16 @@ A downstream tool must know whether an input was:
 
 Inheritance should populate the shared tool contract, not bypass the standalone service.
 
+Bag and Container Selection store one authoritative `mode` value: `design`,
+`single`, or `optimal`. The short-lived legacy `tool_mode=design` state is read
+as `mode=design` and then discarded; new state never writes `tool_mode`.
+Design results store requested and designed quantities, selected stable
+candidate ID, arrangement, orientation, designed dimensions, metrics, and a
+JSON-safe Three.js scene. Package weight and payload fields are not Design Mode
+result properties. The explicitly selected candidate becomes the
+pending/committed package output; downstream steps must not silently replace it
+with the first-ranked candidate.
+
 ## Transport layout parity
 
 A historically approved workflow transport arrangement was:

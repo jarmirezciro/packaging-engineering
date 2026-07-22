@@ -104,3 +104,35 @@ Do not silently change ranking while making a UI-only edit.
 - standalone, Packaging Flow, and Multi-product Bag Selection use the same authoritative fit rules and serialize compatible primitives;
 - graphics changes appear in standalone and Multi-product Bag Selection;
 - PDF and visualization use the selected result.
+
+## Design Mode
+
+Design Mode reuses the Bag Selection smooth-number rule that accepts quantities
+whose prime factors are limited to 2, 3, and 5. The rule and recursive
+prime-factor distribution now live in
+`packagingapp/utils/quantity_decomposition.py`; the existing Bag Selection
+functions import that source so Selection Mode behavior is preserved.
+
+For Design Mode, the design quantity is the first smooth quantity greater than
+or equal to the requested quantity. Prime factors are distributed over two axes
+to enumerate rows and columns. Both planar product orientations are evaluated.
+For an arrangement body `(L, W, H)`, the existing equations remain:
+
+```text
+required_length = L + H + fit_tolerance + sealing_allowance
+required_width  = W + H + fit_tolerance
+```
+
+After those equations are applied, Design Mode alone normalizes the final flat
+dimensions so `bag_width <= bag_length`; the opening is on bag width. Candidates
+are grouped by the canonical final-dimension key `(bag_width, bag_length)` at
+the engine's six-decimal scene precision. The retained representative uses the
+authoritative orientation order, then the smallest normalized `(rows, columns)`
+tuple, then generation order. Only after this grouping are candidates ranked by
+squareness (`bag_width / bag_length`) descending, additional capacity ascending,
+flat area ascending, and a stable canonical tie-breaker; ranks and IDs are then
+assigned. Design Mode accepts only product weight for optional net-content
+weight. Packaging weight, total package weight, and payload metrics belong to
+later package evaluation and are not read or serialized by Design Mode.
+Selection Mode's length/opening convention, weight/payload handling, and ranking
+are unchanged.

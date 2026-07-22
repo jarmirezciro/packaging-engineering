@@ -1,0 +1,28 @@
+<script>
+(function (card) {
+    if (!card) return;
+    const scrollArea = card.querySelector("[data-preserve-inner-scroll]");
+    const selectedRow = scrollArea?.querySelector(".tool-row-selected");
+    if (!scrollArea || !selectedRow) return;
+
+    function revealSelectedRow() {
+        const rowHeight = selectedRow.getBoundingClientRect().height || selectedRow.offsetHeight;
+        const targetTop = Math.max(0, (selectedRow.rowIndex - 1) * rowHeight);
+        const targetBottom = targetTop + rowHeight;
+        if (targetTop < scrollArea.scrollTop) {
+            scrollArea.scrollTop = targetTop;
+        } else if (targetBottom > scrollArea.scrollTop + scrollArea.clientHeight) {
+            scrollArea.scrollTop = targetBottom - scrollArea.clientHeight;
+        }
+    }
+
+    if (document.readyState === "complete") {
+        window.requestAnimationFrame(revealSelectedRow);
+    } else {
+        window.addEventListener("load", function () {
+            window.requestAnimationFrame(revealSelectedRow);
+        }, { once: true });
+    }
+    window.setTimeout(revealSelectedRow, 0);
+})(document.currentScript.previousElementSibling);
+</script>

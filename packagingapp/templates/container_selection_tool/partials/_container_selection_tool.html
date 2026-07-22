@@ -3,9 +3,9 @@
 <div class="tool-grid-3">
     {% include "container_selection_tool/partials/_container_selection_product_section.html" %}
     {% include "container_selection_tool/partials/_container_selection_container_section.html" %}
-    {% include "container_selection_tool/partials/_container_selection_result_section.html" %}
+    {% if current_mode == "design" %}{% include "container_selection_tool/partials/_container_selection_design_result.html" %}{% else %}{% include "container_selection_tool/partials/_container_selection_result_section.html" %}{% endif %}
 </div>
 
 {% include "container_selection_tool/partials/_container_selection_product_catalogue_section.html" %}
 {% include "container_selection_tool/partials/_container_selection_packaging_catalogue_section.html" %}
-{% include "container_selection_tool/partials/_container_selection_top5_section.html" %}
+{% if current_mode == "design" %}{% include "container_selection_tool/partials/_container_selection_design_table.html" %}{% else %}{% include "container_selection_tool/partials/_container_selection_top5_section.html" %}{% endif %}

@@ -17,4 +17,5 @@ def default_bag_config():
         "bag_width": "",
         "bag_weight": "",
         "bag_max_payload": "",
+        "selected_design_candidate_id": "",
     }

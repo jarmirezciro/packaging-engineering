@@ -131,6 +131,26 @@ function addContainerBody(target, dims) {
     });
 }
 
+function addBagBody(target, dims, sceneData) {
+    const bag = sceneData.bag || {};
+    const maxDim = Math.max(dims.length, dims.width, dims.height);
+    const t = Math.max(maxDim * 0.004, 0.6);
+    const bodyLength = Math.min(Math.max(number(bag.usableBodyLength, dims.length), 0), dims.length);
+    const material = new THREE.MeshStandardMaterial({color:0x86a99a,transparent:true,opacity:0.16,roughness:0.76,side:THREE.DoubleSide,depthWrite:false});
+    const parts = [
+        {x:0,y:0,z:-t,dx:dims.length,dy:dims.width,dz:t},
+        {x:0,y:0,z:dims.height,dx:dims.length,dy:dims.width,dz:t},
+        {x:0,y:-t,z:0,dx:dims.length,dy:t,dz:dims.height},
+        {x:0,y:dims.width,z:0,dx:dims.length,dy:t,dz:dims.height},
+        {x:-t,y:0,z:0,dx:t,dy:dims.width,dz:dims.height},
+    ];
+    parts.forEach((part) => addCuboid(target, part, dims, {material,edgeColor:0x23483b,edgeOpacity:0.55}));
+    if (bodyLength < dims.length) {
+        const sealMaterial = new THREE.MeshStandardMaterial({color:0xf59e0b,transparent:true,opacity:0.34,side:THREE.DoubleSide,depthWrite:false});
+        addCuboid(target,{x:bodyLength,y:0,z:dims.height+t,dx:dims.length-bodyLength,dy:dims.width,dz:t},dims,{material:sealMaterial,edgeColor:0x92400e,edgeOpacity:0.65});
+    }
+}
+
 function addQuad(target, points, dims, material, edgeColor = 0x111827) {
     const vertices = [];
     points.forEach((p) => {
@@ -296,8 +316,12 @@ function initViewer(el) {
     const productGroup = new THREE.Group();
     root.add(containerGroup, subboxGroup, productGroup);
 
-    addContainerBody(containerGroup, dims);
-    addRscFlaps(containerGroup, dims, sceneData);
+    if (sceneData.packageType === "bag") {
+        addBagBody(containerGroup, dims, sceneData);
+    } else {
+        addContainerBody(containerGroup, dims);
+        addRscFlaps(containerGroup, dims, sceneData);
+    }
 
     (sceneData.subboxes || []).forEach((box) => {
         addCuboid(subboxGroup, box, dims, {

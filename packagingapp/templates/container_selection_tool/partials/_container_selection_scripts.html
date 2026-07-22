@@ -59,6 +59,16 @@
         const optimalContainerControls = getById("optimalContainerControls", prefix);
         const manualContainerFields = getById("manualContainerFields", prefix);
         const globalCatalogueChooser = getById("globalCatalogueChooser", prefix);
+        const selectionPackageControls = getById("selectionPackageControls", prefix);
+        const designPackagingFields = getById("designPackagingFields", prefix);
+
+        function toggleBlock(block, visible) {
+            if (!block) return;
+            block.style.display = visible ? "block" : "none";
+            block.querySelectorAll("input,select,textarea,button").forEach(function (field) { field.disabled = !visible; });
+        }
+        toggleBlock(selectionPackageControls, mode !== "design");
+        toggleBlock(designPackagingFields, mode === "design");
 
         if (productSource === "catalogue") {
             if (productCatalogueChooser) productCatalogueChooser.style.display = "block";
@@ -69,8 +79,10 @@
         }
 
         if (manualDesiredQtyWrap) {
-            manualDesiredQtyWrap.style.display = (mode === "optimal" && productSource === "manual") ? "block" : "none";
+            manualDesiredQtyWrap.style.display = (mode === "design" || (mode === "optimal" && productSource === "manual")) ? "block" : "none";
         }
+
+        if (mode === "design") return;
 
         if (mode === "single") {
             if (singleContainerControls) singleContainerControls.style.display = "block";
@@ -132,6 +144,15 @@
         setAction(prefix, "select_candidate");
         submitForm(prefix);
     };
+    window.containerSelectionRunDesign = function (prefix) {
+        setAction(prefix, "run_design");
+        submitForm(prefix);
+    };
+    window.containerSelectionSelectDesignCandidate = function (prefix, candidateId) {
+        setHidden(prefix, "selected_design_candidate_id", candidateId);
+        setAction(prefix, "select_design_candidate");
+        submitForm(prefix);
+    };
 
     function bindEvents(prefix) {
         updateUI(prefix);
@@ -143,6 +164,7 @@
         const modeField = getField("mode", prefix);
         if (modeField) {
             modeField.addEventListener("change", function () {
+                setHidden(prefix, "selected_design_candidate_id", "");
                 setAction(prefix, "refresh");
                 submitForm(prefix);
             });

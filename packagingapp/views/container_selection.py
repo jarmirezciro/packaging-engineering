@@ -23,6 +23,7 @@ from ..tools.container.service import (
     get_selected_product,
 )
 from ..tools.container.state import default_container_config
+from ..tools.selection_mode import normalize_selection_mode
 from ..tools.container.export import build_container_selection_pdf
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 
@@ -63,7 +64,10 @@ def _read_raw_container_config(request, *, initial_config=None):
         source = request.GET
 
     cfg.update({
-        "mode": source.get("mode", cfg["mode"]),
+        "mode": normalize_selection_mode({
+            "mode": source.get("mode", normalize_selection_mode(cfg)),
+            "tool_mode": source.get("tool_mode", ""),
+        }),
         "action": source.get("action", cfg["action"]),
 
         "product_source": source.get("product_source", cfg["product_source"]),
@@ -86,6 +90,7 @@ def _read_raw_container_config(request, *, initial_config=None):
         "box_h": source.get("box_h", cfg["box_h"]),
         "box_weight": source.get("box_weight", cfg["box_weight"]),
         "box_max_payload": source.get("box_max_payload", cfg["box_max_payload"]),
+        "selected_design_candidate_id": source.get("selected_design_candidate_id", cfg["selected_design_candidate_id"]),
     })
 
     return sanitize_container_config_for_session(cfg)
@@ -118,6 +123,7 @@ def _build_shared_container_ui_contract(prefix=""):
             "box_h": f"box_h{suffix}",
             "box_weight": f"box_weight{suffix}",
             "box_max_payload": f"box_max_payload{suffix}",
+            "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
         },
         "ids": {
             "root": f"containerSelectionRoot{suffix}",
@@ -127,8 +133,11 @@ def _build_shared_container_ui_contract(prefix=""):
             "manual_container_fields": f"manualContainerFields{suffix}",
             "selected_product_id": f"selected_product_id{suffix}",
             "container_id": f"container_id{suffix}",
+            "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
             "threejs_viewer": f"containerThreeJsViewer{suffix}",
             "threejs_scene": f"containerThreeJsScene{suffix}",
+            "design_packaging_fields": f"designPackagingFields{suffix}" if prefix else "designPackagingFields",
+            "selection_package_controls": f"selectionPackageControls{suffix}" if prefix else "selectionPackageControls",
         },
         "actions": {
             "refresh": "containerSelectionRefresh",
@@ -362,6 +371,46 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
     }
 
 
+def _build_design_export_payload(*, form, analysis, selected_product):
+    selected = analysis.get("result") or {}
+    report = analysis.get("analysis_report") or {}
+    if not selected or not report:
+        return None
+    product = {
+        "source": "Catalogue" if selected_product else "Manual",
+        "id": selected_product.product_id if selected_product else "Manual product",
+        "name": selected_product.product_name if selected_product else "Manual input",
+        "dimensions": _format_dims(*(float(value) for value in (form.cleaned_data.get("product_l"), form.cleaned_data.get("product_w"), form.cleaned_data.get("product_h")))),
+        "weight": _format_optional_weight(form.cleaned_data.get("product_weight")),
+        "desired_qty": f"{selected['desired_quantity']} pcs",
+        "rotations": _rotation_display(bool(form.cleaned_data.get("r1")), bool(form.cleaned_data.get("r2")), bool(form.cleaned_data.get("r3"))),
+    }
+    analysis_payload = dict(report)
+    analysis_payload.update({
+        "requested_qty": selected["desired_quantity"],
+        "max_quantity": selected["design_quantity"],
+        "remaining_capacity": selected["additional_capacity"],
+        "volumetric_efficiency_current_display": f"{selected['volumetric_efficiency'] * 100:.0f}%",
+        "design_mode": True,
+    })
+    return {
+        "report_type": "design",
+        "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
+        "product": product,
+        "container": {
+            "source": "Designed",
+            "part_number": selected["candidate_id"],
+            "description": f"Arrangement {selected['arrangement']} · {selected['product_orientation']}",
+            "type": "Regular Slotted Container visualization",
+            "material": "To be specified",
+            "dimensions": _format_dims(selected["container_length"], selected["container_width"], selected["container_height"]),
+        },
+        "analysis_report": analysis_payload,
+        "selected_candidate": selected,
+        "product_base_image_rel_path": "",
+    }
+
+
 def _save_threejs_snapshot_from_request(request):
     return save_threejs_snapshot_from_request(
         request,
@@ -420,6 +469,9 @@ def _build_container_selection_page_context(
     analysis_report = None
     threejs_scene = None
     product_base_image_url = None
+    design_candidates = []
+    selected_design_candidate_id = config.get("selected_design_candidate_id") or ""
+    notices = []
 
     analysis_form = form
     form_is_valid = form.is_valid() if request.method == "POST" else True
@@ -443,6 +495,9 @@ def _build_container_selection_page_context(
         analysis_report = analysis.get("analysis_report")
         threejs_scene = analysis.get("threejs_scene")
         product_base_image_url = analysis.get("product_base_image_url")
+        design_candidates = analysis.get("design_candidates") or []
+        selected_design_candidate_id = analysis.get("selected_design_candidate_id") or selected_design_candidate_id
+        notices = analysis.get("notices") or []
 
         current_form_mode = analysis_form.cleaned_data.get("mode") or "single"
 
@@ -478,6 +533,12 @@ def _build_container_selection_page_context(
         for message in analysis["messages"]:
             form.add_error(None, message)
 
+        if analysis.get("ok") and current_form_mode == "design" and result:
+            design_export = _build_design_export_payload(form=analysis_form, analysis=analysis, selected_product=selected_product)
+            if design_export:
+                request.session["container_selection_design_export"] = design_export
+                request.session.modified = True
+
     product_summary = selected_product_summary(
         selected_product=selected_product,
         data=form if request.method == "POST" else config,
@@ -499,6 +560,9 @@ def _build_container_selection_page_context(
         "analysis_report": analysis_report,
         "product_base_image_url": product_base_image_url,
         "top5": top5,
+        "design_candidates": design_candidates,
+        "selected_design_candidate_id": selected_design_candidate_id,
+        "notices": notices,
 
         "products": products,
         "materials": materials,
@@ -637,10 +701,10 @@ def container_selection_calculator(request):
     return render(request, "marketing/container_selection_calculator.html", context)
 
 def container_selection_export_pdf(request):
-    export_payload = (
-        request.session.get("container_selection_single_export")
-        or request.session.get("container_selection_last_export")
-    )
+    if request.POST.get("design_export"):
+        export_payload = request.session.get("container_selection_design_export")
+    else:
+        export_payload = request.session.get("container_selection_single_export") or request.session.get("container_selection_last_export")
 
     if not export_payload:
         return HttpResponse(

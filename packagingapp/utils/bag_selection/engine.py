@@ -1,8 +1,17 @@
 # packagingapp/utils/bag_selection/engine.py
 from dataclasses import dataclass
 from typing import List, Tuple, Dict, Any, Set, Optional
+import hashlib
+import json
 import os
 import uuid
+
+from packagingapp.utils.quantity_decomposition import (
+    generate_factor_arrangements,
+    get_prime_factors,
+    is_smooth,
+    next_smooth_quantity,
+)
 
 import matplotlib
 matplotlib.use("Agg")
@@ -25,30 +34,6 @@ USAGE_ORIENTATION_TOLERANCE = 0.005
 # ---------------------------
 # Your bag math helpers
 # ---------------------------
-
-def is_smooth(n: int) -> bool:
-    if n <= 0:
-        return False
-    temp = n
-    for p_factor in (2, 3, 5):
-        while temp % p_factor == 0:
-            temp //= p_factor
-    return temp == 1
-
-
-def get_prime_factors(n: int) -> List[int]:
-    factors = []
-    divisor = 2
-    temp = n
-    while divisor * divisor <= temp:
-        while temp % divisor == 0:
-            factors.append(divisor)
-            temp //= divisor
-        divisor += 1
-    if temp > 1:
-        factors.append(temp)
-    return factors
-
 
 def bag_formula(bl: float, bw: float, bh: float) -> Set[Tuple[float, float]]:
     """
@@ -133,23 +118,8 @@ def get_final_packing_solution(target_qty: int, p_l: float, p_w: float, p_h: flo
         }, ...
       ]
     """
-    current = int(target_qty or 1)
-    while not is_smooth(current):
-        current += 1
-    smooth_qty = current
-
-    factors = get_prime_factors(smooth_qty)
-    layouts = set()
-
-    def distribute(idx, nx, ny, nz):
-        if idx == len(factors):
-            layouts.add((nx, ny, nz))
-            return
-        distribute(idx + 1, nx * factors[idx], ny, nz)
-        distribute(idx + 1, nx, ny * factors[idx], nz)
-        distribute(idx + 1, nx, ny, nz * factors[idx])
-
-    distribute(0, 1, 1, 1)
+    smooth_qty = next_smooth_quantity(int(target_qty or 1))
+    layouts = generate_factor_arrangements(smooth_qty, 3)
 
     final_results = []
     seen_signatures = set()
@@ -214,6 +184,205 @@ def build_required_bag_options(product_l: float, product_w: float, product_h: fl
 
     required = sorted(required_set, key=lambda x: (x[0] * x[1], x[0], x[1]))
     return {"smooth_qty": smooth_qty, "solutions": solutions, "required": required}
+
+
+def _stable_design_candidate_id(prefix: str, payload: Dict[str, Any]) -> str:
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return f"{prefix}-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _bag_design_scene(
+    *,
+    bag_width: float,
+    bag_length: float,
+    body_length: float,
+    body_width: float,
+    body_height: float,
+    rows: int,
+    columns: int,
+    unit_length: float,
+    unit_width: float,
+    unit_height: float,
+) -> Dict[str, Any]:
+    products = []
+    for row in range(rows):
+        for column in range(columns):
+            products.append({
+                "kind": "product",
+                "x": round(row * unit_length, 6),
+                "y": round(column * unit_width, 6),
+                "z": 0.0,
+                "dx": round(unit_length, 6),
+                "dy": round(unit_width, 6),
+                "dz": round(unit_height, 6),
+                "color": "#f59e0b",
+                "opacity": 1.0,
+            })
+    return {
+        "version": 1,
+        "units": "mm",
+        "packageType": "bag",
+        "container": {
+            "length": round(body_length + SEALING_AREA, 6),
+            "width": round(body_width, 6),
+            "height": round(body_height, 6),
+        },
+        "bag": {
+            "flatWidth": round(bag_width, 6),
+            "flatLength": round(bag_length, 6),
+            "openingSide": "width",
+            "openingAt": "length-end",
+            "usableBodyLength": round(body_length, 6),
+            "usableBodyWidth": round(body_width, 6),
+            "sealingAllowance": round(SEALING_AREA, 6),
+            "fitTolerance": round(TOLERANCE, 6),
+        },
+        "rsc": {"enabled": False},
+        "products": products,
+        "subboxes": [],
+    }
+
+
+def build_bag_design_candidates(
+    product_l: float,
+    product_w: float,
+    product_h: float,
+    desired_quantity: int,
+) -> Dict[str, Any]:
+    """Return every distinct 2D flat-bag design ranked by squareness.
+
+    Selection Mode continues to use ``get_final_packing_solution``.  Design
+    Mode deliberately uses planar rows/columns, applies the same bag equations,
+    then normalizes the final flat dimensions so width is the shorter opening.
+    """
+    product = (float(product_l), float(product_w), float(product_h))
+    if any(value <= 0 for value in product):
+        raise ValueError("Product dimensions must be greater than zero.")
+    desired = int(desired_quantity)
+    design_quantity = next_smooth_quantity(desired)
+    additional_capacity = design_quantity - desired
+
+    canonical_candidates = {}
+    generated_candidate_count = 0
+    orientations = [
+        (0, "L × W footprint", product[0], product[1]),
+        (1, "W × L footprint", product[1], product[0]),
+    ]
+
+    for rows, columns in generate_factor_arrangements(design_quantity, 2):
+        for orientation_index, orientation, unit_x, unit_y in orientations:
+            arrangement_x = rows * unit_x
+            arrangement_y = columns * unit_y
+            raw_options = [
+                (
+                    arrangement_x + product[2] + TOLERANCE + SEALING_AREA,
+                    arrangement_y + product[2] + TOLERANCE,
+                    arrangement_x,
+                    arrangement_y,
+                    rows,
+                    columns,
+                    unit_x,
+                    unit_y,
+                ),
+                (
+                    arrangement_y + product[2] + TOLERANCE + SEALING_AREA,
+                    arrangement_x + product[2] + TOLERANCE,
+                    arrangement_y,
+                    arrangement_x,
+                    columns,
+                    rows,
+                    unit_y,
+                    unit_x,
+                ),
+            ]
+            for raw_length, raw_width, body_l, body_w, scene_rows, scene_columns, scene_unit_l, scene_unit_w in raw_options:
+                generated_candidate_count += 1
+                bag_width = min(raw_length, raw_width)
+                bag_length = max(raw_length, raw_width)
+                if raw_length < raw_width:
+                    body_l, body_w = body_w, body_l
+                    scene_rows, scene_columns = scene_columns, scene_rows
+                    scene_unit_l, scene_unit_w = scene_unit_w, scene_unit_l
+
+                normalized_orientation_index = (
+                    0
+                    if abs(scene_unit_l - product[0]) <= EPSILON and abs(scene_unit_w - product[1]) <= EPSILON
+                    else 1
+                )
+                normalized_orientation = orientations[normalized_orientation_index][1]
+
+                scene = _bag_design_scene(
+                    bag_width=bag_width,
+                    bag_length=bag_length,
+                    body_length=body_l,
+                    body_width=body_w,
+                    body_height=product[2],
+                    rows=scene_rows,
+                    columns=scene_columns,
+                    unit_length=scene_unit_l,
+                    unit_width=scene_unit_w,
+                    unit_height=product[2],
+                )
+                canonical_key = (round(bag_width, 6), round(bag_length, 6))
+                bag_area = bag_width * bag_length
+                squareness = bag_width / bag_length
+                representative_key = (
+                    normalized_orientation_index,
+                    int(scene_rows),
+                    int(scene_columns),
+                    generated_candidate_count,
+                )
+                candidate = {
+                    "desired_quantity": desired,
+                    "design_quantity": design_quantity,
+                    "additional_capacity": additional_capacity,
+                    "arrangement": f"{scene_rows} × {scene_columns}",
+                    "product_orientation": normalized_orientation,
+                    "orientation_index": normalized_orientation_index,
+                    "rows": int(scene_rows),
+                    "columns": int(scene_columns),
+                    "bag_width": round(bag_width, 2),
+                    "bag_length": round(bag_length, 2),
+                    "bag_squareness_score": round(squareness, 6),
+                    "bag_area": round(bag_area, 2),
+                    "bag_usage": 1.0,
+                    "opening_dimension": "width",
+                    "render_data": scene,
+                    "_canonical_key": canonical_key,
+                    "_representative_key": representative_key,
+                }
+                retained = canonical_candidates.get(canonical_key)
+                if retained is None or representative_key < retained["_representative_key"]:
+                    canonical_candidates[canonical_key] = candidate
+
+    candidates = list(canonical_candidates.values())
+    candidates.sort(key=lambda item: (
+        -item["bag_squareness_score"],
+        item["additional_capacity"],
+        item["bag_area"],
+        item["_canonical_key"],
+        item["_representative_key"],
+    ))
+    for rank, candidate in enumerate(candidates, start=1):
+        identity = {
+            "mode": "design",
+            "design_quantity": design_quantity,
+            "bag_dimensions": candidate["_canonical_key"],
+            "arrangement": (candidate["rows"], candidate["columns"]),
+            "orientation_index": candidate["orientation_index"],
+        }
+        candidate["candidate_id"] = _stable_design_candidate_id("bag-design", identity)
+        candidate["rank"] = rank
+        candidate.pop("_canonical_key", None)
+        candidate.pop("_representative_key", None)
+
+    return {
+        "desired_quantity": desired,
+        "design_quantity": design_quantity,
+        "additional_capacity": additional_capacity,
+        "generated_candidate_count": generated_candidate_count,
+        "candidates": candidates,
+    }
 
 
 # ---------------------------

@@ -23,4 +23,5 @@ def default_container_config():
         "box_h": "",
         "box_weight": "",
         "box_max_payload": "",
+        "selected_design_candidate_id": "",
     }

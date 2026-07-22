@@ -255,16 +255,26 @@ def build_bag_selection_single_pdf(export_payload):
     bag = export_payload.get("bag") or {}
     analysis = export_payload.get("analysis_report") or {}
 
-    story.append(Paragraph("Bag Selection Report", _STYLES["BagReportTitle"]))
-    story.append(Paragraph(f"Single bag analysis - Generated {generated_at}", _STYLES["BagReportSubtitle"]))
+    is_design = bool(analysis.get("design_mode"))
+    story.append(Paragraph("Bag Design Report" if is_design else "Bag Selection Report", _STYLES["BagReportTitle"]))
+    story.append(Paragraph(f"{'Design Mode' if is_design else 'Single bag analysis'} - Generated {generated_at}", _STYLES["BagReportSubtitle"]))
 
-    metrics = [
-        ("Max qty", f"{analysis.get('max_quantity', '-')} pcs"),
-        ("Bag usage", analysis.get("bag_usage_max_display")),
-        ("Net weight", analysis.get("net_weight_display")),
-        ("Total weight", analysis.get("total_weight_display")),
-        ("Payload", analysis.get("payload_usage_display")),
-    ]
+    if is_design:
+        metrics = [
+            ("Designed qty", f"{analysis.get('max_quantity', '-')} pcs"),
+            ("Bag usage", analysis.get("bag_usage_max_display")),
+            ("Net content", analysis.get("net_content_weight_display")),
+            ("Squareness", analysis.get("shape_score_display")),
+            ("Bag area", analysis.get("bag_area")),
+        ]
+    else:
+        metrics = [
+            ("Max qty", f"{analysis.get('max_quantity', '-')} pcs"),
+            ("Bag usage", analysis.get("bag_usage_max_display")),
+            ("Net weight", analysis.get("net_weight_display")),
+            ("Total weight", analysis.get("total_weight_display")),
+            ("Payload", analysis.get("payload_usage_display")),
+        ]
     story.append(_metric_cards(metrics))
     story.append(Spacer(1, 5))
 
@@ -277,14 +287,16 @@ def build_bag_selection_single_pdf(export_payload):
         ("Orientation", product.get("orientation")),
     ], [28 * mm, 54 * mm])
 
-    bag_table = _key_value_table([
+    bag_rows = [
         ("Source", bag.get("source")),
         ("Part no.", bag.get("part_number")),
         ("Description", bag.get("description")),
         ("Brand", bag.get("brand")),
         ("Flat dimensions", bag.get("dimensions")),
-        ("Packaging wt / payload", f"{bag.get('weight', '-')} / {bag.get('payload_capacity', '-')}")
-    ], [34 * mm, 54 * mm])
+    ]
+    if not is_design:
+        bag_rows.append(("Packaging wt / payload", f"{bag.get('weight', '-')} / {bag.get('payload_capacity', '-')}"))
+    bag_table = _key_value_table(bag_rows, [34 * mm, 54 * mm])
 
     info_grid = Table(
         [[_section_title("Product"), _section_title("Bag / Packaging")], [product_table, bag_table]],
@@ -301,6 +313,11 @@ def build_bag_selection_single_pdf(export_payload):
     story.append(Spacer(1, 5))
 
     detail_table = _key_value_table([
+        ("Requested quantity", f"{analysis.get('desired_quantity', analysis.get('current_quantity', '-'))} pcs"),
+        ("Designed capacity", f"{analysis.get('design_quantity', analysis.get('max_quantity', '-'))} pcs"),
+        ("Additional capacity", f"{analysis.get('additional_capacity', analysis.get('remaining_capacity', '-'))} pcs"),
+        ("Arrangement", analysis.get("arrangement")),
+        ("Orientation", analysis.get("product_orientation")),
         ("Current quantity", f"{analysis.get('current_quantity', '-')} pcs"),
         ("Bag usage - current", analysis.get("bag_usage_current_display")),
         ("Max quantity", f"{analysis.get('max_quantity', '-')} pcs"),
@@ -312,7 +329,7 @@ def build_bag_selection_single_pdf(export_payload):
     story.append(detail_table)
     story.append(Spacer(1, 5))
 
-    image_path = _safe_media_path(export_payload.get("image_rel_path"))
+    image_path = _safe_media_path(export_payload.get("threejs_snapshot_rel_path") or export_payload.get("image_rel_path"))
     if image_path:
         story.append(_section_title("Bag visualization"))
         img = Image(image_path)

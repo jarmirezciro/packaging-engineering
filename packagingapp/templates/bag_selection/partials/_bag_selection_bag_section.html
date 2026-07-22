@@ -15,6 +15,8 @@
         </div>
         <div class="app-form-note mb-3">These fixed shared-engine allowances are shown for transparency. Sealing is reserved along bag length; width receives tolerance only.</div>
 
+        <div id="{{ bag_ui.ids.selection_package_controls }}">
+
         <div class="tool-field-group">
             <label class="form-label">Bag Source</label>
             <div class="tool-radio-group">
@@ -83,6 +85,12 @@
                 <button type="button" class="btn btn-app-primary btn-sm" onclick="bagSelectionFindTop5('{{ bag_ui.prefix }}')"><i class="bi bi-stars me-2"></i>Find Top 5</button>
             </div>
             <p class="app-form-note mt-2 mb-0">3D rendering is generated only after selecting one Top 5 candidate.</p>
+        </div>
+        </div>
+
+        <div id="{{ bag_ui.ids.design_packaging_fields }}">
+            <div class="alert alert-light border small">Bag width and length are calculated outputs in Design Mode.</div>
+            <div class="app-form-actions tool-card-actions"><button type="button" class="btn btn-app-primary btn-sm" onclick="bagSelectionRunDesign('{{ bag_ui.prefix }}')"><i class="bi bi-rulers me-2"></i>Generate Designs</button></div>
         </div>
     </div>
 </div>

@@ -7,6 +7,7 @@ from ...utils.bag_selection.engine import (
     SEALING_AREA,
     TOLERANCE,
     build_required_bag_options,
+    build_bag_design_candidates,
     best_usage_for_bag,
     compute_max_quantity_for_bag,
     run_bag_mode1_and_render,
@@ -123,6 +124,10 @@ def get_selected_material(config):
 
 def build_hydrated_post_data(raw_post, config, selected_product=None, selected_material=None):
     post_data = raw_post.copy()
+    post_data["mode"] = (config or {}).get("mode") or "single"
+
+    if (config or {}).get("mode") == "design":
+        post_data.setdefault("bag_source", "manual")
 
     if config.get("product_source") == "catalogue" and selected_product is not None:
         post_data["product_l"] = "" if selected_product.product_length is None else str(selected_product.product_length)
@@ -385,6 +390,119 @@ def _build_pending_result(label, selected_bag, render_res, quantity):
     }
 
 
+def _positive_integer(value):
+    try:
+        text = str(value).strip()
+        if not text or any(marker in text for marker in (".", ",")):
+            return None
+        parsed = int(text)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _add_bag_design_metrics(candidate, config, selected_product=None):
+    row = dict(candidate)
+    product_weight = _resolve_product_weight(config, selected_product)
+    quantity = int(row["design_quantity"])
+    net_weight = product_weight * quantity if product_weight is not None else None
+    row.update({
+        "net_content_weight": _round_or_none(net_weight, 3),
+        "net_content_weight_display": _format_weight(net_weight),
+    })
+    return row
+
+
+def _analyze_bag_design(config, action, product, selected_product=None, selected_material=None):
+    messages = []
+    notices = []
+    desired_quantity = _positive_integer(config.get("desired_qty"))
+    if product is None or any(float(value) <= 0 for value in product):
+        messages.append("Enter product length, width, and height greater than zero in millimetres.")
+    if desired_quantity is None:
+        messages.append("Enter the desired quantity as a positive whole number.")
+    if action not in ("run_design", "select_design_candidate") or messages:
+        return {
+            "messages": messages,
+            "notices": notices,
+            "result": None,
+            "image_url": None,
+            "threejs_scene": None,
+            "top5": [],
+            "design_candidates": [],
+            "selected_design_candidate_id": config.get("selected_design_candidate_id") or "",
+            "pending_result": None,
+            "analysis_report": None,
+        }
+
+    design = build_bag_design_candidates(product[0], product[1], product[2], desired_quantity)
+    candidates = [
+        _add_bag_design_metrics(row, config, selected_product)
+        for row in design["candidates"]
+    ]
+    if not candidates:
+        messages.append("No valid bag design candidate could be generated for these inputs.")
+        return {
+            "messages": messages,
+            "notices": notices,
+            "result": None,
+            "image_url": None,
+            "threejs_scene": None,
+            "top5": [],
+            "design_candidates": [],
+            "selected_design_candidate_id": "",
+            "pending_result": None,
+            "analysis_report": None,
+        }
+
+    requested_id = str(config.get("selected_design_candidate_id") or "")
+    selected = next((row for row in candidates if row["candidate_id"] == requested_id), candidates[0])
+    if design["additional_capacity"]:
+        notices.append(
+            f"The requested quantity was {design['desired_quantity']}. The bag was designed for "
+            f"{design['design_quantity']} units to create a practical arrangement "
+            f"({design['additional_capacity']} additional capacity)."
+        )
+    analysis_report = {
+        **selected,
+        "shape_score_display": _format_percent(selected["bag_squareness_score"] * 100),
+        "bag_usage_display": _format_percent(selected["bag_usage"] * 100),
+        "has_net_content_weight": selected["net_content_weight"] is not None,
+        "design_mode": True,
+    }
+    pending_result = {
+        "label": "Designed bag",
+        "length": selected["bag_length"],
+        "width": selected["bag_width"],
+        "height": round(float(product[2]), 2),
+        "units_per_parent": selected["design_quantity"],
+        "total_base_units": selected["design_quantity"],
+        "mode": "design",
+        "desired_quantity": selected["desired_quantity"],
+        "design_quantity": selected["design_quantity"],
+        "additional_capacity": selected["additional_capacity"],
+        "selected_candidate_id": selected["candidate_id"],
+        "selected_arrangement": selected["arrangement"],
+        "selected_orientation": selected["product_orientation"],
+        "metrics": {"squareness": selected["bag_squareness_score"], "bag_area": selected["bag_area"]},
+        "render_data": selected["render_data"],
+    }
+    if selected["net_content_weight"] is not None:
+        pending_result["net_content_weight_g"] = selected["net_content_weight"]
+    return {
+        "messages": messages,
+        "notices": notices,
+        "result": selected,
+        "image_url": None,
+        "threejs_scene": selected["render_data"],
+        "top5": [],
+        "design_candidates": candidates,
+        "selected_design_candidate_id": selected["candidate_id"],
+        "pending_result": pending_result,
+        "analysis_report": analysis_report,
+    }
+
+
 def analyze_bag_config(config, action, selected_product=None, selected_material=None, materials=None, media_root=None):
     cfg = sanitize_bag_config_for_session(config)
     mode = cfg.get("mode") or "single"
@@ -399,6 +517,15 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
     messages = []
 
     product = resolve_product_tuple(cfg, selected_product)
+
+    if mode == "design":
+        return _analyze_bag_design(
+            cfg,
+            action,
+            product,
+            selected_product=selected_product,
+            selected_material=selected_material,
+        )
 
     if mode == "optimal" and product_source == "catalogue" and selected_product is not None:
         desired_qty = int(selected_product.desired_qty or 1)
@@ -545,9 +672,13 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
 
     return {
         "messages": messages,
+        "notices": [],
         "result": result,
         "image_url": image_url,
+        "threejs_scene": None,
         "top5": top5,
+        "design_candidates": [],
+        "selected_design_candidate_id": "",
         "pending_result": pending_result,
         "analysis_report": analysis_report,
     }

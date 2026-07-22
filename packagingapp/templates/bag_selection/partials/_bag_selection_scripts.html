@@ -1,3 +1,5 @@
+{% load static %}
+{% if not threejs_importmap_loaded %}{% include "shared/_threejs_importmap.html" %}{% endif %}
 <script>
 (function () {
     function getRoot(prefix) {
@@ -50,6 +52,16 @@
         const optimalBagControls = document.getElementById(prefix ? ('optimalBagControls_' + prefix) : 'optimalBagControls');
         const manualBagFields = document.getElementById(prefix ? ('manualBagFields_' + prefix) : 'manualBagFields');
         const globalCatalogueChooser = document.getElementById(prefix ? ('globalCatalogueChooser_' + prefix) : 'globalCatalogueChooser');
+        const selectionPackageControls = document.getElementById(prefix ? ('selectionPackageControls_' + prefix) : 'selectionPackageControls');
+        const designPackagingFields = document.getElementById(prefix ? ('designPackagingFields_' + prefix) : 'designPackagingFields');
+
+        function toggleBlock(block, visible) {
+            if (!block) return;
+            block.style.display = visible ? 'block' : 'none';
+            block.querySelectorAll('input,select,textarea,button').forEach(function (field) { field.disabled = !visible; });
+        }
+        toggleBlock(selectionPackageControls, mode !== 'design');
+        toggleBlock(designPackagingFields, mode === 'design');
 
         if (allowProductCatalogue && productCatalogueChooser) {
             if (productSource === 'catalogue') {
@@ -64,7 +76,9 @@
             if (manualProductFields) manualProductFields.style.display = 'block';
         }
 
-        if (manualDesiredQtyWrap) manualDesiredQtyWrap.style.display = (mode === 'optimal') ? 'block' : 'none';
+        if (manualDesiredQtyWrap) manualDesiredQtyWrap.style.display = (mode === 'design' || mode === 'optimal') ? 'block' : 'none';
+
+        if (mode === 'design') return;
 
         if (mode === 'single') {
             if (singleBagControls) singleBagControls.style.display = 'block';
@@ -126,6 +140,15 @@
         setAction(prefix, 'select_candidate');
         submitForm(prefix);
     };
+    window.bagSelectionRunDesign = function (prefix) {
+        setAction(prefix, 'run_design');
+        submitForm(prefix);
+    };
+    window.bagSelectionSelectDesignCandidate = function (prefix, candidateId) {
+        setHidden(prefix, 'selected_design_candidate_id', candidateId);
+        setAction(prefix, 'select_design_candidate');
+        submitForm(prefix);
+    };
 
     function bindEvents(prefix) {
         updateUI(prefix);
@@ -137,6 +160,7 @@
         const modeField = getField('mode', prefix);
         if (modeField) {
             modeField.addEventListener('change', function () {
+                setHidden(prefix, 'selected_design_candidate_id', '');
                 setAction(prefix, 'refresh');
                 submitForm(prefix);
             });
@@ -203,3 +227,4 @@
     document.addEventListener('DOMContentLoaded', bindAllRoots);
 })();
 </script>
+<script type="module" src="{% static 'js/container_threejs_viewer.js' %}"></script>

@@ -152,6 +152,7 @@ class PackagingMaterialImagesZipUploadForm(forms.Form):
 
 class ContainerSelectionMode1Form(forms.Form):
     MODE_CHOICES = [
+        ("design", "Design Mode"),
         ("single", "Single container analysis"),
         ("optimal", "Optimal container (Top 5)"),
     ]
@@ -274,6 +275,19 @@ class ContainerSelectionMode1Form(forms.Form):
     )
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
+    selected_design_candidate_id = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("mode") != "design":
+            return cleaned
+        if cleaned.get("desired_qty") is None:
+            self.add_error("desired_qty", "Enter the desired quantity as a positive whole number.")
+        if cleaned.get("product_source") == "manual":
+            for field_name, label in (("product_l", "length"), ("product_w", "width"), ("product_h", "height")):
+                if cleaned.get(field_name) is None:
+                    self.add_error(field_name, f"Enter a product {label} greater than zero.")
+        return cleaned
 
 ###
 # Product Catalogue Section
@@ -366,6 +380,7 @@ class ProductImagesZipUploadForm(forms.Form):
 
 class BagSelectionForm(forms.Form):
     MODE_CHOICES = [
+        ("design", "Design Mode"),
         ("single", "Single bag analysis"),
         ("optimal", "Optimal bag (Top 5)"),
     ]
@@ -479,6 +494,19 @@ class BagSelectionForm(forms.Form):
     )
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
+    selected_design_candidate_id = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("mode") != "design":
+            return cleaned
+        if cleaned.get("desired_qty") is None:
+            self.add_error("desired_qty", "Enter the desired quantity as a positive whole number.")
+        if cleaned.get("product_source") == "manual":
+            for field_name, label in (("product_l", "length"), ("product_w", "width"), ("product_h", "height")):
+                if cleaned.get(field_name) is None:
+                    self.add_error(field_name, f"Enter a product {label} greater than zero.")
+        return cleaned
 
 
 class PalletizationForm(forms.Form):
