@@ -24,6 +24,7 @@ SEO_TRANSPORT_EXAMPLE_CONFIG = {
     "container_h": 2395,
     "max_weight": 26500,
     "tare_weight": 3750,
+    "packing_mode": "maximum_utilization",
 }
 
 SEO_TRANSPORT_EXAMPLE_ROWS = [
@@ -107,6 +108,7 @@ def _build_transport_export_payload(*, cfg, analysis, selected_material=None):
             "tare_weight": _format_optional_weight(container.get("tare_weight")),
         },
         "summary": summary,
+        "packing_mode": str(result.get("packing_mode", "maximum_utilization") or "maximum_utilization"),
         "image_rel_path": result.get("image_rel_path") or "",
         "image_rel_paths": image_rel_paths,
     }
@@ -219,6 +221,7 @@ def _build_transport_page_context(
             row["width"] = float(selected_product.product_width)
             row["height"] = float(selected_product.product_height)
             row["weight"] = float(getattr(selected_product, "weight", 0) or 0)
+            row.setdefault("stackable", True)
             row["r1"] = bool(getattr(selected_product, "rotation_1", False))
             row["r2"] = bool(getattr(selected_product, "rotation_2", False))
             row["r3"] = bool(getattr(selected_product, "rotation_3", False))
@@ -260,6 +263,7 @@ def _build_transport_page_context(
     else:
         initial_data = {
             "container_source": current_container_source,
+            "packing_mode": initial_config.get("packing_mode", "maximum_utilization"),
             "catalogue_id": raw_catalogue_id,
             "container_id": raw_container_id,
             "container_l": initial_config.get("container_l", ""),
@@ -293,6 +297,7 @@ def _build_transport_page_context(
 
         cfg = {
             "container_source": current_container_source,
+            "packing_mode": form.cleaned_data.get("packing_mode") or "maximum_utilization",
             "container_l": form.cleaned_data.get("container_l"),
             "container_w": form.cleaned_data.get("container_w"),
             "container_h": form.cleaned_data.get("container_h"),
@@ -341,6 +346,7 @@ def _build_transport_page_context(
         form = ContainerToolForm(
             initial={
                 "container_source": current_container_source,
+                "packing_mode": form.cleaned_data.get("packing_mode") or "maximum_utilization",
                 "catalogue_id": raw_catalogue_id,
                 "container_id": raw_container_id,
                 "container_l": container_l_value,
@@ -364,6 +370,7 @@ def _build_transport_page_context(
             form = ContainerToolForm(
                 initial={
                     "container_source": current_container_source,
+                    "packing_mode": request.POST.get("packing_mode", "maximum_utilization") if request.method == "POST" else initial_config.get("packing_mode", "maximum_utilization"),
                     "catalogue_id": raw_catalogue_id,
                     "container_id": raw_container_id,
                     "container_l": selected_material.part_length,
@@ -382,6 +389,7 @@ def _build_transport_page_context(
     if request.method == "GET" and run_initial_analysis:
         cfg = {
             "container_source": current_container_source,
+            "packing_mode": form["packing_mode"].value() if "packing_mode" in form.fields else "maximum_utilization",
             "container_l": form["container_l"].value() if "container_l" in form.fields else "",
             "container_w": form["container_w"].value() if "container_w" in form.fields else "",
             "container_h": form["container_h"].value() if "container_h" in form.fields else "",

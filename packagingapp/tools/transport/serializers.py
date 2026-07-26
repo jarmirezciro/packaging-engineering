@@ -19,6 +19,7 @@ def sanitize_transport_rows_for_session(rows):
             "height": _json_safe_scalar(row.get("height", "")),
             "qty": _json_safe_scalar(row.get("qty", 1)),
             "max_qty": bool(row.get("max_qty", False)),
+            "stackable": bool(row.get("stackable", True)),
             "weight": _json_safe_scalar(row.get("weight", 0)),
             "sequence": _json_safe_scalar(row.get("sequence", 1)),
             "r1": bool(row.get("r1", False)),
@@ -91,6 +92,9 @@ def serialize_transport_threejs_scene(container, placements, summary):
 def serialize_transport_result(result, threejs_scene=None):
     summary = result.get("summary", {}) or {}
     serialized = {
+        "packing_mode": str(result.get("packing_mode", "maximum_utilization") or "maximum_utilization"),
+        "strategy": str(result.get("strategy", "") or ""),
+        "sequence_zones": list(result.get("sequence_zones") or []),
         "summary": {
             "container_volume": float(summary.get("container_volume", 0) or 0),
             "packed_volume": float(summary.get("packed_volume", 0) or 0),
@@ -120,6 +124,7 @@ def serialize_transport_result(result, threejs_scene=None):
                     "qty_requested": int(r.get("qty_requested", 0) or 0),
                     "qty_packed": int(r.get("qty_packed", 0) or 0),
                     "max_qty": bool(r.get("max_qty", False)),
+                    "stackable": bool(r.get("stackable", True)),
                     "weight_each": float(r.get("weight_each", 0) or 0),
                     "sequence": int(r.get("sequence", 0) or 0),
                 }

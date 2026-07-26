@@ -587,6 +587,7 @@ def _transport_rows_table(rows):
         Paragraph("<b>Requested</b>", _STYLES["WorkflowBodySmall"]),
         Paragraph("<b>Loaded</b>", _STYLES["WorkflowBodySmall"]),
         Paragraph("<b>Weight</b>", _STYLES["WorkflowBodySmall"]),
+        Paragraph("<b>Stack</b>", _STYLES["WorkflowBodySmall"]),
     ]
     data = [header]
     for row in rows[:5]:
@@ -600,12 +601,13 @@ def _transport_rows_table(rows):
             Paragraph(_clean(requested), _STYLES["WorkflowBodySmall"]),
             Paragraph(_int(row.get("qty_packed")), _STYLES["WorkflowBodySmall"]),
             Paragraph(f"{_num(row.get('weight_each'), 2)} kg", _STYLES["WorkflowBodySmall"]),
+            Paragraph("Yes" if row.get("stackable", True) else "No", _STYLES["WorkflowBodySmall"]),
         ])
 
     if len(rows) > 5:
-        data.append([Paragraph(f"+ {len(rows) - 5} more row(s)", _STYLES["WorkflowBodySmall"]), "", "", "", ""])
+        data.append([Paragraph(f"+ {len(rows) - 5} more row(s)", _STYLES["WorkflowBodySmall"]), "", "", "", "", ""])
 
-    table = Table(data, colWidths=[36 * mm, 34 * mm, 22 * mm, 18 * mm, 24 * mm], repeatRows=1)
+    table = Table(data, colWidths=[32 * mm, 32 * mm, 20 * mm, 17 * mm, 22 * mm, 15 * mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eaf2ff")),
         ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#d9e2ec")),

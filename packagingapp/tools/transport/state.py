@@ -7,6 +7,7 @@ def default_product_rows():
             "height": "",
             "qty": 1,
             "max_qty": False,
+            "stackable": True,
             "weight": 0,
             "sequence": 1,
             "r1": True,

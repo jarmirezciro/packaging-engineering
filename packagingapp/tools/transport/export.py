@@ -207,6 +207,7 @@ def _product_rows_table(rows):
         Paragraph("<b>Requested</b>", _STYLES["TransportBodySmall"]),
         Paragraph("<b>Loaded</b>", _STYLES["TransportBodySmall"]),
         Paragraph("<b>Weight</b>", _STYLES["TransportBodySmall"]),
+        Paragraph("<b>Stack</b>", _STYLES["TransportBodySmall"]),
         Paragraph("<b>Seq.</b>", _STYLES["TransportBodySmall"]),
     ]
 
@@ -219,16 +220,17 @@ def _product_rows_table(rows):
             Paragraph(_clean(row.get("qty_requested")), _STYLES["TransportBodySmall"]),
             Paragraph(_clean(row.get("qty_packed")), _STYLES["TransportBodySmall"]),
             Paragraph(f"{_num(row.get('weight_each'), 2)} kg", _STYLES["TransportBodySmall"]),
+            Paragraph("Yes" if row.get("stackable", True) else "No", _STYLES["TransportBodySmall"]),
             Paragraph(_clean(row.get("sequence")), _STYLES["TransportBodySmall"]),
         ])
 
     if len(rows or []) > 6:
         data.append([
             Paragraph(f"+ {len(rows) - 6} more row(s)", _STYLES["TransportBodySmall"]),
-            "", "", "", "", "",
+            "", "", "", "", "", "",
         ])
 
-    table = Table(data, colWidths=[34 * mm, 34 * mm, 17 * mm, 15 * mm, 20 * mm, 10 * mm], repeatRows=1)
+    table = Table(data, colWidths=[30 * mm, 32 * mm, 16 * mm, 14 * mm, 18 * mm, 14 * mm, 9 * mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eaf2ff")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
@@ -301,6 +303,16 @@ def build_transport_container_pdf(export_payload):
     generated_at = export_payload.get("generated_at") or timezone.now().strftime("%Y-%m-%d %H:%M")
     unit = export_payload.get("transport_unit") or {}
     summary = export_payload.get("summary") or {}
+    packing_mode = str(export_payload.get("packing_mode") or "maximum_utilization")
+    packing_mode_labels = {
+        "maximum_utilization": "Maximum utilization",
+        "accessible_sequence_loading": "Sequence loading",
+        # ``sequence_loading`` is the legacy identifier of the unchanged
+        # strict engine and remains supported for saved sessions.
+        "sequence_loading": "Strict sequence loading",
+        "strict_sequence_loading": "Strict sequence loading",
+    }
+    packing_mode_label = packing_mode_labels.get(packing_mode, "Maximum utilization")
     snapshot_rel_paths = export_payload.get("threejs_snapshot_rel_paths") or {}
 
     story.append(Paragraph("Transport Container Analysis Report", _STYLES["TransportReportTitle"]))
@@ -331,6 +343,7 @@ def build_transport_container_pdf(export_payload):
         Spacer(1, 3 * mm),
         _section_title("Loading details"),
         _key_value_table([
+            ("Packing mode", packing_mode_label),
             ("Loaded product weight", f"{_num(summary.get('loaded_weight'), 2)} kg"),
             ("Gross loaded weight", f"{_num(summary.get('gross_weight'), 2)} kg"),
             ("Occupied L x W x H", f"{_num(summary.get('occupied_length'), 0)} x {_num(summary.get('occupied_width'), 0)} x {_num(summary.get('occupied_height'), 0)} mm"),

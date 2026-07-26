@@ -605,8 +605,23 @@ class ContainerToolForm(forms.Form):
         ("manual", "Manual"),
         ("catalogue", "From catalogue"),
     ]
+    PACKING_MODE_CHOICES = [
+        ("maximum_utilization", "Maximum utilization"),
+        ("accessible_sequence_loading", "Sequence loading"),
+        # Keep the legacy engine value for backward compatibility. Its
+        # user-facing name is now Strict sequence loading.
+        ("sequence_loading", "Strict sequence loading"),
+    ]
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    packing_mode = forms.ChoiceField(
+        choices=PACKING_MODE_CHOICES,
+        initial="maximum_utilization",
+        required=True,
+        widget=forms.RadioSelect,
+        label="Packing mode",
+    )
 
     container_source = forms.ChoiceField(
         choices=CONTAINER_SOURCE_CHOICES,

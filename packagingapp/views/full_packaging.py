@@ -744,6 +744,7 @@ def _transport_rows_from_selected(selected):
             "height": selected.get("height", ""),
             "qty": qty,
             "max_qty": bool(selected.get("transport_max_qty", False)),
+            "stackable": bool(selected.get("transport_stackable", True)),
             "weight": round(float(weight_kg), 3),
             "sequence": 1,
             "r1": True,
@@ -940,7 +941,7 @@ def _merge_transport_inherited_rows(existing_rows, inherited_rows):
         current = existing[row_index] if row_index < len(existing) else {}
         row = dict(inherited_row)
 
-        for key in ("qty", "max_qty", "sequence", "r1", "r2", "r3"):
+        for key in ("qty", "max_qty", "stackable", "sequence", "r1", "r2", "r3"):
             if key in current and current.get(key) not in (None, ""):
                 row[key] = current.get(key)
 
@@ -1603,6 +1604,7 @@ def _process_transport_step(step, steps, idx, post):
             row["width"] = float(selected_product.product_width)
             row["height"] = float(selected_product.product_height)
             row["weight"] = float(selected_product.weight or 0)
+            row.setdefault("stackable", True)
             row["r1"] = bool(selected_product.rotation_1)
             row["r2"] = bool(selected_product.rotation_2)
             row["r3"] = bool(selected_product.rotation_3)
