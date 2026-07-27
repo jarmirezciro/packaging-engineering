@@ -1,0 +1,116 @@
+{% if packaging_flow_summary.has_steps %}
+<section class="fp-flow-summary" aria-labelledby="fp-flow-summary-title">
+  <div class="fp-flow-summary-desktop">
+    <div class="fp-flow-summary-head">
+      <div class="fp-flow-summary-heading" id="fp-flow-summary-title">
+        <span class="fp-flow-summary-heading-icon"><i class="bi bi-diagram-3"></i></span>
+        <span>Packaging Flow Summary</span>
+      </div>
+      <div class="fp-flow-summary-pill">
+        {% if packaging_flow_summary.final %}
+          Final capacity: {{ packaging_flow_summary.final.value }} {{ packaging_flow_summary.final.label }}
+        {% else %}
+          Complete a step to see quantities
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="fp-flow-summary-body">
+      <div class="fp-flow-summary-chain">
+        {% for stage in packaging_flow_summary.stages %}
+          {% if not forloop.first %}
+            <span class="fp-flow-summary-arrow" aria-hidden="true"><i class="bi bi-arrow-right"></i></span>
+          {% endif %}
+          <div class="fp-flow-summary-stage{% if not stage.completed %} is-pending{% endif %}">
+            <span class="fp-flow-summary-stage-icon"><i class="bi {{ stage.icon }}"></i></span>
+            <div class="fp-flow-summary-stage-copy">
+              <div class="fp-flow-summary-stage-title">{{ stage.title }}</div>
+              {% if stage.completed %}
+                <div class="fp-flow-summary-primary">
+                  <strong>{{ stage.primary_value }}</strong>
+                  <span>{{ stage.primary_label }}</span>
+                </div>
+                {% for line in stage.secondary %}
+                  <div class="fp-flow-summary-secondary{% if line.is_base_total %} is-base-total{% endif %}">
+                    {{ line.value }} {{ line.label }}
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div class="fp-flow-summary-pending">{{ stage.status }}</div>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="fp-flow-summary-final{% if not packaging_flow_summary.final %} is-pending{% endif %}">
+        <span class="fp-flow-summary-check"><i class="bi {% if packaging_flow_summary.final %}bi-check-lg{% else %}bi-hourglass-split{% endif %}"></i></span>
+        <div>
+          {% if packaging_flow_summary.final %}
+            <div class="fp-flow-summary-final-title">{{ packaging_flow_summary.final.title }}</div>
+            <div class="fp-flow-summary-final-value">{{ packaging_flow_summary.final.value }} <span>{{ packaging_flow_summary.final.label }}</span></div>
+            {% if packaging_flow_summary.final.details %}
+              <div class="fp-flow-summary-final-details">{{ packaging_flow_summary.final.details }}</div>
+            {% endif %}
+          {% else %}
+            <div class="fp-flow-summary-final-title">Final capacity</div>
+            <div class="fp-flow-summary-pending">Not calculated</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <details class="fp-flow-summary-mobile">
+    <summary class="fp-flow-summary-mobile-head">
+      <span class="fp-flow-summary-heading">
+        <span class="fp-flow-summary-heading-icon"><i class="bi bi-diagram-3"></i></span>
+        <span>Packaging Flow Summary</span>
+      </span>
+      <span class="fp-flow-summary-mobile-result">
+        {% if packaging_flow_summary.final %}{{ packaging_flow_summary.final.value }} base products{% else %}Not calculated{% endif %}
+      </span>
+      <span class="fp-flow-summary-chevron" aria-hidden="true"><i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="fp-flow-summary-mobile-body">
+      {% for stage in packaging_flow_summary.stages %}
+        <div class="fp-flow-summary-stage{% if not stage.completed %} is-pending{% endif %}">
+          <span class="fp-flow-summary-stage-icon"><i class="bi {{ stage.icon }}"></i></span>
+          <div class="fp-flow-summary-stage-copy">
+            <div class="fp-flow-summary-stage-title">{{ stage.title }}</div>
+            {% if stage.completed %}
+              <div class="fp-flow-summary-primary">
+                <strong>{{ stage.primary_value }}</strong>
+                <span>{{ stage.primary_label }}</span>
+              </div>
+              {% for line in stage.secondary %}
+                <div class="fp-flow-summary-secondary{% if line.is_base_total %} is-base-total{% endif %}">
+                  {{ line.value }} {{ line.label }}
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="fp-flow-summary-pending">{{ stage.status }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {% if not forloop.last %}
+          <span class="fp-flow-summary-mobile-arrow" aria-hidden="true"><i class="bi bi-arrow-down"></i></span>
+        {% endif %}
+      {% endfor %}
+
+      <div class="fp-flow-summary-mobile-final">
+        {% if packaging_flow_summary.final %}
+          <div class="fp-flow-summary-final-title">{{ packaging_flow_summary.final.title }}</div>
+          <div class="fp-flow-summary-final-value">{{ packaging_flow_summary.final.value }} <span>{{ packaging_flow_summary.final.label }}</span></div>
+          {% if packaging_flow_summary.final.details %}
+            <div class="fp-flow-summary-final-details">{{ packaging_flow_summary.final.details }}</div>
+          {% endif %}
+        {% else %}
+          <div class="fp-flow-summary-final-title">Final capacity</div>
+          <div class="fp-flow-summary-pending">Not calculated</div>
+        {% endif %}
+      </div>
+    </div>
+  </details>
+</section>
+{% endif %}

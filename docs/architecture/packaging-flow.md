@@ -125,6 +125,21 @@ non-palletized Flow inputs retain generic load cuboids. The adapter validates
 the complete pallet-and-carton assembly against the calculated bounds and falls
 back to the cuboid if the source scene is incomplete or extends outside them.
 
+## Top quantity summary
+
+Packaging Flow presents a compact, always-visible quantity summary above the
+step cards. It reads the active JSON-safe chaining payload from each step and
+shows both the immediate conversion and cumulative base-product quantity, for
+example: products per box, boxes and products per pallet, and pallets, boxes,
+and products per transport container.
+
+The summary is presentation-only. It must not rerun tool engines or create a
+second quantity calculation path. It prefers the current pending result, falls
+back to the explicitly selected result, and fails closed after an incomplete or
+inconsistent stage. Existing collapsed-step summaries remain unchanged. Desktop
+uses a compact horizontal chain; mobile uses a collapsed summary row that can be
+expanded into a stacked chain.
+
 ## Future combined report
 
 A proposed Packaging Flow Report would use selected/effective results from each step and present:

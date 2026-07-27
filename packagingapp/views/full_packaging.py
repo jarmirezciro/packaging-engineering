@@ -75,6 +75,7 @@ from ..tools.full_packaging.export import (
     build_full_packaging_pdf,
     build_workflow_report_payload,
 )
+from ..tools.full_packaging.flow_summary import build_packaging_flow_summary
 
 
 SESSION_KEY = "full_packaging_mode_session"
@@ -1933,8 +1934,11 @@ def full_packaging_mode(request):
 
         step["workflow_overview"] = _build_step_overview(step, steps, idx)
 
+    packaging_flow_summary = build_packaging_flow_summary(steps)
+
     return render(request, "full_packaging/full_packaging_mode.html", {
         "steps": steps,
+        "packaging_flow_summary": packaging_flow_summary,
         "show_add_bar_after": workflow.get("show_add_bar_after"),
         "product_catalogues": product_catalogues,
         "packaging_catalogues": packaging_catalogues,
