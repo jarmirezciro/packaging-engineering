@@ -98,7 +98,11 @@
 
     <div class="d-flex flex-wrap gap-2">
         <a href="{% url 'blog_list' %}" class="btn btn-outline-success"><i class="bi bi-arrow-left me-2"></i>Back to blog</a>
+        {% if post.cta and post.cta.url and post.cta.label %}
+        <a href="{{ post.cta.url }}" class="btn btn-success"{% if post.cta.new_tab %} target="_blank" rel="noopener"{% endif %}><i class="bi bi-box-arrow-up-right me-2"></i>{{ post.cta.label }}</a>
+        {% else %}
         <a href="{% url 'container_selection_mode1' %}" class="btn btn-success"><i class="bi bi-box-seam me-2"></i>Try Container Selection</a>
+        {% endif %}
         <a href="{% url 'about' %}#contact" class="btn btn-outline-success"><i class="bi bi-envelope me-2"></i>Contact KolliLabs</a>
     </div>
 </article>

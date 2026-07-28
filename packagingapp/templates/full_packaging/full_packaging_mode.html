@@ -86,16 +86,30 @@
     </div>
   </div>
 
+  {% if case_preset %}
+    <div class="fp-shell-card">
+      <div class="app-card-body py-3">
+        <div class="d-flex align-items-start gap-3 flex-wrap">
+          <span class="fp-shell-badge"><i class="bi bi-journal-text"></i>Interactive article case</span>
+          <div class="flex-grow-1">
+            <strong>{{ case_preset.title }}</strong>
+            <div class="text-muted small mt-1">{{ case_preset.description }} Choose another Box Design Mode alternative to see the pallet and container results recalculate.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
   <div class="d-flex justify-content-end gap-2 flex-wrap">
     {% if steps %}
-      <a href="{% url 'full_packaging_export_pdf' %}" class="btn btn-app-primary btn-sm">
+      <a href="{{ full_packaging_export_url }}" class="btn btn-app-primary btn-sm">
         <i class="bi bi-filetype-pdf me-2"></i>Export PDF report
       </a>
     {% endif %}
     <form method="post" style="margin:0;">
       {% csrf_token %}
       <input type="hidden" name="action" value="reset_workflow">
-      <button type="submit" class="btn btn-app-outline btn-sm"><i class="bi bi-arrow-counterclockwise me-2"></i>Reset workflow</button>
+      <button type="submit" class="btn btn-app-outline btn-sm"><i class="bi bi-arrow-counterclockwise me-2"></i>{% if case_preset %}Reset case{% else %}Reset workflow{% endif %}</button>
     </form>
   </div>
 

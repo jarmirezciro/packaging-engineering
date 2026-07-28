@@ -158,4 +158,14 @@ urlpatterns = [
     # Full Packaging Module
     path("full-packaging/", full_packaging_mode, name="full_packaging_mode"),
     path("full-packaging/export/pdf/", full_packaging_export_pdf, name="full_packaging_export_pdf"),
+    path(
+        "full-packaging/case/<slug:case_slug>/",
+        full_packaging_mode,
+        name="full_packaging_case",
+    ),
+    path(
+        "full-packaging/case/<slug:case_slug>/export/pdf/",
+        full_packaging_export_pdf,
+        name="full_packaging_case_export_pdf",
+    ),
 ]
