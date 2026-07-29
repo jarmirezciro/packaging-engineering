@@ -23,6 +23,7 @@ from ..tools.container.service import (
     get_selected_product,
 )
 from ..tools.container.state import default_container_config
+from ..tools.container.case_presets import get_container_selection_case_preset
 from ..tools.selection_mode import normalize_selection_mode
 from ..tools.container.export import build_container_selection_pdf
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
@@ -680,12 +681,25 @@ def container_selection_mode1(request):
 
 
 def container_selection_calculator(request):
-    is_initial_example = request.method == "GET" and not request.GET
+    case_slug = (request.GET.get("case") or "").strip() if request.method == "GET" else ""
+    case_preset = get_container_selection_case_preset(case_slug)
+
+    is_default_example = request.method == "GET" and not request.GET
+    is_case_example = request.method == "GET" and case_preset is not None
+
+    if is_case_example:
+        initial_config = case_preset["config"]
+    elif is_default_example:
+        initial_config = SEO_CONTAINER_SELECTION_EXAMPLE_CONFIG
+    else:
+        initial_config = None
+
+    should_run_initial_analysis = is_default_example or is_case_example
     context = _build_container_selection_page_context(
         request,
         mode="seo",
-        initial_config=SEO_CONTAINER_SELECTION_EXAMPLE_CONFIG if is_initial_example else None,
-        run_initial_analysis=is_initial_example,
+        initial_config=initial_config,
+        run_initial_analysis=should_run_initial_analysis,
     )
     canonical_url, faq_items, schema_json = _build_container_selection_seo_schema(request)
     context.update(
@@ -693,9 +707,19 @@ def container_selection_calculator(request):
             "canonical_url": canonical_url,
             "faq_items": faq_items,
             "seo_schema_json": schema_json,
-            "is_initial_example": is_initial_example,
-            "example_product_dimensions": "180 × 120 × 80 mm",
-            "example_container_dimensions": "600 × 400 × 320 mm",
+            "is_initial_example": should_run_initial_analysis,
+            "example_product_dimensions": (
+                case_preset["product_dimensions_display"]
+                if is_case_example
+                else "180 × 120 × 80 mm"
+            ),
+            "example_container_dimensions": (
+                case_preset["container_dimensions_display"]
+                if is_case_example
+                else "600 × 400 × 320 mm"
+            ),
+            "active_case_slug": case_slug if is_case_example else "",
+            "active_case_label": case_preset["label"] if is_case_example else "",
         }
     )
     return render(request, "marketing/container_selection_calculator.html", context)
