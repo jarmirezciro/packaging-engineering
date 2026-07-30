@@ -10,6 +10,7 @@ def default_bag_config():
         "product_h": "",
         "product_weight": "",
         "desired_qty": "1",
+        "product_shape": "cuboid",
         "bag_source": "manual",
         "catalogue_id": "",
         "bag_id": "",

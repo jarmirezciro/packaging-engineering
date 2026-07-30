@@ -1,7 +1,7 @@
 +++
 schema_version = 1
 status = "published"
-display_order = 6
+display_order = 7
 title = "Same Box, 20% More Products: Why Orientation Matters"
 slug = "how-many-products-fit-in-a-box-orientation-case-study"
 subtitle = "A practical KolliPack case showing how verified product orientations increased capacity from 15 to 18 units."

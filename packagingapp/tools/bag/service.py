@@ -12,6 +12,10 @@ from ...utils.bag_selection.engine import (
     compute_max_quantity_for_bag,
     run_bag_mode1_and_render,
 )
+from ..product_shape import (
+    decorate_product_scene,
+    normalize_product_shape,
+)
 
 from .serializers import sanitize_bag_config_for_session
 
@@ -125,6 +129,9 @@ def get_selected_material(config):
 def build_hydrated_post_data(raw_post, config, selected_product=None, selected_material=None):
     post_data = raw_post.copy()
     post_data["mode"] = (config or {}).get("mode") or "single"
+    post_data["product_shape"] = normalize_product_shape(
+        (config or {}).get("product_shape")
+    )
 
     if (config or {}).get("mode") == "design":
         post_data.setdefault("bag_source", "manual")
@@ -462,6 +469,11 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
 
     requested_id = str(config.get("selected_design_candidate_id") or "")
     selected = next((row for row in candidates if row["candidate_id"] == requested_id), candidates[0])
+    decorate_product_scene(
+        selected["render_data"],
+        product_shape=config.get("product_shape"),
+        product=product,
+    )
     if design["additional_capacity"]:
         notices.append(
             f"The requested quantity was {design['desired_quantity']}. The bag was designed for "
@@ -600,6 +612,11 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                     draw_limit=min(max_qty, BAG_DRAW_LIMIT),
                     selected_required_bag=result.get("best_required"),
                 )
+                decorate_product_scene(
+                    render_res.threejs_scene,
+                    product_shape=cfg.get("product_shape"),
+                    product=product,
+                )
                 result["image_rel_path"] = render_res.image_rel_path
                 result["threejs_scene"] = render_res.threejs_scene
                 threejs_scene = render_res.threejs_scene
@@ -679,6 +696,11 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                             draw_limit=min(desired_qty, BAG_DRAW_LIMIT),
                             selected_required_bag=result.get("best_required"),
                             render_mode="optimal",
+                        )
+                        decorate_product_scene(
+                            render_res.threejs_scene,
+                            product_shape=cfg.get("product_shape"),
+                            product=product,
                         )
                         result["image_rel_path"] = render_res.image_rel_path
                         result["threejs_scene"] = render_res.threejs_scene

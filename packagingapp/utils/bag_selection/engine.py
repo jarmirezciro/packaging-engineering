@@ -11,6 +11,9 @@ from packagingapp.utils.quantity_decomposition import (
     next_smooth_quantity,
 )
 from packagingapp.utils.package_design_arrangements import build_canonical_design_arrangements
+from packagingapp.tools.product_shape import (
+    orientation_index_from_axis_order,
+)
 
 
 # ---------------------------
@@ -254,7 +257,13 @@ def build_bag_design_candidates(
             body_length=bundle_l,
             body_width=bundle_w,
             body_height=bundle_h,
-            products=arrangement["products"],
+            products=[
+                {
+                    **product_item,
+                    "orientationIndex": int(arrangement["orientation_index"]),
+                }
+                for product_item in arrangement["products"]
+            ],
             mode="design",
         )
         candidates.append({
@@ -564,6 +573,7 @@ def run_bag_mode1_and_render(
     clean: bool = True,
     selected_required_bag: Optional[Tuple[float, float]] = None,
     render_mode: str = "single",
+    include_product_orientation_metadata: bool = True,
 ) -> BagRenderResult:
     """Serialize the authoritative selected Single/Optimal solution for Three.js."""
     product = (float(product[0]), float(product[1]), float(product[2]))
@@ -588,6 +598,9 @@ def run_bag_mode1_and_render(
         float(best_option["body_box"][2]),
     )
     body_axes = best_option["axes"]
+    orientation_index = orientation_index_from_axis_order(
+        tuple(axis["axis"] for axis in body_axes)
+    )
 
     # Draw the actual selected physical/catalogue bag, not the minimum required
     # bag. The selected required option is used only to preserve the product
@@ -653,6 +666,8 @@ def run_bag_mode1_and_render(
                     "color": "#f59e0b",
                     "opacity": 1.0,
                 })
+                if include_product_orientation_metadata:
+                    products[-1]["orientationIndex"] = orientation_index
                 drawn += 1
 
             if drawn >= draw_limit:

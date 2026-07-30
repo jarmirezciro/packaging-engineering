@@ -34,6 +34,7 @@ from ..tools.bag.presenter import (
 )
 from ..tools.bag.serializers import sanitize_bag_config_for_session
 from ..tools.selection_mode import normalize_selection_mode
+from ..tools.product_shape import normalize_product_shape
 from ..tools.bag.service import (
     analyze_bag_config as analyze_bag_config_shared,
     get_materials_for_catalogue as get_bag_materials_for_catalogue,
@@ -1354,6 +1355,10 @@ def _process_container_step(step, steps, idx, post):
         f"desired_qty{suffix}",
         post.get(f"desired_qty_{idx}", cfg.get("desired_qty", "1"))
     )
+    cfg["product_shape"] = normalize_product_shape(post.get(
+        f"product_shape{suffix}",
+        post.get(f"product_shape_{idx}", cfg.get("product_shape", "cuboid")),
+    ))
 
     has_prefixed_rotation_inputs = (
         f"r1{suffix}" in post or f"r2{suffix}" in post or f"r3{suffix}" in post
@@ -1418,6 +1423,7 @@ def _process_container_step(step, steps, idx, post):
         "product_h": cfg.get("product_h", ""),
         "product_weight": cfg.get("product_weight", ""),
         "desired_qty": cfg.get("desired_qty", "1"),
+        "product_shape": cfg.get("product_shape", "cuboid"),
         "container_source": cfg.get("container_source", "manual"),
         "catalogue_id": cfg.get("catalogue_id", ""),
         "container_id": cfg.get("container_id", ""),
@@ -1628,6 +1634,10 @@ def _process_bag_step(step, steps, idx, post):
         f"desired_qty{suffix}",
         post.get(f"desired_qty_{idx}", cfg.get("desired_qty", "1")),
     )
+    cfg["product_shape"] = normalize_product_shape(post.get(
+        f"product_shape{suffix}",
+        post.get(f"product_shape_{idx}", cfg.get("product_shape", "cuboid")),
+    ))
     cfg["catalogue_id"] = post.get(
         f"catalogue_id{suffix}",
         post.get(f"catalogue_id_{idx}", cfg.get("catalogue_id", "")),

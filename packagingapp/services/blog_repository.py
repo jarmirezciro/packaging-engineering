@@ -15,6 +15,12 @@ except ModuleNotFoundError:  # Python 3.10 fallback
 
 ARTICLE_DIRECTORY = Path(settings.BASE_DIR) / "packagingapp" / "content" / "blog" / "articles"
 _FRONT_MATTER = re.compile(r"\A\+\+\+\s*\n(?P<meta>.*?)\n\+\+\+\s*\n?(?P<body>.*)\Z", re.DOTALL)
+_MATH_DELIMITERS = {
+    r"\[": "KOLLIPACKMATHDISPLAYOPEN",
+    r"\]": "KOLLIPACKMATHDISPLAYCLOSE",
+    r"\(": "KOLLIPACKMATHINLINEOPEN",
+    r"\)": "KOLLIPACKMATHINLINECLOSE",
+}
 
 
 class BlogContentError(ValueError):
@@ -31,6 +37,18 @@ def _estimated_read_time(body: str) -> str:
     words = len(re.findall(r"\b\w+\b", body))
     minutes = max(1, round(words / 220))
     return f"{minutes} min read"
+
+
+def _protect_math_delimiters(source: str) -> str:
+    for delimiter, placeholder in _MATH_DELIMITERS.items():
+        source = source.replace(delimiter, placeholder)
+    return source
+
+
+def _restore_math_delimiters(rendered: str) -> str:
+    for delimiter, placeholder in _MATH_DELIMITERS.items():
+        rendered = rendered.replace(placeholder, delimiter)
+    return rendered
 
 
 def _load_article(path: Path) -> dict:
@@ -51,12 +69,16 @@ def _load_article(path: Path) -> dict:
     article = {key: _as_text(value) for key, value in metadata.items()}
     static_prefix = str(settings.STATIC_URL).rstrip("/") + "/"
     rendered_source = body.replace("static://", static_prefix)
+    if article.get("math"):
+        rendered_source = _protect_math_delimiters(rendered_source)
 
     article["content_html"] = markdown(
         rendered_source,
         extensions=["extra", "sane_lists", "md_in_html"],
         output_format="html5",
     )
+    if article.get("math"):
+        article["content_html"] = _restore_math_delimiters(article["content_html"])
     article["summary"] = article.get("summary") or article.get("excerpt", "")
     article["description"] = article.get("description") or article.get("meta_description") or article.get("subtitle", "")
     article["featured_image"] = article.get("featured_image") or article.get("thumbnail", "")

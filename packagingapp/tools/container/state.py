@@ -11,6 +11,7 @@ def default_container_config():
         "product_h": "",
         "product_weight": "",
         "desired_qty": "1",
+        "product_shape": "cuboid",
         "r1": True,
         "r2": True,
         "r3": True,

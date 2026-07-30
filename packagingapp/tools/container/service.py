@@ -9,6 +9,10 @@ from ...utils.box_selection.engine import (
     render_product_base_unit,
     run_mode1_and_render,
 )
+from ..product_shape import (
+    decorate_product_scene,
+    normalize_product_shape,
+)
 
 from .serializers import sanitize_container_config_for_session
 
@@ -84,6 +88,9 @@ def get_selected_material(config, user=_UNSCOPED_CATALOGUE_USER):
 def build_hydrated_post_data(raw_post, config, selected_product=None, selected_material=None):
     post_data = raw_post.copy()
     post_data["mode"] = (config or {}).get("mode") or "single"
+    post_data["product_shape"] = normalize_product_shape(
+        (config or {}).get("product_shape")
+    )
 
     if (config or {}).get("mode") == "design":
         post_data.setdefault("container_source", "manual")
@@ -505,6 +512,11 @@ def _analyze_container_design(form, product, r1, r2, r3, product_source, contain
 
     requested_id = str(form.cleaned_data.get("selected_design_candidate_id") or "")
     selected = next((row for row in candidates if row["candidate_id"] == requested_id), candidates[0])
+    decorate_product_scene(
+        selected["render_data"],
+        product_shape=form.cleaned_data.get("product_shape"),
+        product=product,
+    )
     if design["additional_capacity"]:
         notices.append(
             f"The requested quantity was {design['desired_quantity']}. The container was designed for "
@@ -547,6 +559,9 @@ def analyze_container_form(
 
     mode = form.cleaned_data.get("mode") or "single"
     action = form.cleaned_data.get("action") or ""
+    product_shape = normalize_product_shape(
+        form.cleaned_data.get("product_shape")
+    )
 
     product_source = form.cleaned_data.get("product_source") or "manual"
     container_source = form.cleaned_data.get("container_source") or "manual"
@@ -572,7 +587,7 @@ def analyze_container_form(
         selected_product=selected_product,
     )
 
-    if product is not None and not messages:
+    if product is not None and not messages and product_shape == "cuboid":
         try:
             product_base_image_rel_path = render_product_base_unit(
                 product,
@@ -616,6 +631,11 @@ def analyze_container_form(
                     r3,
                     media_root or settings.MEDIA_ROOT,
                     render_style="clean",
+                )
+                decorate_product_scene(
+                    render_result.threejs_scene,
+                    product_shape=product_shape,
+                    product=product,
                 )
                 result = render_result
                 analysis_report = build_container_analysis_report(
@@ -672,6 +692,11 @@ def analyze_container_form(
                             media_root or settings.MEDIA_ROOT,
                             draw_limit=desired_qty,
                             render_style="clean",
+                        )
+                        decorate_product_scene(
+                            render_result.threejs_scene,
+                            product_shape=product_shape,
+                            product=product,
                         )
                         result = render_result
                         analysis_report = build_container_analysis_report(

@@ -237,6 +237,7 @@ def multi_product_container_draw(request: HttpRequest) -> JsonResponse:
         r1, r2, r3,
         settings.MEDIA_ROOT,
         draw_limit=desired_qty,
+        include_product_orientation_metadata=False,
     )
 
     return JsonResponse(

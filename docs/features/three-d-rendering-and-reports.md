@@ -50,6 +50,26 @@ For browser 3D results:
 - no redundant paragraph explaining controls when concise labels suffice;
 - standalone, Flow, and the corresponding multi-product consumer share the same scene/placement data and UI/rendering component where applicable.
 
+### Bag and Container product-shape visualization
+
+Bag and Container Selection accept `cuboid`, `cylinder`, `bottle`, and
+`pillow_bag` as visualization-only product shapes. Packing, ranking, collision,
+capacity, efficiency, weight, and payload calculations continue to use the
+original rectangular L/W/H bounding dimensions. The selected standalone,
+Packaging Flow, and public-calculator scene adds:
+
+- `productShape`, normalized to an approved value with `cuboid` fallback;
+- `productDefinition` with the original JSON-safe length, width, and height;
+- `orientationIndex` on each product item, using the authoritative six-axis
+  orientation order.
+
+The shared Three.js viewer creates the approved geometry from those fields and
+positions it at the existing calculated cuboid centre. Missing or invalid shape
+metadata stays on the historical cuboid path. Multi-product Bag and Container
+Selection intentionally expose no shape selector or shape/orientation metadata
+and therefore remain cuboid-only. The existing current-canvas snapshot remains
+the PDF visualization source.
+
 ### Palletization browser scene
 
 Palletization serializes the selected engine `Placement3D` set into one
@@ -92,9 +112,10 @@ model. Other Transport consumers and inputs continue to render generic cuboids.
 Bag Design, Single bag analysis, and the selected Optimal Bag result serialize
 the authoritative engine arrangement into one JSON-safe `packageType=bag`
 scene. The shared viewer draws the usable bag body, width-side opening, reserved
-length sealing strip, and exactly the selected product cuboids. Standalone Bag
-Selection, Packaging Flow, the public calculator, and Multi-product Bag
-Selection consume this same scene contract.
+length sealing strip, and exactly the selected calculated product placements.
+Standalone Bag Selection, Packaging Flow, the public calculator, and
+Multi-product Bag Selection consume the shared placement contract; the
+multi-product surface uses its intentional cuboid-only fallback.
 
 The active Bag result path does not create a Matplotlib PNG. Single, Optimal,
 and Design PDF actions capture the current shared Three.js canvas, validate the

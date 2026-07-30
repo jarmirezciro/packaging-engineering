@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 
 from .models import PackagingCatalogue, PackagingMaterial
 from .models import ProductCatalogue, Product
+from .tools.product_shape import PRODUCT_SHAPE_CHOICES
 
 
 ###
@@ -220,6 +221,14 @@ class ContainerSelectionMode1Form(forms.Form):
         label="Units needed",
         required=False,
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"})
+    )
+
+    product_shape = forms.ChoiceField(
+        choices=PRODUCT_SHAPE_CHOICES,
+        initial="cuboid",
+        required=False,
+        label="Product shape",
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
 
     r1 = forms.BooleanField(required=False, initial=True, label="Allow rotation 1")
@@ -449,6 +458,14 @@ class BagSelectionForm(forms.Form):
         label="Target quantity",
         required=False,
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"})
+    )
+
+    product_shape = forms.ChoiceField(
+        choices=PRODUCT_SHAPE_CHOICES,
+        initial="cuboid",
+        required=False,
+        label="Product shape",
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
 
     bag_source = forms.ChoiceField(

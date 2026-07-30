@@ -1,5 +1,6 @@
 from .state import default_bag_config
 from ..selection_mode import normalize_selection_mode
+from ..product_shape import normalize_product_shape
 
 
 def _safe_str(value, default=""):
@@ -23,6 +24,7 @@ def sanitize_bag_config_for_session(config):
         "product_h": _safe_str(base.get("product_h") or ""),
         "product_weight": _safe_str(base.get("product_weight") or ""),
         "desired_qty": _safe_str(base.get("desired_qty") or "1"),
+        "product_shape": normalize_product_shape(base.get("product_shape")),
         "bag_source": _safe_str(base.get("bag_source") or "manual"),
         "catalogue_id": _safe_str(base.get("catalogue_id") or ""),
         "bag_id": _safe_str(base.get("bag_id") or ""),

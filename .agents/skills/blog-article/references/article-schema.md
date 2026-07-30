@@ -20,6 +20,7 @@ updated_at = 2026-07-06
 thumbnail = "img/blog/box-selection-3d-bin-packing-problem/thumbnail.webp"
 thumbnail_alt = "Products arranged inside a shipping box using optimized orientations"
 primary_keyword = "3D bin packing box selection"
+math = true
 tags = ["box selection", "packaging optimization", "3D bin packing"]
 related_articles = []
 related_tools = ["box-selection-tool"]
@@ -55,6 +56,16 @@ Article body...
 | `thumbnail_alt` | Meaningful visual description |
 | `primary_keyword` | Main search topic |
 
+## Selectable mathematics
+
+Set the optional TOML field below only when an article contains TeX delimiters that require browser typesetting:
+
+```toml
+math = true
+```
+
+Math-enabled articles may use `\(...\)` for inline equations and `\[...\]` for display equations. The blog detail template loads the shared math renderer only for opted-in articles. Keep equations as text in the Markdown source; do not replace them with raster images. Code blocks are excluded from math processing.
+
 ## Approved article types
 
 - `engineering_deep_dive`
@@ -67,6 +78,7 @@ Article body...
 
 - `hero_image`
 - `hero_image_alt`
+- `math`
 - `tags`
 - `related_articles`
 - `related_tools`
