@@ -1822,11 +1822,17 @@ def get_base_and_interlock_layers(pattern_name, area_l, area_w, box_l, box_w):
     base = center_placements_on_area(base, area_l, area_w)
     interlock = center_placements_on_area(interlock, area_l, area_w)
 
-    base = prefer_edge_balanced_filler_layer(base, area_l, area_w)
-    interlock = prefer_edge_balanced_filler_layer(interlock, area_l, area_w)
+    # Filler symmetry refinements are intended for composite filler-band
+    # patterns such as Splitrow. Applying them to pinwheel-based families can
+    # pull genuine pinwheel leaves toward opposite pallet edges and make the
+    # mosaic look sparse in the Three.js renderer. Keep Pinwheel and Hybrid
+    # pinwheel compact by preserving their generated/centered motif geometry.
+    if pattern_name == "Splitrow":
+        base = prefer_edge_balanced_filler_layer(base, area_l, area_w)
+        interlock = prefer_edge_balanced_filler_layer(interlock, area_l, area_w)
 
-    base = prefer_edge_balanced_sparse_filler_lines(base, area_l, area_w)
-    interlock = prefer_edge_balanced_sparse_filler_lines(interlock, area_l, area_w)
+        base = prefer_edge_balanced_sparse_filler_lines(base, area_l, area_w)
+        interlock = prefer_edge_balanced_sparse_filler_lines(interlock, area_l, area_w)
 
     return base, interlock
 

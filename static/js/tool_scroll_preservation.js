@@ -22,13 +22,6 @@
             page: currentPageKey(),
             marker: markerKey,
             viewportTop: marker.getBoundingClientRect().top,
-            innerScroll: Array.from(marker.querySelectorAll("[data-preserve-inner-scroll]")).map(function (scrollArea) {
-                return {
-                    key: scrollArea.getAttribute("data-preserve-inner-scroll"),
-                    top: scrollArea.scrollTop,
-                    left: scrollArea.scrollLeft,
-                };
-            }).filter(function (entry) { return entry.key; }),
             createdAt: Date.now(),
         };
 
@@ -70,19 +63,6 @@
         }) || null;
     }
 
-    function restoreInnerScroll(marker, entries) {
-        if (!Array.isArray(entries)) return;
-        const scrollAreas = Array.from(marker.querySelectorAll("[data-preserve-inner-scroll]"));
-        entries.forEach(function (entry) {
-            const scrollArea = scrollAreas.find(function (element) {
-                return element.getAttribute("data-preserve-inner-scroll") === entry.key;
-            });
-            if (!scrollArea) return;
-            scrollArea.scrollTop = Number(entry.top) || 0;
-            scrollArea.scrollLeft = Number(entry.left) || 0;
-        });
-    }
-
     function navigationType() {
         const navigationEntry = window.performance?.getEntriesByType?.("navigation")?.[0];
         return navigationEntry?.type || "";
@@ -121,7 +101,6 @@
         // make one layout-relative adjustment. This avoids fixed pixel offsets,
         // timers, polling, and repeated viewport movement.
         window.requestAnimationFrame(function () {
-            restoreInnerScroll(marker, state.innerScroll);
             const invalid = validationTarget(marker);
             if (invalid) {
                 if (typeof invalid.focus === "function") {

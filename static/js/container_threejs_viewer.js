@@ -1,10 +1,5 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import {
-    createApprovedProductMaterials,
-    createApprovedProductVisual,
-    normalizeProductShape,
-} from "./product_shape_factory.js";
 
 const initialized = new WeakSet();
 const instances = new Map();
@@ -26,8 +21,8 @@ function getViewerSize(el) {
     // Use the parent width as a hard reference so the canvas cannot make
     // the viewer wider, then use setSize(..., false) to avoid style feedback.
     const rawWidth = rect.width || el.clientWidth || (parentRect ? parentRect.width : 0) || 600;
-    const parentWidth = parentRect && parentRect.width > 0 ? parentRect.width : rawWidth;
-    const width = Math.max(1, Math.min(rawWidth, parentWidth, 1200));
+    const parentWidth = parentRect ? parentRect.width : rawWidth;
+    const width = Math.max(320, Math.min(rawWidth, parentWidth, 1200));
 
     const rawHeight = rect.height || el.clientHeight || 420;
     const height = Math.max(320, Math.min(rawHeight, 620));
@@ -61,16 +56,49 @@ function centerPosition(cuboid, dims) {
     return mapPosition(x, y, z, dims);
 }
 
-function hasValidProductDefinition(productDefinition) {
-    if (!productDefinition) return false;
-    return ["length", "width", "height"].every((key) => {
-        const value = Number(productDefinition[key]);
-        return Number.isFinite(value) && value > 0;
+function geometrySize(geometry) {
+    const params = geometry && geometry.parameters ? geometry.parameters : {};
+    if (Number.isFinite(params.width) && Number.isFinite(params.height) && Number.isFinite(params.depth)) {
+        return { width: params.width, height: params.height, depth: params.depth };
+    }
+
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    return {
+        width: Math.max(box.max.x - box.min.x, 0.001),
+        height: Math.max(box.max.y - box.min.y, 0.001),
+        depth: Math.max(box.max.z - box.min.z, 0.001),
+    };
+}
+
+function externalCuboidEdgeGeometry(width, height, depth) {
+    const x = width / 2;
+    const y = height / 2;
+    const z = depth / 2;
+    const corners = [
+        [-x, -y, -z], [x, -y, -z], [x, -y, z], [-x, -y, z],
+        [-x, y, -z], [x, y, -z], [x, y, z], [-x, y, z],
+    ];
+    const edgePairs = [
+        [0, 1], [1, 2], [2, 3], [3, 0],
+        [4, 5], [5, 6], [6, 7], [7, 4],
+        [0, 4], [1, 5], [2, 6], [3, 7],
+    ];
+    const vertices = [];
+    edgePairs.forEach(([a, b]) => {
+        vertices.push(...corners[a], ...corners[b]);
     });
+    const edgeGeometry = new THREE.BufferGeometry();
+    edgeGeometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    return edgeGeometry;
 }
 
 function addEdges(mesh, target, edgeColor = 0x111827, opacity = 0.65) {
-    const edges = new THREE.EdgesGeometry(mesh.geometry);
+    // Draw only the 12 real cuboid edges. Do not use WireframeGeometry or
+    // generic triangle edges here, because that exposes the internal diagonal
+    // used when rectangular faces are triangulated by WebGL/Three.js.
+    const size = geometrySize(mesh.geometry);
+    const edges = externalCuboidEdgeGeometry(size.width, size.height, size.depth);
     const material = new THREE.LineBasicMaterial({
         color: edgeColor,
         transparent: opacity < 1,
@@ -144,26 +172,6 @@ function addContainerBody(target, dims) {
     });
 }
 
-function addBagBody(target, dims, sceneData) {
-    const bag = sceneData.bag || {};
-    const maxDim = Math.max(dims.length, dims.width, dims.height);
-    const t = Math.max(maxDim * 0.004, 0.6);
-    const bodyLength = Math.min(Math.max(number(bag.usableBodyLength, dims.length), 0), dims.length);
-    const material = new THREE.MeshStandardMaterial({color:0x86a99a,transparent:true,opacity:0.16,roughness:0.76,side:THREE.DoubleSide,depthWrite:false});
-    const parts = [
-        {x:0,y:0,z:-t,dx:dims.length,dy:dims.width,dz:t},
-        {x:0,y:0,z:dims.height,dx:dims.length,dy:dims.width,dz:t},
-        {x:0,y:-t,z:0,dx:dims.length,dy:t,dz:dims.height},
-        {x:0,y:dims.width,z:0,dx:dims.length,dy:t,dz:dims.height},
-        {x:-t,y:0,z:0,dx:t,dy:dims.width,dz:dims.height},
-    ];
-    parts.forEach((part) => addCuboid(target, part, dims, {material,edgeColor:0x23483b,edgeOpacity:0.55}));
-    if (bodyLength < dims.length) {
-        const sealMaterial = new THREE.MeshStandardMaterial({color:0xf59e0b,transparent:true,opacity:0.34,side:THREE.DoubleSide,depthWrite:false});
-        addCuboid(target,{x:bodyLength,y:0,z:dims.height+t,dx:dims.length-bodyLength,dy:dims.width,dz:t},dims,{material:sealMaterial,edgeColor:0x92400e,edgeOpacity:0.65});
-    }
-}
-
 function addQuad(target, points, dims, material, edgeColor = 0x111827) {
     const vertices = [];
     points.forEach((p) => {
@@ -179,9 +187,16 @@ function addQuad(target, points, dims, material, edgeColor = 0x111827) {
     const mesh = new THREE.Mesh(geometry, material);
     target.add(mesh);
 
-    const edges = new THREE.EdgesGeometry(geometry);
+    const edgeVertices = [];
+    [0, 1, 1, 2, 2, 3, 3, 0].forEach((idx) => {
+        const p = points[idx];
+        const mapped = mapPosition(p[0], p[1], p[2], dims);
+        edgeVertices.push(mapped.x, mapped.y, mapped.z);
+    });
+    const edgeGeometry = new THREE.BufferGeometry();
+    edgeGeometry.setAttribute("position", new THREE.Float32BufferAttribute(edgeVertices, 3));
     const lines = new THREE.LineSegments(
-        edges,
+        edgeGeometry,
         new THREE.LineBasicMaterial({ color: edgeColor, transparent: true, opacity: 0.45 }),
     );
     target.add(lines);
@@ -329,12 +344,8 @@ function initViewer(el) {
     const productGroup = new THREE.Group();
     root.add(containerGroup, subboxGroup, productGroup);
 
-    if (sceneData.packageType === "bag") {
-        addBagBody(containerGroup, dims, sceneData);
-    } else {
-        addContainerBody(containerGroup, dims);
-        addRscFlaps(containerGroup, dims, sceneData);
-    }
+    addContainerBody(containerGroup, dims);
+    addRscFlaps(containerGroup, dims, sceneData);
 
     (sceneData.subboxes || []).forEach((box) => {
         addCuboid(subboxGroup, box, dims, {
@@ -345,37 +356,17 @@ function initViewer(el) {
         });
     });
 
-    const productShape = normalizeProductShape(sceneData.productShape);
-    const useApprovedProductShape = (
-        productShape !== "cuboid"
-        && hasValidProductDefinition(sceneData.productDefinition)
-    );
-    const productMaterial = useApprovedProductShape ? null : new THREE.MeshStandardMaterial({
+    const productMaterial = new THREE.MeshStandardMaterial({
         color: 0xf59e0b,
         roughness: 0.64,
         metalness: 0.02,
     });
-    const approvedProductMaterials = useApprovedProductShape
-        ? createApprovedProductMaterials("#f59e0b")
-        : null;
-
     (sceneData.products || []).forEach((item) => {
-        if (useApprovedProductShape) {
-            const visual = createApprovedProductVisual({
-                shapeType: productShape,
-                productDefinition: sceneData.productDefinition,
-                orientationIndex: item.orientationIndex,
-                materials: approvedProductMaterials,
-            });
-            visual.position.copy(centerPosition(item, dims));
-            productGroup.add(visual);
-        } else {
-            addCuboid(productGroup, item, dims, {
-                material: productMaterial,
-                edgeColor: 0x1e40af,
-                edgeOpacity: 0.75,
-            });
-        }
+        addCuboid(productGroup, item, dims, {
+            material: productMaterial,
+            edgeColor: 0x1e40af,
+            edgeOpacity: 0.75,
+        });
     });
 
     let currentViewName = "reset";
@@ -397,14 +388,6 @@ function initViewer(el) {
         subboxGroup.visible = Boolean(toggle.checked);
     } else {
         subboxGroup.visible = false;
-    }
-
-    const containerToggle = panel.querySelector('[data-container-threejs-toggle="container"]');
-    if (containerToggle) {
-        containerToggle.addEventListener("change", () => {
-            containerGroup.visible = Boolean(containerToggle.checked);
-        });
-        containerGroup.visible = Boolean(containerToggle.checked);
     }
 
     instances.set(el, {
