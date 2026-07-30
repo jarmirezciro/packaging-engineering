@@ -1,12 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import {
-    buildPalletizedLoadGroup,
-    getPalletizedLoadDimensions,
-} from "./palletized_load_threejs.js";
 
 const initialized = new WeakSet();
 const instances = new Map();
+
+function number(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
 
 function getViewerSize(el) {
     const rect = el.getBoundingClientRect();
@@ -21,9 +22,6 @@ function getViewerSize(el) {
 }
 
 function getSceneDimensions(sceneData) {
-<<<<<<< HEAD
-    return getPalletizedLoadDimensions(sceneData);
-=======
     const pallet = sceneData.pallet || {};
     const allowed = sceneData.allowed_footprint || {};
     const metadata = sceneData.metadata || {};
@@ -56,49 +54,9 @@ function centerPosition(cuboid, dims) {
     );
 }
 
-function geometrySize(geometry) {
-    const params = geometry && geometry.parameters ? geometry.parameters : {};
-    if (Number.isFinite(params.width) && Number.isFinite(params.height) && Number.isFinite(params.depth)) {
-        return { width: params.width, height: params.height, depth: params.depth };
-    }
-
-    geometry.computeBoundingBox();
-    const box = geometry.boundingBox;
-    return {
-        width: Math.max(box.max.x - box.min.x, 0.001),
-        height: Math.max(box.max.y - box.min.y, 0.001),
-        depth: Math.max(box.max.z - box.min.z, 0.001),
-    };
-}
-
-function externalCuboidEdgeGeometry(width, height, depth) {
-    const x = width / 2;
-    const y = height / 2;
-    const z = depth / 2;
-    const corners = [
-        [-x, -y, -z], [x, -y, -z], [x, -y, z], [-x, -y, z],
-        [-x, y, -z], [x, y, -z], [x, y, z], [-x, y, z],
-    ];
-    const edgePairs = [
-        [0, 1], [1, 2], [2, 3], [3, 0],
-        [4, 5], [5, 6], [6, 7], [7, 4],
-        [0, 4], [1, 5], [2, 6], [3, 7],
-    ];
-    const vertices = [];
-    edgePairs.forEach(([a, b]) => {
-        vertices.push(...corners[a], ...corners[b]);
-    });
-    const edgeGeometry = new THREE.BufferGeometry();
-    edgeGeometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
-    return edgeGeometry;
-}
-
 function addEdges(mesh, target, edgeColor = 0x0f172a, opacity = 0.62) {
-    // Draw only the 12 real cuboid edges. This avoids internal diagonal
-    // triangle lines on carton/pallet faces in Three.js renders.
-    const size = geometrySize(mesh.geometry);
     const lines = new THREE.LineSegments(
-        externalCuboidEdgeGeometry(size.width, size.height, size.depth),
+        new THREE.EdgesGeometry(mesh.geometry),
         new THREE.LineBasicMaterial({
             color: edgeColor,
             transparent: opacity < 1,
@@ -214,7 +172,6 @@ function addCases(target, sceneData, dims) {
             roughness: 0.66,
         });
     });
->>>>>>> pre-production
 }
 
 function computeViewSize(dims, aspect) {
@@ -330,9 +287,9 @@ function initViewer(el) {
 
     const root = new THREE.Group();
     scene.add(root);
-    const palletizedLoad = buildPalletizedLoadGroup(sceneData);
-    palletizedLoad.position.y = dims.height / 2;
-    root.add(palletizedLoad);
+    addPallet(root, sceneData, dims);
+    addAllowedFootprint(root, sceneData, dims);
+    addCases(root, sceneData, dims);
 
     let currentViewName = "reset";
     setCameraView(camera, controls, dims, currentViewName);

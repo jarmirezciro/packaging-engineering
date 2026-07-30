@@ -29,16 +29,49 @@ export function getPalletizedLoadDimensions(sceneData, explicitBounds = null) {
 }
 
 function localCenter(cuboid, bounds) {
-<<<<<<< HEAD
-    // Scene data is Python X=length, Y=width, Z=height. The local Three.js
-    // assembly is centered so a transport placement can rotate it as one unit.
-=======
->>>>>>> pre-production
     return new THREE.Vector3(
         number(cuboid.x) + number(cuboid.dx) / 2 - bounds.length / 2,
         number(cuboid.z) + number(cuboid.dz) / 2 - bounds.height / 2,
         number(cuboid.y) + number(cuboid.dy) / 2 - bounds.width / 2,
     );
+}
+
+function externalCuboidEdgeGeometry(width, height, depth) {
+    const x = width / 2;
+    const y = height / 2;
+    const z = depth / 2;
+    const corners = [
+        [-x, -y, -z], [x, -y, -z], [x, -y, z], [-x, -y, z],
+        [-x, y, -z], [x, y, -z], [x, y, z], [-x, y, z],
+    ];
+    const edgePairs = [
+        [0, 1], [1, 2], [2, 3], [3, 0],
+        [4, 5], [5, 6], [6, 7], [7, 4],
+        [0, 4], [1, 5], [2, 6], [3, 7],
+    ];
+    const vertices = [];
+    edgePairs.forEach(([a, b]) => {
+        vertices.push(...corners[a], ...corners[b]);
+    });
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    return geometry;
+}
+
+function edgeGeometryKey(dx, dy, dz) {
+    return [
+        Math.round(dx * 1000) / 1000,
+        Math.round(dy * 1000) / 1000,
+        Math.round(dz * 1000) / 1000,
+    ].join("x");
+}
+
+function getExternalEdgeGeometry(cache, dx, dy, dz) {
+    const key = edgeGeometryKey(dx, dy, dz);
+    if (!cache.has(key)) {
+        cache.set(key, externalCuboidEdgeGeometry(dx, dz, dy));
+    }
+    return cache.get(key);
 }
 
 function addBox(target, cuboid, bounds, material, edgeOptions = {}) {
@@ -73,49 +106,19 @@ function addPallet(target, sceneData, bounds) {
         height,
     );
     const runnerHeight = Math.max(height - deckThickness, 0.001);
-<<<<<<< HEAD
-    const wood = new THREE.MeshStandardMaterial({
-        color: 0xc69a62,
-        roughness: 0.88,
-        metalness: 0,
-    });
-    const runnerWood = new THREE.MeshStandardMaterial({
-        color: 0xa97842,
-        roughness: 0.92,
-        metalness: 0,
-    });
-
-    addBox(target, {
-        x: 0,
-        y: 0,
-        z: runnerHeight,
-        dx: length,
-        dy: width,
-        dz: deckThickness,
-=======
     const wood = new THREE.MeshStandardMaterial({ color: 0xc69a62, roughness: 0.88, metalness: 0 });
     const runnerWood = new THREE.MeshStandardMaterial({ color: 0xa97842, roughness: 0.92, metalness: 0 });
 
     addBox(target, {
         x: 0, y: 0, z: runnerHeight,
         dx: length, dy: width, dz: deckThickness,
->>>>>>> pre-production
     }, bounds, wood, { color: 0x6b4423, opacity: 0.55 });
 
     const runnerWidth = Math.max(Math.min(width / 6, 100), 24);
     [0, (width - runnerWidth) / 2, width - runnerWidth].forEach((y) => {
         addBox(target, {
-<<<<<<< HEAD
-            x: 0,
-            y,
-            z: 0,
-            dx: length,
-            dy: runnerWidth,
-            dz: runnerHeight,
-=======
             x: 0, y, z: 0,
             dx: length, dy: runnerWidth, dz: runnerHeight,
->>>>>>> pre-production
         }, bounds, runnerWood, { color: 0x5b3b22, opacity: 0.5 });
     });
 }
@@ -133,17 +136,8 @@ function addAllowedFootprint(target, sceneData, bounds) {
         new THREE.LineBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.8 }),
     );
     outline.position.copy(localCenter({
-<<<<<<< HEAD
-        x: 0,
-        y: 0,
-        z: number(pallet.height) + 1.5,
-        dx: length,
-        dy: width,
-        dz: 1,
-=======
         x: 0, y: 0, z: number(pallet.height) + 1.5,
         dx: length, dy: width, dz: 1,
->>>>>>> pre-production
     }, bounds));
     target.add(outline);
 }
@@ -166,39 +160,43 @@ function addCases(target, sceneData, bounds) {
     });
 
     const unitGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const edgeGeometryCache = new Map();
+    const edgeMaterial = new THREE.LineBasicMaterial({
+        color: 0x0f172a,
+        transparent: true,
+        opacity: 0.62,
+    });
+
     placementsByColor.forEach((placements, color) => {
-<<<<<<< HEAD
-        const material = new THREE.MeshStandardMaterial({
-            color,
-            roughness: 0.66,
-            metalness: 0.01,
-        });
-=======
         const material = new THREE.MeshStandardMaterial({ color, roughness: 0.66, metalness: 0.01 });
->>>>>>> pre-production
         const cases = new THREE.InstancedMesh(unitGeometry, material, placements.length);
-        const outlines = new THREE.InstancedMesh(
-            unitGeometry,
-            new THREE.MeshBasicMaterial({ color: 0x0f172a, wireframe: true }),
-            placements.length,
-        );
         const matrix = new THREE.Matrix4();
         const quaternion = new THREE.Quaternion();
         const scale = new THREE.Vector3();
+
         placements.forEach((placement, index) => {
-            scale.set(
-                Math.max(number(placement.dx), 0.001),
-                Math.max(number(placement.dz), 0.001),
-                Math.max(number(placement.dy), 0.001),
-            );
-            matrix.compose(localCenter(placement, bounds), quaternion, scale);
+            const dx = Math.max(number(placement.dx), 0.001);
+            const dy = Math.max(number(placement.dy), 0.001);
+            const dz = Math.max(number(placement.dz), 0.001);
+            const center = localCenter(placement, bounds);
+
+            scale.set(dx, dz, dy);
+            matrix.compose(center, quaternion, scale);
             cases.setMatrixAt(index, matrix);
-            outlines.setMatrixAt(index, matrix);
+
+            // Draw only the 12 real cuboid edges. The previous instanced
+            // wireframe drew the internal triangle split of each rectangular
+            // face, which appeared as an unwanted diagonal line on cartons.
+            const edges = new THREE.LineSegments(
+                getExternalEdgeGeometry(edgeGeometryCache, dx, dy, dz),
+                edgeMaterial,
+            );
+            edges.position.copy(center);
+            target.add(edges);
         });
+
         cases.instanceMatrix.needsUpdate = true;
-        outlines.instanceMatrix.needsUpdate = true;
         target.add(cases);
-        target.add(outlines);
     });
 }
 
@@ -207,13 +205,7 @@ export function buildPalletizedLoadGroup(sceneData, options = {}) {
     const group = new THREE.Group();
     group.userData.palletizedLoadBounds = bounds;
     addPallet(group, sceneData, bounds);
-<<<<<<< HEAD
-    if (options.showAllowedFootprint !== false) {
-        addAllowedFootprint(group, sceneData, bounds);
-    }
-=======
     if (options.showAllowedFootprint !== false) addAllowedFootprint(group, sceneData, bounds);
->>>>>>> pre-production
     addCases(group, sceneData, bounds);
     return group;
 }
