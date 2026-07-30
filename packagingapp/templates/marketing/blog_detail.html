@@ -4,10 +4,15 @@
 {% block title %}{{ post.seo_title|default:post.title }}{% endblock %}
 {% block meta_description %}{{ post.meta_description|default:post.description|default:post.subtitle }}{% endblock %}
 {% block extra_head %}
+<link rel="canonical" href="{{ canonical_url }}">
+<meta name="robots" content="index,follow,max-image-preview:large">
 <meta property="og:type" content="article">
 <meta property="og:title" content="{{ post.seo_title|default:post.title }}">
 <meta property="og:description" content="{{ post.meta_description|default:post.description|default:post.subtitle }}">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:site_name" content="KolliLabs">
 {% if post.featured_image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static post.featured_image %}">{% endif %}
+<meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">{{ post.article_schema_json|safe }}</script>
 {% if post.math %}
 <script>

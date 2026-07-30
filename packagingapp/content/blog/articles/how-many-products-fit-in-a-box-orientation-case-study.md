@@ -46,7 +46,7 @@ label = "Decision"
 
 [cta]
 label = "Open this box calculation in KolliPack"
-url = "/tools/box-size-calculator/?case=product-orientation-capacity"
+url = "/free-box-size-calculator/?case=product-orientation-capacity"
 new_tab = true
 +++
 
@@ -137,7 +137,7 @@ It is not a cost or sustainability claim: protection, material choice, handling,
 
 KolliPack contributes a repeatable comparison: enter the product and usable box dimensions, confirm the orientations that are truly allowed, then review capacity alongside weight and payload. It does not grant the permissions or replace a physical packaging review.
 
-<a href="/tools/box-size-calculator/?case=product-orientation-capacity" target="_blank" rel="noopener"><strong>Open this prepopulated box packing calculation in KolliPack</strong></a> to compare R1, R2, R3, or any permitted combination. The case opens in a new tab so you can change the assumptions without losing this explanation.
+<a href="/free-box-size-calculator/?case=product-orientation-capacity" target="_blank" rel="noopener"><strong>Open this prepopulated box packing calculation in KolliPack</strong></a> to compare R1, R2, R3, or any permitted combination. The case opens in a new tab so you can change the assumptions without losing this explanation.
 
 <div class="blog-note"><i class="bi bi-box-seam me-2"></i>Use usable internal dimensions for product fit. Review external shipping dimensions later when assessing pallets and transport.</div>
 
@@ -149,6 +149,6 @@ KolliPack contributes a repeatable comparison: enter the product and usable box 
 
 The right question is not “does the product fit upright?” It is “which positions are genuinely permitted, and what capacity do they create together?” In this representative automotive-service case, that question changes the answer from 15 to 18 products per box.
 
-<div class="blog-note"><i class="bi bi-calculator me-2"></i><a href="/tools/box-size-calculator/?case=product-orientation-capacity" target="_blank" rel="noopener">Open the exact KolliPack case</a> and test the effect of enabling or disabling the verified orientations.</div>
+<div class="blog-note"><i class="bi bi-calculator me-2"></i><a href="/free-box-size-calculator/?case=product-orientation-capacity" target="_blank" rel="noopener">Open the exact KolliPack case</a> and test the effect of enabling or disabling the verified orientations.</div>
 
 </section>

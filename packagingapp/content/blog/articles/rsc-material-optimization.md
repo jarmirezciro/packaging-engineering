@@ -47,7 +47,7 @@ label = "Pallet and transport"
 
 [cta]
 label = "Compare box geometry in KolliPack"
-url = "/tools/box-size-calculator/"
+url = "/free-box-size-calculator/"
 new_tab = true
 +++
 
@@ -382,7 +382,7 @@ The useful decision chain is:
 
 KolliPack can help identify and compare promising alternatives across product arrangement, required internal dimensions, RSC proportions, quantity per box, pallet quantity, pallet height and transport utilization. Its value is not merely calculating a box. It is making the trade-offs between material-efficient geometry, practical packaging performance and logistics performance visible before supplier quotations, physical samples and validation testing.
 
-Use the [KolliPack Box Size Calculator](/tools/box-size-calculator/) to explore product-to-box geometry, then assess shortlisted alternatives through [Packaging Flow](/full-packaging/) when pallet and transport consequences matter.
+Use the [KolliPack Box Size Calculator](/free-box-size-calculator/) to explore product-to-box geometry, then assess shortlisted alternatives through [Packaging Flow](/full-packaging/) when pallet and transport consequences matter.
 
 KolliPack does not certify compression strength, carbon footprint, compliance or a universally optimal package. Those conclusions require supplier specifications, physical samples, testing and the business assumptions of the real distribution system.
 

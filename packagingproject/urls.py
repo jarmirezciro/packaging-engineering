@@ -7,12 +7,14 @@ from django.urls import include, path, re_path
 from django.views.static import serve as serve_media
 
 from packagingapp.sitemaps import PublicStaticSitemap
+from packagingapp.views.marketing import robots_txt
 
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("django.contrib.auth.urls")),
     path("sitemap.xml", sitemap, {"sitemaps": {"public": PublicStaticSitemap}}, name="sitemap"),
+    path("robots.txt", robots_txt, name="robots_txt"),
     path("", include("packagingapp.urls")),
 ]
 

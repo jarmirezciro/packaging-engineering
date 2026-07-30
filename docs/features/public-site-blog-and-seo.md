@@ -75,21 +75,21 @@ shared engine/service/UI contract
 The public page may have prefilled demo values and a visible initial result. Demo defaults belong to the SEO page only.
 
 The Bag Size Calculator follows the same contract at
-`/tools/bag-size-calculator/`. It consumes the shared Bag Selection page
+`/free-bag-size-calculator/`. It consumes the shared Bag Selection page
 context, form, service, engine, renderer, result partials, and PDF export.
 Its public demo values are injected only by the SEO view. The engine's fixed
 fit tolerance and sealing allowance are displayed as read-only assumptions;
 they are not parallel SEO inputs or calculations.
 
 The Container Loading Calculator follows the same contract at
-`/tools/container-loading-calculator/`. It consumes the shared Transport
+`/free-container-loading-calculator/`. It consumes the shared Transport
 Container form orchestration, service, engine, result partials, Three.js scene
 and viewer, public catalogue visibility rules, and snapshot-backed PDF export.
 Its demonstration transport unit and load row are injected only by the SEO
 view; standalone and Packaging Flow defaults are unchanged.
 
 The Box Size Calculator follows the Container Selection shared contract at
-`/tools/box-size-calculator/`. Its public demo uses manual product and box
+`/free-box-size-calculator/`. Its public demo uses manual product and box
 values, the shared R1/R2/R3 restrictions, Container engine, result metrics,
 Three.js RSC viewer, public-only catalogue visibility, and snapshot-backed PDF
 path. SEO defaults and marketing content do not alter standalone, Packaging

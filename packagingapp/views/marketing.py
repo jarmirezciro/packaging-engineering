@@ -5,8 +5,9 @@ import json
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import send_mail
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.templatetags.static import static
 from django.utils import timezone
 
@@ -79,6 +80,21 @@ def _blog_post_by_slug(slug: str) -> dict:
     return _prepare_blog_post(post)
 
 
+def _absolute_url(request, view_name: str, *, kwargs: dict | None = None) -> str:
+    return request.build_absolute_uri(reverse(view_name, kwargs=kwargs))
+
+
+def robots_txt(request):
+    sitemap_url = request.build_absolute_uri(reverse("sitemap"))
+    content = "\n".join([
+        "User-agent: *",
+        "Allow: /",
+        f"Sitemap: {sitemap_url}",
+        "",
+    ])
+    return HttpResponse(content, content_type="text/plain; charset=utf-8")
+
+
 def about(request):
     contact_form = ContactForm(request.POST or None)
 
@@ -146,6 +162,7 @@ def blog_list(request):
         {
             "posts": _prepared_blog_posts(),
             "article_types": ARTICLE_TYPES.values(),
+            "canonical_url": _absolute_url(request, "blog_list"),
         },
     )
 
@@ -153,6 +170,7 @@ def blog_list(request):
 def _article_schema_json(request, post: dict) -> str:
     image_path = post.get("featured_image")
     image_url = request.build_absolute_uri(static(image_path)) if image_path else None
+    canonical_url = _absolute_url(request, "blog_detail", kwargs={"slug": post.get("slug", "")})
 
     schema = {
         "@context": "https://schema.org",
@@ -165,7 +183,7 @@ def _article_schema_json(request, post: dict) -> str:
         "about": post.get("article_type_meta", {}).get("label", "Packaging engineering"),
         "datePublished": post.get("published_at", ""),
         "dateModified": post.get("updated_at") or post.get("published_at", ""),
-        "mainEntityOfPage": request.build_absolute_uri(),
+        "mainEntityOfPage": canonical_url,
     }
     if image_url:
         schema["image"] = [image_url]
@@ -175,5 +193,13 @@ def _article_schema_json(request, post: dict) -> str:
 
 def blog_detail(request, slug: str):
     post = _blog_post_by_slug(slug)
+    canonical_url = _absolute_url(request, "blog_detail", kwargs={"slug": post["slug"]})
     post["article_schema_json"] = _article_schema_json(request, post)
-    return render(request, "marketing/blog_detail.html", {"post": post})
+    return render(
+        request,
+        "marketing/blog_detail.html",
+        {
+            "post": post,
+            "canonical_url": canonical_url,
+        },
+    )

@@ -3,6 +3,16 @@
 
 {% block title %}Blog | KolliLabs{% endblock %}
 {% block meta_description %}Practical articles from KolliLabs about packaging optimization, KolliPack workflows, box selection, palletization, transport utilization, and packaging education.{% endblock %}
+{% block extra_head %}
+<link rel="canonical" href="{{ canonical_url }}">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Blog | KolliLabs">
+<meta property="og:description" content="Practical articles from KolliLabs about packaging optimization, KolliPack workflows, box selection, palletization, transport utilization, and packaging education.">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:site_name" content="KolliLabs">
+<meta name="twitter:card" content="summary">
+{% endblock %}
 
 {% block content %}
 <div class="app-page marketing-page">
