@@ -168,6 +168,24 @@ def _near_integer(value: float, tolerance: float = 1e-6) -> Optional[int]:
     return rounded if abs(value - rounded) <= tolerance else None
 
 
+def _is_brick_ratio(box_l: float, box_w: float, tolerance: float = 0.02) -> bool:
+    """Return True when the carton footprint is close to a 2:1 ratio.
+
+    The customer-facing Brick result represents a bonded / basket-weave /
+    spiral mosaic, not a generic staggered row. The normalized footprint ratio
+    must therefore be close to 2.0. With the default tolerance, the accepted
+    range is approximately 1.98 <= ratio <= 2.02.
+    """
+    short_side = min(box_l, box_w)
+    long_side = max(box_l, box_w)
+
+    if short_side <= 0:
+        return False
+
+    ratio = long_side / short_side
+    return abs(ratio - 2.0) <= tolerance
+
+
 def _spiral_domino_pairs(cols: int, rows: int) -> List[Tuple[Tuple[int, int], Tuple[int, int]]]:
     """Return adjacent cell pairs following a clockwise inward spiral.
 
@@ -411,16 +429,14 @@ def pattern_brick(area_l, area_w, box_l, box_w, rotated=False):
 def pattern_brick_best(area_l, area_w, box_l, box_w):
     """Return the best customer-facing brick layout.
 
-    Candidate families are evaluated in this order of engineering preference:
-
-    * basket-weave / bonded brick modules for clean integer-ratio cartons;
-    * conservative running-bond rows as a fallback.
-
-    Quantity remains the primary decision criterion, but when two candidates fit
-    the same number of cartons the orthogonal bonded-brick candidate wins over a
-    simple row-offset candidate because it better matches the pattern normally
-    shown in pallet-pattern charts for rectangular cartons.
+    Brick is intentionally restricted to carton footprints that are close to a
+    2:1 ratio. The customer-facing Brick result represents a bonded /
+    basket-weave / spiral mosaic, not a generic staggered row. For non-2:1
+    cartons, other pattern families should carry the result instead.
     """
+    if not _is_brick_ratio(box_l, box_w):
+        return []
+
     candidates: List[Tuple[List[Placement2D], int]] = []
 
     for layer in pattern_brick_basket_weave(area_l, area_w, box_l, box_w):
