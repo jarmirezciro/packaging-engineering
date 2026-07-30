@@ -1,5 +1,10 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import {
+    createApprovedProductMaterials,
+    createApprovedProductVisual,
+    normalizeProductShape,
+} from "./product_shape_factory.js?v=20260731-product-shapes";
 
 const initialized = new WeakSet();
 const instances = new Map();
@@ -54,6 +59,14 @@ function centerPosition(cuboid, dims) {
     const y = number(cuboid.y) + number(cuboid.dy) / 2;
     const z = number(cuboid.z) + number(cuboid.dz) / 2;
     return mapPosition(x, y, z, dims);
+}
+
+function hasValidProductDefinition(productDefinition) {
+    if (!productDefinition) return false;
+    return ["length", "width", "height"].every((key) => {
+        const value = Number(productDefinition[key]);
+        return Number.isFinite(value) && value > 0;
+    });
 }
 
 function geometrySize(geometry) {
@@ -356,17 +369,37 @@ function initViewer(el) {
         });
     });
 
-    const productMaterial = new THREE.MeshStandardMaterial({
+    const productShape = normalizeProductShape(sceneData.productShape);
+    const useApprovedProductShape = (
+        productShape !== "cuboid"
+        && hasValidProductDefinition(sceneData.productDefinition)
+    );
+    const productMaterial = useApprovedProductShape ? null : new THREE.MeshStandardMaterial({
         color: 0xf59e0b,
         roughness: 0.64,
         metalness: 0.02,
     });
+    const approvedProductMaterials = useApprovedProductShape
+        ? createApprovedProductMaterials("#f59e0b")
+        : null;
+
     (sceneData.products || []).forEach((item) => {
-        addCuboid(productGroup, item, dims, {
-            material: productMaterial,
-            edgeColor: 0x1e40af,
-            edgeOpacity: 0.75,
-        });
+        if (useApprovedProductShape) {
+            const visual = createApprovedProductVisual({
+                shapeType: productShape,
+                productDefinition: sceneData.productDefinition,
+                orientationIndex: item.orientationIndex,
+                materials: approvedProductMaterials,
+            });
+            visual.position.copy(centerPosition(item, dims));
+            productGroup.add(visual);
+        } else {
+            addCuboid(productGroup, item, dims, {
+                material: productMaterial,
+                edgeColor: 0x1e40af,
+                edgeOpacity: 0.75,
+            });
+        }
     });
 
     let currentViewName = "reset";
