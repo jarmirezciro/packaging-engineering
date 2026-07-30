@@ -11,6 +11,7 @@ def default_container_config():
         "product_h": "",
         "product_weight": "",
         "desired_qty": "1",
+        "product_shape": "cuboid",
         "r1": True,
         "r2": True,
         "r3": True,
@@ -23,4 +24,5 @@ def default_container_config():
         "box_h": "",
         "box_weight": "",
         "box_max_payload": "",
+        "selected_design_candidate_id": "",
     }

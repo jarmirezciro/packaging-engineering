@@ -416,6 +416,22 @@ def _build_palletization_seo_schema(request):
             "Does the result replace physical pallet testing?",
             "No. The result is an engineering estimate. Final approval should still consider carton compression strength, load stability, wrapping, handling, vibration, and customer requirements.",
         ),
+        (
+            "Can I use KolliPack as a pallet calculator?",
+            "Yes. KolliPack can be used as a pallet calculator to estimate cartons per layer, number of layers, total cartons per pallet, stack height, and pallet utilization.",
+        ),
+        (
+            "What is a pallet pattern calculator?",
+            "A pallet pattern calculator compares different carton arrangements on a pallet. KolliPack ranks practical pallet patterns and shows how orientation changes can affect utilization.",
+        ),
+        (
+            "What does palletization calculation mean?",
+            "Palletization calculation means calculating how cartons or boxes should be arranged on a pallet while considering dimensions, height limits, optional overhang, load checks, stability, and utilization.",
+        ),
+        (
+            "Can KolliPack calculate boxes per pallet?",
+            "Yes. KolliPack calculates boxes per pallet using carton dimensions, pallet dimensions, maximum stack height, allowed footprint orientation, and selected palletization logic.",
+        ),
     ]
 
     schema = [
@@ -428,8 +444,9 @@ def _build_palletization_seo_schema(request):
             "operatingSystem": "Any web browser",
             "url": canonical_url,
             "description": (
-                "Calculate pallet patterns, cartons per layer, total cartons, stack height, "
-                "pallet floor usage, and stack volume usage with a free online palletization tool."
+                "Use KolliPack as a free palletization calculator, pallet tool, pallet calculator, "
+                "and pallet pattern calculator to calculate boxes per pallet, cartons per layer, "
+                "stack height, pallet floor usage, and stack volume usage."
             ),
             "provider": {
                 "@type": "Organization",
@@ -445,6 +462,10 @@ def _build_palletization_seo_schema(request):
             "isAccessibleForFree": True,
             "browserRequirements": "Requires JavaScript and a modern web browser",
             "featureList": [
+                "Free palletization calculator",
+                "Pallet calculator and pallet tool",
+                "Pallet pattern calculator",
+                "Boxes per pallet and cartons per layer",
                 "Ranked pallet patterns",
                 "Main and alternate layer layouts",
                 "Cartons per layer and total cartons",

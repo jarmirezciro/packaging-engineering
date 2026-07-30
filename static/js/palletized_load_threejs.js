@@ -29,8 +29,11 @@ export function getPalletizedLoadDimensions(sceneData, explicitBounds = null) {
 }
 
 function localCenter(cuboid, bounds) {
+<<<<<<< HEAD
     // Scene data is Python X=length, Y=width, Z=height. The local Three.js
     // assembly is centered so a transport placement can rotate it as one unit.
+=======
+>>>>>>> pre-production
     return new THREE.Vector3(
         number(cuboid.x) + number(cuboid.dx) / 2 - bounds.length / 2,
         number(cuboid.z) + number(cuboid.dz) / 2 - bounds.height / 2,
@@ -70,6 +73,7 @@ function addPallet(target, sceneData, bounds) {
         height,
     );
     const runnerHeight = Math.max(height - deckThickness, 0.001);
+<<<<<<< HEAD
     const wood = new THREE.MeshStandardMaterial({
         color: 0xc69a62,
         roughness: 0.88,
@@ -88,17 +92,30 @@ function addPallet(target, sceneData, bounds) {
         dx: length,
         dy: width,
         dz: deckThickness,
+=======
+    const wood = new THREE.MeshStandardMaterial({ color: 0xc69a62, roughness: 0.88, metalness: 0 });
+    const runnerWood = new THREE.MeshStandardMaterial({ color: 0xa97842, roughness: 0.92, metalness: 0 });
+
+    addBox(target, {
+        x: 0, y: 0, z: runnerHeight,
+        dx: length, dy: width, dz: deckThickness,
+>>>>>>> pre-production
     }, bounds, wood, { color: 0x6b4423, opacity: 0.55 });
 
     const runnerWidth = Math.max(Math.min(width / 6, 100), 24);
     [0, (width - runnerWidth) / 2, width - runnerWidth].forEach((y) => {
         addBox(target, {
+<<<<<<< HEAD
             x: 0,
             y,
             z: 0,
             dx: length,
             dy: runnerWidth,
             dz: runnerHeight,
+=======
+            x: 0, y, z: 0,
+            dx: length, dy: runnerWidth, dz: runnerHeight,
+>>>>>>> pre-production
         }, bounds, runnerWood, { color: 0x5b3b22, opacity: 0.5 });
     });
 }
@@ -116,12 +133,17 @@ function addAllowedFootprint(target, sceneData, bounds) {
         new THREE.LineBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.8 }),
     );
     outline.position.copy(localCenter({
+<<<<<<< HEAD
         x: 0,
         y: 0,
         z: number(pallet.height) + 1.5,
         dx: length,
         dy: width,
         dz: 1,
+=======
+        x: 0, y: 0, z: number(pallet.height) + 1.5,
+        dx: length, dy: width, dz: 1,
+>>>>>>> pre-production
     }, bounds));
     target.add(outline);
 }
@@ -145,11 +167,15 @@ function addCases(target, sceneData, bounds) {
 
     const unitGeometry = new THREE.BoxGeometry(1, 1, 1);
     placementsByColor.forEach((placements, color) => {
+<<<<<<< HEAD
         const material = new THREE.MeshStandardMaterial({
             color,
             roughness: 0.66,
             metalness: 0.01,
         });
+=======
+        const material = new THREE.MeshStandardMaterial({ color, roughness: 0.66, metalness: 0.01 });
+>>>>>>> pre-production
         const cases = new THREE.InstancedMesh(unitGeometry, material, placements.length);
         const outlines = new THREE.InstancedMesh(
             unitGeometry,
@@ -181,9 +207,13 @@ export function buildPalletizedLoadGroup(sceneData, options = {}) {
     const group = new THREE.Group();
     group.userData.palletizedLoadBounds = bounds;
     addPallet(group, sceneData, bounds);
+<<<<<<< HEAD
     if (options.showAllowedFootprint !== false) {
         addAllowedFootprint(group, sceneData, bounds);
     }
+=======
+    if (options.showAllowedFootprint !== false) addAllowedFootprint(group, sceneData, bounds);
+>>>>>>> pre-production
     addCases(group, sceneData, bounds);
     return group;
 }

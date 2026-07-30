@@ -2,7 +2,7 @@
 
 ## Voice
 
-Write as an experienced packaging engineer explaining practical decisions to another professional.
+Write as an experienced packaging engineer explaining practical decisions to another professional or business decision-maker.
 
 The article should be:
 
@@ -12,37 +12,84 @@ The article should be:
 - Honest about assumptions and limitations.
 - Helpful before promotional.
 - Confident without exaggeration.
+- Understandable without specialist packaging knowledge when the article is business-oriented.
 
 ## Preserve the author's voice
 
-When polishing Alejandro's draft:
+When polishing or rewriting Alejandro's draft:
 
 - Preserve the engineering judgment and intended meaning.
-- Correct grammar and transitions without making the article sound generic.
-- Keep useful first-hand observations when they add credibility.
+- Develop the author's observations rather than merely correcting grammar.
+- Keep useful first-hand reasoning when it adds credibility.
+- Correct grammar, transitions, and cohesion without making the article sound generic.
 - Avoid replacing precise packaging language with vague marketing terms.
 
-## Structure
+## Lead with the decision or result
+
+For demo and business articles, put the strongest verified result within the first 100 words.
 
 Prefer:
 
-1. Clear problem or question.
-2. Why it matters.
-3. Explanation or method.
-4. Practical example or figure.
-5. Limitations or engineering considerations.
-6. Takeaway.
-7. Relevant CTA.
+> The same box carried 15 products in one orientation strategy and 18 when all verified orientations were allowed.
+
+Avoid beginning with:
+
+- Generic industry trends.
+- Definitions.
+- Tool feature lists.
+- Long input descriptions.
+- “In today's fast-paced world.”
+
+## Structure
+
+Prefer a coherent decision story:
+
+1. Result or problem.
+2. Concrete business situation.
+3. Apparent answer.
+4. Comparison or method.
+5. Main result.
+6. Business consequence.
+7. Remaining validation or trade-off.
+8. Relevant CTA.
+9. Concise takeaway.
+
+This is a story guide, not a mandatory heading template.
 
 Use descriptive headings and short-to-medium paragraphs. Use lists only when they improve scanning.
+
+## Business language
+
+Explain technical terms once in ordinary language.
+
+Show what a metric changes:
+
+- More products per box.
+- Fewer boxes.
+- More boxes per pallet.
+- More products per container.
+- Less estimated material.
+- A narrower shortlist.
+
+Do not include software implementation detail unless the article is explicitly technical.
+
+## Limitations
+
+State important assumptions and limitations clearly, but do not weaken every paragraph with a disclaimer.
+
+Prefer one concise limitations or next-validation section.
 
 ## Avoid
 
 - Unsupported superlatives.
 - Invented savings percentages.
+- Invented companies or customer requirements.
 - Claims that KolliPack guarantees an outcome.
 - Keyword stuffing.
 - Repetitive introductions and conclusions.
-- Empty phrases such as “in today’s fast-paced world.”
-- Presenting engineering assumptions as universal facts.
-- Aggressive sales language in technical articles.
+- Repeating the same numbers in every section.
+- Empty marketing phrases.
+- Presenting assumptions as universal facts.
+- Aggressive sales language.
+- Engine architecture in business articles.
+- Sections that exist only to demonstrate technical sophistication.

@@ -16,6 +16,7 @@ def read_product_rows_raw(post_data):
     heights = post_data.getlist("item_height[]")
     qtys = post_data.getlist("item_qty[]")
     max_qtys = post_data.getlist("item_max_qty[]")
+    stackable_vals = post_data.getlist("item_stackable[]")
     max_qty_checked_indices = set()
     for value in post_data.getlist("item_max_qty_checked[]"):
         try:
@@ -35,6 +36,7 @@ def read_product_rows_raw(post_data):
         len(heights),
         len(qtys),
         len(max_qtys),
+        len(stackable_vals),
         len(weights),
         len(seqs),
         len(r1_vals),
@@ -65,6 +67,7 @@ def read_product_rows_raw(post_data):
                 "height": height_raw,
                 "qty": qty_raw if qty_raw != "" else 1,
                 "max_qty": checked(max_qty_raw) or i in max_qty_checked_indices,
+                "stackable": checked(stackable_vals[i]) if i < len(stackable_vals) else True,
                 "weight": weight_raw if weight_raw != "" else 0,
                 "sequence": seq_raw if seq_raw != "" else 1,
                 "r1": checked(r1_vals[i]) if i < len(r1_vals) else False,
@@ -98,6 +101,7 @@ def validate_transport_rows(raw_rows):
             errors.append(f"Row {i+1}: invalid numeric values.")
             continue
 
+        stackable = bool(raw.get("stackable", True))
         r1 = bool(raw.get("r1"))
         r2 = bool(raw.get("r2"))
         r3 = bool(raw.get("r3"))
@@ -126,6 +130,7 @@ def validate_transport_rows(raw_rows):
                 "height": height,
                 "qty": qty,
                 "max_qty": max_qty,
+                "stackable": stackable,
                 "weight": weight,
                 "sequence": sequence,
                 "r1": r1,
@@ -167,6 +172,8 @@ def build_container_from_config(cfg, selected_material=None):
         except Exception:
             tare_weight = None
 
+    packing_mode = str(cfg.get("packing_mode") or "maximum_utilization")
+
     if (cfg.get("container_source") or "manual") == "catalogue":
         if not selected_material:
             messages.append("Please select a packaging item from the catalogue table.")
@@ -180,6 +187,7 @@ def build_container_from_config(cfg, selected_material=None):
                 "max_weight": max_weight,
                 "tare_weight": tare_weight,
                 "type": str(selected_material.packaging_type or "TRANSPORT_UNIT"),
+                "packing_mode": packing_mode,
             }
         except Exception:
             messages.append("Selected packaging item has invalid dimensions.")
@@ -193,6 +201,7 @@ def build_container_from_config(cfg, selected_material=None):
                 "max_weight": max_weight,
                 "tare_weight": tare_weight,
                 "type": "MANUAL",
+                "packing_mode": packing_mode,
             }
         except Exception:
             messages.append("Please enter all manual container dimensions.")
@@ -250,9 +259,12 @@ def _theoretical_auto_qty_upper(container, product):
     for l, w, h in _allowed_orientation_count(product):
         if l <= 0 or w <= 0 or h <= 0:
             continue
+        vertical_layers = int(container["H"] // h)
+        if not bool(product.get("stackable", True)):
+            vertical_layers = min(vertical_layers, 1)
         grid_upper = max(
             grid_upper,
-            int(container["L"] // l) * int(container["W"] // w) * int(container["H"] // h),
+            int(container["L"] // l) * int(container["W"] // w) * vertical_layers,
         )
 
     candidates = [value for value in (volume_upper, weight_upper) if value is not None and value > 0]
@@ -377,6 +389,7 @@ def _rows_from_products(products):
             "height": product.get("height", ""),
             "qty": product.get("qty", 1),
             "max_qty": bool(product.get("max_qty", False)),
+            "stackable": bool(product.get("stackable", True)),
             "weight": product.get("weight", 0),
             "sequence": product.get("sequence", 1),
             "r1": bool(product.get("r1", False)),

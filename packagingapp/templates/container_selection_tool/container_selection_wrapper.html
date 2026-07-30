@@ -12,6 +12,11 @@
        id="{{ container_ui.ids.container_id }}"
        value="{{ container_values.container_id|default:'' }}">
 
+<input type="hidden"
+       name="{{ container_ui.names.selected_design_candidate_id }}"
+       id="{{ container_ui.ids.selected_design_candidate_id }}"
+       value="{{ selected_design_candidate_id|default:container_values.selected_design_candidate_id|default:'' }}">
+
 {% if form and form.errors %}
     <div class="alert alert-danger mb-0" role="alert" tabindex="-1" data-tool-validation-errors>
         {% if form.non_field_errors %}{{ form.non_field_errors }}{% endif %}
@@ -20,6 +25,11 @@
                 <div><strong>{{ field.label }}:</strong> {{ field.errors|striptags }}</div>
             {% endif %}
         {% endfor %}
+    </div>
+{% endif %}
+{% if notices %}
+    <div class="alert alert-info mb-0" role="status">
+        {% for notice in notices %}<div>{{ notice }}</div>{% endfor %}
     </div>
 {% endif %}
 

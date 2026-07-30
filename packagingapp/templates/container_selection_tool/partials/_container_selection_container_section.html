@@ -3,6 +3,8 @@
         <div class="app-section-title">Container</div>
         <div class="app-section-subtitle">Manual dimensions in mm or catalogue selection from BOX, CRATE, CONTAINER, or TRAILER types.</div>
 
+        <div id="{{ container_ui.ids.selection_package_controls }}">
+
         <div id="{% if mode == 'workflow' %}globalCatalogueChooser_{{ container_ui.prefix }}{% else %}globalCatalogueChooser{% endif %}" class="tool-field-group tool-tight-gap">
             <label class="form-label">Packaging Catalogue</label>
             {% if mode == "workflow" %}
@@ -75,6 +77,12 @@
                 <button type="button" class="btn btn-app-primary btn-sm" onclick="containerSelectionFindTop5('{{ container_ui.prefix }}')"><i class="bi bi-stars me-2"></i>Find Top 5</button>
             </div>
             <p class="app-form-note mt-2 mb-0">3D rendering is generated only after selecting one Top 5 candidate.</p>
+        </div>
+        </div>
+
+        <div id="{{ container_ui.ids.design_packaging_fields }}">
+            <div class="alert alert-light border small">Internal length, width, and height are calculated outputs in Design Mode.</div>
+            <div class="app-form-actions tool-card-actions"><button type="button" class="btn btn-app-primary btn-sm" onclick="containerSelectionRunDesign('{{ container_ui.prefix }}')"><i class="bi bi-rulers me-2"></i>Generate Designs</button></div>
         </div>
     </div>
 </div>

@@ -49,22 +49,16 @@
                 </div>
             {% endif %}
 
-            {% if image_url %}
-                <div class="tool-render-wrap">
-                    <img src="{{ image_url }}" alt="Bag result" class="tool-render-image">
-                </div>
-            {% endif %}
+            {% include "shared/_package_threejs_panel.html" with scene=threejs_scene scene_id=bag_ui.ids.threejs_scene viewer_id=bag_ui.ids.threejs_viewer package_label="bag" %}
 
             {% if mode != "workflow" and analysis_report %}
                 <div class="app-form-actions tool-card-actions mt-3">
                     {% if current_mode == "single" %}
-                        <a href="{% url 'bag_selection_export_pdf' %}" class="btn btn-app-outline btn-sm">
-                            <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF report
-                        </a>
+                        <input type="hidden" name="threejs_snapshot" value=""><input type="hidden" name="threejs_view_label" value="">
+                        <button type="submit" name="single_export" value="1" class="btn btn-app-outline btn-sm" formaction="{% url 'bag_selection_export_pdf' %}" formmethod="post" data-container-threejs-pdf-button data-container-threejs-pdf-viewer="{{ bag_ui.ids.threejs_viewer }}"><i class="bi bi-file-earmark-pdf me-2"></i>Download PDF report</button>
                     {% elif current_mode == "optimal" %}
-                        <a href="{% url 'bag_selection_export_optimal_pdf' %}" class="btn btn-app-outline btn-sm">
-                            <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF report
-                        </a>
+                        <input type="hidden" name="threejs_snapshot" value=""><input type="hidden" name="threejs_view_label" value="">
+                        <button type="submit" name="optimal_export" value="1" class="btn btn-app-outline btn-sm" formaction="{% url 'bag_selection_export_optimal_pdf' %}" formmethod="post" data-container-threejs-pdf-button data-container-threejs-pdf-viewer="{{ bag_ui.ids.threejs_viewer }}"><i class="bi bi-file-earmark-pdf me-2"></i>Download PDF report</button>
                     {% endif %}
                 </div>
             {% endif %}

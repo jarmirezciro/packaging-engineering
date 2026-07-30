@@ -88,6 +88,16 @@ A downstream tool must know whether an input was:
 
 Inheritance should populate the shared tool contract, not bypass the standalone service.
 
+Bag and Container Selection store one authoritative `mode` value: `design`,
+`single`, or `optimal`. The short-lived legacy `tool_mode=design` state is read
+as `mode=design` and then discarded; new state never writes `tool_mode`.
+Design results store requested and designed quantities, selected stable
+candidate ID, arrangement, orientation, designed dimensions, metrics, and a
+JSON-safe Three.js scene. Package weight and payload fields are not Design Mode
+result properties. The explicitly selected candidate becomes the
+pending/committed package output; downstream steps must not silently replace it
+with the first-ranked candidate.
+
 ## Transport layout parity
 
 A historically approved workflow transport arrangement was:
@@ -115,6 +125,24 @@ non-palletized Flow inputs retain generic load cuboids. The adapter validates
 the complete pallet-and-carton assembly against the calculated bounds and falls
 back to the cuboid if the source scene is incomplete or extends outside them.
 
+<<<<<<< HEAD
+=======
+## Top quantity summary
+
+Packaging Flow presents a compact, always-visible quantity summary above the
+step cards. It reads the active JSON-safe chaining payload from each step and
+shows both the immediate conversion and cumulative base-product quantity, for
+example: products per box, boxes and products per pallet, and pallets, boxes,
+and products per transport container.
+
+The summary is presentation-only. It must not rerun tool engines or create a
+second quantity calculation path. It prefers the current pending result, falls
+back to the explicitly selected result, and fails closed after an incomplete or
+inconsistent stage. Existing collapsed-step summaries remain unchanged. Desktop
+uses a compact horizontal chain; mobile uses a collapsed summary row that can be
+expanded into a stacked chain.
+
+>>>>>>> pre-production
 ## Future combined report
 
 A proposed Packaging Flow Report would use selected/effective results from each step and present:

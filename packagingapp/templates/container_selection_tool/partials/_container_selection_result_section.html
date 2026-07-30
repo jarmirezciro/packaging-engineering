@@ -212,7 +212,7 @@
                             </tbody>
                         </table>
                     </div>
-                    {% if product_base_image_url %}
+                    {% if product_base_image_url and container_values.product_shape == "cuboid" %}
                         <div class="border rounded-3 p-2 mt-3 bg-body-tertiary container-base-product-card">
                             <div class="tool-stat-label mb-2">Base product unit</div>
                             <img src="{{ product_base_image_url }}" alt="Base product unit render" class="img-fluid d-block mx-auto container-base-product-preview">

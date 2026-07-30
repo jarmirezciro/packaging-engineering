@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Multiple Product Bag Selection{% endblock %}
 
 {% block content %}
@@ -237,6 +238,13 @@
 
 </div>
 
+<style>
+    .container-threejs-panel{width:100%;max-width:100%;min-width:0;overflow:hidden;box-sizing:border-box;border:1px solid rgba(15,23,42,.12);border-radius:1rem;padding:.75rem;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%);text-align:left}
+    .container-threejs-panel *{box-sizing:border-box}
+    .container-threejs-viewer{width:100%;max-width:100%;min-width:0;min-height:360px;height:min(48vh,440px);overflow:hidden;contain:layout paint;position:relative;display:block;border:1px solid rgba(15,23,42,.1);border-radius:.85rem;background:#f8fafc}
+    .container-threejs-viewer canvas{display:block;width:100%!important;max-width:100%!important;height:100%!important;max-height:100%!important}
+</style>
+
 {{ product_catalogues_payload|json_script:"product-catalogues-data" }}
 {{ packaging_catalogues_payload|json_script:"packaging-catalogues-data" }}
 
@@ -267,6 +275,7 @@
 
     const productCatalogues = JSON.parse(document.getElementById("product-catalogues-data").textContent);
     const packagingCatalogues = JSON.parse(document.getElementById("packaging-catalogues-data").textContent);
+    let arrangementSceneCounter = 0;
 
     function esc(s) {
         return String(s ?? "")
@@ -430,6 +439,25 @@
             : `<i class="bi bi-table"></i> ${showText}`;
     }
 
+    function renderArrangementScene(sceneData) {
+        arrangementSceneCounter += 1;
+        const sceneScriptId = `multiProductBagThreeJsScene-${arrangementSceneCounter}`;
+        const panel = document.createElement("div");
+        panel.className = "container-threejs-panel";
+        panel.innerHTML = `<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2"><div class="fw-semibold me-1">Interactive 3D result</div><div class="btn-group btn-group-sm" role="group" aria-label="3D view controls"><button type="button" class="btn btn-app-outline" data-container-threejs-view="reset">Reset</button><button type="button" class="btn btn-app-outline" data-container-threejs-view="top">Top</button><button type="button" class="btn btn-app-outline" data-container-threejs-view="front">Front</button><button type="button" class="btn btn-app-outline" data-container-threejs-view="side">Side</button></div><label class="form-check form-switch mb-0 small"><input class="form-check-input" type="checkbox" checked data-container-threejs-toggle="container"><span class="form-check-label">Show bag</span></label></div>`;
+        const sceneScript = document.createElement("script");
+        sceneScript.type = "application/json";
+        sceneScript.id = sceneScriptId;
+        sceneScript.textContent = JSON.stringify(sceneData);
+        const viewer = document.createElement("div");
+        viewer.className = "container-threejs-viewer";
+        viewer.setAttribute("data-container-threejs-viewer", "");
+        viewer.setAttribute("data-scene-script", sceneScriptId);
+        panel.append(sceneScript, viewer);
+        arrangementCanvas.replaceChildren(panel);
+        if (window.KolliContainerThreeJs) window.KolliContainerThreeJs.initAll();
+    }
+
     async function drawArrangement(product, material) {
         arrangementMeta.innerHTML = `
             <strong>${esc(product.label)}</strong>
@@ -438,7 +466,7 @@
             &nbsp;|&nbsp;
             ${esc(material.part_number)} — ${esc(material.part_description)}
         `;
-        arrangementCanvas.innerHTML = `<div class="text-muted">Generating image...</div>`;
+        arrangementCanvas.innerHTML = `<div class="text-muted">Generating interactive 3D preview...</div>`;
 
         const form = new FormData();
         form.append("product_id", product.id);
@@ -464,11 +492,7 @@
             Usage: ${Number(data.usage).toFixed(4)}
         `;
 
-        arrangementCanvas.innerHTML = `
-            <img src="${esc(data.image_url)}"
-                 alt="Arrangement"
-                 style="width:100%;max-height:360px;object-fit:contain;border-radius:14px;">
-        `;
+        renderArrangementScene(data.threejs_scene);
     }
 
     function renderResults(results) {
@@ -743,4 +767,6 @@
     updatePackagingSelectionUI();
 })();
 </script>
+{% include "shared/_threejs_importmap.html" %}
+<script type="module" src="{% static 'js/container_threejs_viewer.js' %}?v=20260722"></script>
 {% endblock %}

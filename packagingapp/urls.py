@@ -1,5 +1,6 @@
 # packagingapp/urls.py
 from django.urls import path
+from django.views.generic.base import RedirectView
 
 from .views import packaging_catalogue, container_selection
 from .views import products
@@ -30,26 +31,51 @@ urlpatterns = [
     path("", about, name="company_home"),
     path("about/", about, name="about"),
     path("blog/", blog_list, name="blog_list"),
+    # Canonical public SEO tool pages
     path(
-        "tools/palletization-calculator/",
+        "free-palletization-calculator/",
         palletization.palletization_calculator,
         name="palletization_calculator",
     ),
     path(
-        "tools/bag-size-calculator/",
+        "free-bag-size-calculator/",
         bag_selection.bag_selection_calculator,
         name="bag_selection_calculator",
     ),
     path(
-        "tools/box-size-calculator/",
+        "free-box-size-calculator/",
         container_selection.container_selection_calculator,
         name="container_selection_calculator",
     ),
     path(
-        "tools/container-loading-calculator/",
+        "free-container-loading-calculator/",
         container_tool.transport_container_calculator,
         name="transport_container_calculator",
     ),
+
+    # Permanent aliases for discovery and old links. Keep one canonical URL per tool.
+    path("tools/palletization-calculator/", RedirectView.as_view(pattern_name="palletization_calculator", permanent=True, query_string=True)),
+    path("palletization-calculator/", RedirectView.as_view(pattern_name="palletization_calculator", permanent=True, query_string=True)),
+    path("pallet-calculator/", RedirectView.as_view(pattern_name="palletization_calculator", permanent=True, query_string=True)),
+    path("pallet-tool/", RedirectView.as_view(pattern_name="palletization_calculator", permanent=True, query_string=True)),
+    path("palletization-calculation/", RedirectView.as_view(pattern_name="palletization_calculator", permanent=True, query_string=True)),
+    path("pallet-pattern-calculator/", RedirectView.as_view(pattern_name="palletization_calculator", permanent=True, query_string=True)),
+    path("boxes-per-pallet-calculator/", RedirectView.as_view(pattern_name="palletization_calculator", permanent=True, query_string=True)),
+    path("cartons-per-pallet-calculator/", RedirectView.as_view(pattern_name="palletization_calculator", permanent=True, query_string=True)),
+    path("ti-hi-calculator/", RedirectView.as_view(pattern_name="palletization_calculator", permanent=True, query_string=True)),
+
+    path("tools/bag-size-calculator/", RedirectView.as_view(pattern_name="bag_selection_calculator", permanent=True, query_string=True)),
+    path("bag-size-calculator/", RedirectView.as_view(pattern_name="bag_selection_calculator", permanent=True, query_string=True)),
+    path("bag-calculator/", RedirectView.as_view(pattern_name="bag_selection_calculator", permanent=True, query_string=True)),
+
+    path("tools/box-size-calculator/", RedirectView.as_view(pattern_name="container_selection_calculator", permanent=True, query_string=True)),
+    path("box-size-calculator/", RedirectView.as_view(pattern_name="container_selection_calculator", permanent=True, query_string=True)),
+    path("box-calculator/", RedirectView.as_view(pattern_name="container_selection_calculator", permanent=True, query_string=True)),
+    path("container-selection-calculator/", RedirectView.as_view(pattern_name="container_selection_calculator", permanent=True, query_string=True)),
+
+    path("tools/container-loading-calculator/", RedirectView.as_view(pattern_name="transport_container_calculator", permanent=True, query_string=True)),
+    path("container-loading-calculator/", RedirectView.as_view(pattern_name="transport_container_calculator", permanent=True, query_string=True)),
+    path("transport-container-calculator/", RedirectView.as_view(pattern_name="transport_container_calculator", permanent=True, query_string=True)),
 
     # KolliPack application
     path("kollipack/", home, name="home"),
@@ -158,4 +184,14 @@ urlpatterns = [
     # Full Packaging Module
     path("full-packaging/", full_packaging_mode, name="full_packaging_mode"),
     path("full-packaging/export/pdf/", full_packaging_export_pdf, name="full_packaging_export_pdf"),
+    path(
+        "full-packaging/case/<slug:case_slug>/",
+        full_packaging_mode,
+        name="full_packaging_case",
+    ),
+    path(
+        "full-packaging/case/<slug:case_slug>/export/pdf/",
+        full_packaging_export_pdf,
+        name="full_packaging_case_export_pdf",
+    ),
 ]

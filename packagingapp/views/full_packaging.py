@@ -2,8 +2,9 @@ from copy import deepcopy
 
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.utils import timezone
 
 from ..models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
@@ -11,9 +12,6 @@ from ..utils.box_selection.engine import run_mode1_and_render, compute_max_quant
 from ..utils.bag_selection.engine import (
     SEALING_AREA,
     TOLERANCE,
-    build_required_bag_options,
-    best_usage_for_bag,
-    run_bag_mode1_and_render,
 )
 from ..tools.palletization.presenter import (
     build_pallet_ui_contract,
@@ -35,6 +33,8 @@ from ..tools.bag.presenter import (
     selected_product_summary as selected_product_summary_bag,
 )
 from ..tools.bag.serializers import sanitize_bag_config_for_session
+from ..tools.selection_mode import normalize_selection_mode
+from ..tools.product_shape import normalize_product_shape
 from ..tools.bag.service import (
     analyze_bag_config as analyze_bag_config_shared,
     get_materials_for_catalogue as get_bag_materials_for_catalogue,
@@ -77,25 +77,51 @@ from ..tools.full_packaging.export import (
     build_full_packaging_pdf,
     build_workflow_report_payload,
 )
+from ..tools.full_packaging.flow_summary import build_packaging_flow_summary
+from ..tools.full_packaging.case_presets import get_case_preset
 
 
 SESSION_KEY = "full_packaging_mode_session"
+CASE_SESSION_PREFIX = f"{SESSION_KEY}_case_"
 PALLETIZATION_VISUAL_SOURCE = "palletization_result"
 PALLETIZATION_VISUAL_TOLERANCE_MM = 1e-6
 
 
+def _case_slug_from_request(request):
+    resolver_match = getattr(request, "resolver_match", None)
+    kwargs = getattr(resolver_match, "kwargs", {}) or {}
+    return str(kwargs.get("case_slug") or "").strip()
+
+
+def _workflow_session_key(request):
+    case_slug = _case_slug_from_request(request)
+    if case_slug:
+        return f"{CASE_SESSION_PREFIX}{case_slug}"
+    return SESSION_KEY
+
+
+def _empty_workflow():
+    return {
+        "steps": [],
+        "show_add_bar_after": None,
+    }
+
+
 def _init_workflow_session(request):
-    if SESSION_KEY not in request.session:
-        request.session[SESSION_KEY] = {
-            "steps": [],
-            "show_add_bar_after": None,
-        }
-        request.session.modified = True
+    session_key = _workflow_session_key(request)
+    if session_key in request.session:
+        return
+
+    case_slug = _case_slug_from_request(request)
+    request.session[session_key] = (
+        _build_case_workflow(case_slug) if case_slug else _empty_workflow()
+    )
+    request.session.modified = True
 
 
 def _get_workflow(request):
     _init_workflow_session(request)
-    return request.session[SESSION_KEY]
+    return request.session[_workflow_session_key(request)]
 
 
 def _save_workflow(request, workflow):
@@ -104,8 +130,29 @@ def _save_workflow(request, workflow):
         step.pop("selected_pallet_material", None)
         step.pop("box_materials", None)
         step.pop("pallet_materials", None)
-    request.session[SESSION_KEY] = workflow
+    request.session[_workflow_session_key(request)] = workflow
     request.session.modified = True
+
+
+def _reset_workflow(request):
+    case_slug = _case_slug_from_request(request)
+    workflow = _build_case_workflow(case_slug) if case_slug else _empty_workflow()
+    request.session[_workflow_session_key(request)] = workflow
+    request.session.modified = True
+
+
+def _redirect_to_workflow(request):
+    case_slug = _case_slug_from_request(request)
+    if case_slug:
+        return redirect("full_packaging_case", case_slug=case_slug)
+    return redirect("full_packaging_mode")
+
+
+def _workflow_export_url(request):
+    case_slug = _case_slug_from_request(request)
+    if case_slug:
+        return reverse("full_packaging_case_export_pdf", kwargs={"case_slug": case_slug})
+    return reverse("full_packaging_export_pdf")
 
 
 def _new_container_step():
@@ -120,27 +167,10 @@ def _new_container_step():
         "analysis_report": None,
         "selected_result": None,
         "top5": [],
+        "design_candidates": [],
+        "selected_design_candidate_id": "",
         "pending_result": None,
-        "config": {
-            "mode": "single",
-            "product_source": "manual",
-            "container_source": "manual",
-            "product_catalogue_id": "",
-            "selected_product_id": "",
-            "product_l": "",
-            "product_w": "",
-            "product_h": "",
-            "product_weight": "",
-            "desired_qty": 1,
-            "r1": True,
-            "r2": True,
-            "r3": True,
-            "catalogue_id": "",
-            "container_id": "",
-            "box_l": "",
-            "box_w": "",
-            "box_h": "",
-        },
+        "config": default_container_config(),
     }
 
 
@@ -154,6 +184,8 @@ def _new_bag_step():
         "result": None,
         "image_url": None,
         "top5": [],
+        "design_candidates": [],
+        "selected_design_candidate_id": "",
         "pending_result": None,
         "config": default_bag_config(),
     }
@@ -389,6 +421,128 @@ def _new_step(step_type):
     if step_type == "transport":
         return _new_transport_step()
     return _new_container_step()
+
+
+def _candidate_matches_dimensions(candidate, expected_dimensions):
+    actual = (
+        candidate.get("container_length"),
+        candidate.get("container_width"),
+        candidate.get("container_height"),
+    )
+    try:
+        return all(
+            abs(float(actual_value) - float(expected_value)) <= 1e-6
+            for actual_value, expected_value in zip(actual, expected_dimensions)
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def _accept_pending_result(step):
+    pending = _effective_step_output(step)
+    if not pending:
+        return
+    step["selected"] = pending
+    step["summary"] = _build_summary(pending)
+    step["expanded"] = True
+
+
+def _build_case_workflow(case_slug):
+    """Run a named article case through the existing shared backend engines."""
+    preset = get_case_preset(case_slug)
+    if not preset:
+        raise Http404("Unknown Packaging Flow case study.")
+
+    steps = []
+
+    product = preset["product"]
+    box_step = _new_container_step()
+    steps.append(box_step)
+    box_post = {
+        "mode_0": "design",
+        "product_source_0": "manual",
+        "container_source_0": "manual",
+        "product_l_0": str(product["length"]),
+        "product_w_0": str(product["width"]),
+        "product_h_0": str(product["height"]),
+        "product_weight_0": "",
+        "desired_qty_0": str(product["desired_quantity"]),
+        "r1_0": "on" if product.get("r1") else "",
+        "r2_0": "on" if product.get("r2") else "",
+        "r3_0": "on" if product.get("r3") else "",
+        "step_action_0": "run_design",
+    }
+    _process_container_step(box_step, steps, 0, box_post)
+
+    preferred_dimensions = preset["box_design"]["preferred_dimensions"]
+    preferred_candidate = next(
+        (
+            candidate
+            for candidate in (box_step.get("design_candidates") or [])
+            if _candidate_matches_dimensions(candidate, preferred_dimensions)
+        ),
+        None,
+    )
+    if preferred_candidate is not None:
+        box_post["selected_design_candidate_id_0"] = preferred_candidate["candidate_id"]
+        box_post["step_action_0"] = "select_design_candidate"
+        _process_container_step(box_step, steps, 0, box_post)
+    _accept_pending_result(box_step)
+
+    pallet_preset = preset["pallet"]
+    pallet_step = _new_pallet_step()
+    steps.append(pallet_step)
+    _apply_chained_defaults(pallet_step, steps, 1)
+    pallet_cfg = _extract_pallet_config_from_step(pallet_step)
+    pallet_cfg.update({
+        "box_source": "manual",
+        "pallet_source": "manual",
+        "pallet_l": pallet_preset["length"],
+        "pallet_w": pallet_preset["width"],
+        "max_stack_height": pallet_preset["max_stack_height"],
+        "max_width_stickout": pallet_preset["max_width_stickout"],
+        "max_length_stickout": pallet_preset["max_length_stickout"],
+    })
+    _update_pallet_config_on_step(pallet_step, pallet_cfg)
+    pallet_step["analysis_ran"] = True
+    _run_pallet_analysis_shared(pallet_step, steps, 1)
+    _accept_pending_result(pallet_step)
+
+    transport_preset = preset["transport"]
+    transport_step = _new_transport_step()
+    steps.append(transport_step)
+    _apply_chained_defaults(transport_step, steps, 2)
+    transport_cfg = transport_step["config"]
+    transport_cfg.update({
+        "container_source": "manual",
+        "container_l": transport_preset["length"],
+        "container_w": transport_preset["width"],
+        "container_h": transport_preset["height"],
+        "max_weight": transport_preset["max_weight"],
+        "tare_weight": transport_preset["tare_weight"],
+        "packing_mode": transport_preset["packing_mode"],
+    })
+    rows = sanitize_transport_rows_for_session(
+        transport_cfg.get("product_rows") or default_product_rows()
+    )
+    if rows:
+        rows[0]["max_qty"] = bool(transport_preset.get("calculate_max_quantity"))
+        rows[0]["qty"] = 1
+        rows[0]["stackable"] = True
+        rows[0]["sequence"] = 1
+        rows[0]["r1"] = True
+        rows[0]["r2"] = True
+        rows[0]["r3"] = True
+    transport_cfg["product_rows"] = sanitize_transport_rows_for_session(rows)
+    transport_step["analysis_ran"] = True
+    _run_transport_analysis(transport_step, steps, 2)
+    _accept_pending_result(transport_step)
+
+    return {
+        "steps": steps,
+        "show_add_bar_after": None,
+        "case_slug": case_slug,
+    }
 
 
 def _to_float(value, default=None):
@@ -761,6 +915,7 @@ def _transport_rows_from_selected(selected):
             "height": selected.get("height", ""),
             "qty": qty,
             "max_qty": bool(selected.get("transport_max_qty", False)),
+            "stackable": bool(selected.get("transport_stackable", True)),
             "weight": round(float(weight_kg), 3),
             "sequence": 1,
             "r1": True,
@@ -957,7 +1112,7 @@ def _merge_transport_inherited_rows(existing_rows, inherited_rows):
         current = existing[row_index] if row_index < len(existing) else {}
         row = dict(inherited_row)
 
-        for key in ("qty", "max_qty", "sequence", "r1", "r2", "r3"):
+        for key in ("qty", "max_qty", "stackable", "sequence", "r1", "r2", "r3"):
             if key in current and current.get(key) not in (None, ""):
                 row[key] = current.get(key)
 
@@ -1106,6 +1261,9 @@ def _prepare_container_step_view_model(step, idx):
     step["current_product_source"] = cfg.get("product_source") or "manual"
     step["current_container_source"] = cfg.get("container_source") or "manual"
     step["container_top5_rows"] = _inflate_container_top5_rows(step.get("top5", []))
+    step["design_candidates"] = step.get("design_candidates") or []
+    step["selected_design_candidate_id"] = step.get("selected_design_candidate_id") or cfg.get("selected_design_candidate_id") or ""
+    step["notices"] = step.get("notices") or []
     step["analysis_report"] = step.get("analysis_report") or (step.get("result") or {}).get("analysis_report")
     step["threejs_scene"] = step.get("threejs_scene") or (step.get("result") or {}).get("threejs_scene")
     step["product_base_image_url"] = step.get("product_base_image_url") or (step.get("result") or {}).get("product_base_image_url")
@@ -1146,6 +1304,10 @@ def _prepare_bag_step_view_model(step, idx):
     step["current_bag_source"] = cfg.get("bag_source") or "manual"
     step["allow_product_catalogue"] = idx == 0
     step["analysis_report"] = step.get("analysis_report") or (step.get("result") or {}).get("analysis_report")
+    step["threejs_scene"] = step.get("threejs_scene") or (step.get("result") or {}).get("render_data")
+    step["design_candidates"] = step.get("design_candidates") or []
+    step["selected_design_candidate_id"] = step.get("selected_design_candidate_id") or cfg.get("selected_design_candidate_id") or ""
+    step["notices"] = step.get("notices") or []
 
 
 def _process_container_step(step, steps, idx, post):
@@ -1154,7 +1316,11 @@ def _process_container_step(step, steps, idx, post):
     cfg.update(existing_cfg)
 
     suffix = f"_{idx}"
-    cfg["mode"] = post.get(f"mode{suffix}", post.get(f"mode_{idx}", cfg.get("mode", "single")))
+    cfg["mode"] = normalize_selection_mode({
+        "mode": post.get(f"mode{suffix}", post.get(f"mode_{idx}", normalize_selection_mode(cfg))),
+        "tool_mode": post.get(f"tool_mode{suffix}", post.get(f"tool_mode_{idx}", "")),
+    })
+    cfg.pop("tool_mode", None)
 
     if idx == 0:
         cfg["product_source"] = post.get(
@@ -1189,6 +1355,10 @@ def _process_container_step(step, steps, idx, post):
         f"desired_qty{suffix}",
         post.get(f"desired_qty_{idx}", cfg.get("desired_qty", "1"))
     )
+    cfg["product_shape"] = normalize_product_shape(post.get(
+        f"product_shape{suffix}",
+        post.get(f"product_shape_{idx}", cfg.get("product_shape", "cuboid")),
+    ))
 
     has_prefixed_rotation_inputs = (
         f"r1{suffix}" in post or f"r2{suffix}" in post or f"r3{suffix}" in post
@@ -1225,6 +1395,10 @@ def _process_container_step(step, steps, idx, post):
         f"action{suffix}",
         post.get(f"step_action_{idx}", cfg.get("action", "refresh"))
     )
+    cfg["selected_design_candidate_id"] = post.get(
+        f"selected_design_candidate_id{suffix}",
+        post.get(f"selected_design_candidate_id_{idx}", cfg.get("selected_design_candidate_id", "")),
+    )
 
     if idx != 0:
         cfg["product_source"] = "manual"
@@ -1249,6 +1423,7 @@ def _process_container_step(step, steps, idx, post):
         "product_h": cfg.get("product_h", ""),
         "product_weight": cfg.get("product_weight", ""),
         "desired_qty": cfg.get("desired_qty", "1"),
+        "product_shape": cfg.get("product_shape", "cuboid"),
         "container_source": cfg.get("container_source", "manual"),
         "catalogue_id": cfg.get("catalogue_id", ""),
         "container_id": cfg.get("container_id", ""),
@@ -1257,6 +1432,7 @@ def _process_container_step(step, steps, idx, post):
         "box_h": cfg.get("box_h", ""),
         "box_weight": cfg.get("box_weight", ""),
         "box_max_payload": cfg.get("box_max_payload", ""),
+        "selected_design_candidate_id": cfg.get("selected_design_candidate_id", ""),
     }
     if cfg.get("r1"):
         normalized_post["r1"] = "on"
@@ -1316,8 +1492,40 @@ def _process_container_step(step, steps, idx, post):
             for row in (analysis.get("top5") or [])
             if row.get("material") is not None
         ]
+        design_candidates = analysis.get("design_candidates") or []
+        selected_design_candidate_id = analysis.get("selected_design_candidate_id") or ""
 
-        if render_result is not None:
+        if render_result is not None and cfg.get("mode") == "design":
+            result_payload = dict(render_result)
+            selected_design_candidate_id = render_result["candidate_id"]
+            cfg["selected_design_candidate_id"] = selected_design_candidate_id
+            desired_qty = int(render_result["desired_quantity"])
+            units_per_parent = int(render_result["design_quantity"])
+            prev = _selected_input_for_step(steps, idx)
+            upstream_units = _to_int(prev.get("total_base_units"), 1) if prev else 1
+            pending_result = {
+                "label": "Designed Container",
+                "length": render_result["container_length"],
+                "width": render_result["container_width"],
+                "height": render_result["container_height"],
+                "units_per_parent": units_per_parent,
+                "total_base_units": units_per_parent * int(upstream_units or 1),
+                "transport_qty": 1,
+                "source_step_type": "container",
+                "package_type": "container",
+                "mode": "design",
+                "desired_quantity": desired_qty,
+                "design_quantity": units_per_parent,
+                "additional_capacity": render_result["additional_capacity"],
+                "selected_candidate_id": selected_design_candidate_id,
+                "selected_arrangement": render_result["arrangement"],
+                "selected_orientation": render_result["product_orientation"],
+                "metrics": {"cubicity": render_result["container_cubicity_score"], "volume": render_result["required_container_volume"]},
+                "render_data": render_result["render_data"],
+            }
+            if render_result.get("net_content_weight") is not None:
+                pending_result["net_content_weight_g"] = render_result["net_content_weight"]
+        elif render_result is not None:
             result_payload = {
                 "kind": "container",
                 "max_quantity": getattr(render_result, "max_quantity", None),
@@ -1373,6 +1581,9 @@ def _process_container_step(step, steps, idx, post):
     step["threejs_scene"] = threejs_scene
     step["product_base_image_url"] = product_base_image_url
     step["top5"] = top5_payload
+    step["design_candidates"] = locals().get("design_candidates", [])
+    step["selected_design_candidate_id"] = locals().get("selected_design_candidate_id", "")
+    step["notices"] = analysis.get("notices") if form.is_valid() else []
     step["pending_result"] = pending_result
     step["messages"] = messages
     step["expanded"] = True
@@ -1384,7 +1595,11 @@ def _process_bag_step(step, steps, idx, post):
     cfg.update(existing_cfg)
 
     suffix = f"_{idx}"
-    cfg["mode"] = post.get(f"mode{suffix}", post.get(f"mode_{idx}", cfg.get("mode", "single")))
+    cfg["mode"] = normalize_selection_mode({
+        "mode": post.get(f"mode{suffix}", post.get(f"mode_{idx}", normalize_selection_mode(cfg))),
+        "tool_mode": post.get(f"tool_mode{suffix}", post.get(f"tool_mode_{idx}", "")),
+    })
+    cfg.pop("tool_mode", None)
 
     if idx == 0:
         cfg["product_source"] = post.get(
@@ -1419,6 +1634,10 @@ def _process_bag_step(step, steps, idx, post):
         f"desired_qty{suffix}",
         post.get(f"desired_qty_{idx}", cfg.get("desired_qty", "1")),
     )
+    cfg["product_shape"] = normalize_product_shape(post.get(
+        f"product_shape{suffix}",
+        post.get(f"product_shape_{idx}", cfg.get("product_shape", "cuboid")),
+    ))
     cfg["catalogue_id"] = post.get(
         f"catalogue_id{suffix}",
         post.get(f"catalogue_id_{idx}", cfg.get("catalogue_id", "")),
@@ -1440,6 +1659,10 @@ def _process_bag_step(step, steps, idx, post):
     cfg["action"] = post.get(
         f"action{suffix}",
         post.get(f"step_action_{idx}", cfg.get("action", "refresh")),
+    )
+    cfg["selected_design_candidate_id"] = post.get(
+        f"selected_design_candidate_id{suffix}",
+        post.get(f"selected_design_candidate_id_{idx}", cfg.get("selected_design_candidate_id", "")),
     )
 
     if cfg["action"] == "browse_product" and idx == 0:
@@ -1477,16 +1700,26 @@ def _process_bag_step(step, steps, idx, post):
         pending_result["source_step_type"] = "bag"
         pending_result["package_type"] = "bag"
         pending_result.setdefault("transport_qty", 1)
-        pending_result = _enrich_package_payload_weight(
-            pending_result,
-            product_weight_g=_resolve_product_weight_g(cfg, selected_product),
-            packaging_weight_g=_resolve_packaging_weight_g(cfg, "bag_weight", selected_material),
-        )
+        if cfg.get("mode") != "design":
+            pending_result = _enrich_package_payload_weight(
+                pending_result,
+                product_weight_g=_resolve_product_weight_g(cfg, selected_product),
+                packaging_weight_g=_resolve_packaging_weight_g(cfg, "bag_weight", selected_material),
+            )
+        previous = _selected_input_for_step(steps, idx)
+        upstream_units = _to_int(previous.get("total_base_units"), 1) if previous else 1
+        pending_result["total_base_units"] = int(pending_result.get("units_per_parent") or 1) * int(upstream_units or 1)
 
     step["config"] = cfg
     step["result"] = analysis.get("result")
     step["image_url"] = analysis.get("image_url")
     step["top5"] = analysis.get("top5") or []
+    step["design_candidates"] = analysis.get("design_candidates") or []
+    step["selected_design_candidate_id"] = analysis.get("selected_design_candidate_id") or ""
+    if step["selected_design_candidate_id"]:
+        cfg["selected_design_candidate_id"] = step["selected_design_candidate_id"]
+    step["threejs_scene"] = analysis.get("threejs_scene")
+    step["notices"] = analysis.get("notices") or []
     step["pending_result"] = pending_result
     step["analysis_report"] = analysis.get("analysis_report")
     step["messages"] = analysis.get("messages") or []
@@ -1551,6 +1784,7 @@ def _process_transport_step(step, steps, idx, post):
             row["width"] = float(selected_product.product_width)
             row["height"] = float(selected_product.product_height)
             row["weight"] = float(selected_product.weight or 0)
+            row.setdefault("stackable", True)
             row["r1"] = bool(selected_product.rotation_1)
             row["r2"] = bool(selected_product.rotation_2)
             row["r3"] = bool(selected_product.rotation_3)
@@ -1657,7 +1891,7 @@ def _process_pallet_step(step, steps, idx, post):
 
 
 
-def full_packaging_export_pdf(request):
+def full_packaging_export_pdf(request, case_slug=None):
     workflow = _get_workflow(request)
     report_payload = build_workflow_report_payload(workflow)
     pdf_buffer = build_full_packaging_pdf(report_payload)
@@ -1667,7 +1901,11 @@ def full_packaging_export_pdf(request):
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
 
-def full_packaging_mode(request):
+def full_packaging_mode(request, case_slug=None):
+    if request.method == "GET" and case_slug and request.GET.get("reset") == "1":
+        _reset_workflow(request)
+        return _redirect_to_workflow(request)
+
     workflow = _get_workflow(request)
     steps = workflow["steps"]
 
@@ -1678,12 +1916,12 @@ def full_packaging_mode(request):
             anchor = request.POST.get("after_index", "start")
             workflow["show_add_bar_after"] = anchor
             _save_workflow(request, workflow)
-            return redirect("full_packaging_mode")
+            return _redirect_to_workflow(request)
 
         if action == "hide_add_bar":
             workflow["show_add_bar_after"] = None
             _save_workflow(request, workflow)
-            return redirect("full_packaging_mode")
+            return _redirect_to_workflow(request)
 
         if action == "add_step":
             after_index = request.POST.get("after_index", "")
@@ -1699,7 +1937,7 @@ def full_packaging_mode(request):
                     steps.append(new_step)
             workflow["show_add_bar_after"] = None
             _save_workflow(request, workflow)
-            return redirect("full_packaging_mode")
+            return _redirect_to_workflow(request)
 
         if action == "remove_step":
             idx = _to_int(request.POST.get("index"))
@@ -1707,7 +1945,7 @@ def full_packaging_mode(request):
                 steps.pop(idx)
                 workflow["show_add_bar_after"] = None
                 _save_workflow(request, workflow)
-            return redirect("full_packaging_mode")
+            return _redirect_to_workflow(request)
 
         if action == "toggle_step":
             idx = _to_int(request.POST.get("index"))
@@ -1715,12 +1953,11 @@ def full_packaging_mode(request):
                 steps[idx]["expanded"] = not steps[idx]["expanded"]
                 workflow["show_add_bar_after"] = None
                 _save_workflow(request, workflow)
-            return redirect("full_packaging_mode")
+            return _redirect_to_workflow(request)
 
         if action == "reset_workflow":
-            request.session[SESSION_KEY] = {"steps": [], "show_add_bar_after": None}
-            request.session.modified = True
-            return redirect("full_packaging_mode")
+            _reset_workflow(request)
+            return _redirect_to_workflow(request)
 
         if action == "run_step":
             idx = _to_int(request.POST.get("index"))
@@ -1736,7 +1973,7 @@ def full_packaging_mode(request):
                     _process_container_step(steps[idx], steps, idx, request.POST)
                 workflow["show_add_bar_after"] = None
                 _save_workflow(request, workflow)
-            return redirect("full_packaging_mode")
+            return _redirect_to_workflow(request)
 
         if action == "use_step_result":
             idx = _to_int(request.POST.get("index"))
@@ -1761,7 +1998,7 @@ def full_packaging_mode(request):
                     steps[idx]["expanded"] = True
                     workflow["show_add_bar_after"] = None
                     _save_workflow(request, workflow)
-            return redirect("full_packaging_mode")
+            return _redirect_to_workflow(request)
 
     product_catalogues = visible_product_catalogues(request.user).order_by("name")
     packaging_catalogues = visible_packaging_catalogues(request.user).order_by("name")
@@ -1879,11 +2116,16 @@ def full_packaging_mode(request):
 
         step["workflow_overview"] = _build_step_overview(step, steps, idx)
 
+    packaging_flow_summary = build_packaging_flow_summary(steps)
+
     return render(request, "full_packaging/full_packaging_mode.html", {
         "steps": steps,
+        "packaging_flow_summary": packaging_flow_summary,
         "show_add_bar_after": workflow.get("show_add_bar_after"),
         "product_catalogues": product_catalogues,
         "packaging_catalogues": packaging_catalogues,
+        "case_preset": get_case_preset(case_slug) if case_slug else None,
+        "full_packaging_export_url": _workflow_export_url(request),
     })
 
 def _run_transport_analysis(step, steps, idx):

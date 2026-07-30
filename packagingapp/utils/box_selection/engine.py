@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import os
 import uuid
+import hashlib
+import json
 from dataclasses import dataclass
 from typing import Tuple, Optional, List
 
@@ -15,7 +17,12 @@ from matplotlib.colors import to_rgba
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 # IMPORTANT: this must match where you placed the file
-from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordinates import MainBox
+from packagingapp.tools.product_shape import orientation_index_from_dimensions
+from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordinates import (
+    MainBox,
+    allowed_product_orientations,
+)
+from packagingapp.utils.package_design_arrangements import build_canonical_design_arrangements
 
 
 Dims = Tuple[float, float, float]
@@ -381,6 +388,7 @@ def _append_threejs_cuboid(
     opacity: float = 1.0,
     level: Optional[int] = None,
     region_type: Optional[str] = None,
+    orientation_index: Optional[int] = None,
 ):
     if collection is None:
         return
@@ -405,7 +413,81 @@ def _append_threejs_cuboid(
         item["level"] = int(level)
     if region_type is not None:
         item["region_type"] = region_type
+    if orientation_index is not None:
+        item["orientationIndex"] = int(orientation_index)
     collection.append(item)
+
+
+def _stable_container_design_id(payload: dict) -> str:
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+    return f"container-design-{digest}"
+
+
+def build_container_design_candidates(
+    product: Dims,
+    desired_quantity: int,
+    r1: int,
+    r2: int,
+    r3: int,
+) -> dict:
+    """Build and rank distinct regular-grid container design alternatives."""
+    design = build_canonical_design_arrangements(product, desired_quantity, r1, r2, r3)
+    candidates = []
+    for arrangement in design["arrangements"]:
+        container_l = arrangement["bundle_length"]
+        container_w = arrangement["bundle_width"]
+        container_h = arrangement["bundle_height"]
+        scene = _build_threejs_scene((container_l, container_w, container_h))
+        scene["mode"] = "design"
+        scene["products"] = [
+            {
+                **product_item,
+                "orientationIndex": int(arrangement["orientation_index"]),
+            }
+            for product_item in arrangement["products"]
+        ]
+        candidate = {
+            "desired_quantity": arrangement["desired_quantity"],
+            "design_quantity": arrangement["design_quantity"],
+            "additional_capacity": arrangement["additional_capacity"],
+            "arrangement": arrangement["arrangement"],
+            "product_orientation": arrangement["product_orientation"],
+            "orientation_index": arrangement["orientation_index"],
+            "rows": arrangement["rows"],
+            "columns": arrangement["columns"],
+            "layers": arrangement["layers"],
+            "arrangement_id": arrangement["arrangement_id"],
+            "container_length": round(container_l, 2),
+            "container_width": round(container_w, 2),
+            "container_height": round(container_h, 2),
+            "container_cubicity_score": arrangement["bundle_cubicity_score"],
+            "required_container_volume": arrangement["bundle_volume"],
+            "volumetric_efficiency": 1.0,
+            "render_data": scene,
+            "_canonical_key": arrangement["canonical_arrangement_key"],
+            "_representative_key": arrangement["representative_key"],
+        }
+        candidates.append(candidate)
+    for rank, candidate in enumerate(candidates, start=1):
+        identity = {
+            "mode": "design",
+            "design_quantity": design["design_quantity"],
+            "container_dimensions": candidate["_canonical_key"],
+            "arrangement": (candidate["rows"], candidate["columns"], candidate["layers"]),
+            "orientation_index": candidate["orientation_index"],
+        }
+        candidate["candidate_id"] = _stable_container_design_id(identity)
+        candidate["rank"] = rank
+        candidate.pop("_canonical_key", None)
+        candidate.pop("_representative_key", None)
+    return {
+        "desired_quantity": design["desired_quantity"],
+        "design_quantity": design["design_quantity"],
+        "additional_capacity": design["additional_capacity"],
+        "generated_candidate_count": design["generated_candidate_count"],
+        "candidates": candidates,
+    }
 
 
 def run_mode1_and_render(product: Dims,
@@ -413,7 +495,8 @@ def run_mode1_and_render(product: Dims,
                          r1: int, r2: int, r3: int,
                          media_root: str,
                          draw_limit: Optional[int] = None,
-                         render_style: str = "debug") -> Mode1Result:
+                         render_style: str = "debug",
+                         include_product_orientation_metadata: bool = True) -> Mode1Result:
     """
     Mode render:
       - Draw container wireframe
@@ -432,6 +515,7 @@ def run_mode1_and_render(product: Dims,
     show_debug_subboxes = not clean_render
     threejs_scene = _build_threejs_scene(container)
     placements, packed_regions = _calculate_pilot_solution(product, container, r1, r2, r3)
+    allowed_orientations = allowed_product_orientations(product, r1, r2, r3)
     max_qty = len(placements)
     rendered_placements = placements
     if draw_limit is not None:
@@ -493,6 +577,15 @@ def run_mode1_and_render(product: Dims,
             opacity=0.9,
             level=placement.level,
             region_type=placement.region_type,
+            orientation_index=(
+                orientation_index_from_dimensions(
+                    product,
+                    placement.dimensions,
+                    allowed_orientations=allowed_orientations,
+                )
+                if include_product_orientation_metadata
+                else None
+            ),
         )
 
     ax.set_xlim([-flap_margin, lc + flap_margin])

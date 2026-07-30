@@ -277,12 +277,13 @@ def multi_product_bag_draw(request: HttpRequest) -> JsonResponse:
         media_root=settings.MEDIA_ROOT,
         draw_limit=desired_qty,
         selected_required_bag=(best["req_len"], best["req_w"]),
+        include_product_orientation_metadata=False,
     )
 
     return JsonResponse(
         {
             "ok": True,
-            "image_url": settings.MEDIA_URL + render_result.image_rel_path,
+            "threejs_scene": render_result.threejs_scene,
             "desired_qty": desired_qty,
             "smooth_qty": smooth_qty,
             "bag_len": bag_len,

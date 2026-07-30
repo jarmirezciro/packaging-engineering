@@ -77,6 +77,8 @@ The script stores one pending interaction in `sessionStorage` with:
 - the current path and query string;
 - the semantic tool-instance key;
 - the marked element's top position relative to the viewport;
+- named inner-scroll positions for opt-in elements using
+  `data-preserve-inner-scroll`;
 - a creation timestamp.
 
 The state is tab-scoped, expires after 30 seconds, and is consumed once. A
@@ -85,6 +87,12 @@ matching response restores the same layout-relative position with one
 native scroll handling to settle; it is not a delay, retry loop, timer, or
 polling mechanism. The solution stores no hard-coded page offsets and does not
 change workflow session data.
+
+Bag and Container Design result tables use the shared inner-scroll contract.
+Their responsive wrapper has bounded vertical and horizontal overflow and a
+sticky header. Candidate selection therefore restores the table's own
+`scrollTop`/`scrollLeft` alongside the page position without tool-specific
+JavaScript.
 
 State is ignored when:
 

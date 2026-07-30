@@ -75,7 +75,11 @@ A former render path used:
 - a second solve beginning from the complete container during rendering;
 - Three.js suppression of the recursive placements to avoid duplicate display;
 
+<<<<<<< HEAD
 The authoritative engine now uses:
+=======
+The authoritative Selection Mode engine now uses:
+>>>>>>> pre-production
 
 - one root `MainBox` call and up to three Level 1 `MainBox` calls;
 - explicit placements carrying origin, orientation, level, and region type;
@@ -155,3 +159,34 @@ The exact semantic mapping of R1/R2/R3 must be read from current forms/engine an
 - standalone, Flow, and report counts agree for equivalent single-product fixtures;
 - Multi-product Container Selection reproduces the same placements/graphics for an equivalent one-row fixture;
 - clean-render and product-detail improvements appear in the multi-product result and report where applicable.
+
+## Design Mode
+
+Container Design Mode and Bag Design Mode use the same canonical arrangement
+generator in `packagingapp/utils/package_design_arrangements.py`, including the
+shared smooth-quantity and prime-factor distribution helpers. It distributes
+the design quantity over three axes to enumerate every ordered rows x columns x
+layers grid. Permitted
+orientations come from the existing authoritative R1/R2/R3 mapping in
+`box_selection_tool_arrays_2_origin_coordinates.allowed_product_orientations`.
+
+Each candidate's required internal rectangular bounding box is the grid count
+multiplied by the oriented product dimensions. The RSC remains a browser visual
+representation; it is not part of the bounding-box calculation. Horizontal
+dimensions are normalized so `length >= width` while height remains the vertical
+axis. Rows/columns, product X/Y dimensions and coordinates, and the RSC scene are
+rotated with that normalization. Candidates are grouped by the final canonical
+key `(length, width, height)` at six-decimal scene precision. Different heights
+remain different designs. The retained representative uses the authoritative
+orientation order, then the smallest normalized `(rows, columns, layers)` tuple,
+then generation order.
+
+Only after grouping are candidates ranked by cubicity
+(`min(L, W, H) / max(L, W, H)`) descending, additional capacity ascending,
+internal volume ascending, and a stable canonical tie-breaker; ranks and IDs are
+then assigned. Design Mode optionally reports net-content product weight only;
+container tare, total package weight, and payload metrics are not inputs or
+serialized results. Single and Optimal modes keep their existing evaluation.
+Selection Mode continues to use `MainBox` and its existing leftover-space logic.
+The extraction preserves Container Design's existing candidate dimensions,
+ordering, representative choices, render geometry, and candidate identifiers.

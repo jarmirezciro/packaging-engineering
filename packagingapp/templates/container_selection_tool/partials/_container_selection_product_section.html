@@ -106,12 +106,14 @@
             <label class="form-label">Mode</label>
             {% if mode == "workflow" %}
                 <select name="{{ container_ui.names.mode }}" class="form-select">
+                    <option value="design" {% if container_values.mode == "design" %}selected{% endif %}>Design Mode</option>
                     <option value="single" {% if container_values.mode == "single" %}selected{% endif %}>Single container analysis</option>
                     <option value="optimal" {% if container_values.mode == "optimal" %}selected{% endif %}>Optimal container (Top 5)</option>
                 </select>
             {% else %}
                 {{ form.mode }}
             {% endif %}
+            <div class="app-form-note">Design calculates internal dimensions; Single and Optimal evaluate existing containers.</div>
         </div>
 
         <div class="tool-field-group">
@@ -160,9 +162,26 @@
 
             <div class="tool-compact-grid-two tool-tight-gap">
                 <div class="tool-field-group mb-0"><label class="form-label">Weight <span class="text-muted">(g)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_weight }}" value="{{ container_values.product_weight|default:'' }}">{% else %}{{ form.product_weight }}{% endif %}</div>
-                <div id="{% if mode == 'workflow' %}manualDesiredQtyWrap_{{ container_ui.prefix }}{% else %}manualDesiredQtyWrap{% endif %}" class="tool-field-group mb-0"><label class="form-label">Units needed</label>{% if mode == "workflow" %}<input type="number" step="1" min="1" class="form-control" name="{{ container_ui.names.desired_qty }}" value="{{ container_values.desired_qty|default:'1' }}">{% else %}{{ form.desired_qty }}{% endif %}</div>
+                <div id="{% if mode == 'workflow' %}manualDesiredQtyWrap_{{ container_ui.prefix }}{% else %}manualDesiredQtyWrap{% endif %}" class="tool-field-group mb-0"><label class="form-label">Desired quantity</label>{% if mode == "workflow" %}<input type="number" step="1" min="1" class="form-control" name="{{ container_ui.names.desired_qty }}" value="{{ container_values.desired_qty|default:'1' }}">{% else %}{{ form.desired_qty }}{% endif %}</div>
             </div>
+        </div>
 
+        <div class="tool-field-group tool-tight-gap">
+            <label class="form-label" for="{{ container_ui.ids.product_shape }}">Product shape</label>
+            {% if mode == "workflow" %}
+                <select name="{{ container_ui.names.product_shape }}" id="{{ container_ui.ids.product_shape }}" class="form-select">
+                    <option value="cuboid" {% if container_values.product_shape == "cuboid" %}selected{% endif %}>Rectangular / cuboid</option>
+                    <option value="cylinder" {% if container_values.product_shape == "cylinder" %}selected{% endif %}>Cylinder</option>
+                    <option value="bottle" {% if container_values.product_shape == "bottle" %}selected{% endif %}>Bottle</option>
+                    <option value="pillow_bag" {% if container_values.product_shape == "pillow_bag" %}selected{% endif %}>Pillow bag</option>
+                </select>
+            {% else %}
+                {{ form.product_shape }}
+            {% endif %}
+            <div class="app-form-note">Product shape affects the 3D visualization only. Packing calculations use the entered rectangular bounding dimensions.</div>
+        </div>
+
+        <div id="{{ container_ui.ids.manual_rotation_fields }}">
             <div class="tool-field-group tool-tight-gap">
                 <label class="form-label">Rotation permissions</label>
                 <div class="tool-checkbox-group tool-checkbox-group--inline container-rotation-group">

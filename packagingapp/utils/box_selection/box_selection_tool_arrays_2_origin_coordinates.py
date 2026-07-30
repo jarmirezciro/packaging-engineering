@@ -37,6 +37,37 @@ def _orientation_allowed_flags(r1, r2, r3):
     return [r3, r2, r3, r1, r1, r2]
 
 
+def allowed_product_orientations(product, r1, r2, r3):
+    """Expose the authoritative six-orientation/rotation mapping.
+
+    Container Selection and Container Design Mode both consume this function,
+    preventing the R1/R2/R3 semantics from drifting between engines.
+    Symmetrical dimension permutations are removed deterministically.
+    """
+    length, width, height = (float(product[0]), float(product[1]), float(product[2]))
+    dimensions = [
+        (length, width, height),
+        (length, height, width),
+        (width, length, height),
+        (width, height, length),
+        (height, width, length),
+        (height, length, width),
+    ]
+    labels = ["L × W × H", "L × H × W", "W × L × H", "W × H × L", "H × W × L", "H × L × W"]
+    allowed = _orientation_allowed_flags(r1, r2, r3)
+    result = []
+    seen = set()
+    for index, (dims, is_allowed) in enumerate(zip(dimensions, allowed)):
+        if not is_allowed:
+            continue
+        key = tuple(round(value, 9) for value in dims)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append({"index": index, "label": labels[index], "dimensions": dims})
+    return result
+
+
 def _zero_pack():
     return 0, (0, 0, 0)
 

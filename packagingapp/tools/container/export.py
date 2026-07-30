@@ -293,16 +293,26 @@ def build_container_selection_single_pdf(export_payload):
     container = export_payload.get("container") or {}
     analysis = export_payload.get("analysis_report") or {}
 
-    story.append(Paragraph("Container Selection Report", _STYLES["ReportTitle"]))
-    story.append(Paragraph(f"Single container analysis - Generated {generated_at}", _STYLES["ReportSubtitle"]))
+    is_design = bool(analysis.get("design_mode"))
+    story.append(Paragraph("Container Design Report" if is_design else "Container Selection Report", _STYLES["ReportTitle"]))
+    story.append(Paragraph(f"{'Design Mode' if is_design else 'Single container analysis'} - Generated {generated_at}", _STYLES["ReportSubtitle"]))
 
-    metrics = [
-        ("Max qty", f"{analysis.get('max_quantity', '-')} pcs"),
-        ("Current qty", f"{analysis.get('requested_qty', '-')} pcs"),
-        ("Efficiency", analysis.get("volumetric_efficiency_current_display")),
-        ("Total weight", analysis.get("total_weight_current_display")),
-        ("Payload", analysis.get("payload_usage_display")),
-    ]
+    if is_design:
+        metrics = [
+            ("Designed qty", f"{analysis.get('max_quantity', '-')} pcs"),
+            ("Requested qty", f"{analysis.get('requested_qty', '-')} pcs"),
+            ("Efficiency", analysis.get("volumetric_efficiency_current_display")),
+            ("Net content", analysis.get("net_content_weight_display")),
+            ("Cubicity", analysis.get("shape_score_display")),
+        ]
+    else:
+        metrics = [
+            ("Max qty", f"{analysis.get('max_quantity', '-')} pcs"),
+            ("Current qty", f"{analysis.get('requested_qty', '-')} pcs"),
+            ("Efficiency", analysis.get("volumetric_efficiency_current_display")),
+            ("Total weight", analysis.get("total_weight_current_display")),
+            ("Payload", analysis.get("payload_usage_display")),
+        ]
     story.append(_metric_cards(metrics))
     story.append(Spacer(1, 5))
 
@@ -315,14 +325,19 @@ def build_container_selection_single_pdf(export_payload):
         ("Rotations", product.get("rotations")),
     ], [28 * mm, 64 * mm])
 
-    container_table = _key_value_table([
+    container_rows = [
         ("Source", container.get("source")),
         ("Part no.", container.get("part_number")),
         ("Description", container.get("description")),
         ("Type", container.get("type")),
         ("Internal dims", container.get("dimensions")),
-        ("Tare / payload", f"{container.get('tare', '-')} / {container.get('payload_capacity', '-')}")
-    ], [30 * mm, 66 * mm])
+        ("Requested / designed", f"{analysis.get('desired_quantity', analysis.get('requested_qty', '-'))} / {analysis.get('design_quantity', analysis.get('max_quantity', '-'))} pcs"),
+        ("Arrangement", analysis.get("arrangement")),
+        ("Orientation", analysis.get("product_orientation")),
+    ]
+    if not is_design:
+        container_rows.insert(5, ("Tare / payload", f"{container.get('tare', '-')} / {container.get('payload_capacity', '-')}"))
+    container_table = _key_value_table(container_rows, [30 * mm, 66 * mm])
 
     left_stack = [
         _section_title("Product"),

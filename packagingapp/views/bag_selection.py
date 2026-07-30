@@ -20,8 +20,10 @@ from ..tools.bag.service import (
     get_selected_product,
 )
 from ..tools.bag.state import default_bag_config
+from ..tools.selection_mode import normalize_selection_mode
 from ..tools.bag.export import build_bag_selection_pdf
 from ..utils.bag_selection.engine import SEALING_AREA, TOLERANCE
+from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 
 
 SEO_BAG_SELECTION_EXAMPLE_CONFIG = {
@@ -52,7 +54,10 @@ def _read_raw_bag_config(request, *, initial_config=None):
         source = request.GET
 
     cfg.update({
-        "mode": source.get("mode", cfg["mode"]),
+        "mode": normalize_selection_mode({
+            "mode": source.get("mode", normalize_selection_mode(cfg)),
+            "tool_mode": source.get("tool_mode", ""),
+        }),
         "action": source.get("action", cfg["action"]),
         "product_source": source.get("product_source", cfg["product_source"]),
         "product_catalogue_id": source.get("product_catalogue_id", cfg["product_catalogue_id"]),
@@ -62,6 +67,7 @@ def _read_raw_bag_config(request, *, initial_config=None):
         "product_h": source.get("product_h", cfg["product_h"]),
         "product_weight": source.get("product_weight", cfg["product_weight"]),
         "desired_qty": source.get("desired_qty", cfg["desired_qty"]),
+        "product_shape": source.get("product_shape", cfg["product_shape"]),
         "bag_source": source.get("bag_source", cfg["bag_source"]),
         "catalogue_id": source.get("catalogue_id", cfg["catalogue_id"]),
         "bag_id": source.get("bag_id", cfg["bag_id"]),
@@ -69,6 +75,7 @@ def _read_raw_bag_config(request, *, initial_config=None):
         "bag_width": source.get("bag_width", cfg["bag_width"]),
         "bag_weight": source.get("bag_weight", cfg["bag_weight"]),
         "bag_max_payload": source.get("bag_max_payload", cfg["bag_max_payload"]),
+        "selected_design_candidate_id": source.get("selected_design_candidate_id", cfg["selected_design_candidate_id"]),
     })
 
     return sanitize_bag_config_for_session(cfg)
@@ -97,6 +104,7 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "product_h": f"product_h{suffix}",
             "product_weight": f"product_weight{suffix}",
             "desired_qty": f"desired_qty{suffix}",
+            "product_shape": f"product_shape{suffix}",
             "bag_source": f"bag_source{suffix}",
             "catalogue_id": f"catalogue_id{suffix}",
             "bag_id": f"bag_id{suffix}",
@@ -104,19 +112,26 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "bag_width": f"bag_width{suffix}",
             "bag_weight": f"bag_weight{suffix}",
             "bag_max_payload": f"bag_max_payload{suffix}",
+            "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
         },
         "ids": {
             "root": f"bagSelectionRoot{suffix}",
             "action": action_id,
             "selected_product_id": f"selected_product_id{suffix}",
             "bag_id": f"bag_id{suffix}",
+            "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
             "product_catalogue_chooser": f"productCatalogueChooser{suffix}" if prefix else "productCatalogueChooser",
             "manual_product_fields": f"manualProductFields{suffix}" if prefix else "manualProductFields",
             "manual_desired_qty_wrap": f"manualDesiredQtyWrap{suffix}" if prefix else "manualDesiredQtyWrap",
+            "product_shape": f"id_product_shape{suffix}",
             "global_catalogue_chooser": f"globalCatalogueChooser{suffix}" if prefix else "globalCatalogueChooser",
             "single_bag_controls": f"singleBagControls{suffix}" if prefix else "singleBagControls",
             "optimal_bag_controls": f"optimalBagControls{suffix}" if prefix else "optimalBagControls",
             "manual_bag_fields": f"manualBagFields{suffix}" if prefix else "manualBagFields",
+            "design_packaging_fields": f"designPackagingFields{suffix}" if prefix else "designPackagingFields",
+            "selection_package_controls": f"selectionPackageControls{suffix}" if prefix else "selectionPackageControls",
+            "threejs_viewer": f"bagThreeJsViewer{suffix}",
+            "threejs_scene": f"bagThreeJsScene{suffix}",
         },
     }
 
@@ -184,7 +199,7 @@ def _product_payload(*, form, selected_product):
         "dimensions": _format_dims(product_l, product_w, product_h),
         "weight": _format_optional_weight(product_weight),
         "desired_qty": f"{desired_qty} pcs",
-        "orientation": "Fixed product orientation; bag opening is on the width side.",
+        "orientation": "The packed arrangement may be rotated freely; the bag opening is on the width side.",
     }
 
 
@@ -292,6 +307,38 @@ def _build_optimal_export_payload(*, form, analysis, top5, selected_product, sel
     }
 
 
+def _build_design_export_payload(*, form, analysis, selected_product):
+    selected = analysis.get("result") or {}
+    report = analysis.get("analysis_report") or {}
+    if not selected or not report:
+        return None
+    analysis_payload = dict(report)
+    analysis_payload.update({
+        "current_quantity": selected["desired_quantity"],
+        "max_quantity": selected["design_quantity"],
+        "remaining_capacity": selected["additional_capacity"],
+        "bag_usage_current_display": f"{selected['bag_usage'] * 100:.0f}%",
+        "bag_usage_max_display": f"{selected['bag_usage'] * 100:.0f}%",
+        "calculation_note": "Design Mode dimensions use the shared smooth-quantity and bag formula contracts.",
+        "design_mode": True,
+    })
+    return {
+        "report_type": "design",
+        "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
+        "product": _product_payload(form=form, selected_product=selected_product),
+        "bag": {
+            "source": "Designed",
+            "part_number": selected["candidate_id"],
+            "description": f"Arrangement {selected['arrangement']} · {selected['product_orientation']}",
+            "brand": "KolliPack Design Mode",
+            "material": "To be specified",
+            "dimensions": _format_bag_dims(selected["bag_length"], selected["bag_width"]),
+        },
+        "analysis_report": analysis_payload,
+        "selected_candidate": selected,
+    }
+
+
 
 def _build_bag_selection_page_context(
     request,
@@ -325,6 +372,10 @@ def _build_bag_selection_page_context(
     top5 = []
     pending_result = None
     analysis_report = None
+    threejs_scene = None
+    design_candidates = []
+    selected_design_candidate_id = config.get("selected_design_candidate_id") or ""
+    notices = []
 
     form_is_valid = form.is_valid() if request.method == "POST" else True
     should_analyze = run_initial_analysis or request.method == "POST"
@@ -343,6 +394,10 @@ def _build_bag_selection_page_context(
         top5 = analysis["top5"]
         pending_result = analysis["pending_result"]
         analysis_report = analysis.get("analysis_report")
+        threejs_scene = analysis.get("threejs_scene")
+        design_candidates = analysis.get("design_candidates") or []
+        selected_design_candidate_id = analysis.get("selected_design_candidate_id") or selected_design_candidate_id
+        notices = analysis.get("notices") or []
 
         current_form_mode = (
             form.cleaned_data.get("mode")
@@ -385,6 +440,12 @@ def _build_bag_selection_page_context(
         for message in analysis["messages"]:
             form.add_error(None, message)
 
+        if result and analysis_report and current_form_mode == "design":
+            design_export = _build_design_export_payload(form=form, analysis=analysis, selected_product=selected_product)
+            if design_export:
+                request.session["bag_selection_design_export"] = design_export
+                request.session.modified = True
+
     product_summary = selected_product_summary(
         selected_product=selected_product,
         data=form if request.method == "POST" else config,
@@ -405,6 +466,10 @@ def _build_bag_selection_page_context(
         "top5": top5,
         "pending_result": pending_result,
         "analysis_report": analysis_report,
+        "threejs_scene": threejs_scene,
+        "design_candidates": design_candidates,
+        "selected_design_candidate_id": selected_design_candidate_id,
+        "notices": notices,
         "materials": materials,
         "products": products,
         "selected_material": selected_material,
@@ -555,10 +620,22 @@ def bag_selection_calculator(request):
 
 
 def bag_selection_export_pdf(request):
-    export_payload = (
-        request.session.get("bag_selection_single_export")
-        or request.session.get("bag_selection_last_export")
-    )
+    if request.POST.get("design_export"):
+        export_payload = request.session.get("bag_selection_design_export")
+        if export_payload:
+            snapshot = save_threejs_snapshot_from_request(request, relative_directory="bag_exports/threejs")
+            if not snapshot:
+                return HttpResponse("The Three.js snapshot was not received. Wait for the viewer to load and try again.", status=400, content_type="text/plain")
+            export_payload = dict(export_payload)
+            export_payload["threejs_snapshot_rel_path"] = snapshot
+    else:
+        export_payload = request.session.get("bag_selection_single_export") or request.session.get("bag_selection_last_export")
+        if export_payload and request.method == "POST":
+            snapshot = save_threejs_snapshot_from_request(request, relative_directory="bag_exports/threejs")
+            if not snapshot:
+                return HttpResponse("The Three.js snapshot was not received. Wait for the viewer to load and try again.", status=400, content_type="text/plain")
+            export_payload = dict(export_payload)
+            export_payload["threejs_snapshot_rel_path"] = snapshot
 
     if not export_payload:
         return HttpResponse(
@@ -586,6 +663,13 @@ def bag_selection_export_optimal_pdf(request):
             status=400,
             content_type="text/plain",
         )
+
+    if request.method == "POST":
+        snapshot = save_threejs_snapshot_from_request(request, relative_directory="bag_exports/threejs")
+        if not snapshot:
+            return HttpResponse("The Three.js snapshot was not received. Wait for the viewer to load and try again.", status=400, content_type="text/plain")
+        export_payload = dict(export_payload)
+        export_payload["threejs_snapshot_rel_path"] = snapshot
 
     export_payload["report_type"] = "optimal"
     pdf_buffer = build_bag_selection_pdf(export_payload)

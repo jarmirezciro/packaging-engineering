@@ -1,4 +1,6 @@
 from .state import default_container_config
+from ..selection_mode import normalize_selection_mode
+from ..product_shape import normalize_product_shape
 
 
 def _as_bool(value):
@@ -16,7 +18,7 @@ def sanitize_container_config_for_session(config):
     base.update(config or {})
 
     return {
-        "mode": _safe_str(base.get("mode") or "single"),
+        "mode": normalize_selection_mode(base),
         "action": _safe_str(base.get("action") or ""),
 
         "product_source": _safe_str(base.get("product_source") or "manual"),
@@ -27,6 +29,7 @@ def sanitize_container_config_for_session(config):
         "product_h": _safe_str(base.get("product_h") or ""),
         "product_weight": _safe_str(base.get("product_weight") or ""),
         "desired_qty": _safe_str(base.get("desired_qty") or "1"),
+        "product_shape": normalize_product_shape(base.get("product_shape")),
         "r1": bool(base.get("r1", True)),
         "r2": bool(base.get("r2", True)),
         "r3": bool(base.get("r3", True)),
@@ -39,4 +42,5 @@ def sanitize_container_config_for_session(config):
         "box_h": _safe_str(base.get("box_h") or ""),
         "box_weight": _safe_str(base.get("box_weight") or ""),
         "box_max_payload": _safe_str(base.get("box_max_payload") or ""),
+        "selected_design_candidate_id": _safe_str(base.get("selected_design_candidate_id") or ""),
     }

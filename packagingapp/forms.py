@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 
 from .models import PackagingCatalogue, PackagingMaterial
 from .models import ProductCatalogue, Product
+from .tools.product_shape import PRODUCT_SHAPE_CHOICES
 
 
 ###
@@ -152,6 +153,7 @@ class PackagingMaterialImagesZipUploadForm(forms.Form):
 
 class ContainerSelectionMode1Form(forms.Form):
     MODE_CHOICES = [
+        ("design", "Design Mode"),
         ("single", "Single container analysis"),
         ("optimal", "Optimal container (Top 5)"),
     ]
@@ -221,6 +223,14 @@ class ContainerSelectionMode1Form(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"})
     )
 
+    product_shape = forms.ChoiceField(
+        choices=PRODUCT_SHAPE_CHOICES,
+        initial="cuboid",
+        required=False,
+        label="Product shape",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
     r1 = forms.BooleanField(required=False, initial=True, label="Allow rotation 1")
     r2 = forms.BooleanField(required=False, initial=True, label="Allow rotation 2")
     r3 = forms.BooleanField(required=False, initial=True, label="Allow rotation 3")
@@ -274,6 +284,19 @@ class ContainerSelectionMode1Form(forms.Form):
     )
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
+    selected_design_candidate_id = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("mode") != "design":
+            return cleaned
+        if cleaned.get("desired_qty") is None:
+            self.add_error("desired_qty", "Enter the desired quantity as a positive whole number.")
+        if cleaned.get("product_source") == "manual":
+            for field_name, label in (("product_l", "length"), ("product_w", "width"), ("product_h", "height")):
+                if cleaned.get(field_name) is None:
+                    self.add_error(field_name, f"Enter a product {label} greater than zero.")
+        return cleaned
 
 ###
 # Product Catalogue Section
@@ -366,6 +389,7 @@ class ProductImagesZipUploadForm(forms.Form):
 
 class BagSelectionForm(forms.Form):
     MODE_CHOICES = [
+        ("design", "Design Mode"),
         ("single", "Single bag analysis"),
         ("optimal", "Optimal bag (Top 5)"),
     ]
@@ -436,6 +460,14 @@ class BagSelectionForm(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"})
     )
 
+    product_shape = forms.ChoiceField(
+        choices=PRODUCT_SHAPE_CHOICES,
+        initial="cuboid",
+        required=False,
+        label="Product shape",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
     bag_source = forms.ChoiceField(
         choices=BAG_SOURCE_CHOICES,
         initial="manual",
@@ -479,6 +511,19 @@ class BagSelectionForm(forms.Form):
     )
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
+    selected_design_candidate_id = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("mode") != "design":
+            return cleaned
+        if cleaned.get("desired_qty") is None:
+            self.add_error("desired_qty", "Enter the desired quantity as a positive whole number.")
+        if cleaned.get("product_source") == "manual":
+            for field_name, label in (("product_l", "length"), ("product_w", "width"), ("product_h", "height")):
+                if cleaned.get(field_name) is None:
+                    self.add_error(field_name, f"Enter a product {label} greater than zero.")
+        return cleaned
 
 
 class PalletizationForm(forms.Form):
@@ -577,8 +622,23 @@ class ContainerToolForm(forms.Form):
         ("manual", "Manual"),
         ("catalogue", "From catalogue"),
     ]
+    PACKING_MODE_CHOICES = [
+        ("maximum_utilization", "Maximum utilization"),
+        ("accessible_sequence_loading", "Sequence loading"),
+        # Keep the legacy engine value for backward compatibility. Its
+        # user-facing name is now Strict sequence loading.
+        ("sequence_loading", "Strict sequence loading"),
+    ]
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    packing_mode = forms.ChoiceField(
+        choices=PACKING_MODE_CHOICES,
+        initial="maximum_utilization",
+        required=True,
+        widget=forms.RadioSelect,
+        label="Packing mode",
+    )
 
     container_source = forms.ChoiceField(
         choices=CONTAINER_SOURCE_CHOICES,
