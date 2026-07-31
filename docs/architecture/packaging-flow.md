@@ -125,6 +125,8 @@ non-palletized Flow inputs retain generic load cuboids. The adapter validates
 the complete pallet-and-carton assembly against the calculated bounds and falls
 back to the cuboid if the source scene is incomplete or extends outside them.
 
+<<<<<<< HEAD
+=======
 ## Top quantity summary
 
 Packaging Flow presents a compact, always-visible quantity summary above the
@@ -140,6 +142,7 @@ inconsistent stage. Existing collapsed-step summaries remain unchanged. Desktop
 uses a compact horizontal chain; mobile uses a collapsed summary row that can be
 expanded into a stacked chain.
 
+>>>>>>> pre-production
 ## Future combined report
 
 A proposed Packaging Flow Report would use selected/effective results from each step and present:

@@ -1,3 +1,5 @@
 460x340x130 container 1200 x 800
 230x170x130 container 1200 x 800
 400x200x130 container 1200 x  1200 -check brick
+400x300x250 container 1200 x 800 -check brick
+270 x 130 x 130 mm container 1200 x 800 check brick

@@ -75,7 +75,11 @@ A former render path used:
 - a second solve beginning from the complete container during rendering;
 - Three.js suppression of the recursive placements to avoid duplicate display;
 
+<<<<<<< HEAD
+The authoritative engine now uses:
+=======
 The authoritative Selection Mode engine now uses:
+>>>>>>> pre-production
 
 - one root `MainBox` call and up to three Level 1 `MainBox` calls;
 - explicit placements carrying origin, orientation, level, and region type;

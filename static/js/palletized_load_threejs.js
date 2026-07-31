@@ -36,6 +36,44 @@ function localCenter(cuboid, bounds) {
     );
 }
 
+function externalCuboidEdgeGeometry(width, height, depth) {
+    const x = width / 2;
+    const y = height / 2;
+    const z = depth / 2;
+    const corners = [
+        [-x, -y, -z], [x, -y, -z], [x, -y, z], [-x, -y, z],
+        [-x, y, -z], [x, y, -z], [x, y, z], [-x, y, z],
+    ];
+    const edgePairs = [
+        [0, 1], [1, 2], [2, 3], [3, 0],
+        [4, 5], [5, 6], [6, 7], [7, 4],
+        [0, 4], [1, 5], [2, 6], [3, 7],
+    ];
+    const vertices = [];
+    edgePairs.forEach(([a, b]) => {
+        vertices.push(...corners[a], ...corners[b]);
+    });
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    return geometry;
+}
+
+function edgeGeometryKey(dx, dy, dz) {
+    return [
+        Math.round(dx * 1000) / 1000,
+        Math.round(dy * 1000) / 1000,
+        Math.round(dz * 1000) / 1000,
+    ].join("x");
+}
+
+function getExternalEdgeGeometry(cache, dx, dy, dz) {
+    const key = edgeGeometryKey(dx, dy, dz);
+    if (!cache.has(key)) {
+        cache.set(key, externalCuboidEdgeGeometry(dx, dz, dy));
+    }
+    return cache.get(key);
+}
+
 function addBox(target, cuboid, bounds, material, edgeOptions = {}) {
     const geometry = new THREE.BoxGeometry(
         Math.max(number(cuboid.dx), 0.001),
@@ -122,31 +160,43 @@ function addCases(target, sceneData, bounds) {
     });
 
     const unitGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const edgeGeometryCache = new Map();
+    const edgeMaterial = new THREE.LineBasicMaterial({
+        color: 0x0f172a,
+        transparent: true,
+        opacity: 0.62,
+    });
+
     placementsByColor.forEach((placements, color) => {
         const material = new THREE.MeshStandardMaterial({ color, roughness: 0.66, metalness: 0.01 });
         const cases = new THREE.InstancedMesh(unitGeometry, material, placements.length);
-        const outlines = new THREE.InstancedMesh(
-            unitGeometry,
-            new THREE.MeshBasicMaterial({ color: 0x0f172a, wireframe: true }),
-            placements.length,
-        );
         const matrix = new THREE.Matrix4();
         const quaternion = new THREE.Quaternion();
         const scale = new THREE.Vector3();
+
         placements.forEach((placement, index) => {
-            scale.set(
-                Math.max(number(placement.dx), 0.001),
-                Math.max(number(placement.dz), 0.001),
-                Math.max(number(placement.dy), 0.001),
-            );
-            matrix.compose(localCenter(placement, bounds), quaternion, scale);
+            const dx = Math.max(number(placement.dx), 0.001);
+            const dy = Math.max(number(placement.dy), 0.001);
+            const dz = Math.max(number(placement.dz), 0.001);
+            const center = localCenter(placement, bounds);
+
+            scale.set(dx, dz, dy);
+            matrix.compose(center, quaternion, scale);
             cases.setMatrixAt(index, matrix);
-            outlines.setMatrixAt(index, matrix);
+
+            // Draw only the 12 real cuboid edges. The previous instanced
+            // wireframe drew the internal triangle split of each rectangular
+            // face, which appeared as an unwanted diagonal line on cartons.
+            const edges = new THREE.LineSegments(
+                getExternalEdgeGeometry(edgeGeometryCache, dx, dy, dz),
+                edgeMaterial,
+            );
+            edges.position.copy(center);
+            target.add(edges);
         });
+
         cases.instanceMatrix.needsUpdate = true;
-        outlines.instanceMatrix.needsUpdate = true;
         target.add(cases);
-        target.add(outlines);
     });
 }
 

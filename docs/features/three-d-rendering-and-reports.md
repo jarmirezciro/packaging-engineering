@@ -107,6 +107,8 @@ centered on the engine cuboid and receives the matching orthogonal orientation;
 the cuboid remains the sole calculation, collision, capacity, and metrics
 model. Other Transport consumers and inputs continue to render generic cuboids.
 
+<<<<<<< HEAD
+=======
 ### Bag Selection browser scene
 
 Bag Design, Single bag analysis, and the selected Optimal Bag result serialize
@@ -123,6 +125,7 @@ snapshot on the server, and embed it through the existing ReportLab builder.
 The selected table row therefore remains the source for both the browser scene
 and the PDF image.
 
+>>>>>>> pre-production
 
 ## Graphics propagation rule
 
