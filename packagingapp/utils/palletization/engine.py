@@ -1682,6 +1682,87 @@ def build_layers(
     return placements3d, max_layers, layers_2d
 
 
+def translate_placements3d(
+    placements: List[Placement3D],
+    dx: float,
+    dy: float,
+) -> List[Placement3D]:
+    """Translate 3D placements in the pallet XY plane."""
+    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+        return placements
+
+    return [
+        Placement3D(
+            x=p.x + dx,
+            y=p.y + dy,
+            z=p.z,
+            l=p.l,
+            w=p.w,
+            h=p.h,
+            orientation=p.orientation,
+            layer_kind=p.layer_kind,
+            layer_index=p.layer_index,
+        )
+        for p in placements
+    ]
+
+
+def translate_layers_2d(
+    layers: List[List[Placement2D]],
+    dx: float,
+    dy: float,
+) -> List[List[Placement2D]]:
+    """Translate all 2D layer placements in the pallet XY plane."""
+    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+        return layers
+
+    return [translate_placements(layer, dx, dy) for layer in layers]
+
+
+def translate_result_for_centered_overhang(
+    row: Dict,
+    max_length_stickout: float,
+    max_width_stickout: float,
+) -> Dict:
+    """Shift result coordinates so allowed overhang is centered on the pallet.
+
+    Pattern generation uses an effective footprint:
+
+        effective_length = pallet_length + max_length_stickout
+        effective_width  = pallet_width  + max_width_stickout
+
+    That footprint is convenient for calculation because all temporary
+    placements stay in positive coordinates. For rendering and downstream
+    consumers, however, the real pallet still starts at x=0, y=0. Therefore
+    the effective overhang area must be centered around the physical pallet:
+
+        length overhang 200 mm -> x range -100 .. pallet_length + 100
+        width overhang  200 mm -> y range -100 .. pallet_width  + 100
+
+    Without this translation, allowing overhang only in one direction makes the
+    whole layer look shifted to the positive side of the pallet.
+    """
+    dx = -float(max_length_stickout or 0.0) / 2.0
+    dy = -float(max_width_stickout or 0.0) / 2.0
+
+    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+        return row
+
+    shifted = dict(row)
+    shifted["placements3d"] = translate_placements3d(row.get("placements3d") or [], dx, dy)
+    shifted["layer_A_2d"] = translate_placements(row.get("layer_A_2d") or [], dx, dy)
+    shifted["layer_B_2d"] = translate_placements(row.get("layer_B_2d") or [], dx, dy)
+    shifted["layers_2d"] = translate_layers_2d(row.get("layers_2d") or [], dx, dy)
+    shifted["interlock_possible_layer"] = translate_placements(
+        row.get("interlock_possible_layer") or [],
+        dx,
+        dy,
+    )
+    shifted["overhang_centering_offset_x"] = dx
+    shifted["overhang_centering_offset_y"] = dy
+    return shifted
+
+
 # ============================================================
 # LOAD CHECK
 # ============================================================
@@ -2078,6 +2159,11 @@ def run_palletization_analysis(
             row["interlock_possible"] = bool(interlock_possible)
             row["interlock_possible_relation"] = interlock_possible_relation
             row["interlock_possible_layer"] = interlock_possible_layer if interlock_possible else []
+            row = translate_result_for_centered_overhang(
+                row,
+                max_length_stickout=max_length_stickout,
+                max_width_stickout=max_width_stickout,
+            )
             results.append(row)
 
     results.sort(
@@ -2221,8 +2307,19 @@ def plot_3d_result(ax, placements3d, pallet_l, pallet_w, max_h, title=None):
     for p, z_top in top_edges:
         draw_box_top_outline(ax, p, z_top + 0.02)
 
-    ax.set_xlim(0, pallet_l)
-    ax.set_ylim(0, pallet_w)
+    # Include any negative/positive overhang in the render limits while keeping
+    # the physical pallet drawn at x=0..pallet_l and y=0..pallet_w.
+    if placements3d:
+        min_x = min(0.0, min(p.x for p in placements3d))
+        max_x = max(float(pallet_l), max(p.x + p.l for p in placements3d))
+        min_y = min(0.0, min(p.y for p in placements3d))
+        max_y = max(float(pallet_w), max(p.y + p.w for p in placements3d))
+    else:
+        min_x, max_x = 0.0, float(pallet_l)
+        min_y, max_y = 0.0, float(pallet_w)
+
+    ax.set_xlim(min_x, max_x)
+    ax.set_ylim(min_y, max_y)
     ax.set_zlim(0, max_h + pallet_total_height)
     try:
         ax.set_box_aspect((pallet_l, pallet_w, max_h + pallet_total_height))

@@ -5,34 +5,81 @@ function number(value, fallback = 0) {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function getAllowedFootprint(sceneData) {
+    const pallet = sceneData.pallet || {};
+    const allowed = sceneData.allowed_footprint || {};
+    const palletLength = Math.max(number(pallet.length), 1);
+    const palletWidth = Math.max(number(pallet.width), 1);
+    const lengthOverhang = number(allowed.length_overhang);
+    const widthOverhang = number(allowed.width_overhang);
+    const length = Math.max(number(allowed.length, palletLength + lengthOverhang), palletLength, 1);
+    const width = Math.max(number(allowed.width, palletWidth + widthOverhang), palletWidth, 1);
+
+    return {
+        x: number(allowed.x, -lengthOverhang / 2),
+        y: number(allowed.y, -widthOverhang / 2),
+        length,
+        width,
+        lengthOverhang,
+        widthOverhang,
+    };
+}
+
 export function getPalletizedLoadDimensions(sceneData, explicitBounds = null) {
     if (explicitBounds) {
+        const length = Math.max(number(explicitBounds.length), 1);
+        const width = Math.max(number(explicitBounds.width), 1);
+        const height = Math.max(number(explicitBounds.height), 1);
         return {
-            length: Math.max(number(explicitBounds.length), 1),
-            width: Math.max(number(explicitBounds.width), 1),
-            height: Math.max(number(explicitBounds.height), 1),
+            length,
+            width,
+            height,
+            centerX: number(explicitBounds.center_x, length / 2),
+            centerY: number(explicitBounds.center_y, width / 2),
         };
     }
 
     const pallet = sceneData.pallet || {};
-    const allowed = sceneData.allowed_footprint || {};
     const metadata = sceneData.metadata || {};
+    const footprint = getAllowedFootprint(sceneData);
+    const palletLength = Math.max(number(pallet.length), 1);
+    const palletWidth = Math.max(number(pallet.width), 1);
+    const xValues = [0, palletLength, footprint.x, footprint.x + footprint.length];
+    const yValues = [0, palletWidth, footprint.y, footprint.y + footprint.width];
+
+    (sceneData.placements || []).forEach((placement) => {
+        xValues.push(number(placement.x), number(placement.x) + number(placement.dx));
+        yValues.push(number(placement.y), number(placement.y) + number(placement.dy));
+    });
+
+    const minX = Math.min(...xValues);
+    const maxX = Math.max(...xValues);
+    const minY = Math.min(...yValues);
+    const maxY = Math.max(...yValues);
+    const length = Math.max(maxX - minX, palletLength, 1);
+    const width = Math.max(maxY - minY, palletWidth, 1);
     return {
-        length: Math.max(number(allowed.length, pallet.length), number(pallet.length, 1), 1),
-        width: Math.max(number(allowed.width, pallet.width), number(pallet.width, 1), 1),
+        length,
+        width,
         height: Math.max(
             number(metadata.total_render_height_mm),
             number(pallet.height) + number(metadata.stack_height_mm),
             1,
         ),
+        minX,
+        maxX,
+        minY,
+        maxY,
+        centerX: (minX + maxX) / 2,
+        centerY: (minY + maxY) / 2,
     };
 }
 
 function localCenter(cuboid, bounds) {
     return new THREE.Vector3(
-        number(cuboid.x) + number(cuboid.dx) / 2 - bounds.length / 2,
+        number(cuboid.x) + number(cuboid.dx) / 2 - number(bounds.centerX, bounds.length / 2),
         number(cuboid.z) + number(cuboid.dz) / 2 - bounds.height / 2,
-        number(cuboid.y) + number(cuboid.dy) / 2 - bounds.width / 2,
+        number(cuboid.y) + number(cuboid.dy) / 2 - number(bounds.centerY, bounds.width / 2),
     );
 }
 
@@ -125,19 +172,17 @@ function addPallet(target, sceneData, bounds) {
 
 function addAllowedFootprint(target, sceneData, bounds) {
     const pallet = sceneData.pallet || {};
-    const allowed = sceneData.allowed_footprint || {};
-    if (number(allowed.length_overhang) <= 0 && number(allowed.width_overhang) <= 0) return;
+    const footprint = getAllowedFootprint(sceneData);
+    if (footprint.lengthOverhang <= 0 && footprint.widthOverhang <= 0) return;
 
-    const length = Math.max(number(allowed.length), number(pallet.length), 1);
-    const width = Math.max(number(allowed.width), number(pallet.width), 1);
-    const geometry = new THREE.BoxGeometry(length, 1, width);
+    const geometry = new THREE.BoxGeometry(footprint.length, 1, footprint.width);
     const outline = new THREE.LineSegments(
         new THREE.EdgesGeometry(geometry),
         new THREE.LineBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.8 }),
     );
     outline.position.copy(localCenter({
-        x: 0, y: 0, z: number(pallet.height) + 1.5,
-        dx: length, dy: width, dz: 1,
+        x: footprint.x, y: footprint.y, z: number(pallet.height) + 1.5,
+        dx: footprint.length, dy: footprint.width, dz: 1,
     }, bounds));
     target.add(outline);
 }

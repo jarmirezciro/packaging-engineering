@@ -111,6 +111,8 @@ def serialize_pallet_threejs_scene(render_row, effective_config, selected_row=No
             "runner_height": PALLET_RUNNER_HEIGHT_MM,
         },
         "allowed_footprint": {
+            "x": -overhang_l / 2.0,
+            "y": -overhang_w / 2.0,
             "length": pallet_l + overhang_l,
             "width": pallet_w + overhang_w,
             "length_overhang": overhang_l,
