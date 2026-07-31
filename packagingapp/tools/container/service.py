@@ -10,6 +10,7 @@ from ...utils.box_selection.engine import (
     run_mode1_and_render,
 )
 from ..product_shape import (
+    build_product_unit_scene,
     decorate_product_scene,
     normalize_product_shape,
 )
@@ -489,6 +490,10 @@ def _analyze_container_design(form, product, r1, r2, r3, product_source, contain
         "result": None,
         "image_url": None,
         "threejs_scene": None,
+        "product_unit_scene": build_product_unit_scene(
+            product,
+            form.cleaned_data.get("product_shape"),
+        ),
         "analysis_report": None,
         "product_base_image_rel_path": "",
         "product_base_image_url": None,
@@ -571,6 +576,7 @@ def analyze_container_form(
         product_source=product_source,
         selected_product=selected_product,
     )
+    product_unit_scene = build_product_unit_scene(product, product_shape)
 
     if mode == "design":
         return _analyze_container_design(
@@ -720,6 +726,7 @@ def analyze_container_form(
         "result": result,
         "image_url": image_url,
         "threejs_scene": getattr(result, "threejs_scene", None) if result is not None else None,
+        "product_unit_scene": product_unit_scene,
         "analysis_report": analysis_report,
         "product_base_image_rel_path": product_base_image_rel_path,
         "product_base_image_url": product_base_image_url,

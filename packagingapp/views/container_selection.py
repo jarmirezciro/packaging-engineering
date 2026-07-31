@@ -141,6 +141,8 @@ def _build_shared_container_ui_contract(prefix=""):
             "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
             "threejs_viewer": f"containerThreeJsViewer{suffix}",
             "threejs_scene": f"containerThreeJsScene{suffix}",
+            "product_unit_viewer": f"containerProductUnitViewer{suffix}",
+            "product_unit_scene": f"containerProductUnitScene{suffix}",
             "design_packaging_fields": f"designPackagingFields{suffix}" if prefix else "designPackagingFields",
             "selection_package_controls": f"selectionPackageControls{suffix}" if prefix else "selectionPackageControls",
         },
@@ -473,6 +475,7 @@ def _build_container_selection_page_context(
     top5 = []
     analysis_report = None
     threejs_scene = None
+    product_unit_scene = None
     product_base_image_url = None
     design_candidates = []
     selected_design_candidate_id = config.get("selected_design_candidate_id") or ""
@@ -499,6 +502,7 @@ def _build_container_selection_page_context(
         top5 = analysis["top5"]
         analysis_report = analysis.get("analysis_report")
         threejs_scene = analysis.get("threejs_scene")
+        product_unit_scene = analysis.get("product_unit_scene")
         product_base_image_url = analysis.get("product_base_image_url")
         design_candidates = analysis.get("design_candidates") or []
         selected_design_candidate_id = analysis.get("selected_design_candidate_id") or selected_design_candidate_id
@@ -562,6 +566,7 @@ def _build_container_selection_page_context(
         "result": result,
         "image_url": image_url,
         "threejs_scene": threejs_scene,
+        "product_unit_scene": product_unit_scene,
         "analysis_report": analysis_report,
         "product_base_image_url": product_base_image_url,
         "top5": top5,

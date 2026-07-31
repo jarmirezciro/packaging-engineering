@@ -34,7 +34,7 @@ from ..tools.bag.presenter import (
 )
 from ..tools.bag.serializers import sanitize_bag_config_for_session
 from ..tools.selection_mode import normalize_selection_mode
-from ..tools.product_shape import normalize_product_shape
+from ..tools.product_shape import build_product_unit_scene, normalize_product_shape
 from ..tools.bag.service import (
     analyze_bag_config as analyze_bag_config_shared,
     get_materials_for_catalogue as get_bag_materials_for_catalogue,
@@ -165,6 +165,7 @@ def _new_container_step():
         "result": None,
         "image_url": None,
         "analysis_report": None,
+        "product_unit_scene": None,
         "selected_result": None,
         "top5": [],
         "design_candidates": [],
@@ -183,6 +184,7 @@ def _new_bag_step():
         "messages": [],
         "result": None,
         "image_url": None,
+        "product_unit_scene": None,
         "top5": [],
         "design_candidates": [],
         "selected_design_candidate_id": "",
@@ -735,6 +737,7 @@ def _invalidate_downstream(steps, start_idx):
         steps[i]["image_url"] = None
         steps[i]["image_urls"] = {}
         steps[i]["threejs_scene"] = None
+        steps[i]["product_unit_scene"] = None
         steps[i]["top5"] = []
         steps[i]["pending_result"] = None
         steps[i]["results_table"] = []
@@ -1266,6 +1269,12 @@ def _prepare_container_step_view_model(step, idx):
     step["notices"] = step.get("notices") or []
     step["analysis_report"] = step.get("analysis_report") or (step.get("result") or {}).get("analysis_report")
     step["threejs_scene"] = step.get("threejs_scene") or (step.get("result") or {}).get("threejs_scene")
+    step["product_unit_scene"] = step.get("product_unit_scene") or (step.get("result") or {}).get("product_unit_scene")
+    if not step["product_unit_scene"]:
+        step["product_unit_scene"] = build_product_unit_scene(
+            _resolve_product_for_container(cfg, selected_product),
+            cfg.get("product_shape"),
+        )
     step["product_base_image_url"] = step.get("product_base_image_url") or (step.get("result") or {}).get("product_base_image_url")
 
 
@@ -1305,6 +1314,12 @@ def _prepare_bag_step_view_model(step, idx):
     step["allow_product_catalogue"] = idx == 0
     step["analysis_report"] = step.get("analysis_report") or (step.get("result") or {}).get("analysis_report")
     step["threejs_scene"] = step.get("threejs_scene") or (step.get("result") or {}).get("render_data")
+    step["product_unit_scene"] = step.get("product_unit_scene") or (step.get("result") or {}).get("product_unit_scene")
+    if not step["product_unit_scene"]:
+        step["product_unit_scene"] = build_product_unit_scene(
+            _resolve_product_for_bag(cfg, selected_product),
+            cfg.get("product_shape"),
+        )
     step["design_candidates"] = step.get("design_candidates") or []
     step["selected_design_candidate_id"] = step.get("selected_design_candidate_id") or cfg.get("selected_design_candidate_id") or ""
     step["notices"] = step.get("notices") or []
@@ -1466,6 +1481,7 @@ def _process_container_step(step, steps, idx, post):
     pending_result = None
     analysis_report = None
     threejs_scene = None
+    product_unit_scene = None
     product_base_image_url = None
 
     if form.is_valid():
@@ -1481,6 +1497,7 @@ def _process_container_step(step, steps, idx, post):
         image_url = analysis.get("image_url")
         analysis_report = analysis.get("analysis_report")
         threejs_scene = analysis.get("threejs_scene")
+        product_unit_scene = analysis.get("product_unit_scene")
         product_base_image_url = analysis.get("product_base_image_url")
         top5_payload = [
             {
@@ -1497,6 +1514,7 @@ def _process_container_step(step, steps, idx, post):
 
         if render_result is not None and cfg.get("mode") == "design":
             result_payload = dict(render_result)
+            result_payload["product_unit_scene"] = product_unit_scene
             selected_design_candidate_id = render_result["candidate_id"]
             cfg["selected_design_candidate_id"] = selected_design_candidate_id
             desired_qty = int(render_result["desired_quantity"])
@@ -1531,6 +1549,7 @@ def _process_container_step(step, steps, idx, post):
                 "max_quantity": getattr(render_result, "max_quantity", None),
                 "analysis_report": analysis_report,
                 "threejs_scene": threejs_scene,
+                "product_unit_scene": product_unit_scene,
                 "product_base_image_url": product_base_image_url,
             }
 
@@ -1579,6 +1598,7 @@ def _process_container_step(step, steps, idx, post):
     step["image_url"] = image_url
     step["analysis_report"] = analysis_report
     step["threejs_scene"] = threejs_scene
+    step["product_unit_scene"] = product_unit_scene
     step["product_base_image_url"] = product_base_image_url
     step["top5"] = top5_payload
     step["design_candidates"] = locals().get("design_candidates", [])
@@ -1719,6 +1739,7 @@ def _process_bag_step(step, steps, idx, post):
     if step["selected_design_candidate_id"]:
         cfg["selected_design_candidate_id"] = step["selected_design_candidate_id"]
     step["threejs_scene"] = analysis.get("threejs_scene")
+    step["product_unit_scene"] = analysis.get("product_unit_scene")
     step["notices"] = analysis.get("notices") or []
     step["pending_result"] = pending_result
     step["analysis_report"] = analysis.get("analysis_report")

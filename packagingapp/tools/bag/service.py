@@ -13,6 +13,7 @@ from ...utils.bag_selection.engine import (
     run_bag_mode1_and_render,
 )
 from ..product_shape import (
+    build_product_unit_scene,
     decorate_product_scene,
     normalize_product_shape,
 )
@@ -424,6 +425,10 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
     messages = []
     notices = []
     desired_quantity = _positive_integer(config.get("desired_qty"))
+    product_unit_scene = build_product_unit_scene(
+        product,
+        config.get("product_shape"),
+    )
     if product is None or any(float(value) <= 0 for value in product):
         messages.append("Enter product length, width, and height greater than zero in millimetres.")
     if desired_quantity is None:
@@ -435,6 +440,7 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
             "result": None,
             "image_url": None,
             "threejs_scene": None,
+            "product_unit_scene": product_unit_scene,
             "top5": [],
             "design_candidates": [],
             "selected_design_candidate_id": config.get("selected_design_candidate_id") or "",
@@ -460,6 +466,7 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
             "result": None,
             "image_url": None,
             "threejs_scene": None,
+            "product_unit_scene": product_unit_scene,
             "top5": [],
             "design_candidates": [],
             "selected_design_candidate_id": "",
@@ -517,6 +524,7 @@ def _analyze_bag_design(config, action, product, selected_product=None, selected
         "result": selected,
         "image_url": None,
         "threejs_scene": selected["render_data"],
+        "product_unit_scene": product_unit_scene,
         "top5": [],
         "design_candidates": candidates,
         "selected_design_candidate_id": selected["candidate_id"],
@@ -540,6 +548,10 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
     messages = []
 
     product = resolve_product_tuple(cfg, selected_product)
+    product_unit_scene = build_product_unit_scene(
+        product,
+        cfg.get("product_shape"),
+    )
 
     if mode == "design":
         return _analyze_bag_design(
@@ -714,6 +726,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
         "result": result,
         "image_url": image_url,
         "threejs_scene": threejs_scene,
+        "product_unit_scene": product_unit_scene,
         "top5": top5,
         "design_candidates": [],
         "selected_design_candidate_id": "",

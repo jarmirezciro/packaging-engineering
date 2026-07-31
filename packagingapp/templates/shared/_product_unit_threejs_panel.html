@@ -1,0 +1,18 @@
+{% if scene %}
+<div class="product-unit-threejs-panel mt-3{% if compact %} product-unit-threejs-panel--compact{% endif %}">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+        <div class="tool-stat-label mb-0">{{ title|default:"Base product unit" }}</div>
+        <button type="button"
+                class="btn btn-app-outline btn-sm"
+                data-product-unit-threejs-reset>
+            Reset view
+        </button>
+    </div>
+    {{ scene|json_script:scene_id }}
+    <div id="{{ viewer_id }}"
+         class="product-unit-threejs-viewer"
+         data-product-unit-threejs-viewer
+         data-scene-script="{{ scene_id }}"
+         aria-label="Interactive base product unit viewer"></div>
+</div>
+{% endif %}

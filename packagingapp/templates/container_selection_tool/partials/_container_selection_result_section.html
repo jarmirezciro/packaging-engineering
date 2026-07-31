@@ -212,12 +212,7 @@
                             </tbody>
                         </table>
                     </div>
-                    {% if product_base_image_url and container_values.product_shape == "cuboid" %}
-                        <div class="border rounded-3 p-2 mt-3 bg-body-tertiary container-base-product-card">
-                            <div class="tool-stat-label mb-2">Base product unit</div>
-                            <img src="{{ product_base_image_url }}" alt="Base product unit render" class="img-fluid d-block mx-auto container-base-product-preview">
-                        </div>
-                    {% endif %}
+                    {% include "shared/_product_unit_threejs_panel.html" with scene=product_unit_scene scene_id=container_ui.ids.product_unit_scene viewer_id=container_ui.ids.product_unit_viewer compact=True %}
                     {% if not analysis_report.has_container_tare or not analysis_report.has_payload_capacity %}
                         <div class="tool-summary-meta mt-2">
                             {% if not analysis_report.has_container_tare %}Packaging tare is needed for total weight.{% endif %}

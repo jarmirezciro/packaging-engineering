@@ -907,6 +907,61 @@ body {
     }
 }
 
+.product-unit-threejs-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 0.8rem;
+    overflow: hidden;
+    border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+    border-radius: var(--app-radius-lg, 1rem);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-sizing: border-box;
+}
+
+.product-unit-threejs-viewer {
+    position: relative;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: clamp(290px, 34vw, 340px);
+    overflow: hidden;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 0.8rem;
+    background: #f8fafc;
+    box-sizing: border-box;
+    touch-action: none;
+}
+
+.product-unit-threejs-panel--compact .product-unit-threejs-viewer {
+    height: clamp(280px, 31vw, 320px);
+}
+
+.product-unit-threejs-viewer canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100%;
+}
+
+.product-unit-threejs-fallback {
+    display: flex;
+    min-height: 100%;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    color: var(--app-text-muted, #64748b);
+    text-align: center;
+}
+
+@media (max-width: 575px) {
+    .product-unit-threejs-viewer,
+    .product-unit-threejs-panel--compact .product-unit-threejs-viewer {
+        height: 280px;
+    }
+}
+
 /* =========================================================
    Marketing sales redesign
    ========================================================= */

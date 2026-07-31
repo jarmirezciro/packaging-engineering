@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from math import isclose
+from math import isclose, isfinite
 
 
 PRODUCT_SHAPE_CHOICES = (
@@ -33,6 +33,36 @@ AXIS_ORDER_TO_ORIENTATION_INDEX = {
 def normalize_product_shape(value):
     normalized = str(value or "").strip().lower()
     return normalized if normalized in ALLOWED_PRODUCT_SHAPES else "cuboid"
+
+
+def build_product_unit_scene(product, product_shape, unit="mm"):
+    """Build the JSON-safe scene contract for a canonical base product unit."""
+    if not product:
+        return None
+
+    try:
+        dimensions = tuple(float(value) for value in product)
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+    if len(dimensions) != 3 or any(
+        not isfinite(value) or value <= 0 for value in dimensions
+    ):
+        return None
+
+    length, width, height = dimensions
+    normalized_shape = normalize_product_shape(product_shape)
+    return {
+        "productShape": normalized_shape,
+        "productDefinition": {
+            "length": round(length, 6),
+            "width": round(width, 6),
+            "height": round(height, 6),
+        },
+        "orientationIndex": 0,
+        "unit": str(unit or "mm"),
+        "showBoundingBox": normalized_shape != "cuboid",
+    }
 
 
 def orientation_index_from_axis_order(axis_order):

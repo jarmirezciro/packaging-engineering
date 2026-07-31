@@ -132,6 +132,8 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "selection_package_controls": f"selectionPackageControls{suffix}" if prefix else "selectionPackageControls",
             "threejs_viewer": f"bagThreeJsViewer{suffix}",
             "threejs_scene": f"bagThreeJsScene{suffix}",
+            "product_unit_viewer": f"bagProductUnitViewer{suffix}",
+            "product_unit_scene": f"bagProductUnitScene{suffix}",
         },
     }
 
@@ -373,6 +375,7 @@ def _build_bag_selection_page_context(
     pending_result = None
     analysis_report = None
     threejs_scene = None
+    product_unit_scene = None
     design_candidates = []
     selected_design_candidate_id = config.get("selected_design_candidate_id") or ""
     notices = []
@@ -395,6 +398,7 @@ def _build_bag_selection_page_context(
         pending_result = analysis["pending_result"]
         analysis_report = analysis.get("analysis_report")
         threejs_scene = analysis.get("threejs_scene")
+        product_unit_scene = analysis.get("product_unit_scene")
         design_candidates = analysis.get("design_candidates") or []
         selected_design_candidate_id = analysis.get("selected_design_candidate_id") or selected_design_candidate_id
         notices = analysis.get("notices") or []
@@ -467,6 +471,7 @@ def _build_bag_selection_page_context(
         "pending_result": pending_result,
         "analysis_report": analysis_report,
         "threejs_scene": threejs_scene,
+        "product_unit_scene": product_unit_scene,
         "design_candidates": design_candidates,
         "selected_design_candidate_id": selected_design_candidate_id,
         "notices": notices,

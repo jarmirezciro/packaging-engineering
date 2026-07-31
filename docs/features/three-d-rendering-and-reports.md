@@ -38,6 +38,18 @@ Detailed results and reports should include a base product/unit representation w
 - proportions approximately preserved;
 - clean neutral background.
 
+Container Selection and Bag Selection browser results use the shared
+`build_product_unit_scene()` contract and the dedicated
+`product_unit_threejs_viewer.js` component. The preview always uses the
+canonical product orientation: Three.js X is product length, Y is product
+height, and Z is product width. Dimension guides and canvas-texture labels use
+the original bounding dimensions for every approved visualization-only shape.
+
+Container PDF exports temporarily retain the server-rendered Matplotlib base
+product PNG through `product_base_image_rel_path`. That compatibility image is
+not displayed in the browser. Bag Selection does not generate a corresponding
+Matplotlib base-product image.
+
 ## Interactive 3D contract
 
 For browser 3D results:

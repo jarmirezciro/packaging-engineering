@@ -1,6 +1,8 @@
 import json
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.conf import settings
 from django.test import RequestFactory, SimpleTestCase
@@ -17,6 +19,7 @@ from packagingapp.tools.container.state import default_container_config
 from packagingapp.tools.product_shape import (
     ORIENTATION_AXIS_ORDERS,
     PRODUCT_SHAPE_CHOICES,
+    build_product_unit_scene,
     decorate_product_scene,
     normalize_product_shape,
     orientation_index_from_axis_order,
@@ -39,8 +42,15 @@ from packagingapp.views.bag_selection import (
     _read_raw_bag_config,
 )
 from packagingapp.views.container_selection import (
+    _build_single_export_payload,
     _build_shared_container_ui_contract,
     _read_raw_container_config,
+)
+from packagingapp.views.full_packaging import (
+    _new_bag_step,
+    _new_container_step,
+    _prepare_bag_step_view_model,
+    _prepare_container_step_view_model,
 )
 
 
@@ -108,6 +118,27 @@ class ProductShapeStateTests(SimpleTestCase):
         self.assertEqual(container_ui["ids"]["product_shape"], "id_product_shape_7")
         self.assertEqual(bag_ui["names"]["product_shape"], "product_shape_8")
         self.assertEqual(bag_ui["ids"]["product_shape"], "id_product_shape_8")
+        self.assertEqual(
+            container_ui["ids"]["product_unit_viewer"],
+            "containerProductUnitViewer_7",
+        )
+        self.assertEqual(
+            container_ui["ids"]["product_unit_scene"],
+            "containerProductUnitScene_7",
+        )
+        self.assertEqual(
+            bag_ui["ids"]["product_unit_viewer"],
+            "bagProductUnitViewer_8",
+        )
+        self.assertEqual(
+            bag_ui["ids"]["product_unit_scene"],
+            "bagProductUnitScene_8",
+        )
+        self.assertTrue(
+            set(container_ui["ids"].values()).isdisjoint(
+                set(bag_ui["ids"].values())
+            )
+        )
 
     def test_session_contracts_are_json_safe_primitives(self):
         container = sanitize_container_config_for_session(
@@ -166,6 +197,142 @@ class ProductOrientationTests(SimpleTestCase):
 
 
 class ProductShapeSceneTests(SimpleTestCase):
+    def test_product_unit_scene_uses_canonical_dimensions_and_orientation(self):
+        scene = build_product_unit_scene(
+            (180, "120.5", 80.25),
+            "bottle",
+        )
+        self.assertEqual(
+            scene,
+            {
+                "productShape": "bottle",
+                "productDefinition": {
+                    "length": 180.0,
+                    "width": 120.5,
+                    "height": 80.25,
+                },
+                "orientationIndex": 0,
+                "unit": "mm",
+                "showBoundingBox": True,
+            },
+        )
+        json.dumps(scene)
+
+    def test_product_unit_scene_rejects_invalid_dimensions(self):
+        for product in (
+            None,
+            (),
+            (1, 2),
+            (1, 2, 3, 4),
+            (0, 2, 3),
+            (-1, 2, 3),
+            (float("nan"), 2, 3),
+            (float("inf"), 2, 3),
+            ("invalid", 2, 3),
+        ):
+            self.assertIsNone(build_product_unit_scene(product, "cuboid"))
+
+    def test_product_unit_scene_normalizes_invalid_shape_to_cuboid(self):
+        scene = build_product_unit_scene(ASYMMETRIC_PRODUCT, "sphere")
+        self.assertEqual(scene["productShape"], "cuboid")
+        self.assertFalse(scene["showBoundingBox"])
+
+    def test_manual_and_catalogue_dimensions_build_equivalent_scenes(self):
+        manual_scene = build_product_unit_scene(
+            ASYMMETRIC_PRODUCT,
+            "pillow_bag",
+        )
+        catalogue_product = SimpleNamespace(
+            product_length=180,
+            product_width=120,
+            product_height=80,
+        )
+        catalogue_scene = build_product_unit_scene(
+            (
+                catalogue_product.product_length,
+                catalogue_product.product_width,
+                catalogue_product.product_height,
+            ),
+            "pillow_bag",
+        )
+        self.assertEqual(catalogue_scene, manual_scene)
+
+    def test_manual_and_catalogue_services_build_equivalent_scenes(self):
+        manual_form = SimpleNamespace(cleaned_data={
+            "mode": "single",
+            "action": "refresh",
+            "product_source": "manual",
+            "product_l": 180,
+            "product_w": 120,
+            "product_h": 80,
+            "product_weight": None,
+            "desired_qty": 1,
+            "product_shape": "bottle",
+            "r1": True,
+            "r2": True,
+            "r3": True,
+            "container_source": "manual",
+        })
+        catalogue_form = SimpleNamespace(cleaned_data={
+            **manual_form.cleaned_data,
+            "product_source": "catalogue",
+        })
+        catalogue_product = SimpleNamespace(
+            product_length=180,
+            product_width=120,
+            product_height=80,
+            desired_qty=1,
+            rotation_1=True,
+            rotation_2=True,
+            rotation_3=True,
+        )
+        manual_container = analyze_container_form(
+            form=manual_form,
+            config={},
+            materials=[],
+        )
+        catalogue_container = analyze_container_form(
+            form=catalogue_form,
+            config={},
+            selected_product=catalogue_product,
+            materials=[],
+        )
+        self.assertEqual(
+            manual_container["product_unit_scene"],
+            catalogue_container["product_unit_scene"],
+        )
+
+        bag_base = {
+            "mode": "single",
+            "product_l": 180,
+            "product_w": 120,
+            "product_h": 80,
+            "desired_qty": 1,
+            "product_shape": "bottle",
+            "bag_source": "manual",
+        }
+        manual_bag = analyze_bag_config(
+            {**bag_base, "product_source": "manual"},
+            action="refresh",
+            materials=[],
+        )
+        catalogue_bag = analyze_bag_config(
+            {
+                **bag_base,
+                "product_source": "catalogue",
+                "product_l": "",
+                "product_w": "",
+                "product_h": "",
+            },
+            action="refresh",
+            selected_product=catalogue_product,
+            materials=[],
+        )
+        self.assertEqual(
+            manual_bag["product_unit_scene"],
+            catalogue_bag["product_unit_scene"],
+        )
+
     def test_scene_decoration_uses_original_dimensions_and_fallback(self):
         scene = {"products": []}
         self.assertIs(
@@ -351,6 +518,59 @@ class ProductShapeSceneTests(SimpleTestCase):
             bag_analysis["threejs_scene"]["productDefinition"],
             {"length": 180.0, "width": 120.0, "height": 80.0},
         )
+        self.assertEqual(
+            container_analysis["product_unit_scene"]["productDefinition"],
+            {"length": 180.0, "width": 120.0, "height": 80.0},
+        )
+        self.assertEqual(container_analysis["product_unit_scene"]["orientationIndex"], 0)
+        self.assertEqual(
+            bag_analysis["product_unit_scene"]["productDefinition"],
+            {"length": 180.0, "width": 120.0, "height": 80.0},
+        )
+        self.assertEqual(bag_analysis["product_unit_scene"]["orientationIndex"], 0)
+
+
+class ProductUnitWorkflowTests(SimpleTestCase):
+    @patch("packagingapp.views.full_packaging.get_container_selected_product", return_value=None)
+    @patch("packagingapp.views.full_packaging.get_container_selected_material", return_value=None)
+    @patch("packagingapp.views.full_packaging.get_container_products_for_catalogue", return_value=[])
+    @patch("packagingapp.views.full_packaging.get_container_materials_for_catalogue", return_value=[])
+    @patch("packagingapp.views.full_packaging.get_container_packaging_catalogues", return_value=[])
+    @patch("packagingapp.views.full_packaging.get_container_product_catalogues", return_value=[])
+    def test_container_step_restores_json_safe_product_unit_scene(self, *_mocks):
+        scene = build_product_unit_scene(ASYMMETRIC_PRODUCT, "cylinder")
+        step = _new_container_step()
+        step["product_unit_scene"] = scene
+        _prepare_container_step_view_model(step, 2)
+        self.assertEqual(step["product_unit_scene"], scene)
+        self.assertEqual(
+            step["container_ui"]["ids"]["product_unit_viewer"],
+            "containerProductUnitViewer_2",
+        )
+        json.dumps(step["product_unit_scene"])
+
+    @patch("packagingapp.views.full_packaging.get_bag_selected_product", return_value=None)
+    @patch("packagingapp.views.full_packaging.get_bag_selected_material", return_value=None)
+    @patch("packagingapp.views.full_packaging.get_bag_products_for_catalogue", return_value=[])
+    @patch("packagingapp.views.full_packaging.get_bag_materials_for_catalogue", return_value=[])
+    def test_bag_step_restores_json_safe_product_unit_scene(self, *_mocks):
+        step = _new_bag_step()
+        step["config"].update({
+            "product_l": 180,
+            "product_w": 120,
+            "product_h": 80,
+            "product_shape": "bottle",
+        })
+        _prepare_bag_step_view_model(step, 3)
+        self.assertEqual(
+            step["product_unit_scene"],
+            build_product_unit_scene(ASYMMETRIC_PRODUCT, "bottle"),
+        )
+        self.assertEqual(
+            step["bag_ui"]["ids"]["product_unit_viewer"],
+            "bagProductUnitViewer_3",
+        )
+        json.dumps(step["product_unit_scene"])
 
 
 class ProductShapeCalculationRegressionTests(SimpleTestCase):
@@ -439,6 +659,8 @@ class ProductShapeCalculationRegressionTests(SimpleTestCase):
                 result.threejs_scene["productDefinition"],
                 {"length": 180.0, "width": 120.0, "height": 80.0},
             )
+            self.assertEqual(analysis["product_unit_scene"]["productShape"], product_shape)
+            self.assertEqual(analysis["product_unit_scene"]["orientationIndex"], 0)
             if product_shape == "cuboid":
                 self.assertTrue(analysis["product_base_image_url"])
             else:
@@ -518,6 +740,123 @@ class ProductShapeCalculationRegressionTests(SimpleTestCase):
                 result["threejs_scene"]["productDefinition"],
                 {"length": 180.0, "width": 120.0, "height": 40.0},
             )
+            self.assertEqual(analysis["product_unit_scene"]["productShape"], product_shape)
+            self.assertEqual(analysis["product_unit_scene"]["orientationIndex"], 0)
+
+    def test_container_pdf_payload_keeps_base_product_png_path(self):
+        data = {
+            "mode": "single",
+            "action": "run_single",
+            "product_source": "manual",
+            "product_l": "180",
+            "product_w": "120",
+            "product_h": "80",
+            "product_weight": "450",
+            "desired_qty": "24",
+            "product_shape": "cuboid",
+            "r1": "on",
+            "r2": "on",
+            "r3": "on",
+            "container_source": "manual",
+            "box_l": "600",
+            "box_w": "400",
+            "box_h": "320",
+            "box_weight": "950",
+            "box_max_payload": "20000",
+        }
+        form = ContainerSelectionMode1Form(data)
+        self.assertTrue(form.is_valid(), form.errors)
+        with tempfile.TemporaryDirectory() as media_root:
+            analysis = analyze_container_form(
+                form=form,
+                config=data,
+                materials=[],
+                media_root=media_root,
+            )
+        payload = _build_single_export_payload(
+            form=form,
+            analysis=analysis,
+            selected_product=None,
+            selected_material=None,
+        )
+        self.assertTrue(payload["product_base_image_rel_path"])
+        self.assertEqual(
+            payload["product_base_image_rel_path"],
+            analysis["product_base_image_rel_path"],
+        )
+
+    def test_optimal_selected_results_include_product_unit_scenes(self):
+        container_material = SimpleNamespace(
+            id=1,
+            part_number="BOX-1",
+            part_description="Test box",
+            branding="",
+            part_length=600,
+            part_width=400,
+            part_height=320,
+            part_volume=None,
+            part_weight=950,
+            max_payload=20000,
+        )
+        container_form = SimpleNamespace(cleaned_data={
+            "mode": "optimal",
+            "action": "select_candidate",
+            "product_source": "manual",
+            "product_l": 180,
+            "product_w": 120,
+            "product_h": 80,
+            "product_weight": 450,
+            "desired_qty": 7,
+            "product_shape": "cylinder",
+            "r1": True,
+            "r2": True,
+            "r3": True,
+            "container_source": "catalogue",
+        })
+        with tempfile.TemporaryDirectory() as media_root:
+            container = analyze_container_form(
+                form=container_form,
+                config={"catalogue_id": "1"},
+                selected_material=container_material,
+                materials=[container_material],
+                media_root=media_root,
+            )
+        self.assertIsNotNone(container["result"])
+        self.assertEqual(container["product_unit_scene"]["productShape"], "cylinder")
+        self.assertEqual(container["product_unit_scene"]["orientationIndex"], 0)
+
+        bag_material = SimpleNamespace(
+            id=2,
+            part_number="BAG-1",
+            part_description="Test bag",
+            branding="",
+            part_length=450,
+            part_width=330,
+            part_weight=18,
+            max_payload=5000,
+        )
+        with tempfile.TemporaryDirectory() as media_root:
+            bag = analyze_bag_config(
+                {
+                    "mode": "optimal",
+                    "product_source": "manual",
+                    "product_l": 180,
+                    "product_w": 120,
+                    "product_h": 40,
+                    "product_weight": 250,
+                    "desired_qty": 4,
+                    "product_shape": "bottle",
+                    "bag_source": "catalogue",
+                    "catalogue_id": "1",
+                },
+                action="select_candidate",
+                selected_material=bag_material,
+                materials=[bag_material],
+                media_root=media_root,
+            )
+        self.assertIsNotNone(bag["result"])
+        self.assertEqual(bag["product_unit_scene"]["productShape"], "bottle")
+        self.assertEqual(bag["product_unit_scene"]["orientationIndex"], 0)
 
 
 class ProductShapeJavaScriptContractTests(SimpleTestCase):
@@ -558,3 +897,38 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
                 "?v=20260731-product-shapes",
                 template,
             )
+
+    def test_product_unit_viewer_and_template_use_shared_canvas_contract(self):
+        root = Path(settings.BASE_DIR)
+        viewer = (root / "static/js/product_unit_threejs_viewer.js").read_text(
+            encoding="utf-8"
+        )
+        partial = (
+            root / "packagingapp/templates/shared/_product_unit_threejs_panel.html"
+        ).read_text(encoding="utf-8")
+        container_result = (
+            root
+            / "packagingapp/templates/container_selection_tool/partials/"
+            "_container_selection_result_section.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("scene|json_script:scene_id", partial)
+        self.assertIn("data-product-unit-threejs-viewer", partial)
+        self.assertIn("data-product-unit-threejs-reset", partial)
+        self.assertIn("createApprovedProductVisual", viewer)
+        self.assertIn("createApprovedProductMaterials", viewer)
+        self.assertIn("normalizeProductShape", viewer)
+        self.assertIn("THREE.Sprite", viewer)
+        self.assertIn("THREE.CanvasTexture", viewer)
+        self.assertIn("THREE.EdgesGeometry", viewer)
+        self.assertNotIn("WireframeGeometry", viewer)
+        self.assertNotIn("requestAnimationFrame(animate", viewer)
+        self.assertNotIn("product_base_image_url", container_result)
+
+        for relative_path in (
+            "packagingapp/templates/bag_selection/partials/_bag_selection_scripts.html",
+            "packagingapp/templates/container_selection_tool/partials/"
+            "_container_selection_scripts.html",
+        ):
+            scripts = (root / relative_path).read_text(encoding="utf-8")
+            self.assertIn("product_unit_threejs_viewer.js", scripts)
