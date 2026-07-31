@@ -534,8 +534,27 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
         self.assertIn("hasValidProductDefinition(sceneData.productDefinition)", viewer)
         self.assertIn("addCuboid(productGroup, item, dims", viewer)
         self.assertIn("createApprovedProductVisual({", viewer)
+        self.assertIn(
+            './product_shape_factory.js?v=20260731-product-shapes',
+            viewer,
+        )
         self.assertIn("const segmentsAcross = 28;", factory)
         self.assertIn("const segmentsAlong = 36;", factory)
         self.assertIn("const ribCount = 5;", factory)
         self.assertNotIn("SphereGeometry", factory)
         self.assertNotIn("CapsuleGeometry", factory)
+
+        for relative_path in (
+            "packagingapp/templates/bag_selection/partials/"
+            "_bag_selection_scripts.html",
+            "packagingapp/templates/container_selection_tool/partials/"
+            "_container_selection_scripts.html",
+        ):
+            template = (Path(settings.BASE_DIR) / relative_path).read_text(
+                encoding="utf-8"
+            )
+            self.assertIn(
+                "container_threejs_viewer.js' %}"
+                "?v=20260731-product-shapes",
+                template,
+            )
