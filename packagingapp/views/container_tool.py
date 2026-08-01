@@ -108,6 +108,9 @@ def _build_transport_export_payload(*, cfg, analysis, selected_material=None):
             "tare_weight": _format_optional_weight(container.get("tare_weight")),
         },
         "summary": summary,
+        "product_legend": list(
+            (analysis.get("threejs_scene") or {}).get("products") or []
+        ),
         "packing_mode": str(result.get("packing_mode", "maximum_utilization") or "maximum_utilization"),
         "image_rel_path": result.get("image_rel_path") or "",
         "image_rel_paths": image_rel_paths,
@@ -613,7 +616,7 @@ def container_tool_export_pdf(request):
         )
 
     snapshot_fields = {
-        "main": "transport_threejs_snapshot_main",
+        "loading": "transport_threejs_snapshot_loading",
         "top": "transport_threejs_snapshot_top",
         "opposite": "transport_threejs_snapshot_opposite",
     }
@@ -627,7 +630,7 @@ def container_tool_export_pdf(request):
     }
     if not all(snapshot_rel_paths.values()):
         return HttpResponse(
-            "The Three.js Main, Top and Opposite side transport views are required for PDF export.",
+            "The Three.js Loading, Opposite Side and Top transport views are required for PDF export.",
             status=400,
             content_type="text/plain",
         )

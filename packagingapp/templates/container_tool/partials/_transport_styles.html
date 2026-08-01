@@ -14,6 +14,12 @@
   .container-tool-render-wrap { min-height:300px; display:flex; align-items:center; justify-content:center; }
   .transport-threejs-panel { min-width:0; overflow:hidden; contain:layout paint; }
   .transport-threejs-controls { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:0.45rem; }
+  .transport-threejs-controls .btn.active { color:#fff; background:var(--app-primary); border-color:var(--app-primary); }
+  .transport-product-legend { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.45rem; max-height:9rem; overflow:auto; padding:0.5rem; border:1px solid var(--app-border); border-radius:0.8rem; background:var(--app-surface-soft,#f8fafc); }
+  .transport-product-legend-item { display:flex; align-items:flex-start; gap:0.55rem; min-width:0; padding:0.35rem 0.45rem; border-radius:0.65rem; background:#fff; }
+  .transport-product-swatch { width:0.85rem; height:0.85rem; margin-top:0.18rem; flex:0 0 auto; border:1px solid rgba(15,23,42,.32); border-radius:0.2rem; background:var(--transport-product-color); }
+  .transport-product-legend-copy { display:flex; flex-direction:column; min-width:0; color:var(--app-text-muted); font-size:0.78rem; line-height:1.25; }
+  .transport-product-legend-name { color:var(--app-text); overflow-wrap:anywhere; }
   .transport-threejs-viewer { width:100%; max-width:100%; min-width:0; height:420px; min-height:320px; overflow:hidden; border:1px solid var(--app-border); border-radius:1rem; background:#f8fafc; contain:layout paint; }
   .transport-threejs-viewer canvas { display:block; width:100%; height:100%; max-width:100%; }
   .transport-threejs-fallback { min-height:320px; display:flex; align-items:center; justify-content:center; padding:1rem; color:var(--app-text-muted); text-align:center; }

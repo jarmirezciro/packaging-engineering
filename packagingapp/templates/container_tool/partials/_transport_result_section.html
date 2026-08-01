@@ -5,14 +5,27 @@
         <div class="app-section-title mb-0">Interactive 3D result</div>
         {% if threejs_scene %}
         <div class="transport-threejs-controls" aria-label="Transport 3D view controls">
-          <button type="button" class="btn btn-app-outline btn-sm" data-transport-threejs-view="reset">Reset</button>
-          <button type="button" class="btn btn-app-outline btn-sm" data-transport-threejs-view="top">Top</button>
-          <button type="button" class="btn btn-app-outline btn-sm" data-transport-threejs-view="front">Front</button>
-          <button type="button" class="btn btn-app-outline btn-sm" data-transport-threejs-view="side">Side</button>
+          <button type="button" class="btn btn-app-outline btn-sm active" data-transport-threejs-view="loading" aria-pressed="true">Loading View</button>
+          <button type="button" class="btn btn-app-outline btn-sm" data-transport-threejs-view="opposite" aria-pressed="false">Opposite Side</button>
+          <button type="button" class="btn btn-app-outline btn-sm" data-transport-threejs-view="top" aria-pressed="false">Top View</button>
         </div>
         {% endif %}
       </div>
       {% if threejs_scene %}
+        {% if threejs_scene.products %}
+        <div class="transport-product-legend mb-2" data-transport-product-legend role="list" aria-label="Transport load product legend">
+          {% for product in threejs_scene.products %}
+          <div class="transport-product-legend-item" role="listitem">
+            <span class="transport-product-swatch" style="--transport-product-color: {{ product.color }}" aria-hidden="true"></span>
+            <span class="transport-product-legend-copy">
+              <span class="transport-product-legend-name"><strong>{{ product.product_id }}</strong>{% if product.name %} &mdash; {{ product.name }}{% endif %}</span>
+              <span>{{ product.length|floatformat:0 }} &times; {{ product.width|floatformat:0 }} &times; {{ product.height|floatformat:0 }} mm</span>
+              <span>Loaded: {{ product.qty_loaded }}{% if product.qty_requested is not None %} / {{ product.qty_requested }}{% endif %}</span>
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
         {{ threejs_scene|json_script:threejs_scene_id }}
         <div class="transport-threejs-viewer"
              id="{{ threejs_viewer_id }}"

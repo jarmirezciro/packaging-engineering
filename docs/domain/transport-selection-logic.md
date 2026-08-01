@@ -101,10 +101,9 @@ Expose these as assumptions when relevant.
 
 Approved views:
 
-- Main
-- Opposite
-- Top
-- Side
+- Loading View
+- Opposite Side
+- Top View
 
 User-facing render direction:
 
@@ -125,7 +124,7 @@ Historical fixes added a missing workflow helper such as `_transport_rows_from_s
 - when Transport is first step, it must be functionally identical to standalone;
 - workflow layout and result controls must match standalone;
 - hidden fields and scripts must be prefix-safe;
-- standalone PDF export must use validated Three.js Main, Top, and Opposite-side
+- standalone PDF export must use validated Three.js Loading, Opposite Side, and Top
   snapshots from the selected shared result, with no Matplotlib fallback.
 
 A historical export route was:

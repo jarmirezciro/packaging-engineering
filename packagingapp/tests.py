@@ -531,6 +531,7 @@ class TransportThreeJsAndPdfTests(TestCase):
         self.analysis_data = {
             "action": "run_analysis",
             "container_source": "manual",
+            "packing_mode": "maximum_utilization",
             "container_l": "2400",
             "container_w": "1200",
             "container_h": "1200",
@@ -630,26 +631,47 @@ class TransportThreeJsAndPdfTests(TestCase):
             self.assertEqual(scene["transport_unit"]["width"], 1200.0)
             self.assertEqual(scene["transport_unit"]["height"], 1200.0)
             self.assertTrue(all(item["kind"] == "load_unit" for item in scene["items"]))
+            self.assertTrue(all(item["product_id"] == "P1" for item in scene["items"]))
+            self.assertEqual(scene["products"][0]["product_id"], "P1")
+            self.assertEqual(scene["products"][0]["qty_loaded"], 2)
+            self.assertEqual(scene["products"][0]["qty_requested"], 2)
+            self.assertTrue(all(
+                item["color"] == scene["products"][0]["color"]
+                for item in scene["items"]
+            ))
             self.assertNotIn("workflow_visualizations", scene)
             json.dumps(scene)
 
             self.assertContains(analysis_response, 'id="transportThreeJsViewer_0"', count=1)
             self.assertContains(analysis_response, 'id="transportThreeJsScene_0"', count=1)
             self.assertContains(analysis_response, "js/transport_container_threejs_viewer.js")
-            self.assertContains(analysis_response, 'data-transport-threejs-view="reset"')
+            self.assertContains(analysis_response, 'data-transport-threejs-view="loading"')
+            self.assertContains(analysis_response, 'data-transport-threejs-view="opposite"')
             self.assertContains(analysis_response, 'data-transport-threejs-view="top"')
-            self.assertContains(analysis_response, 'data-transport-threejs-view="front"')
-            self.assertContains(analysis_response, 'data-transport-threejs-view="side"')
+            self.assertNotContains(analysis_response, 'data-transport-threejs-view="reset"')
+            self.assertNotContains(analysis_response, 'data-transport-threejs-view="front"')
+            self.assertNotContains(analysis_response, 'data-transport-threejs-view="side"')
+            self.assertEqual(
+                analysis_response.content.count(b"data-transport-threejs-view="),
+                3,
+            )
+            self.assertContains(analysis_response, "Loading View")
+            self.assertContains(analysis_response, "Opposite Side")
+            self.assertContains(analysis_response, "Top View")
+            self.assertContains(analysis_response, "data-transport-product-legend")
             self.assertNotContains(analysis_response, "transportRenderImage_")
+
+            export_payload = self.client.session["transport_container_last_export"]
+            self.assertEqual(export_payload["product_legend"], scene["products"])
 
             missing_response = self.client.get(reverse("container_tool_export_pdf"))
             self.assertEqual(missing_response.status_code, 400)
-            self.assertIn(b"Main, Top and Opposite side", missing_response.content)
+            self.assertIn(b"Loading, Opposite Side and Top", missing_response.content)
 
             pdf_response = self.client.post(
                 reverse("container_tool_export_pdf"),
                 {
-                    "transport_threejs_snapshot_main": self.PNG_DATA_URL,
+                    "transport_threejs_snapshot_loading": self.PNG_DATA_URL,
                     "transport_threejs_snapshot_top": self.PNG_DATA_URL,
                     "transport_threejs_snapshot_opposite": self.PNG_DATA_URL,
                 },
@@ -659,6 +681,42 @@ class TransportThreeJsAndPdfTests(TestCase):
         self.assertEqual(pdf_response["Content-Type"], "application/pdf")
         self.assertTrue(pdf_response.content.startswith(b"%PDF"))
         self.assertGreater(len(pdf_response.content), 1000)
+
+    def test_product_ids_and_colors_are_stable_by_original_row_index(self):
+        from .tools.transport.serializers import serialize_transport_threejs_scene
+
+        summary = {
+            "placed_units": 3,
+            "product_rows": [
+                {"name": "Main pallet load", "length": 1200, "width": 800, "height": 1225, "qty_requested": 1},
+                {"name": "Secondary carton", "length": 500, "width": 700, "height": 300, "qty_requested": 1},
+                {"name": "Small carton", "length": 400, "width": 350, "height": 300, "qty_requested": 1},
+            ],
+        }
+        placements = [
+            SimpleNamespace(product_name="Small carton", row_index=2, x=1700, y=0, z=0, l=400, w=350, h=300),
+            SimpleNamespace(product_name="Main pallet load", row_index=0, x=0, y=0, z=0, l=1200, w=800, h=1225),
+            SimpleNamespace(product_name="Secondary carton", row_index=1, x=1200, y=0, z=0, l=500, w=700, h=300),
+        ]
+        container = {"L": 5900, "W": 2352, "H": 2395}
+
+        first = serialize_transport_threejs_scene(container, placements, summary)
+        second = serialize_transport_threejs_scene(container, list(reversed(placements)), summary)
+        first_colors = {
+            item["product_id"]: item["color"]
+            for item in first["items"]
+        }
+        second_colors = {
+            item["product_id"]: item["color"]
+            for item in second["items"]
+        }
+
+        self.assertEqual([product["product_id"] for product in first["products"]], ["P1", "P2", "P3"])
+        self.assertEqual(first_colors, second_colors)
+        self.assertEqual(
+            {product["product_id"]: product["color"] for product in first["products"]},
+            first_colors,
+        )
 
     def test_workflow_transport_scene_is_prefixed_and_session_safe(self):
         add_response = self.client.post(
@@ -695,6 +753,11 @@ class TransportThreeJsAndPdfTests(TestCase):
         self.assertEqual(page_response.status_code, 200)
         self.assertContains(page_response, 'id="transportThreeJsViewer_0"', count=1)
         self.assertContains(page_response, 'id="transportThreeJsScene_0"', count=1)
+        self.assertEqual(
+            page_response.content.count(b"data-transport-threejs-view="),
+            3,
+        )
+        self.assertContains(page_response, "data-transport-product-legend")
         self.assertTrue(page_response.context["steps"][0]["threejs_scene"])
         self.assertNotIn(
             "workflow_visualizations",

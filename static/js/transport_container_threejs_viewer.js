@@ -5,6 +5,31 @@ import { buildPalletizedLoadGroup } from "./palletized_load_threejs.js";
 const initialized = new WeakSet();
 const instances = new Map();
 
+const TRANSPORT_VIEW_PRESETS = Object.freeze({
+    loading: Object.freeze({
+        direction: Object.freeze([0.82, 0.58, 0.88]),
+        up: Object.freeze([0, 1, 0]),
+        padding: 1.1,
+    }),
+    opposite: Object.freeze({
+        direction: Object.freeze([-0.82, 0.58, -0.88]),
+        up: Object.freeze([0, 1, 0]),
+        padding: 1.1,
+    }),
+    top: Object.freeze({
+        direction: Object.freeze([0, 1, 0]),
+        up: Object.freeze([0, 0, -1]),
+        padding: 1.1,
+    }),
+});
+
+const TRANSPORT_REPORT_VIEWS = Object.freeze(["loading", "opposite", "top"]);
+const TRANSPORT_REPORT_VIEWPORTS = Object.freeze({
+    loading: Object.freeze({ width: 1400, height: 620 }),
+    opposite: Object.freeze({ width: 1000, height: 640 }),
+    top: Object.freeze({ width: 1000, height: 640 }),
+});
+
 function number(value, fallback = 0) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -236,40 +261,242 @@ function addItems(target, sceneData, dims) {
     });
 }
 
-function updateFrustum(camera, dims, width, height) {
+function cuboidsTouch(a, b, tolerance) {
+    return (
+        number(a.x) <= number(b.x) + number(b.dx) + tolerance
+        && number(b.x) <= number(a.x) + number(a.dx) + tolerance
+        && number(a.y) <= number(b.y) + number(b.dy) + tolerance
+        && number(b.y) <= number(a.y) + number(a.dy) + tolerance
+        && number(a.z) <= number(b.z) + number(b.dz) + tolerance
+        && number(b.z) <= number(a.z) + number(a.dz) + tolerance
+    );
+}
+
+function significantProductZones(items) {
+    if (!items.length) return [];
+
+    const dimensions = items.flatMap((item) => [number(item.dx), number(item.dy), number(item.dz)])
+        .filter((value) => value > 0);
+    const cellSize = Math.max(...dimensions, 1);
+    const tolerance = Math.max(Math.min(...dimensions, cellSize) * 0.03, 1);
+    const parents = items.map((_, index) => index);
+    const buckets = new Map();
+
+    function root(index) {
+        while (parents[index] !== index) {
+            parents[index] = parents[parents[index]];
+            index = parents[index];
+        }
+        return index;
+    }
+
+    function join(a, b) {
+        const rootA = root(a);
+        const rootB = root(b);
+        if (rootA !== rootB) parents[rootB] = rootA;
+    }
+
+    items.forEach((item, index) => {
+        const ranges = [
+            [number(item.x) - tolerance, number(item.x) + number(item.dx) + tolerance],
+            [number(item.y) - tolerance, number(item.y) + number(item.dy) + tolerance],
+            [number(item.z) - tolerance, number(item.z) + number(item.dz) + tolerance],
+        ].map(([minimum, maximum]) => [
+            Math.floor(minimum / cellSize),
+            Math.floor(maximum / cellSize),
+        ]);
+        const candidates = new Set();
+        const occupiedKeys = [];
+        for (let x = ranges[0][0]; x <= ranges[0][1]; x += 1) {
+            for (let y = ranges[1][0]; y <= ranges[1][1]; y += 1) {
+                for (let z = ranges[2][0]; z <= ranges[2][1]; z += 1) {
+                    const key = `${x}:${y}:${z}`;
+                    occupiedKeys.push(key);
+                    (buckets.get(key) || []).forEach((candidate) => candidates.add(candidate));
+                }
+            }
+        }
+        candidates.forEach((candidate) => {
+            if (cuboidsTouch(item, items[candidate], tolerance)) join(index, candidate);
+        });
+        occupiedKeys.forEach((key) => {
+            if (!buckets.has(key)) buckets.set(key, []);
+            buckets.get(key).push(index);
+        });
+    });
+
+    const components = new Map();
+    items.forEach((item, index) => {
+        const componentRoot = root(index);
+        if (!components.has(componentRoot)) components.set(componentRoot, []);
+        components.get(componentRoot).push(item);
+    });
+    return [...components.values()]
+        .sort((a, b) => b.length - a.length)
+        .slice(0, 4);
+}
+
+function createZoneLabelSprite(text) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 192;
+    canvas.height = 96;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+
+    context.fillStyle = "rgba(15, 23, 42, 0.9)";
+    context.beginPath();
+    context.roundRect(14, 12, 164, 72, 18);
+    context.fill();
+    context.strokeStyle = "rgba(255, 255, 255, 0.9)";
+    context.lineWidth = 4;
+    context.stroke();
+    context.fillStyle = "#ffffff";
+    context.font = "700 42px Arial, sans-serif";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(text, 96, 49);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.needsUpdate = true;
+    const material = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false,
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.renderOrder = 1000;
+    sprite.userData.labelPixelWidth = 54;
+    sprite.userData.labelPixelHeight = 27;
+    return sprite;
+}
+
+function addProductZoneLabels(target, sceneData, dims) {
+    const itemsByProduct = new Map();
+    (sceneData.items || []).forEach((item) => {
+        const productId = String(item.product_id || "");
+        if (!productId) return;
+        if (!itemsByProduct.has(productId)) itemsByProduct.set(productId, []);
+        itemsByProduct.get(productId).push(item);
+    });
+
+    const sprites = [];
+    itemsByProduct.forEach((items, productId) => {
+        significantProductZones(items).forEach((zone) => {
+            const minimumX = Math.min(...zone.map((item) => number(item.x)));
+            const maximumX = Math.max(...zone.map((item) => number(item.x) + number(item.dx)));
+            const minimumY = Math.min(...zone.map((item) => number(item.y)));
+            const maximumY = Math.max(...zone.map((item) => number(item.y) + number(item.dy)));
+            const maximumZ = Math.max(...zone.map((item) => number(item.z) + number(item.dz)));
+            const sprite = createZoneLabelSprite(productId);
+            if (!sprite) return;
+            sprite.position.copy(mapPosition(
+                (minimumX + maximumX) / 2,
+                (minimumY + maximumY) / 2,
+                maximumZ + Math.max(dims.height * 0.012, 12),
+                dims,
+            ));
+            target.add(sprite);
+            sprites.push(sprite);
+        });
+    });
+    return sprites;
+}
+
+function stableBoundsCorners(dims) {
+    const corners = [];
+    [-dims.length / 2, dims.length / 2].forEach((x) => {
+        [0, dims.height].forEach((y) => {
+            [-dims.width / 2, dims.width / 2].forEach((z) => {
+                corners.push(new THREE.Vector3(x, y, z));
+            });
+        });
+    });
+    return corners;
+}
+
+function fitTransportView(instance, preset, width, height) {
+    const { camera, dims } = instance;
     const aspect = Math.max(width, 1) / Math.max(height, 1);
-    const framedLength = dims.length + dims.width * 0.9;
-    const desiredWidth = framedLength * 1.14;
-    const desiredHeight = Math.max(dims.height * 1.55, dims.width * 1.85);
-    const viewSize = Math.max(desiredHeight, desiredWidth / Math.max(aspect, 0.2), 1);
-    camera.left = -viewSize * aspect / 2;
-    camera.right = viewSize * aspect / 2;
-    camera.top = viewSize / 2;
-    camera.bottom = -viewSize / 2;
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    const target = new THREE.Vector3(0, dims.height / 2, 0);
+    let minimumX = Infinity;
+    let maximumX = -Infinity;
+    let minimumY = Infinity;
+    let maximumY = -Infinity;
+
+    stableBoundsCorners(dims).forEach((corner) => {
+        const relative = corner.sub(target);
+        const projectedX = relative.dot(right);
+        const projectedY = relative.dot(up);
+        minimumX = Math.min(minimumX, projectedX);
+        maximumX = Math.max(maximumX, projectedX);
+        minimumY = Math.min(minimumY, projectedY);
+        maximumY = Math.max(maximumY, projectedY);
+    });
+
+    const projectedWidth = Math.max(maximumX - minimumX, 1);
+    const projectedHeight = Math.max(maximumY - minimumY, 1);
+    const requiredHeightForWidth = projectedWidth / Math.max(aspect, 0.1);
+    const requiredViewHeight = Math.max(requiredHeightForWidth, projectedHeight) * preset.padding;
+    camera.aspect = aspect;
+    camera.left = -requiredViewHeight * aspect / 2;
+    camera.right = requiredViewHeight * aspect / 2;
+    camera.top = requiredViewHeight / 2;
+    camera.bottom = -requiredViewHeight / 2;
     camera.updateProjectionMatrix();
 }
 
-function setCameraView(instance, viewName) {
-    const { camera, controls, dims } = instance;
-    const maxDim = Math.max(dims.length, dims.width, dims.height);
-    const distance = maxDim * 2.5;
-    const target = new THREE.Vector3(0, dims.height * 0.46, 0);
-    const views = {
-        reset: new THREE.Vector3(distance * 0.82, distance * 0.58, distance * 0.88),
-        top: new THREE.Vector3(0.001, distance * 1.25, 0.001),
-        front: new THREE.Vector3(0, dims.height * 0.48, distance),
-        side: new THREE.Vector3(distance, dims.height * 0.48, 0),
-        opposite: new THREE.Vector3(-distance * 0.82, distance * 0.58, -distance * 0.88),
-    };
+function updateViewButtons(instance) {
+    instance.panel.querySelectorAll("[data-transport-threejs-view]").forEach((button) => {
+        const active = button.dataset.transportThreejsView === instance.currentViewName;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+}
 
+function applyTransportView(instance, viewName, options = {}) {
+    const presetName = TRANSPORT_VIEW_PRESETS[viewName] ? viewName : "loading";
+    const preset = TRANSPORT_VIEW_PRESETS[presetName];
+    const { camera, controls, dims } = instance;
+    const width = options.width || instance.renderer.domElement.width || 1;
+    const height = options.height || instance.renderer.domElement.height || 1;
+    const maxDim = Math.max(dims.length, dims.width, dims.height);
+    const target = new THREE.Vector3(0, dims.height / 2, 0);
+    const direction = new THREE.Vector3(...preset.direction).normalize();
+
+    camera.rotation.set(0, 0, 0);
+    camera.quaternion.identity();
+    camera.up.set(...preset.up);
     camera.zoom = 1;
-    camera.position.copy(views[viewName] || views.reset);
-    camera.up.set(0, 1, 0);
+    camera.position.copy(target).addScaledVector(direction, maxDim * 3);
     camera.lookAt(target);
-    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
     controls.target.copy(target);
+    fitTransportView(instance, preset, width, height);
     controls.update();
-    instance.currentViewName = viewName;
+    instance.currentViewName = presetName;
+    if (options.updateButtons !== false) updateViewButtons(instance);
+    if (options.render !== false) instance.renderer.render(instance.scene, camera);
+}
+
+function updateLabelScales(instance) {
+    const canvasHeight = Math.max(
+        instance.renderer.domElement.height / instance.renderer.getPixelRatio(),
+        1,
+    );
+    const visibleHeight = (instance.camera.top - instance.camera.bottom) / instance.camera.zoom;
+    const worldUnitsPerPixel = visibleHeight / canvasHeight;
+    (instance.labelSprites || []).forEach((sprite) => {
+        sprite.scale.set(
+            sprite.userData.labelPixelWidth * worldUnitsPerPixel,
+            sprite.userData.labelPixelHeight * worldUnitsPerPixel,
+            1,
+        );
+    });
 }
 
 function initViewer(el) {
@@ -323,7 +550,6 @@ function initViewer(el) {
 
     const maxDim = Math.max(dims.length, dims.width, dims.height);
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -maxDim * 15, maxDim * 15);
-    updateFrustum(camera, dims, initialSize.width, initialSize.height);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -343,6 +569,8 @@ function initViewer(el) {
     scene.add(root);
     addTransportUnit(root, dims);
     addItems(root, sceneData, dims);
+    const labelSprites = addProductZoneLabels(root, sceneData, dims);
+    const panel = el.closest(".transport-threejs-panel") || document;
 
     const instance = {
         scene,
@@ -350,15 +578,19 @@ function initViewer(el) {
         controls,
         renderer,
         dims,
-        currentViewName: "reset",
+        panel,
+        labelSprites,
+        currentViewName: "loading",
     };
     instances.set(el, instance);
-    setCameraView(instance, "reset");
+    applyTransportView(instance, "loading", {
+        width: initialSize.width,
+        height: initialSize.height,
+    });
 
-    const panel = el.closest(".transport-threejs-panel") || document;
     panel.querySelectorAll("[data-transport-threejs-view]").forEach((button) => {
         button.addEventListener("click", () => {
-            setCameraView(instance, button.dataset.transportThreejsView || "reset");
+            applyTransportView(instance, button.dataset.transportThreejsView || "loading");
         });
     });
 
@@ -371,8 +603,18 @@ function initViewer(el) {
         if (Math.abs(next.width - lastWidth) < 1 && Math.abs(next.height - lastHeight) < 1) return;
         lastWidth = next.width;
         lastHeight = next.height;
-        updateFrustum(camera, dims, next.width, next.height);
         renderer.setSize(next.width, next.height, false);
+        camera.aspect = next.width / next.height;
+        camera.updateProjectionMatrix();
+        applyTransportView(instance, instance.currentViewName, {
+            width: next.width,
+            height: next.height,
+            updateButtons: false,
+            render: false,
+        });
+        controls.update();
+        updateLabelScales(instance);
+        renderer.render(scene, camera);
     }
     function requestResize() {
         if (resizePending) return;
@@ -387,6 +629,7 @@ function initViewer(el) {
 
     function animate() {
         controls.update();
+        updateLabelScales(instance);
         renderer.render(scene, camera);
         window.requestAnimationFrame(animate);
     }
@@ -426,34 +669,64 @@ function captureReportViews(viewerId) {
     const instance = el ? instances.get(el) : null;
     if (!instance) return null;
 
+    const rendererSize = instance.renderer.getSize(new THREE.Vector2());
     const saved = {
         position: instance.camera.position.clone(),
         up: instance.camera.up.clone(),
+        quaternion: instance.camera.quaternion.clone(),
         zoom: instance.camera.zoom,
+        left: instance.camera.left,
+        right: instance.camera.right,
+        top: instance.camera.top,
+        bottom: instance.camera.bottom,
+        aspect: instance.camera.aspect,
         target: instance.controls.target.clone(),
         viewName: instance.currentViewName,
+        rendererWidth: rendererSize.x,
+        rendererHeight: rendererSize.y,
     };
 
     const snapshots = {};
     try {
-        setCameraView(instance, "reset");
-        snapshots.main = captureViewer(instance, "image/jpeg", 0.88);
-        setCameraView(instance, "top");
-        snapshots.top = captureViewer(instance, "image/jpeg", 0.88);
-        setCameraView(instance, "opposite");
-        snapshots.opposite = captureViewer(instance, "image/jpeg", 0.88);
+        TRANSPORT_REPORT_VIEWS.forEach((viewName) => {
+            const viewport = TRANSPORT_REPORT_VIEWPORTS[viewName];
+            instance.renderer.setSize(viewport.width, viewport.height, false);
+            instance.camera.aspect = viewport.width / viewport.height;
+            instance.camera.updateProjectionMatrix();
+            applyTransportView(instance, viewName, {
+                width: viewport.width,
+                height: viewport.height,
+                updateButtons: false,
+                render: false,
+            });
+            instance.controls.update();
+            updateLabelScales(instance);
+            instance.renderer.render(instance.scene, instance.camera);
+            snapshots[viewName] = captureViewer(instance, "image/jpeg", 0.88);
+        });
     } finally {
+        instance.renderer.setSize(saved.rendererWidth, saved.rendererHeight, false);
         instance.camera.position.copy(saved.position);
         instance.camera.up.copy(saved.up);
+        instance.camera.quaternion.copy(saved.quaternion);
         instance.camera.zoom = saved.zoom;
+        instance.camera.left = saved.left;
+        instance.camera.right = saved.right;
+        instance.camera.top = saved.top;
+        instance.camera.bottom = saved.bottom;
+        instance.camera.aspect = saved.aspect;
         instance.camera.updateProjectionMatrix();
         instance.controls.target.copy(saved.target);
         instance.controls.update();
         instance.currentViewName = saved.viewName;
+        updateViewButtons(instance);
+        updateLabelScales(instance);
         instance.renderer.render(instance.scene, instance.camera);
     }
 
-    return snapshots.main && snapshots.top && snapshots.opposite ? snapshots : null;
+    return TRANSPORT_REPORT_VIEWS.every((viewName) => snapshots[viewName])
+        ? snapshots
+        : null;
 }
 
 function ensureHiddenField(form, name) {
@@ -481,7 +754,7 @@ function preparePdfExport(button) {
         return false;
     }
 
-    ensureHiddenField(form, "transport_threejs_snapshot_main").value = snapshots.main;
+    ensureHiddenField(form, "transport_threejs_snapshot_loading").value = snapshots.loading;
     ensureHiddenField(form, "transport_threejs_snapshot_top").value = snapshots.top;
     ensureHiddenField(form, "transport_threejs_snapshot_opposite").value = snapshots.opposite;
     return true;
@@ -531,3 +804,10 @@ window.KolliTransportThreeJs.initAll = function () {
 };
 window.KolliTransportThreeJs.captureReportViews = captureReportViews;
 window.KolliTransportThreeJs.preparePdfExport = preparePdfExport;
+window.KolliTransportThreeJs.applyTransportView = function (viewerId, viewName) {
+    const el = typeof viewerId === "string" ? document.getElementById(viewerId) : viewerId;
+    const instance = el ? instances.get(el) : null;
+    if (!instance) return false;
+    applyTransportView(instance, viewName);
+    return true;
+};

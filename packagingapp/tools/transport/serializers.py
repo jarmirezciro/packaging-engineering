@@ -41,6 +41,17 @@ _TRANSPORT_ITEM_COLORS = (
 )
 
 
+def _transport_product_identity(row_index):
+    stable_index = max(int(row_index or 0), 0)
+    return {
+        "index": stable_index,
+        "id": f"P{stable_index + 1}",
+        "color": _TRANSPORT_ITEM_COLORS[
+            stable_index % len(_TRANSPORT_ITEM_COLORS)
+        ],
+    }
+
+
 def serialize_transport_threejs_scene(container, placements, summary):
     """Serialize authoritative engine placements for the browser renderer.
 
@@ -49,15 +60,18 @@ def serialize_transport_threejs_scene(container, placements, summary):
     """
     container = container or {}
     summary = summary or {}
-    color_by_name = {}
+    summary_rows = list(summary.get("product_rows") or [])
+    loaded_by_row = {}
     items = []
 
     for placement in placements or []:
-        label = str(getattr(placement, "product_name", "") or "Load unit")
-        if label not in color_by_name:
-            color_by_name[label] = _TRANSPORT_ITEM_COLORS[
-                len(color_by_name) % len(_TRANSPORT_ITEM_COLORS)
-            ]
+        row_index = max(int(getattr(placement, "row_index", 0) or 0), 0)
+        identity = _transport_product_identity(row_index)
+        label = str(
+            getattr(placement, "product_name", "")
+            or f"Load unit {row_index + 1}"
+        )
+        loaded_by_row[row_index] = loaded_by_row.get(row_index, 0) + 1
         items.append({
             "x": float(getattr(placement, "x", 0) or 0),
             "y": float(getattr(placement, "y", 0) or 0),
@@ -66,13 +80,43 @@ def serialize_transport_threejs_scene(container, placements, summary):
             "dy": float(getattr(placement, "w", 0) or 0),
             "dz": float(getattr(placement, "h", 0) or 0),
             "label": label,
+            "product_index": identity["index"],
+            "product_id": identity["id"],
             "kind": "load_unit",
-            "color": color_by_name[label],
+            "color": identity["color"],
             "opacity": 1.0,
         })
 
+    products = []
+    for row_index in sorted(loaded_by_row):
+        identity = _transport_product_identity(row_index)
+        row = summary_rows[row_index] if row_index < len(summary_rows) else {}
+        first_item = next(
+            (item for item in items if item["product_index"] == row_index),
+            {},
+        )
+        products.append({
+            "product_index": identity["index"],
+            "product_id": identity["id"],
+            "name": str(
+                row.get("name")
+                or first_item.get("label")
+                or f"Load unit {row_index + 1}"
+            ),
+            "length": float(row.get("length", 0) or 0),
+            "width": float(row.get("width", 0) or 0),
+            "height": float(row.get("height", 0) or 0),
+            "qty_loaded": int(loaded_by_row[row_index]),
+            "qty_requested": (
+                int(row.get("qty_requested", 0) or 0)
+                if row.get("qty_requested") is not None
+                else None
+            ),
+            "color": identity["color"],
+        })
+
     return {
-        "version": 1,
+        "version": 2,
         "units": "mm",
         "transport_unit": {
             "length": float(container.get("L", 0) or 0),
@@ -81,6 +125,7 @@ def serialize_transport_threejs_scene(container, placements, summary):
             "type": str(container.get("type", "TRANSPORT_UNIT") or "TRANSPORT_UNIT"),
         },
         "items": items,
+        "products": products,
         "metadata": {
             "total_items": int(summary.get("placed_units", len(items)) or 0),
             "used_length": float(summary.get("occupied_length", 0) or 0),

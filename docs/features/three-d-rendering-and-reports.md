@@ -105,8 +105,8 @@ Calculator, and the Packaging Flow transport step. Python coordinates use
 `X=length`, `Y=height`, `Z=width`.
 
 Three.js is the primary customer-facing transport renderer. Standalone Transport
-PDF export captures fixed Main, Top, and Opposite-side JPEG views from the shared
-viewer. The server validates and stores all three snapshots under `MEDIA_ROOT`;
+PDF export captures fixed Loading, Opposite Side, and Top JPEG views from the shared
+viewer and its shared preset registry. The server validates and stores all three snapshots under `MEDIA_ROOT`;
 missing or invalid snapshots return HTTP 400 and never fall back to the legacy
 Matplotlib report images. Legacy server images remain transitional inputs only
 for the separate combined Packaging Flow report.

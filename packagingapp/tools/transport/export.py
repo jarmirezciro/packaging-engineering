@@ -245,6 +245,64 @@ def _product_rows_table(rows):
     return table
 
 
+def _product_legend_table(products):
+    entries = []
+    for product in products or []:
+        dimensions = (
+            f"{_num(product.get('length'), 0)} x "
+            f"{_num(product.get('width'), 0)} x "
+            f"{_num(product.get('height'), 0)} mm"
+        )
+        quantity = f"Loaded: {_clean(product.get('qty_loaded'))}"
+        if product.get("qty_requested") is not None:
+            quantity += f" / {_clean(product.get('qty_requested'))}"
+        copy = Paragraph(
+            f"<b>{_clean(product.get('product_id'))}</b> - "
+            f"{_clean(product.get('name'))}<br/>"
+            f"{_clean(dimensions)}<br/>{quantity}",
+            _STYLES["TransportBodySmall"],
+        )
+        try:
+            swatch_color = colors.HexColor(str(product.get("color") or "#94a3b8"))
+        except (TypeError, ValueError):
+            swatch_color = colors.HexColor("#94a3b8")
+        swatch = Table([[""]], colWidths=[4 * mm], rowHeights=[4 * mm])
+        swatch.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), swatch_color),
+            ("BOX", (0, 0), (-1, -1), 0.35, colors.HexColor("#334155")),
+        ]))
+        entry = Table([[swatch, copy]], colWidths=[5 * mm, 36.5 * mm])
+        entry.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 1.5),
+            ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
+        ]))
+        entries.append(entry)
+
+    if not entries:
+        return _p("No rendered load products.", "TransportBodySmall")
+
+    rows = []
+    for offset in range(0, len(entries), 3):
+        row = entries[offset:offset + 3]
+        row.extend([""] * (3 - len(row)))
+        rows.append(row)
+    table = Table(rows, colWidths=[42.5 * mm] * 3)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
+        ("BOX", (0, 0), (-1, -1), 0.25, colors.HexColor("#d9e2ec")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#d9e2ec")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    return table
+
+
 def _draw_report_frame(canvas, doc):
     canvas.saveState()
     width, height = doc.pagesize
@@ -357,14 +415,14 @@ def build_transport_container_pdf(export_payload):
     ]
 
     right_column = [
-        _section_title("Main loading view"),
+        _section_title("Loading View"),
     ]
-    right_column.extend(_image_block(snapshot_rel_paths.get("main"), 123 * mm, 52 * mm, "Main view - Three.js default perspective."))
+    right_column.extend(_image_block(snapshot_rel_paths.get("loading"), 123 * mm, 52 * mm, "Loading View - established door-side perspective."))
     right_column.append(Spacer(1, 2 * mm))
 
     image_cells = []
-    top_block = _image_block(snapshot_rel_paths.get("top"), 60 * mm, 38 * mm, "Top view")
-    opposite_block = _image_block(snapshot_rel_paths.get("opposite"), 60 * mm, 38 * mm, "Opposite side")
+    top_block = _image_block(snapshot_rel_paths.get("top"), 60 * mm, 38 * mm, "Top View")
+    opposite_block = _image_block(snapshot_rel_paths.get("opposite"), 60 * mm, 38 * mm, "Opposite Side")
     image_cells.append([top_block, opposite_block])
 
     views_table = Table(image_cells, colWidths=[63 * mm, 63 * mm])
@@ -378,7 +436,10 @@ def build_transport_container_pdf(export_payload):
     right_column.extend([
         _section_title("Inspection views"),
         views_table,
-        Spacer(1, 3 * mm),
+        Spacer(1, 2 * mm),
+        _section_title("Product legend"),
+        _product_legend_table(export_payload.get("product_legend") or []),
+        Spacer(1, 2 * mm),
         Paragraph(
             "The Three.js views use the same calculated placement. They only change the camera angle to help inspect hidden placements and floor usage.",
             _STYLES["TransportBodySmall"],
