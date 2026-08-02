@@ -13,6 +13,7 @@ def default_palletization_config():
         "pallet_id": "",
         "pallet_l": "",
         "pallet_w": "",
+        "pallet_height": "",
         "max_stack_height": "",
         "max_width_stickout": 0,
         "max_length_stickout": 0,

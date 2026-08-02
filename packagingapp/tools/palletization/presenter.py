@@ -36,6 +36,7 @@ def build_pallet_ui_contract(prefix=""):
             "pallet_catalogue_id": f"pallet_catalogue_id{suffix}",
             "pallet_l": f"pallet_l{suffix}",
             "pallet_w": f"pallet_w{suffix}",
+            "pallet_height": f"pallet_height{suffix}",
             "max_stack_height": f"max_stack_height{suffix}",
             "max_width_stickout": f"max_width_stickout{suffix}",
             "max_length_stickout": f"max_length_stickout{suffix}",
@@ -46,6 +47,7 @@ def build_pallet_ui_contract(prefix=""):
             "manual_box_fields": f"manualBoxFields{suffix}",
             "pallet_catalogue_chooser": f"palletCatalogueChooser{suffix}",
             "manual_pallet_fields": f"manualPalletFields{suffix}",
+            "manual_pallet_height_field": f"manualPalletHeightField{suffix}",
             "catalogue_pallet_main_fields": f"cataloguePalletMainFields{suffix}",
             "stacking_constraints_section": f"stackingConstraintsSection{suffix}",
             "toggle_constraints_text": f"toggleConstraintsText{suffix}",
@@ -135,19 +137,23 @@ def selected_pallet_summary(selected_material, data):
 
     return {
         "title": "Manual pallet",
-        "dims": f'{_read_value(data, "pallet_l", "")} × {_read_value(data, "pallet_w", "")}',
+        "dims": (
+            f'{_read_value(data, "pallet_l", "")} × '
+            f'{_read_value(data, "pallet_w", "")} × '
+            f'{_read_value(data, "pallet_height", "")}'
+        ),
         "meta": "Manual dimensions",
     }
 
 
-def result_card_from_row(row, pallet_l, pallet_w):
+def result_card_from_row(row, pallet_l, pallet_w, pallet_height):
     return {
         "kind": "pallet",
         "pattern": row["pattern"],
         "stacking": row["stacking"],
         "pallet_l": round(float(pallet_l), 2),
         "pallet_w": round(float(pallet_w), 2),
-        "total_height_mm": round(float(row["used_height_mm"]) + 100.0, 2),
+        "total_height_mm": round(float(row["used_height_mm"]) + float(pallet_height), 2),
         "total_boxes": int(row["total_boxes"]),
         "layers": int(row["layers"]),
         "layer_footprint_util_pct": round(float(row["layer_footprint_util_pct"]), 2),
@@ -157,7 +163,14 @@ def result_card_from_row(row, pallet_l, pallet_w):
     }
 
 
-def build_pallet_pending_result(pallet_l, pallet_w, selected_row, selected_pallet_material=None, upstream_units=1):
+def build_pallet_pending_result(
+    pallet_l,
+    pallet_w,
+    pallet_height,
+    selected_row,
+    selected_pallet_material=None,
+    upstream_units=1,
+):
     label = "Manual Pallet"
     if selected_pallet_material:
         label = selected_pallet_material.part_number or "Selected Pallet"
@@ -167,7 +180,7 @@ def build_pallet_pending_result(pallet_l, pallet_w, selected_row, selected_palle
         "label": f'{label} | {selected_row["pattern"]} / {selected_row["stacking"]}',
         "length": round(float(pallet_l), 2),
         "width": round(float(pallet_w), 2),
-        "height": round(float(selected_row["used_height_mm"]) + 100.0, 2),
+        "height": round(float(selected_row["used_height_mm"]) + float(pallet_height), 2),
         "units_per_parent": units_per_parent,
         "total_base_units": units_per_parent * int(upstream_units or 1),
     }

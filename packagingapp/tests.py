@@ -600,7 +600,7 @@ class TransportThreeJsAndPdfTests(TestCase):
             "item_name[]": ["Inherited pallet"],
             "item_length[]": ["1200"],
             "item_width[]": ["800"],
-            "item_height[]": ["850"],
+            "item_height[]": ["650"],
             "item_qty[]": [str(qty)],
             "item_max_qty[]": ["0"],
             "item_weight[]": ["100"],
@@ -785,9 +785,9 @@ class TransportThreeJsAndPdfTests(TestCase):
             [tuple(item[key] for key in ("x", "y", "z", "dx", "dy", "dz")) for item in scene["items"]],
             [tuple(item[key] for key in ("x", "y", "z", "dx", "dy", "dz")) for item in generic_scene["items"]],
         )
-        self.assertEqual(visualization["bounds"], {"length": 1200.0, "width": 800.0, "height": 850.0})
-        self.assertEqual(visualization["scene"]["pallet"]["height"], 100.0)
-        self.assertEqual(visualization["scene"]["layers"], 3)
+        self.assertEqual(visualization["bounds"], {"length": 1200.0, "width": 800.0, "height": 650.0})
+        self.assertEqual(visualization["scene"]["pallet"]["height"], 150.0)
+        self.assertEqual(visualization["scene"]["layers"], 2)
         self.assertEqual(
             len(visualization["scene"]["placements"]),
             visualization["scene"]["total_cases"],
@@ -812,7 +812,7 @@ class TransportThreeJsAndPdfTests(TestCase):
         self.assertEqual(scene["items"][0]["pallet_orientation"], "wlh")
         self.assertEqual(
             (scene["items"][0]["dx"], scene["items"][0]["dy"], scene["items"][0]["dz"]),
-            (800.0, 1200.0, 850.0),
+            (800.0, 1200.0, 650.0),
         )
 
     def test_detailed_scene_requires_explicit_source_and_in_bounds_geometry(self):
@@ -820,23 +820,23 @@ class TransportThreeJsAndPdfTests(TestCase):
 
         def transport_scene():
             return {
-                "items": [{"x": 0, "y": 0, "z": 0, "dx": 1200, "dy": 800, "dz": 850}],
+                "items": [{"x": 0, "y": 0, "z": 0, "dx": 1200, "dy": 800, "dz": 650}],
                 "metadata": {"total_items": 1},
             }
 
         valid_pallet_scene = {
-            "pallet": {"length": 1200, "width": 800, "height": 108, "deck_thickness": 18},
-            "placements": [{"x": 0, "y": 0, "z": 108, "dx": 400, "dy": 400, "dz": 750}],
+            "pallet": {"length": 1200, "width": 800, "height": 150, "deck_thickness": 25},
+            "placements": [{"x": 0, "y": 0, "z": 150, "dx": 400, "dy": 400, "dz": 500}],
         }
         out_of_bounds_pallet_scene = {
-            "pallet": {"length": 1200, "width": 800, "height": 108, "deck_thickness": 18},
-            "placements": [{"x": 1100, "y": 0, "z": 108, "dx": 200, "dy": 400, "dz": 750}],
+            "pallet": {"length": 1200, "width": 800, "height": 150, "deck_thickness": 25},
+            "placements": [{"x": 1100, "y": 0, "z": 150, "dx": 200, "dy": 400, "dz": 500}],
         }
         wrong_source = {
             "source_type": "container_result",
             "length": 1200,
             "width": 800,
-            "height": 850,
+            "height": 650,
             "pallet_visualization": valid_pallet_scene,
         }
         wrong_source_result = _decorate_transport_scene_with_pallet_visualization(

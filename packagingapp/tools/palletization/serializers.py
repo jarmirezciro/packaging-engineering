@@ -1,8 +1,4 @@
-from ...utils.palletization.engine import (
-    PALLET_DECK_THICKNESS_MM,
-    PALLET_RENDER_HEIGHT_MM,
-    PALLET_RUNNER_HEIGHT_MM,
-)
+from .height import pallet_render_components
 
 
 def _json_safe_scalar(value):
@@ -32,6 +28,7 @@ def sanitize_palletization_config_for_session(cfg):
         "pallet_id": str(cfg.get("pallet_id", "") or ""),
         "pallet_l": _json_safe_scalar(cfg.get("pallet_l", "")),
         "pallet_w": _json_safe_scalar(cfg.get("pallet_w", "")),
+        "pallet_height": _json_safe_scalar(cfg.get("pallet_height", "")),
         "max_stack_height": _json_safe_scalar(cfg.get("max_stack_height", "")),
         "max_width_stickout": _json_safe_scalar(cfg.get("max_width_stickout", 0)),
         "max_length_stickout": _json_safe_scalar(cfg.get("max_length_stickout", 0)),
@@ -39,10 +36,12 @@ def sanitize_palletization_config_for_session(cfg):
     }
 
 
-def serialize_pallet_row(row):
+def serialize_pallet_row(row, pallet_height_mm=0.0):
     pattern = str(row["pattern"])
     stacking = str(row["stacking"])
     base_result_key = f"{pattern}__{stacking}"
+    arrangement_height_mm = float(row["used_height_mm"])
+    pallet_height_mm = float(pallet_height_mm or 0.0)
     return {
         "pattern": pattern,
         "stacking": stacking,
@@ -53,7 +52,9 @@ def serialize_pallet_row(row):
         "boxes_layer_B": int(row["boxes_layer_B"]),
         "layers": int(row["layers"]),
         "total_boxes": int(row["total_boxes"]),
-        "used_height_mm": float(row["used_height_mm"]),
+        "used_height_mm": arrangement_height_mm,
+        "pallet_height_mm": pallet_height_mm,
+        "total_height_mm": arrangement_height_mm + pallet_height_mm,
         "layer_footprint_util_pct": float(row["layer_footprint_util_pct"]),
         "volumetric_util_pct": float(row["volumetric_util_pct"]),
         "feasible_weight": bool(row["feasible_weight"]),
@@ -77,6 +78,8 @@ def serialize_pallet_threejs_scene(render_row, effective_config, selected_row=No
     selected = selected_row or render_row
     pallet_l = float(cfg.get("pallet_l") or 0)
     pallet_w = float(cfg.get("pallet_w") or 0)
+    pallet_height = float(cfg.get("pallet_height") or 0)
+    deck_thickness, runner_height = pallet_render_components(pallet_height)
     overhang_l = float(cfg.get("max_length_stickout") or 0)
     overhang_w = float(cfg.get("max_width_stickout") or 0)
     box_l = float(cfg.get("box_l") or 0)
@@ -88,7 +91,7 @@ def serialize_pallet_threejs_scene(render_row, effective_config, selected_row=No
         placements.append({
             "x": float(placement.x),
             "y": float(placement.y),
-            "z": float(placement.z) + PALLET_RENDER_HEIGHT_MM,
+            "z": float(placement.z) + pallet_height,
             "dx": float(placement.l),
             "dy": float(placement.w),
             "dz": float(placement.h),
@@ -106,9 +109,9 @@ def serialize_pallet_threejs_scene(render_row, effective_config, selected_row=No
         "pallet": {
             "length": pallet_l,
             "width": pallet_w,
-            "height": PALLET_RENDER_HEIGHT_MM,
-            "deck_thickness": PALLET_DECK_THICKNESS_MM,
-            "runner_height": PALLET_RUNNER_HEIGHT_MM,
+            "height": pallet_height,
+            "deck_thickness": deck_thickness,
+            "runner_height": runner_height,
         },
         "allowed_footprint": {
             "x": -overhang_l / 2.0,
@@ -139,8 +142,7 @@ def serialize_pallet_threejs_scene(render_row, effective_config, selected_row=No
             "stack_volume_usage_pct": float(selected.get("volumetric_util_pct") or 0),
             "stack_height_mm": float(selected.get("used_height_mm") or 0),
             "total_render_height_mm": (
-                PALLET_RENDER_HEIGHT_MM
-                + float(selected.get("used_height_mm") or 0)
+                pallet_height + float(selected.get("used_height_mm") or 0)
             ),
         },
     }
@@ -152,10 +154,18 @@ def serialize_pallet_analysis_result(
     image_rel_path=None,
     selected_result_key=None,
     threejs_scene=None,
+    pallet_height_mm=0.0,
 ):
     raw_results = raw_results or []
-    safe_results = [serialize_pallet_row(row) for row in raw_results]
-    safe_selected = serialize_pallet_row(selected_row) if selected_row else None
+    safe_results = [
+        serialize_pallet_row(row, pallet_height_mm=pallet_height_mm)
+        for row in raw_results
+    ]
+    safe_selected = (
+        serialize_pallet_row(selected_row, pallet_height_mm=pallet_height_mm)
+        if selected_row
+        else None
+    )
     if selected_result_key is None:
         selected_result_key = ""
         if selected_row:

@@ -340,8 +340,19 @@ def _pack_container_greedy(
 
     loaded_weight = 0.0
     payload_limit = float(container.get("max_weight")) if _has_payload_limit(container) else None
+    previous_row_index: Optional[int] = None
 
     for idx, item in enumerate(items):
+        # Maximum Utilization only: when processing moves to another product
+        # row, remove computational boundaries left by all earlier rows.
+        # Complete-face adjacent cuboids are one physically continuous free
+        # region, so later products may cross those former split planes.
+        # Running this once per product transition keeps the operation bounded
+        # for large requests and naturally supports any number of products.
+        if previous_row_index is not None and item["row_index"] != previous_row_index:
+            spaces = _clean_residual_spaces(spaces)
+            spaces = prune_spaces(spaces, items[idx:])
+        previous_row_index = item["row_index"]
         if payload_limit is not None and loaded_weight + item["weight"] > payload_limit:
             unplaced.append({**item, "reason": "Container max payload exceeded"})
             continue
@@ -2924,18 +2935,19 @@ def _pack_container_sequence_layers_once(
     products: List[Dict],
     width_directions: Optional[Dict[int, str]] = None,
 ) -> Dict:
-    """Operational sequence loading with a controlled forward frontier.
+    """Strict operational loading with a full-width frontier per product row.
 
     Coordinate convention:
       * x = 0 is the closed back wall;
       * x = container length is the door end;
       * products are completed in loading-sequence order;
       * each product uses horizontal layers from floor to top;
-      * later sequences may use only door-accessible gaps in the previous
-        product's final floor band and the untouched space in front of it.
+      * after a product row is placed, every side, top, and deep residual
+        behind its furthest x face is closed to all later product rows.
 
-    Later products never use top residuals above earlier sequences and never
-    enter deep side pockets behind the operational frontier.
+    The next product therefore receives exactly one full-width floor space
+    beginning at the preceding product's x_end. Side-gap reuse belongs only
+    to Accessible Sequence Loading and is deliberately excluded here.
     """
     groups = _product_groups(products)
     placements: List[Placement] = []
@@ -3002,26 +3014,29 @@ def _pack_container_sequence_layers_once(
                 (x, y, l, w)
                 for x, y, z, l, w, h in plan["base_positions"]
             ]
-            floor_spaces = _subtract_floor_footprints(floor_spaces, base_footprints)
             occupied_floor_footprints.extend(base_footprints)
 
-            group_zone_end = plan["zone_end"]
-            end_positions = [
-                position
-                for position in plan["base_positions"]
-                if abs(position[0] + position[3] - group_zone_end) <= _EPS
-            ]
-            final_band_start = min(
-                (position[0] for position in end_positions),
-                default=group_zone_end,
-            )
-            band_start = max(band_start, final_band_start)
-            floor_spaces = _accessible_sequence_floor_spaces(
-                floor_spaces,
-                occupied_floor_footprints,
-                band_start,
-                container_length,
-            )
+            # Strict mode closes the complete cross-section behind the
+            # product row's furthest x face.  Do not preserve side residuals,
+            # top residuals, or a partial final band for later product rows.
+            group_zone_end = max(band_start, float(plan["zone_end"]))
+            band_start = group_zone_end
+            final_band_start = group_zone_end
+
+            remaining_length = container_length - group_zone_end
+            if remaining_length > _EPS:
+                floor_spaces = [
+                    Space(
+                        x=group_zone_end,
+                        y=0.0,
+                        z=0.0,
+                        L=remaining_length,
+                        W=container_width,
+                        H=container_height,
+                    )
+                ]
+            else:
+                floor_spaces = []
 
             sequence_zones.append({
                 "product_name": group["name"],
@@ -3037,6 +3052,7 @@ def _pack_container_sequence_layers_once(
                 "floor_positions": plan["floor_positions"],
                 "layers_used": plan["layers_used"],
                 "accessible_residual_spaces": len(floor_spaces),
+                "strict_full_width_frontier": True,
                 "width_direction": width_direction,
             })
 
@@ -3835,6 +3851,762 @@ def _hybrid_score(pack_result: Dict, products: List[Dict]) -> Tuple:
     )
 
 
+
+# Maximum-only extreme-point candidate.  This path deliberately does not use
+# Sequence Loading frontiers, transition bands, width-direction search, or
+# sequence compaction.  Loading sequence controls processing order only.
+_MAXIMUM_ANCHOR_ITEM_LIMIT = 300
+_MAXIMUM_ANCHOR_AXIS_LIMIT = 96
+_MAXIMUM_ANCHOR_Z_LIMIT = 32
+
+
+def _bounded_anchor_values(values, lower: float, upper: float, limit: int) -> List[float]:
+    """Return deterministic, evenly retained anchor coordinates."""
+    ordered = sorted({
+        round(float(value), 9)
+        for value in values
+        if lower - _EPS <= float(value) <= upper + _EPS
+    })
+    if len(ordered) <= limit:
+        return ordered
+    if limit <= 1:
+        return ordered[:1]
+
+    indexes = {
+        int(round(index * (len(ordered) - 1) / (limit - 1)))
+        for index in range(limit)
+    }
+    return [ordered[index] for index in sorted(indexes)]
+
+
+def _maximum_anchor_positions(
+    placements: List[Placement],
+    orientation: Tuple[float, float, float],
+    container: Dict,
+) -> List[Tuple[float, float, float]]:
+    """Generate physical placement anchors without residual-space sectors.
+
+    Anchors come from the container walls and the real faces of already placed
+    cargo.  A candidate may therefore cross an internal residual-space split;
+    only collision, support, stackability, and container bounds decide whether
+    the position is valid.
+    """
+    l, w, h = orientation
+    container_length = float(container["L"])
+    container_width = float(container["W"])
+    container_height = float(container["H"])
+
+    z_values = {0.0}
+    for placement in placements:
+        top = placement.z + placement.h
+        if placement.stackable and top + h <= container_height + _EPS:
+            z_values.add(round(top, 9))
+    z_levels = _bounded_anchor_values(
+        z_values,
+        0.0,
+        max(container_height - h, 0.0),
+        _MAXIMUM_ANCHOR_Z_LIMIT,
+    )
+
+    anchors = set()
+    for z in z_levels:
+        if z <= _EPS:
+            relevant = placements
+            x_values = {0.0, max(container_length - l, 0.0)}
+            y_values = {0.0, max(container_width - w, 0.0)}
+        else:
+            relevant = [
+                placement
+                for placement in placements
+                if placement.stackable
+                and abs(placement.z + placement.h - z) <= _EPS
+            ]
+            if not relevant:
+                continue
+            x_values = set()
+            y_values = set()
+
+        for placement in relevant:
+            # Align either edge of the candidate with either edge of real cargo.
+            x_values.update({
+                placement.x,
+                placement.x + placement.l,
+                placement.x - l,
+                placement.x + placement.l - l,
+            })
+            y_values.update({
+                placement.y,
+                placement.y + placement.w,
+                placement.y - w,
+                placement.y + placement.w - w,
+            })
+
+        bounded_x = _bounded_anchor_values(
+            x_values,
+            0.0,
+            max(container_length - l, 0.0),
+            _MAXIMUM_ANCHOR_AXIS_LIMIT,
+        )
+        bounded_y = _bounded_anchor_values(
+            y_values,
+            0.0,
+            max(container_width - w, 0.0),
+            _MAXIMUM_ANCHOR_AXIS_LIMIT,
+        )
+        for x in bounded_x:
+            for y in bounded_y:
+                anchors.add((x, y, z))
+
+    return sorted(anchors, key=lambda point: (point[0], point[2], point[1]))
+
+
+def _maximum_anchor_candidate_metrics(
+    candidate: Placement,
+    placements: List[Placement],
+    container: Dict,
+) -> Optional[Tuple[float, float]]:
+    """Validate one anchor and return same-product/all-cargo face contact."""
+    if (
+        candidate.x < -_EPS
+        or candidate.y < -_EPS
+        or candidate.z < -_EPS
+        or candidate.x + candidate.l > float(container["L"]) + _EPS
+        or candidate.y + candidate.w > float(container["W"]) + _EPS
+        or candidate.z + candidate.h > float(container["H"]) + _EPS
+    ):
+        return None
+
+    same_product_contact = 0.0
+    all_contact = 0.0
+    for existing in placements:
+        if _placements_overlap(candidate, existing):
+            return None
+        contact = _placement_face_contact_area(candidate, existing)
+        all_contact += contact
+        if existing.row_index == candidate.row_index:
+            same_product_contact += contact
+
+    if not _space_base_is_supported(
+        Space(
+            candidate.x,
+            candidate.y,
+            candidate.z,
+            candidate.l,
+            candidate.w,
+            candidate.h,
+        ),
+        placements,
+    ):
+        return None
+
+    return same_product_contact, all_contact
+
+
+def _pack_container_maximum_anchor(container: Dict, products: List[Dict]) -> Dict:
+    """Unrestricted maximum-utilization candidate based on physical anchors.
+
+    Items are processed in loading-sequence order, but no spatial frontier is
+    created.  Each item may use any collision-free, fully supported anchor
+    formed by container walls or actual cargo faces.  Internal residual-space
+    partitions have no authority in this candidate.
+    """
+    items = expand_items(products, respect_sequence=True)
+    placements: List[Placement] = []
+    unplaced: List[Dict] = []
+    loaded_weight = 0.0
+    payload_limit = (
+        float(container.get("max_weight"))
+        if _has_payload_limit(container)
+        else None
+    )
+
+    for item in items:
+        if payload_limit is not None and loaded_weight + item["weight"] > payload_limit + _EPS:
+            unplaced.append({**item, "reason": "Container max payload exceeded"})
+            continue
+
+        current_max_x = max(
+            (placement.x + placement.l for placement in placements),
+            default=0.0,
+        )
+        current_max_y = max(
+            (placement.y + placement.w for placement in placements),
+            default=0.0,
+        )
+        current_max_z = max(
+            (placement.z + placement.h for placement in placements),
+            default=0.0,
+        )
+
+        best: Optional[Tuple[Tuple, Placement]] = None
+        for orientation_index, orientation in enumerate(item["orientations"]):
+            l, w, h = orientation
+            for x, y, z in _maximum_anchor_positions(
+                placements,
+                orientation,
+                container,
+            ):
+                candidate_max_x = max(current_max_x, x + l)
+                candidate_max_z = max(current_max_z, z + h)
+                candidate_max_y = max(current_max_y, y + w)
+                if best is not None:
+                    best_score = best[0]
+                    if candidate_max_x > best_score[0] + _EPS:
+                        continue
+                    if (
+                        abs(candidate_max_x - best_score[0]) <= _EPS
+                        and candidate_max_z > best_score[1] + _EPS
+                    ):
+                        continue
+                    if (
+                        abs(candidate_max_x - best_score[0]) <= _EPS
+                        and abs(candidate_max_z - best_score[1]) <= _EPS
+                        and candidate_max_y > best_score[2] + _EPS
+                    ):
+                        continue
+
+                candidate = Placement(
+                    product_name=item["product_name"],
+                    item_index=item["item_index"],
+                    row_index=item["row_index"],
+                    sequence=item["sequence"],
+                    weight=item["weight"],
+                    stackable=item["stackable"],
+                    x=x,
+                    y=y,
+                    z=z,
+                    l=l,
+                    w=w,
+                    h=h,
+                )
+                contacts = _maximum_anchor_candidate_metrics(
+                    candidate,
+                    placements,
+                    container,
+                )
+                if contacts is None:
+                    continue
+                same_product_contact, all_contact = contacts
+
+                max_x = candidate_max_x
+                max_y = candidate_max_y
+                max_z = candidate_max_z
+                bounding_volume = max_x * max_y * max_z
+
+                # Short occupied length is preferred first.  Face contact then
+                # prevents a physically continuous product region from being
+                # split into visual parcels when capacity is equal.
+                score = (
+                    max_x,
+                    max_z,
+                    max_y,
+                    bounding_volume,
+                    -same_product_contact,
+                    -all_contact,
+                    z,
+                    x,
+                    y,
+                    orientation_index,
+                )
+                if best is None or score < best[0]:
+                    best = (score, candidate)
+
+        if best is None:
+            unplaced.append({**item, "reason": "No fitting physical anchor"})
+            continue
+
+        placements.append(best[1])
+        loaded_weight += item["weight"]
+
+    surface_regularization = _regularize_maximum_supported_top_layers(
+        placements,
+        products,
+        container,
+    )
+
+    full_space = Space(
+        0.0,
+        0.0,
+        0.0,
+        float(container["L"]),
+        float(container["W"]),
+        float(container["H"]),
+    )
+    occupied = [
+        (
+            placement.x,
+            placement.y,
+            placement.z,
+            placement.l,
+            placement.w,
+            placement.h,
+        )
+        for placement in placements
+    ]
+    spaces = _subtract_cuboids_from_spaces([full_space], occupied)
+
+    return {
+        "placements": placements,
+        "unplaced": unplaced,
+        "spaces": spaces,
+        "loaded_weight": loaded_weight,
+        "strategy": "maximum_anchor",
+        "maximum_surface_regularization": surface_regularization,
+    }
+
+
+# Maximum-only supported-surface regularization.  This pass does not call or
+# modify either Sequence Loading engine.  It replaces item-by-item mosaics on
+# one continuous physical support plane with a coherent lane arrangement when
+# the same quantity fits with fewer orientation sectors.
+_MAXIMUM_SURFACE_LANE_LIMIT = 200
+
+
+def _maximum_supported_rectangles_at_height(
+    placements: List[Placement],
+    z: float,
+    container: Dict,
+) -> List[Tuple[float, float, float, float]]:
+    """Return non-overlapping rectangles fully supported at height ``z``.
+
+    Rectangles are derived from the union of actual stackable top faces rather
+    than from residual-space partitions.  Adjacent support faces therefore
+    form one physical surface when their union is rectangular.
+    """
+    if z <= _EPS:
+        return [(0.0, 0.0, float(container["L"]), float(container["W"]))]
+
+    supports = [
+        placement
+        for placement in placements
+        if placement.stackable
+        and abs(placement.z + placement.h - z) <= _EPS
+    ]
+    if not supports:
+        return []
+
+    x_edges = sorted({
+        round(value, 9)
+        for placement in supports
+        for value in (placement.x, placement.x + placement.l)
+    })
+    y_edges = sorted({
+        round(value, 9)
+        for placement in supports
+        for value in (placement.y, placement.y + placement.w)
+    })
+    if len(x_edges) < 2 or len(y_edges) < 2:
+        return []
+
+    horizontal_runs: List[List[float]] = []
+    for y_index in range(len(y_edges) - 1):
+        y0, y1 = y_edges[y_index], y_edges[y_index + 1]
+        covered_cells = []
+        centre_y = (y0 + y1) / 2.0
+        for x_index in range(len(x_edges) - 1):
+            x0, x1 = x_edges[x_index], x_edges[x_index + 1]
+            centre_x = (x0 + x1) / 2.0
+            covered_cells.append(any(
+                placement.x - _EPS <= centre_x <= placement.x + placement.l + _EPS
+                and placement.y - _EPS <= centre_y <= placement.y + placement.w + _EPS
+                for placement in supports
+            ))
+
+        cell_index = 0
+        while cell_index < len(covered_cells):
+            if not covered_cells[cell_index]:
+                cell_index += 1
+                continue
+            run_start = cell_index
+            while cell_index < len(covered_cells) and covered_cells[cell_index]:
+                cell_index += 1
+            horizontal_runs.append([
+                x_edges[run_start],
+                y0,
+                x_edges[cell_index] - x_edges[run_start],
+                y1 - y0,
+            ])
+
+    # Merge vertically adjacent runs with exactly the same x span.
+    rectangles = horizontal_runs
+    changed = True
+    while changed:
+        changed = False
+        merged: List[List[float]] = []
+        used = [False] * len(rectangles)
+        for index, rectangle in enumerate(rectangles):
+            if used[index]:
+                continue
+            current = list(rectangle)
+            used[index] = True
+            extended = True
+            while extended:
+                extended = False
+                for other_index, other in enumerate(rectangles):
+                    if used[other_index]:
+                        continue
+                    if (
+                        abs(current[0] - other[0]) <= _EPS
+                        and abs(current[2] - other[2]) <= _EPS
+                        and abs(current[1] + current[3] - other[1]) <= _EPS
+                    ):
+                        current[3] += other[3]
+                        used[other_index] = True
+                        changed = True
+                        extended = True
+            merged.append(current)
+        rectangles = merged
+
+    result = [
+        (x, y, length, width)
+        for x, y, length, width in rectangles
+        if length > _EPS and width > _EPS
+    ]
+    result.sort(key=lambda rectangle: (rectangle[0], rectangle[1], -rectangle[2] * rectangle[3]))
+    return result
+
+
+def _maximum_surface_lane_compositions(
+    available_width: float,
+    orientations: List[Tuple[float, float, float]],
+) -> List[Tuple[int, ...]]:
+    """Bounded lane combinations for one Maximum-only support surface."""
+    if not orientations:
+        return []
+    if len(orientations) == 1:
+        width = orientations[0][1]
+        lanes = int((available_width + _EPS) // width) if width > _EPS else 0
+        return [(lanes,)] if lanes > 0 else []
+
+    first, second = orientations[:2]
+    max_first = int((available_width + _EPS) // first[1]) if first[1] > _EPS else 0
+    if max_first <= _MAXIMUM_SURFACE_LANE_LIMIT:
+        first_counts = range(max_first + 1)
+    else:
+        first_counts = sorted({
+            0,
+            max_first,
+            *(
+                int(round(max_first * index / 64))
+                for index in range(65)
+            ),
+        })
+
+    compositions = set()
+    for first_count in first_counts:
+        remaining_width = available_width - first_count * first[1]
+        if remaining_width < -_EPS:
+            continue
+        second_count = (
+            int((remaining_width + _EPS) // second[1])
+            if second[1] > _EPS
+            else 0
+        )
+        if first_count + second_count > 0:
+            compositions.add((first_count, second_count))
+
+    return sorted(compositions)
+
+
+def _plan_maximum_supported_layer(
+    rectangle: Tuple[float, float, float, float],
+    orientations: List[Tuple[float, float, float]],
+    qty_limit: int,
+) -> List[Tuple[float, float, float, float, float]]:
+    """Plan one coherent horizontal layer on a physical support rectangle."""
+    if qty_limit <= 0:
+        return []
+
+    origin_x, origin_y, available_length, available_width = rectangle
+    useful = [
+        orientation
+        for orientation in orientations
+        if orientation[0] <= available_length + _EPS
+        and orientation[1] <= available_width + _EPS
+    ]
+    if not useful:
+        return []
+
+    best_placements: List[Tuple[float, float, float, float, float]] = []
+    best_score: Optional[Tuple] = None
+
+    by_height: Dict[float, List[Tuple[float, float, float]]] = {}
+    for orientation in useful:
+        by_height.setdefault(round(orientation[2], 9), []).append(orientation)
+
+    for height_orientations in by_height.values():
+        # A cuboid height group contains at most two 90-degree floor rotations.
+        height_orientations = height_orientations[:2]
+        for composition in _maximum_surface_lane_compositions(
+            available_width,
+            height_orientations,
+        ):
+            lanes = []
+            y_cursor = origin_y
+            for orientation_index, lane_count in enumerate(composition):
+                length, width, height = height_orientations[orientation_index]
+                capacity = int((available_length + _EPS) // length)
+                for _ in range(lane_count):
+                    if y_cursor + width > origin_y + available_width + _EPS:
+                        break
+                    lanes.append({
+                        "orientation": (length, width, height),
+                        "y": y_cursor,
+                        "capacity": capacity,
+                        "count": 0,
+                    })
+                    y_cursor += width
+
+            heap = []
+            for lane_index, lane in enumerate(lanes):
+                if lane["capacity"] > 0:
+                    heapq.heappush(
+                        heap,
+                        (lane["orientation"][0], lane_index),
+                    )
+
+            assigned = 0
+            while heap and assigned < qty_limit:
+                _completion, lane_index = heapq.heappop(heap)
+                lane = lanes[lane_index]
+                lane["count"] += 1
+                assigned += 1
+                if lane["count"] < lane["capacity"]:
+                    next_completion = (
+                        lane["count"] + 1
+                    ) * lane["orientation"][0]
+                    heapq.heappush(heap, (next_completion, lane_index))
+
+            placements = []
+            for lane in lanes:
+                length, width, height = lane["orientation"]
+                for position in range(lane["count"]):
+                    placements.append((
+                        origin_x + position * length,
+                        lane["y"],
+                        length,
+                        width,
+                        height,
+                    ))
+            if not placements:
+                continue
+
+            occupied_length = max(
+                x + length for x, y, length, width, height in placements
+            ) - origin_x
+            occupied_width = max(
+                y + width for x, y, length, width, height in placements
+            ) - origin_y
+            orientation_count = len({
+                (length, width, height)
+                for x, y, length, width, height in placements
+            })
+            score = (
+                len(placements),
+                -occupied_length,
+                occupied_width,
+                -orientation_count,
+                -len(lanes),
+            )
+            if best_score is None or score > best_score:
+                best_score = score
+                best_placements = placements
+
+    return best_placements
+
+
+def _maximum_layer_regularity_metrics(
+    placements: List[Placement],
+) -> Tuple[int, float, float, float]:
+    """Lower tuple is a more coherent same-height arrangement."""
+    if not placements:
+        return (0, 0.0, 0.0, 0.0)
+    orientation_count = len({
+        (round(placement.l, 9), round(placement.w, 9), round(placement.h, 9))
+        for placement in placements
+    })
+    min_x = min(placement.x for placement in placements)
+    max_x = max(placement.x + placement.l for placement in placements)
+    min_y = min(placement.y for placement in placements)
+    max_y = max(placement.y + placement.w for placement in placements)
+    bounding_area = (max_x - min_x) * (max_y - min_y)
+    contact_area = 0.0
+    for left in range(len(placements)):
+        for right in range(left + 1, len(placements)):
+            contact_area += _placement_face_contact_area(
+                placements[left],
+                placements[right],
+            )
+    return (
+        orientation_count,
+        bounding_area,
+        max_x - min_x,
+        -contact_area,
+    )
+
+
+def _regularize_maximum_supported_top_layers(
+    placements: List[Placement],
+    products: List[Dict],
+    container: Dict,
+) -> Dict[str, int]:
+    """Regularize non-supporting upper layers in Maximum Utilization only.
+
+    A layer is replaced only when the same number of units fits on the same
+    physical support rectangle, every replacement remains fully supported and
+    collision-free, and the arrangement has a better regularity metric.
+    Boxes that support cargo above them are never moved.
+    """
+    moved_layers = 0
+    moved_placements = 0
+
+    product_by_row = {
+        row_index: product
+        for row_index, product in enumerate(products)
+    }
+    row_indexes = sorted({placement.row_index for placement in placements})
+
+    for row_index in row_indexes:
+        product = product_by_row.get(row_index)
+        if product is None:
+            continue
+        orientations = allowed_orientations(
+            (product["length"], product["width"], product["height"]),
+            product["r1"],
+            product["r2"],
+            product["r3"],
+        )
+
+        z_levels = sorted({
+            round(placement.z, 9)
+            for placement in placements
+            if placement.row_index == row_index and placement.z > _EPS
+        }, reverse=True)
+
+        for z in z_levels:
+            support_rectangles = _maximum_supported_rectangles_at_height(
+                placements,
+                z,
+                container,
+            )
+            for rectangle in support_rectangles:
+                rx, ry, rlength, rwidth = rectangle
+                candidate_indexes = [
+                    index
+                    for index, placement in enumerate(placements)
+                    if placement.row_index == row_index
+                    and abs(placement.z - z) <= _EPS
+                    and placement.x >= rx - _EPS
+                    and placement.y >= ry - _EPS
+                    and placement.x + placement.l <= rx + rlength + _EPS
+                    and placement.y + placement.w <= ry + rwidth + _EPS
+                    and not _placement_supports_anything(placements, index)
+                ]
+                if len(candidate_indexes) < 2:
+                    continue
+
+                # Keep one common vertical dimension.  Different-height boxes
+                # at the same z may have different top planes and are not mixed.
+                indexes_by_height: Dict[float, List[int]] = {}
+                for index in candidate_indexes:
+                    indexes_by_height.setdefault(
+                        round(placements[index].h, 9),
+                        [],
+                    ).append(index)
+
+                for height, indexes in indexes_by_height.items():
+                    if len(indexes) < 2:
+                        continue
+                    allowed_for_height = [
+                        orientation
+                        for orientation in orientations
+                        if abs(orientation[2] - height) <= _EPS
+                    ]
+                    planned = _plan_maximum_supported_layer(
+                        rectangle,
+                        allowed_for_height,
+                        len(indexes),
+                    )
+                    if len(planned) != len(indexes):
+                        continue
+
+                    ordered_indexes = sorted(
+                        indexes,
+                        key=lambda index: placements[index].item_index,
+                    )
+                    virtual = list(placements)
+                    for index, planned_placement in zip(
+                        ordered_indexes,
+                        sorted(planned, key=lambda value: (value[0], value[1], value[2], value[3])),
+                    ):
+                        x, y, length, width, planned_height = planned_placement
+                        virtual[index] = replace(
+                            placements[index],
+                            x=x,
+                            y=y,
+                            z=z,
+                            l=length,
+                            w=width,
+                            h=planned_height,
+                        )
+
+                    moving = set(ordered_indexes)
+                    valid = True
+                    for index in ordered_indexes:
+                        placement = virtual[index]
+                        if (
+                            placement.x < -_EPS
+                            or placement.y < -_EPS
+                            or placement.z < -_EPS
+                            or placement.x + placement.l > float(container["L"]) + _EPS
+                            or placement.y + placement.w > float(container["W"]) + _EPS
+                            or placement.z + placement.h > float(container["H"]) + _EPS
+                        ):
+                            valid = False
+                            break
+                        for other_index, other in enumerate(virtual):
+                            if other_index == index:
+                                continue
+                            if _placements_overlap(placement, other):
+                                valid = False
+                                break
+                        if not valid:
+                            break
+                        if not _space_base_is_supported(
+                            Space(
+                                placement.x,
+                                placement.y,
+                                placement.z,
+                                placement.l,
+                                placement.w,
+                                placement.h,
+                            ),
+                            virtual,
+                        ):
+                            valid = False
+                            break
+                    if not valid:
+                        continue
+
+                    current_layer = [placements[index] for index in ordered_indexes]
+                    proposed_layer = [virtual[index] for index in ordered_indexes]
+                    if (
+                        _maximum_layer_regularity_metrics(proposed_layer)
+                        >= _maximum_layer_regularity_metrics(current_layer)
+                    ):
+                        continue
+
+                    for index in ordered_indexes:
+                        placements[index] = virtual[index]
+                    moved_layers += 1
+                    moved_placements += len(ordered_indexes)
+
+    return {
+        "regularized_layers": moved_layers,
+        "regularized_placements": moved_placements,
+    }
+
+
 MAXIMUM_UTILIZATION_MODE = "maximum_utilization"
 ACCESSIBLE_SEQUENCE_LOADING_MODE = "accessible_sequence_loading"
 # Legacy internal identifier retained for the existing strict engine.
@@ -3867,11 +4639,13 @@ def _normalize_packing_mode(mode: Optional[str]) -> str:
 
 
 def _pack_container_maximum_utilization(container: Dict, products: List[Dict]) -> Dict:
-    """Run sequence-respecting greedy and unrestricted residual candidates.
+    """Run Maximum Utilization without operational sector boundaries.
 
-    Loading sequence controls which product is processed first. It does not
-    create a spatial frontier: later products may use every valid residual
-    space left beside, in front of, or above earlier products.
+    Loading sequence controls processing order only.  The greedy candidate is
+    compared with a maximum-only physical-anchor candidate that may use any
+    collision-free, fully supported position.  Neither middle nor strict
+    Sequence Loading planners, frontiers, transition bands, or compaction
+    passes are called from this mode.
     """
     greedy_result = _pack_container_greedy(
         container,
@@ -3880,8 +4654,12 @@ def _pack_container_maximum_utilization(container: Dict, products: List[Dict]) -
     )
     best_result = greedy_result
 
-    has_mixed_orientation_candidate = any(
-        int(product.get("qty", 0) or 0) > 1
+    requested_units = sum(
+        max(0, int(product.get("qty", 0) or 0))
+        for product in products
+    )
+    has_orientation_choice = any(
+        int(product.get("qty", 0) or 0) > 0
         and len(
             allowed_orientations(
                 (product["length"], product["width"], product["height"]),
@@ -3892,13 +4670,15 @@ def _pack_container_maximum_utilization(container: Dict, products: List[Dict]) -
         ) > 1
         for product in products
     )
-    if has_mixed_orientation_candidate:
-        residual_result = _pack_container_residual(container, products)
-        if _hybrid_score(residual_result, products) > _hybrid_score(best_result, products):
-            best_result = residual_result
+
+    if has_orientation_choice and requested_units <= _MAXIMUM_ANCHOR_ITEM_LIMIT:
+        anchor_result = _pack_container_maximum_anchor(container, products)
+        if _hybrid_score(anchor_result, products) > _hybrid_score(best_result, products):
+            best_result = anchor_result
 
     best_result["packing_mode"] = MAXIMUM_UTILIZATION_MODE
     best_result.setdefault("sequence_zones", [])
+    best_result["maximum_uses_sequence_frontier"] = False
     return best_result
 
 

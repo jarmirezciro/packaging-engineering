@@ -30,7 +30,7 @@
                     <div class="col-12 col-sm-6">
                         <div class="border rounded-3 p-2 h-100">
                             <div class="tool-stat-label">Stack height</div>
-                            <div class="fw-bold text-break">{{ selected_result.used_height_mm|floatformat:0 }} mm</div>
+                            <div class="fw-bold text-break">{{ selected_result.total_height_mm|floatformat:0 }} mm</div>
                         </div>
                     </div>
                 </div>
@@ -132,7 +132,11 @@
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row" class="fw-normal text-muted">Used stack height</th>
+                                <th scope="row" class="fw-normal text-muted">Total palletized-load height</th>
+                                <td class="text-end">{{ selected_result.total_height_mm }} mm</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Carton arrangement height</th>
                                 <td class="text-end">{{ selected_result.used_height_mm }} mm</td>
                             </tr>
                             <tr>

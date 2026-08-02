@@ -214,7 +214,8 @@ def _analysis_rows(analysis):
     return [
         ("Main layer cartons", f"{_clean(analysis.get('boxes_layer_A'))} pcs"),
         ("Alternate layer cartons", f"{_clean(analysis.get('boxes_layer_B'))} pcs" if analysis.get("boxes_layer_B") not in (None, "", "None") else "Not available"),
-        ("Used stack height", f"{_clean(analysis.get('used_height_mm'))} mm"),
+        ("Total palletized-load height", f"{_clean(analysis.get('total_height_mm'))} mm"),
+        ("Carton arrangement height", f"{_clean(analysis.get('used_height_mm'))} mm"),
         ("Pallet floor usage", f"{_clean(analysis.get('layer_footprint_util_pct'))}%"),
         ("Stack volume usage", f"{_clean(analysis.get('volumetric_util_pct'))}%"),
         ("Alternate layer possible", "Yes" if analysis.get("interlock_possible") else "No"),
@@ -275,7 +276,7 @@ def build_palletization_pdf(export_payload):
         ("Total cartons", f"{_clean(analysis.get('total_boxes'))} pcs"),
         ("Layers", _clean(analysis.get("layers"))),
         ("Cartons/layer", _cartons_per_layer(analysis)),
-        ("Stack height", f"{_clean(analysis.get('used_height_mm'))} mm"),
+        ("Stack height", f"{_clean(analysis.get('total_height_mm'))} mm"),
         ("Floor usage", f"{_clean(analysis.get('layer_footprint_util_pct'))}%"),
         ("Volume usage", f"{_clean(analysis.get('volumetric_util_pct'))}%"),
     ]))

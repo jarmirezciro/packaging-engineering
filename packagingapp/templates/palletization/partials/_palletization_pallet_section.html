@@ -53,12 +53,21 @@
             </div>
         </div>
 
-        <div class="tool-field-group tool-tight-gap">
-            <label class="form-label">Max stack height <span class="text-muted">(mm)</span></label>
-            <input type="number" step="any" class="form-control"
-                   name="{{ pallet_ui.names.max_stack_height }}"
-                   value="{{ pallet_values.max_stack_height|default:'' }}">
-            <div class="app-form-note mt-1">Required. This is the maximum allowed carton stack height above the pallet footprint.</div>
+        <div class="tool-compact-grid-two tool-tight-gap">
+            <div id="{{ pallet_ui.ids.manual_pallet_height_field }}" class="tool-field-group mb-0">
+                <label class="form-label">Pallet height <span class="text-muted">(mm)</span></label>
+                <input type="number" step="any" class="form-control"
+                       name="{{ pallet_ui.names.pallet_height }}"
+                       value="{{ pallet_values.pallet_height|default:'' }}"
+                       placeholder="150">
+                <div class="app-form-note mt-1">Default: 150 mm</div>
+            </div>
+            <div class="tool-field-group mb-0">
+                <label class="form-label">Max stack height <span class="text-muted">(mm)</span></label>
+                <input type="number" step="any" class="form-control"
+                       name="{{ pallet_ui.names.max_stack_height }}"
+                       value="{{ pallet_values.max_stack_height|default:'' }}">
+            </div>
         </div>
 
         {% if selected_pallet_material %}

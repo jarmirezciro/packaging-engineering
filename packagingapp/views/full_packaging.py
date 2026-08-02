@@ -18,6 +18,7 @@ from ..tools.palletization.presenter import (
     result_card_from_row,
     build_pallet_pending_result,
 )
+from ..tools.palletization.height import resolve_pallet_height
 from ..tools.palletization.serializers import sanitize_palletization_config_for_session
 from ..tools.palletization.service import (
     analyze_palletization_config,
@@ -263,6 +264,7 @@ def _new_pallet_step():
             "pallet_id": "",
             "pallet_l": "",
             "pallet_w": "",
+            "pallet_height": "",
             "max_stack_height": "",
             "max_width_stickout": 0,
             "max_length_stickout": 0,
@@ -310,6 +312,7 @@ def _read_prefixed_pallet_post(step, idx, post):
     cfg["pallet_id"] = post.get(f"pallet_id_{idx}", cfg.get("pallet_id", ""))
     cfg["pallet_l"] = post.get(f"pallet_l_{idx}", cfg.get("pallet_l", ""))
     cfg["pallet_w"] = post.get(f"pallet_w_{idx}", cfg.get("pallet_w", ""))
+    cfg["pallet_height"] = post.get(f"pallet_height_{idx}", cfg.get("pallet_height", ""))
     cfg["max_stack_height"] = post.get(f"max_stack_height_{idx}", cfg.get("max_stack_height", ""))
     cfg["max_width_stickout"] = post.get(
         f"max_width_stickout_{idx}",
@@ -366,6 +369,8 @@ def _run_pallet_analysis_shared(step, steps, idx):
 
     serialized = analysis["serialized_result"] or {}
     effective = analysis["effective_config"] or {}
+    cfg["pallet_height"] = effective.get("pallet_height")
+    _update_pallet_config_on_step(step, cfg)
 
     step["results_table"] = serialized.get("results_table") or []
     step["selected_result_key"] = serialized.get("selected_result_key") or ""
@@ -382,6 +387,7 @@ def _run_pallet_analysis_shared(step, steps, idx):
         selected_row,
         effective.get("pallet_l"),
         effective.get("pallet_w"),
+        effective.get("pallet_height"),
     )
 
     prev = _selected_input_for_step(steps, idx)
@@ -390,6 +396,7 @@ def _run_pallet_analysis_shared(step, steps, idx):
     step["pending_result"] = build_pallet_pending_result(
         effective.get("pallet_l"),
         effective.get("pallet_w"),
+        effective.get("pallet_height"),
         selected_row,
         selected_pallet_material=selected_pallet_material,
         upstream_units=upstream_units,
@@ -682,6 +689,10 @@ def _hydrate_pallet_catalogue_values(cfg, selected_box_material=None, selected_p
     if cfg.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
         cfg["pallet_l"] = _material_dimension_value(selected_pallet_material, "external_length", "part_length")
         cfg["pallet_w"] = _material_dimension_value(selected_pallet_material, "external_width", "part_width")
+        cfg["pallet_height"] = resolve_pallet_height(
+            _material_dimension_value(selected_pallet_material, "external_height", "part_height"),
+            fallback_on_invalid=True,
+        )
 
     return sanitize_palletization_config_for_session(cfg)
 
@@ -962,11 +973,8 @@ def _pallet_placement_orientation(item, source_bounds):
 def _normalize_pallet_visualization_for_transport(upstream):
     """Return a JSON-safe pallet scene aligned to the calculated load cuboid.
 
-    Palletization's browser pallet is 108 mm high, while the established Flow
-    handoff uses a 100 mm pallet allowance. Carton geometry is not scaled. The
-    pallet base height and carton elevation are explicitly remapped to that
-    existing calculation allowance, then the complete assembly is bounds
-    checked. Unsupported overhang or malformed scenes retain the generic load
+    The pallet scene and its downstream cuboid share the same resolved pallet
+    height. Unsupported overhang or malformed scenes retain the generic load
     cuboid instead of leaking outside the calculated placement.
     """
     if not upstream or upstream.get("source_type") != PALLETIZATION_VISUAL_SOURCE:
@@ -994,31 +1002,14 @@ def _normalize_pallet_visualization_for_transport(upstream):
         return None
 
     try:
-        original_base_height = float(pallet.get("height") or 0)
-        cargo_height = max(
-            float(placement.get("z") or 0) + float(placement.get("dz") or 0)
-            for placement in placements
-        ) - original_base_height
-        target_base_height = bounds["height"] - cargo_height
-        deck_thickness = min(
-            float(pallet.get("deck_thickness") or 0),
-            target_base_height,
-        )
+        pallet_height = float(pallet.get("height") or 0)
     except (TypeError, ValueError):
         return None
-    if target_base_height <= 0 or deck_thickness <= 0:
+    if pallet_height <= 0:
         return None
 
-    elevation_delta = target_base_height - original_base_height
-    for placement in placements:
-        placement["z"] = float(placement.get("z") or 0) + elevation_delta
-    pallet["height"] = target_base_height
-    pallet["deck_thickness"] = deck_thickness
-    pallet["runner_height"] = max(target_base_height - deck_thickness, 0.0)
-
     metadata = scene.setdefault("metadata", {})
-    metadata["total_render_height_mm"] = bounds["height"]
-    metadata["transport_base_height_mm"] = target_base_height
+    metadata["transport_base_height_mm"] = pallet_height
 
     cuboids = [
         {
@@ -1027,7 +1018,7 @@ def _normalize_pallet_visualization_for_transport(upstream):
             "z": 0.0,
             "dx": float(pallet.get("length") or 0),
             "dy": float(pallet.get("width") or 0),
-            "dz": target_base_height,
+            "dz": pallet_height,
         },
         *placements,
     ]

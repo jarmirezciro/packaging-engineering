@@ -111,6 +111,13 @@ geometric_layers = floor(available_cargo_height / carton_height)
 
 Use the exact current field definitions. Do not subtract pallet height twice or omit it from reported total height.
 
+Pallet height is resolved consistently across standalone Palletization,
+Packaging Flow, rendering, and downstream transport handoff:
+
+- catalogue pallet: use its positive height; missing or invalid values fall back to 150 mm;
+- manual pallet: use the entered positive height; a blank value falls back to 150 mm;
+- `max_stack_height` is the finished load height and must exceed pallet height.
+
 ## Weight limits
 
 ### Pallet payload

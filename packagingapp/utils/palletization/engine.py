@@ -15,6 +15,11 @@ from matplotlib.patches import Rectangle
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+from packagingapp.tools.palletization.height import (
+    DEFAULT_PALLET_HEIGHT_MM,
+    pallet_render_components,
+)
+
 
 # ============================================================
 # DATA STRUCTURES
@@ -45,11 +50,6 @@ class Placement3D:
 @dataclass(frozen=True)
 class PalletizationRenderResult:
     image_rel_path: str
-
-
-PALLET_DECK_THICKNESS_MM = 18.0
-PALLET_RUNNER_HEIGHT_MM = 90.0
-PALLET_RENDER_HEIGHT_MM = PALLET_DECK_THICKNESS_MM + PALLET_RUNNER_HEIGHT_MM
 
 
 # ============================================================
@@ -1443,6 +1443,319 @@ def _pattern_tiled_simple_pinwheel(area_l, area_w, box_l, box_w, base_l, base_w)
     return placements
 
 
+
+def _rotate_layer_90_clockwise(
+    placements: List[Placement2D],
+    contour_l: float,
+    contour_w: float,
+    base_l: float,
+    base_w: float,
+) -> List[Placement2D]:
+    """Rotate a complete same-product layer 90 degrees around its contour."""
+    rotated: List[Placement2D] = []
+    for p in placements:
+        new_l = p.w
+        new_w = p.l
+        rotated.append(
+            Placement2D(
+                x=contour_w - p.y - p.w,
+                y=p.x,
+                l=new_l,
+                w=new_w,
+                orientation=orientation_name(new_l, new_w, base_l, base_w),
+            )
+        )
+    return rotated
+
+
+def _nine_case_center_filled_pinwheel_motif(
+    box_l: float,
+    box_w: float,
+    base_l: float,
+    base_w: float,
+) -> Tuple[List[Placement2D], float, float]:
+    """Return the verified nine-carton stepped pinwheel topology.
+
+    Every placement is the same carton footprint. Six cartons use the long-side
+    horizontal orientation and three are rotated 90 degrees. No pallet or SKU
+    dimensions are hardcoded.
+
+    Outside dimensions:
+
+        contour length = 2 * long_side + short_side
+        contour width  = long_side + 2 * short_side
+
+    For the confirmed 162 x 114 mm carton this produces a 438 x 390 mm motif.
+    """
+    if min(box_l, box_w) <= 0:
+        return [], 0.0, 0.0
+
+    long_side = max(box_l, box_w)
+    short_side = min(box_l, box_w)
+
+    # This topology is compact for ordinary rectangular cartons up to 2:1.
+    # More elongated cartons are left to the existing block/tiled generators.
+    if long_side <= short_side + 1e-9 or long_side > 2.0 * short_side + 1e-9:
+        return [], 0.0, 0.0
+
+    horizontal_l, horizontal_w = long_side, short_side
+    vertical_l, vertical_w = short_side, long_side
+
+    horizontal_orientation = orientation_name(
+        horizontal_l, horizontal_w, base_l, base_w
+    )
+    vertical_orientation = orientation_name(
+        vertical_l, vertical_w, base_l, base_w
+    )
+
+    placements = [
+        Placement2D(0.0, 0.0, horizontal_l, horizontal_w, horizontal_orientation),
+        Placement2D(long_side, 0.0, horizontal_l, horizontal_w, horizontal_orientation),
+        Placement2D(0.0, short_side, horizontal_l, horizontal_w, horizontal_orientation),
+        Placement2D(2.0 * long_side, 0.0, vertical_l, vertical_w, vertical_orientation),
+        Placement2D(long_side, short_side, vertical_l, vertical_w, vertical_orientation),
+        Placement2D(0.0, 2.0 * short_side, vertical_l, vertical_w, vertical_orientation),
+        Placement2D(
+            long_side + short_side,
+            long_side,
+            horizontal_l,
+            horizontal_w,
+            horizontal_orientation,
+        ),
+        Placement2D(
+            short_side,
+            long_side + short_side,
+            horizontal_l,
+            horizontal_w,
+            horizontal_orientation,
+        ),
+        Placement2D(
+            long_side + short_side,
+            long_side + short_side,
+            horizontal_l,
+            horizontal_w,
+            horizontal_orientation,
+        ),
+    ]
+
+    contour_l = 2.0 * long_side + short_side
+    contour_w = long_side + 2.0 * short_side
+    return placements, contour_l, contour_w
+
+
+def pattern_center_filled_pinwheel(area_l, area_w, box_l, box_w):
+    """Return the best valid orientation of the nine-carton topology.
+
+    This is a separate customer candidate. It does not modify the existing
+    Pinwheel or Hybrid pinwheel generators, their scoring, or their geometry.
+    """
+    motif, contour_l, contour_w = _nine_case_center_filled_pinwheel_motif(
+        box_l, box_w, box_l, box_w
+    )
+    if not motif:
+        return []
+
+    candidates: List[List[Placement2D]] = []
+
+    def compact_enough(used_l: float, used_w: float) -> bool:
+        # The verified nine-carton topology is an explicit catalogue candidate.
+        # Do not suppress it with utilization heuristics: if the complete motif
+        # fits and validates, keep it available for normal ranking/deduplication.
+        return (
+            area_l > 0
+            and area_w > 0
+            and used_l <= area_l + 1e-9
+            and used_w <= area_w + 1e-9
+        )
+
+    if compact_enough(contour_l, contour_w):
+        candidates.append(center_placements_on_area(motif, area_l, area_w))
+
+    rotated = _rotate_layer_90_clockwise(
+        motif, contour_l, contour_w, box_l, box_w
+    )
+    if compact_enough(contour_w, contour_l):
+        candidates.append(center_placements_on_area(rotated, area_l, area_w))
+
+    valid = [
+        candidate
+        for candidate in candidates
+        if len(candidate) == 9 and placements_are_valid(candidate, area_l, area_w)
+    ]
+    if not valid:
+        return []
+
+    def clearance_score(layer: List[Placement2D]) -> Tuple[float, float]:
+        min_x, min_y, max_x, max_y = placements_bbox(layer)
+        free_l = area_l - (max_x - min_x)
+        free_w = area_w - (max_y - min_y)
+        return (-abs(free_l - free_w), -(free_l + free_w))
+
+    return max(valid, key=clearance_score)
+
+
+def _enumerate_nested_pinwheel_candidates(
+    area_l: float,
+    area_w: float,
+    box_l: float,
+    box_w: float,
+    base_l: float,
+    base_w: float,
+) -> List[List[Placement2D]]:
+    """Enumerate block pinwheels whose central opening accepts a simple pinwheel.
+
+    The outer and inner motifs use the same carton SKU. This is additive and
+    independent of the existing block-pinwheel enumeration.
+    """
+    candidates: List[List[Placement2D]] = []
+    if min(area_l, area_w, box_l, box_w) <= 0:
+        return candidates
+
+    inner_span = box_l + box_w
+    box_area = box_l * box_w
+    max_param = 30
+    max_generated_candidates = 80
+
+    horizontal_pairs = []
+    vertical_pairs = []
+
+    for n in range(1, min(int(area_l // box_l), max_param) + 1):
+        for q in range(1, min(int(area_l // box_w), max_param) + 1):
+            horizontal_l = n * box_l
+            vertical_l = q * box_w
+            contour_l = horizontal_l + vertical_l
+            if contour_l <= area_l + 1e-9:
+                horizontal_pairs.append((n, q, horizontal_l, vertical_l, contour_l))
+
+    for m in range(1, min(int(area_w // box_w), max_param) + 1):
+        for p in range(1, min(int(area_w // box_l), max_param) + 1):
+            horizontal_w = m * box_w
+            vertical_w = p * box_l
+            contour_w = horizontal_w + vertical_w
+            if contour_w <= area_w + 1e-9:
+                vertical_pairs.append((m, p, horizontal_w, vertical_w, contour_w))
+
+    parameter_candidates = []
+    for n, q, horizontal_l, vertical_l, contour_l in horizontal_pairs:
+        for m, p, horizontal_w, vertical_w, contour_w in vertical_pairs:
+            if horizontal_l + 1e-9 < vertical_l:
+                continue
+            if vertical_w + 1e-9 < horizontal_w:
+                continue
+
+            hole_l = horizontal_l - vertical_l
+            hole_w = vertical_w - horizontal_w
+            if hole_l + 1e-9 < inner_span or hole_w + 1e-9 < inner_span:
+                continue
+
+            # Keep the inner pinwheel visually connected to the outer topology.
+            # Large unused central regions are better handled by generic packing.
+            if hole_l > 2.0 * inner_span + 1e-9:
+                continue
+            if hole_w > 2.0 * inner_span + 1e-9:
+                continue
+
+            outer_count = 2 * (m * n + p * q)
+            total_count = outer_count + 4
+            pallet_util = (total_count * box_area) / (area_l * area_w)
+            bbox_util = (total_count * box_area) / (contour_l * contour_w)
+            residual_area = (hole_l * hole_w) - (inner_span * inner_span)
+
+            parameter_candidates.append(
+                (
+                    total_count,
+                    pallet_util,
+                    bbox_util,
+                    -residual_area,
+                    m,
+                    n,
+                    p,
+                    q,
+                    horizontal_l,
+                    horizontal_w,
+                    vertical_l,
+                    vertical_w,
+                    hole_l,
+                    hole_w,
+                )
+            )
+
+    parameter_candidates.sort(reverse=True)
+
+    for (
+        _total_count,
+        _pallet_util,
+        _bbox_util,
+        _negative_residual,
+        m,
+        n,
+        p,
+        q,
+        horizontal_l,
+        horizontal_w,
+        vertical_l,
+        vertical_w,
+        hole_l,
+        hole_w,
+    ) in parameter_candidates[:max_generated_candidates]:
+        outer, contour_l, contour_w = block_pinwheel_motif(
+            0.0,
+            0.0,
+            box_l,
+            box_w,
+            base_l,
+            base_w,
+            m=m,
+            n=n,
+            p=p,
+            q=q,
+        )
+
+        hole_x = vertical_l
+        hole_y = horizontal_w
+        inner_x = hole_x + (hole_l - inner_span) / 2.0
+        inner_y = hole_y + (hole_w - inner_span) / 2.0
+        inner, _, _ = pinwheel_motif(
+            inner_x,
+            inner_y,
+            box_l,
+            box_w,
+            base_l,
+            base_w,
+        )
+
+        nested = outer + inner
+        if placements_are_valid(nested, area_l, area_w):
+            candidates.append(nested)
+
+    return candidates
+
+
+def pattern_nested_pinwheel(area_l, area_w, box_l, box_w, rotated=False):
+    """Return the strongest same-product nested pinwheel candidate."""
+    base_l, base_w = box_l, box_w
+    if rotated:
+        box_l, box_w = box_w, box_l
+
+    raw_candidates: List[Tuple[List[Placement2D], int]] = []
+    for candidate in _enumerate_nested_pinwheel_candidates(
+        area_l, area_w, box_l, box_w, base_l, base_w
+    ):
+        raw_candidates.append((candidate, 1))
+
+    candidates = _dedupe_valid_candidates(raw_candidates, area_l, area_w)
+    if not candidates:
+        return []
+
+    best, _ = max(
+        candidates,
+        key=lambda item: _pinwheel_candidate_score(
+            item[0], area_l, area_w, item[1]
+        ),
+    )
+    return best
+
+
 def _enumerate_block_pinwheel_candidates(area_l, area_w, box_l, box_w, base_l, base_w):
     candidates: List[List[Placement2D]] = []
     box_area = box_l * box_w
@@ -1567,6 +1880,92 @@ def pattern_splitrow(area_l, area_w, box_l, box_w, swapped=False):
     return best if len(best) >= len(plain) else plain
 
 
+def _balance_margin_fill_lines(
+    fillers: List[Placement2D],
+    strip_x: float,
+    strip_y: float,
+    strip_l: float,
+    strip_w: float,
+    axis: str,
+) -> List[Placement2D]:
+    """Balance only sparse Hybrid-pinwheel margin fillers.
+
+    Cartons in each uniform filler line are split across opposite strip ends.
+    The pinwheel core, filler quantity, orientation, and cross-axis position are
+    preserved. Full lines are left unchanged.
+    """
+    if len(fillers) < 2 or axis not in {"x", "y"}:
+        return fillers
+
+    groups: Dict[Tuple, List[Placement2D]] = {}
+    for p in fillers:
+        key = (
+            round(p.y if axis == "x" else p.x, 6),
+            round(p.l, 6),
+            round(p.w, 6),
+            p.orientation,
+        )
+        groups.setdefault(key, []).append(p)
+
+    balanced: List[Placement2D] = []
+    changed = False
+
+    for group in groups.values():
+        ordered = sorted(group, key=lambda p: p.x if axis == "x" else p.y)
+        count = len(ordered)
+        if count < 2:
+            balanced.extend(ordered)
+            continue
+
+        unit = ordered[0].l if axis == "x" else ordered[0].w
+        span = strip_l if axis == "x" else strip_w
+        origin = strip_x if axis == "x" else strip_y
+
+        if count * unit >= span - 1e-9:
+            balanced.extend(ordered)
+            continue
+
+        side_count = count // 2
+        positions = [origin + i * unit for i in range(side_count)]
+        if count % 2:
+            positions.append(origin + (span - unit) / 2.0)
+        far_start = origin + span - side_count * unit
+        positions.extend(far_start + i * unit for i in range(side_count))
+        positions.sort()
+
+        candidate_group = [
+            Placement2D(
+                x=position if axis == "x" else source.x,
+                y=source.y if axis == "x" else position,
+                l=source.l,
+                w=source.w,
+                orientation=source.orientation,
+            )
+            for source, position in zip(ordered, positions)
+        ]
+
+        inside_strip = all(
+            p.x >= strip_x - 1e-9
+            and p.x + p.l <= strip_x + strip_l + 1e-9
+            and p.y >= strip_y - 1e-9
+            and p.y + p.w <= strip_y + strip_w + 1e-9
+            for p in candidate_group
+        )
+        non_overlapping = all(
+            rect_overlap_area(a, b) <= 1e-9
+            for i, a in enumerate(candidate_group)
+            for b in candidate_group[i + 1:]
+        )
+
+        if inside_strip and non_overlapping:
+            balanced.extend(candidate_group)
+            changed = changed or layout_signature(candidate_group) != layout_signature(ordered)
+        else:
+            balanced.extend(ordered)
+
+    return balanced if changed else fillers
+
+
 def _add_rectangular_margin_fill(
     base: List[Placement2D],
     area_l: float,
@@ -1575,6 +1974,7 @@ def _add_rectangular_margin_fill(
     box_w: float,
     base_l: float,
     base_w: float,
+    balance_fillers: bool = True,
 ) -> List[Placement2D]:
     if not base:
         return []
@@ -1584,15 +1984,34 @@ def _add_rectangular_margin_fill(
 
     if area_l - used_l > 1e-9:
         right_strip = pattern_brick(area_l - used_l, area_w, box_l, box_w, rotated=False)
-        for p in right_strip:
-            placements.append(
-                Placement2D(x=p.x + used_l, y=p.y, l=p.l, w=p.w, orientation=p.orientation)
+        right_strip = [
+            Placement2D(x=p.x + used_l, y=p.y, l=p.l, w=p.w, orientation=p.orientation)
+            for p in right_strip
+        ]
+        if balance_fillers:
+            right_strip = _balance_margin_fill_lines(
+                right_strip,
+                strip_x=used_l,
+                strip_y=0.0,
+                strip_l=area_l - used_l,
+                strip_w=area_w,
+                axis="y",
             )
+        placements.extend(right_strip)
 
     if area_w - used_w > 1e-9 and used_l > 1e-9:
         top_strip = try_two_orientations_grid(
             used_l, area_w - used_w, box_l, box_w, base_l, base_w, x0=0, y0=used_w
         )
+        if balance_fillers:
+            top_strip = _balance_margin_fill_lines(
+                top_strip,
+                strip_x=0.0,
+                strip_y=used_w,
+                strip_l=used_l,
+                strip_w=area_w - used_w,
+                axis="x",
+            )
         placements.extend(top_strip)
 
     return placements if placements_are_valid(placements, area_l, area_w) else base
@@ -1611,14 +2030,20 @@ def pattern_hybrid_pinwheel(area_l, area_w, box_l, box_w, rotated=False):
     for candidate in _enumerate_block_pinwheel_candidates(area_l, area_w, box_l, box_w, base_l, base_w):
         raw_candidates.append((candidate, 2))
         raw_candidates.append((
-            _add_rectangular_margin_fill(candidate, area_l, area_w, box_l, box_w, base_l, base_w),
+            _add_rectangular_margin_fill(
+                candidate, area_l, area_w, box_l, box_w, base_l, base_w,
+                balance_fillers=not rotated,
+            ),
             1,
         ))
 
     simple = _pattern_tiled_simple_pinwheel(area_l, area_w, box_l, box_w, base_l, base_w)
     raw_candidates.append((simple, 1))
     raw_candidates.append((
-        _add_rectangular_margin_fill(simple, area_l, area_w, box_l, box_w, base_l, base_w),
+        _add_rectangular_margin_fill(
+            simple, area_l, area_w, box_l, box_w, base_l, base_w,
+            balance_fillers=not rotated,
+        ),
         0,
     ))
 
@@ -1641,10 +2066,10 @@ def build_layers(
     base_layer: List[Placement2D],
     interlock_layer: List[Placement2D],
     box_h: float,
-    max_stack_height: float,
+    available_carton_height: float,
     stacking_mode: str,
 ) -> Tuple[List[Placement3D], int, List[List[Placement2D]]]:
-    max_layers = int(max_stack_height // box_h)
+    max_layers = int(available_carton_height // box_h)
     placements3d: List[Placement3D] = []
     layers_2d: List[List[Placement2D]] = []
 
@@ -1814,7 +2239,7 @@ def result_metrics(
     stacking_mode,
     area_l,
     area_w,
-    max_stack_height,
+    available_carton_height,
     box_l,
     box_w,
     box_h,
@@ -1826,7 +2251,7 @@ def result_metrics(
     max_weight_on_bottom_box,
     interlock_relation_name=None,
 ):
-    max_layers = int(max_stack_height // box_h)
+    max_layers = int(available_carton_height // box_h)
 
     if max_layers <= 0:
         counts = []
@@ -1842,8 +2267,8 @@ def result_metrics(
 
     layer_footprint_util = (layer_avg * box_l * box_w) / footprint_area if footprint_area > 0 else 0.0
     volumetric_util = (
-        (total_boxes * box_volume(box_l, box_w, box_h)) / (area_l * area_w * max_stack_height)
-        if area_l > 0 and area_w > 0 and max_stack_height > 0 else 0.0
+        (total_boxes * box_volume(box_l, box_w, box_h)) / (area_l * area_w * available_carton_height)
+        if area_l > 0 and area_w > 0 and available_carton_height > 0 else 0.0
     )
 
     feasible, max_bottom_load, avg_bottom_load, bottom_loads = evaluate_weight_feasibility(
@@ -1891,6 +2316,14 @@ def get_base_and_interlock_layers(pattern_name, area_l, area_w, box_l, box_w):
     elif pattern_name == "Pinwheel":
         base = pattern_pinwheel(area_l, area_w, box_l, box_w, rotated=False)
         interlock = pattern_pinwheel(area_l, area_w, box_l, box_w, rotated=True)
+    elif pattern_name == "Nested pinwheel":
+        base = pattern_nested_pinwheel(area_l, area_w, box_l, box_w, rotated=False)
+        interlock = pattern_nested_pinwheel(area_l, area_w, box_l, box_w, rotated=True)
+    elif pattern_name == "Centre-filled pinwheel":
+        base = pattern_center_filled_pinwheel(area_l, area_w, box_l, box_w)
+        # A compatible mirror/180-degree layer is derived conservatively by the
+        # existing customer-safe interlock logic when available.
+        interlock = []
     elif pattern_name == "Splitrow":
         base = pattern_splitrow(area_l, area_w, box_l, box_w, swapped=False)
         interlock = pattern_splitrow(area_l, area_w, box_l, box_w, swapped=True)
@@ -1929,6 +2362,10 @@ PATTERNS = [
     "Pinwheel",
     "Splitrow",
     "Hybrid pinwheel",
+    # Additive catalogue extensions. Existing patterns remain first so their
+    # tie-breaking and duplicate-retention behaviour stay unchanged.
+    "Nested pinwheel",
+    "Centre-filled pinwheel",
 ]
 
 STACKINGS = [
@@ -2057,35 +2494,111 @@ def _set_interlock_available(row: Dict) -> None:
             row["interlock_possible_relation"] = "alternate layer"
 
 
-def _dedupe_same_render_results(results: List[Dict]) -> List[Dict]:
-    """Remove repeated customer-visible renderings while preserving dev data.
+def _result_representative_priority(row: Dict) -> Tuple[int, int]:
+    """Choose the customer-facing representative without creating duplicates.
 
-    We keep the first already-ranked representative and store removed engineering
-    labels in debug_equivalent_results. At least one representative of each
-    visible arrangement is always kept.
+    The verified centre-filled topology must not disappear behind a generic
+    family label when two generators happen to create identical geometry.
+    Column is always preferred over a separate interlock row because interlock
+    is already exposed through the existing availability/toggle metadata.
     """
+    pattern_priority = 100 if row.get("pattern") == "Centre-filled pinwheel" else 0
+    stacking_priority = 10 if str(row.get("stacking", "")).lower() == "column" else 0
+    return pattern_priority, stacking_priority
+
+
+def _merge_interlock_row_into_column(column_row: Dict, interlock_row: Dict) -> None:
+    """Preserve interlock engineering data without showing a duplicate result."""
+    debug_label = f'{interlock_row.get("pattern", "")} / interlock'
+    column_row.setdefault("debug_equivalent_results", []).append(debug_label)
+    column_row["interlock_possible"] = True
+
+    if not column_row.get("interlock_possible_relation"):
+        column_row["interlock_possible_relation"] = str(
+            interlock_row.get("interlock_relation")
+            or interlock_row.get("interlock_possible_relation")
+            or "alternate layer"
+        )
+
+    if not column_row.get("interlock_possible_layer"):
+        alternate_layer = (
+            interlock_row.get("layer_B_2d")
+            or interlock_row.get("interlock_possible_layer")
+            or []
+        )
+        column_row["interlock_possible_layer"] = alternate_layer
+
+
+def _dedupe_same_render_results(results: List[Dict]) -> List[Dict]:
+    """Return one customer row per arrangement and keep interlock as a toggle.
+
+    Phase 1 merges each pattern's interlock stack into its matching column
+    arrangement using the base-layer geometry. Phase 2 applies the existing
+    customer-visible render deduplication across pattern families.
+    """
+    column_by_family: Dict[Tuple, Dict] = {}
+    without_separate_interlocks: List[Dict] = []
+
+    for row in results:
+        row.setdefault("debug_equivalent_results", [])
+        family_key = (
+            str(row.get("pattern", "")),
+            layer_geometry_signature(row.get("layer_A_2d") or []),
+            int(row.get("boxes_layer_A") or 0),
+            int(row.get("layers") or 0),
+        )
+
+        if str(row.get("stacking", "")).lower() == "column":
+            column_by_family[family_key] = row
+            without_separate_interlocks.append(row)
+            continue
+
+        matching_column = column_by_family.get(family_key)
+        if matching_column is not None:
+            _merge_interlock_row_into_column(matching_column, row)
+        else:
+            # Defensive fallback for an unexpected interlock-only result.
+            without_separate_interlocks.append(row)
+
     unique: List[Dict] = []
     seen: Dict[Tuple, Dict] = {}
 
-    for row in results:
+    for row in without_separate_interlocks:
         signature = _customer_visible_render_signature(row)
         debug_label = f'{row.get("pattern", "")} / {row.get("stacking", "")}'
         row["debug_render_signature"] = signature
-        row.setdefault("debug_equivalent_results", [])
 
-        if signature in seen:
-            kept_row = seen[signature]
-            kept_row.setdefault("debug_equivalent_results", []).append(debug_label)
-            if row.get("interlock_possible"):
-                kept_row["interlock_possible"] = True
-                if row.get("interlock_possible_relation") and not kept_row.get("interlock_possible_relation"):
-                    kept_row["interlock_possible_relation"] = row.get("interlock_possible_relation")
-                if row.get("interlock_possible_layer") and not kept_row.get("interlock_possible_layer"):
-                    kept_row["interlock_possible_layer"] = row.get("interlock_possible_layer")
+        if signature not in seen:
+            seen[signature] = row
+            unique.append(row)
             continue
 
-        seen[signature] = row
-        unique.append(row)
+        kept_row = seen[signature]
+        if _result_representative_priority(row) > _result_representative_priority(kept_row):
+            previous_label = f'{kept_row.get("pattern", "")} / {kept_row.get("stacking", "")}'
+            row.setdefault("debug_equivalent_results", []).extend(
+                kept_row.get("debug_equivalent_results") or []
+            )
+            row["debug_equivalent_results"].append(previous_label)
+            if kept_row.get("interlock_possible"):
+                row["interlock_possible"] = True
+                if not row.get("interlock_possible_relation"):
+                    row["interlock_possible_relation"] = kept_row.get("interlock_possible_relation")
+                if not row.get("interlock_possible_layer"):
+                    row["interlock_possible_layer"] = kept_row.get("interlock_possible_layer") or []
+
+            index = unique.index(kept_row)
+            unique[index] = row
+            seen[signature] = row
+            continue
+
+        kept_row.setdefault("debug_equivalent_results", []).append(debug_label)
+        if row.get("interlock_possible"):
+            kept_row["interlock_possible"] = True
+            if row.get("interlock_possible_relation") and not kept_row.get("interlock_possible_relation"):
+                kept_row["interlock_possible_relation"] = row.get("interlock_possible_relation")
+            if row.get("interlock_possible_layer") and not kept_row.get("interlock_possible_layer"):
+                kept_row["interlock_possible_layer"] = row.get("interlock_possible_layer")
 
     for row in unique:
         _set_interlock_available(row)
@@ -2100,11 +2613,16 @@ def run_palletization_analysis(
     pallet_l: float,
     pallet_w: float,
     max_stack_height: float,
+    pallet_height: float = DEFAULT_PALLET_HEIGHT_MM,
     max_width_stickout: float = 0.0,
     max_length_stickout: float = 0.0,
     box_weight: Optional[float] = None,
     max_weight_on_bottom_box: Optional[float] = None,
 ) -> List[Dict]:
+    available_carton_height = max_stack_height - pallet_height
+    if available_carton_height <= 0:
+        raise ValueError("Max stack height must be greater than pallet height.")
+
     area_l, area_w = effective_pallet_size(
         pallet_l, pallet_w, max_length_stickout, max_width_stickout
     )
@@ -2135,7 +2653,7 @@ def run_palletization_analysis(
                 base_layer=base_layer,
                 interlock_layer=active_interlock_layer,
                 box_h=box_h,
-                max_stack_height=max_stack_height,
+                available_carton_height=available_carton_height,
                 stacking_mode=stacking_mode,
             )
 
@@ -2144,7 +2662,7 @@ def run_palletization_analysis(
                 stacking_mode,
                 area_l,
                 area_w,
-                max_stack_height,
+                available_carton_height,
                 box_l,
                 box_w,
                 box_h,
@@ -2242,10 +2760,17 @@ def clean_3d_axes(ax):
             pass
 
 
-def plot_3d_result(ax, placements3d, pallet_l, pallet_w, max_h, title=None):
-    deck_thickness = PALLET_DECK_THICKNESS_MM
-    runner_height = PALLET_RUNNER_HEIGHT_MM
-    pallet_total_height = PALLET_RENDER_HEIGHT_MM
+def plot_3d_result(
+    ax,
+    placements3d,
+    pallet_l,
+    pallet_w,
+    max_h,
+    pallet_height=DEFAULT_PALLET_HEIGHT_MM,
+    title=None,
+):
+    deck_thickness, runner_height = pallet_render_components(pallet_height)
+    pallet_total_height = float(pallet_height)
 
     # top deck
     ax.bar3d(
@@ -2339,7 +2864,7 @@ def plot_3d_result(ax, placements3d, pallet_l, pallet_w, max_h, title=None):
     clean_3d_axes(ax)
 
 
-def _interlock_render_row(selected_result: Dict, max_stack_height: float) -> Dict:
+def _interlock_render_row(selected_result: Dict, available_carton_height: float) -> Dict:
     """Build a temporary render row that alternates base/interlock layers.
 
     This is only used when the user turns the interlock preview on. The result
@@ -2365,7 +2890,7 @@ def _interlock_render_row(selected_result: Dict, max_stack_height: float) -> Dic
         base_layer=base_layer,
         interlock_layer=interlock_layer,
         box_h=box_h,
-        max_stack_height=max_stack_height,
+        available_carton_height=available_carton_height,
         stacking_mode="interlock",
     )
 
@@ -2380,7 +2905,7 @@ def _interlock_render_row(selected_result: Dict, max_stack_height: float) -> Dic
 
 def selected_result_for_render(
     selected_result: Dict,
-    max_stack_height: float,
+    available_carton_height: float,
     render_interlock: bool = False,
 ) -> Dict:
     """Return the authoritative selected placement set for any renderer.
@@ -2390,7 +2915,7 @@ def selected_result_for_render(
     the selected analysis result.
     """
     if render_interlock:
-        return _interlock_render_row(selected_result, max_stack_height)
+        return _interlock_render_row(selected_result, available_carton_height)
     return selected_result
 
 
@@ -2400,6 +2925,7 @@ def render_selected_result(
     pallet_w: float,
     max_stack_height: float,
     media_root: str,
+    pallet_height: float = DEFAULT_PALLET_HEIGHT_MM,
     render_interlock: bool = False,
 ) -> PalletizationRenderResult:
     rel_dir = "palletization"
@@ -2411,14 +2937,21 @@ def render_selected_result(
 
     render_row = selected_result_for_render(
         selected_result,
-        max_stack_height,
+        max_stack_height - pallet_height,
         render_interlock=render_interlock,
     )
 
     fig = plt.figure(figsize=(8, 6))
     ax = fig.add_subplot(111, projection="3d")
 
-    plot_3d_result(ax, render_row["placements3d"], pallet_l, pallet_w, max_stack_height)
+    plot_3d_result(
+        ax,
+        render_row["placements3d"],
+        pallet_l,
+        pallet_w,
+        max_stack_height - pallet_height,
+        pallet_height=pallet_height,
+    )
 
     plt.tight_layout(pad=0.1)
     plt.savefig(abs_path, dpi=120, bbox_inches="tight", pad_inches=0.05)

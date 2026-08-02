@@ -226,6 +226,7 @@
 
         const palletCatalogueChooser = document.getElementById(palletToolId("palletCatalogueChooser", prefix));
         const manualPalletFields = document.getElementById(palletToolId("manualPalletFields", prefix));
+        const manualPalletHeightField = document.getElementById(palletToolId("manualPalletHeightField", prefix));
         const cataloguePalletMainFields = document.getElementById(palletToolId("cataloguePalletMainFields", prefix));
 
         if (boxSource === "catalogue") {
@@ -239,10 +240,12 @@
         if (palletSource === "catalogue") {
             if (palletCatalogueChooser) palletCatalogueChooser.style.display = "block";
             if (manualPalletFields) manualPalletFields.style.display = "none";
+            if (manualPalletHeightField) manualPalletHeightField.style.display = "none";
             if (cataloguePalletMainFields) cataloguePalletMainFields.style.display = "block";
         } else {
             if (palletCatalogueChooser) palletCatalogueChooser.style.display = "none";
             if (manualPalletFields) manualPalletFields.style.display = "block";
+            if (manualPalletHeightField) manualPalletHeightField.style.display = "block";
             if (cataloguePalletMainFields) cataloguePalletMainFields.style.display = "none";
         }
     }

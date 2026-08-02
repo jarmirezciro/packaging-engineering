@@ -67,6 +67,7 @@ SEO_PALLETIZATION_EXAMPLE_CONFIG = {
     "pallet_source": "manual",
     "pallet_l": 1200,
     "pallet_w": 800,
+    "pallet_height": "",
     "max_stack_height": 1500,
     "max_width_stickout": 0,
     "max_length_stickout": 0,
@@ -101,6 +102,7 @@ def _read_raw_palletization_config(request, *, initial_config=None):
         "pallet_id": source.get("pallet_id", cfg["pallet_id"]),
         "pallet_l": source.get("pallet_l", cfg["pallet_l"]),
         "pallet_w": source.get("pallet_w", cfg["pallet_w"]),
+        "pallet_height": source.get("pallet_height", cfg["pallet_height"]),
         "max_stack_height": source.get("max_stack_height", cfg["max_stack_height"]),
         "max_width_stickout": source.get("max_width_stickout", cfg["max_width_stickout"]),
         "max_length_stickout": source.get("max_length_stickout", cfg["max_length_stickout"]),
@@ -268,6 +270,7 @@ def _build_palletization_export_payload(*, config, analysis, selected_box_materi
             "dimensions": _format_dims(
                 effective_config.get("pallet_l"),
                 effective_config.get("pallet_w"),
+                effective_config.get("pallet_height"),
             ),
             "max_stack_height": f"{_format_number(effective_config.get('max_stack_height'))} mm",
             "overhang": (

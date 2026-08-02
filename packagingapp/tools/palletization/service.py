@@ -9,6 +9,7 @@ from .serializers import (
     serialize_pallet_threejs_scene,
 )
 from .state import default_palletization_config
+from .height import resolve_pallet_height
 
 
 INTERLOCK_RENDER_SUFFIX = "__interlock_preview"
@@ -141,19 +142,30 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
     if pallet_source == "catalogue":
         if not selected_pallet_material:
             messages.append("Please select a pallet from the catalogue table.")
-            pallet_l = pallet_w = None
+            pallet_l = pallet_w = pallet_height = None
         else:
             pallet_dims = dims_from_material(selected_pallet_material, prefer_external=True)
-            pallet_l, pallet_w, _ = pallet_dims
+            pallet_l, pallet_w, catalogue_height = pallet_dims
+            pallet_height = resolve_pallet_height(
+                catalogue_height,
+                fallback_on_invalid=True,
+            )
     else:
         pallet_l = _to_float(cfg.get("pallet_l"))
         pallet_w = _to_float(cfg.get("pallet_w"))
+        try:
+            pallet_height = resolve_pallet_height(cfg.get("pallet_height"))
+        except ValueError as exc:
+            pallet_height = None
+            messages.append(str(exc))
         if pallet_l is None or pallet_w is None:
             messages.append("Please enter pallet length and pallet width.")
 
     max_stack_height = _to_float(cfg.get("max_stack_height"))
     if max_stack_height is None:
         messages.append("Please enter max stack height.")
+    elif pallet_height is not None and max_stack_height <= pallet_height:
+        messages.append("Max stack height must be greater than pallet height.")
 
     max_weight_on_bottom_box = _to_float(cfg.get("max_weight_on_bottom_box"))
     max_width_stickout = _to_float(cfg.get("max_width_stickout"), 0) or 0
@@ -165,6 +177,7 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
         ("box height", box_h),
         ("pallet length", pallet_l),
         ("pallet width", pallet_w),
+        ("pallet height", pallet_height),
         ("max stack height", max_stack_height),
     ]:
         if value is not None and value <= 0:
@@ -189,6 +202,7 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
         "max_weight_on_bottom_box": max_weight_on_bottom_box,
         "pallet_l": pallet_l,
         "pallet_w": pallet_w,
+        "pallet_height": pallet_height,
         "max_stack_height": max_stack_height,
         "max_width_stickout": max_width_stickout,
         "max_length_stickout": max_length_stickout,
@@ -227,6 +241,7 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
         box_h=float(eff["box_h"]),
         pallet_l=float(eff["pallet_l"]),
         pallet_w=float(eff["pallet_w"]),
+        pallet_height=float(eff["pallet_height"]),
         max_stack_height=float(eff["max_stack_height"]),
         max_width_stickout=float(eff["max_width_stickout"]),
         max_length_stickout=float(eff["max_length_stickout"]),
@@ -261,7 +276,7 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
 
         render_row = selected_result_for_render(
             selected_row,
-            float(eff["max_stack_height"]),
+            float(eff["max_stack_height"]) - float(eff["pallet_height"]),
             render_interlock=render_interlock_preview,
         )
         threejs_scene = serialize_pallet_threejs_scene(
@@ -276,6 +291,7 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
         image_rel_path=image_rel_path,
         selected_result_key=active_selected_result_key,
         threejs_scene=threejs_scene,
+        pallet_height_mm=float(eff["pallet_height"]),
     )
 
     return {
