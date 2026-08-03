@@ -1,0 +1,9 @@
+<section class="app-card">
+    <div class="app-card-body">
+        <div class="corrugated-kicker">Section 5</div>
+        <h2 class="corrugated-section-title mb-1">Carbon screening</h2>
+        <p class="corrugated-note">Material-based CO₂ screening only; this is not a formal product carbon footprint.</p>
+        <div class="mb-3">{{ fields.co2_mode }}</div>
+        <div class="row g-3" data-corrugated-custom-carbon><div class="col-md-4"><label class="form-label">{{ fields.custom_co2_factor_kg_per_kg.label }}</label>{{ fields.custom_co2_factor_kg_per_kg }}{{ fields.custom_co2_factor_kg_per_kg.errors }}</div><div class="col-md-4"><label class="form-label">{{ fields.custom_co2_source.label }}</label>{{ fields.custom_co2_source }}{{ fields.custom_co2_source.errors }}</div><div class="col-md-4"><label class="form-label">{{ fields.custom_co2_boundary.label }}</label>{{ fields.custom_co2_boundary }}{{ fields.custom_co2_boundary.errors }}</div></div>
+    </div>
+</section>

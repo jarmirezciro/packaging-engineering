@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Corrugated Material &amp; Strength | KolliPack{% endblock %}
+{% block meta_description %}Preliminary FEFCO 0201 corrugated material, utilization, pallet, compression-strength and CO₂ screening estimates.{% endblock %}
+
+{% block extra_css %}
+<style>
+    .corrugated-form-grid { display:grid; gap:1rem; }
+    .corrugated-section-title { font-size:1.02rem; font-weight:800; color:var(--app-text); }
+    .corrugated-kicker { color:var(--app-primary-dark); font-size:.74rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+    .corrugated-note { color:var(--app-text-muted); font-size:.84rem; }
+    .corrugated-meta { background:#f8fafc; border:1px solid var(--app-border); border-radius:.75rem; padding:.8rem; }
+    .corrugated-meta dt { color:var(--app-text-muted); font-size:.75rem; }
+    .corrugated-meta dd { margin-bottom:.35rem; font-weight:650; }
+    .corrugated-blank-svg { width:100%; height:auto; display:block; background:#fff; border:1px solid var(--app-border); border-radius:.75rem; }
+    .corrugated-result-card { height:100%; border:1px solid var(--app-border); border-radius:.85rem; background:#fff; padding:1rem; }
+    .corrugated-result-label { color:var(--app-text-muted); font-size:.75rem; font-weight:700; }
+    .corrugated-result-value { color:var(--app-text); font-size:1.35rem; font-weight:800; line-height:1.15; margin-top:.2rem; }
+    .corrugated-result-unit { color:var(--app-text-muted); font-size:.76rem; }
+    .corrugated-legend { display:flex; gap:1rem; flex-wrap:wrap; color:var(--app-text-muted); font-size:.76rem; }
+    .corrugated-legend span::before { content:""; width:.7rem; height:.7rem; display:inline-block; margin-right:.35rem; border-radius:2px; background:#dcfce7; border:1px solid #15803d; }
+    .corrugated-legend .scrap::before { background:#fff7ed; border-color:#c2410c; }
+    .corrugated-legend .fold::before { background:#fff; border:1px dashed #64748b; }
+    .corrugated-legend .boundary::before { background:#f8fafc; border-color:#94a3b8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="app-page">
+    <div class="app-hero app-hero--compact">
+        <div>
+            <div class="corrugated-kicker">Preliminary engineering estimate</div>
+            <div class="app-hero-badge"><i class="bi bi-layers"></i> Corrugated engineering</div>
+            <h1 class="app-title">Corrugated Material &amp; Strength</h1>
+            <p class="app-subtitle">Compare preliminary FEFCO 0201 material, geometry, pallet loading, compression and material-based CO₂ screening indicators.</p>
+        </div>
+    </div>
+
+    <div class="app-card mb-3">
+        <div class="app-card-body">
+            <details>
+                <summary class="corrugated-section-title">How to use this tool</summary>
+                <p class="corrugated-note mt-2 mb-0">Select an active admin-managed board construction or enter one-time board properties. Results are preliminary engineering estimates. Confirm final specifications with the corrugated supplier and representative testing.</p>
+            </details>
+        </div>
+    </div>
+
+    <form method="post" action="{{ ui.form_action }}" data-preserve-tool-scroll="corrugated-material-strength">
+        {% csrf_token %}
+        {{ fields.action }}
+        {% if form.non_field_errors %}<div class="alert alert-warning">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="corrugated-form-grid">
+            {% include "corrugated_material_strength/partials/_box_product_inputs.html" %}
+            {% include "corrugated_material_strength/partials/_pallet_inputs.html" %}
+            {% include "corrugated_material_strength/partials/_board_inputs.html" %}
+            {% include "corrugated_material_strength/partials/_distribution_inputs.html" %}
+            {% include "corrugated_material_strength/partials/_carbon_inputs.html" %}
+            <div class="d-flex justify-content-end gap-2">
+                <button type="submit" class="btn btn-success"><i class="bi bi-calculator me-1"></i>Calculate estimate</button>
+            </div>
+        </div>
+    </form>
+
+    {% if result %}
+        {% include "corrugated_material_strength/partials/_corrugated_results.html" %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ board_metadata_json|json_script:"corrugated-board-metadata" }}
+{{ pallet_metadata_json|json_script:"corrugated-pallet-metadata" }}
+<script src="{% static 'js/corrugated_material_strength.js' %}"></script>
+{% endblock %}

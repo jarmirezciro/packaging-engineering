@@ -1,9 +1,18 @@
+from decimal import Decimal
+
 from django import forms
 from django.contrib.auth import get_user_model
 
-from .models import PackagingCatalogue, PackagingMaterial
+from .models import CorrugatedBoardConstruction, PackagingCatalogue, PackagingMaterial
 from .models import ProductCatalogue, Product
 from .tools.product_shape import PRODUCT_SHAPE_CHOICES
+from .tools.corrugated_material_strength.constants import (
+    DISTRIBUTION_CHOICES,
+    DISTRIBUTION_FACTORS,
+    FLUTE_CHOICES,
+    WALL_DOUBLE,
+    WALL_SINGLE,
+)
 
 
 ###
@@ -739,3 +748,94 @@ class ContactForm(forms.Form):
         if value:
             raise forms.ValidationError("Invalid submission.")
         return value
+
+
+class CorrugatedMaterialStrengthForm(forms.Form):
+    """Standalone input form; catalogue/manual values are never persisted."""
+
+    action = forms.CharField(required=False, widget=forms.HiddenInput())
+    box_length_mm = forms.DecimalField(label="Internal length (mm)", min_value=Decimal("0.0001"), initial=400, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    box_width_mm = forms.DecimalField(label="Internal width (mm)", min_value=Decimal("0.0001"), initial=300, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    box_height_mm = forms.DecimalField(label="Internal height (mm)", min_value=Decimal("0.0001"), initial=200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    product_weight_g = forms.DecimalField(label="Product net weight (g)", min_value=Decimal("0"), initial=200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    quantity = forms.IntegerField(label="Production quantity", min_value=1, initial=1000, widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"}))
+    fefco_code = forms.ChoiceField(label="Box style", choices=(("0201", "FEFCO 0201 — regular slotted case"),), initial="0201", widget=forms.Select(attrs={"class": "form-select"}))
+    joint_width_mm = forms.DecimalField(label="Manufacturer’s joint (mm)", min_value=Decimal("0"), initial=40, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    sheet_margin_per_edge_mm = forms.DecimalField(label="Production-sheet margin per edge (mm)", min_value=Decimal("0"), initial=20, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+
+    pallet_source = forms.ChoiceField(label="Pallet source", choices=(("manual", "Manual"), ("catalogue", "Existing pallet catalogue")), initial="manual", widget=forms.RadioSelect)
+    pallet_code = forms.ChoiceField(label="Pallet type", required=False, choices=(("", "— Select existing pallet —"),), widget=forms.Select(attrs={"class": "form-select"}))
+    pallet_length_mm = forms.DecimalField(label="Pallet length (mm)", min_value=Decimal("0.0001"), initial=1200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    pallet_width_mm = forms.DecimalField(label="Pallet width (mm)", min_value=Decimal("0.0001"), initial=800, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    pallet_height_mm = forms.DecimalField(label="Pallet height (mm)", min_value=Decimal("0"), initial=144, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    pallet_weight_kg = forms.DecimalField(label="Pallet weight (kg)", min_value=Decimal("0"), initial=0, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    max_palletized_height_mm = forms.DecimalField(label="Maximum palletized height including pallet (mm)", min_value=Decimal("0"), initial=1200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    pattern = forms.ChoiceField(label="Layer pattern", choices=(("COLUMN_ALIGNED", "Column aligned"), ("INTERLOCKED", "Interlocked (same load model)")), initial="COLUMN_ALIGNED", widget=forms.Select(attrs={"class": "form-select"}))
+    stacked_pallets = forms.IntegerField(label="Vertically stacked pallets", min_value=1, initial=1, widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"}))
+
+    board_mode = forms.ChoiceField(label="Board source", choices=(("catalogue", "Select from catalogue"), ("manual", "Manual one-time entry")), initial="catalogue", widget=forms.RadioSelect)
+    board_construction_id = forms.ChoiceField(label="Corrugated construction", required=False, choices=(("", "— Select construction —"),), widget=forms.Select(attrs={"class": "form-select"}))
+    manual_wall_type = forms.ChoiceField(label="Wall type", required=False, choices=((WALL_SINGLE, "Single wall"), (WALL_DOUBLE, "Double wall")), initial=WALL_SINGLE, widget=forms.Select(attrs={"class": "form-select"}))
+    manual_flute_1 = forms.ChoiceField(label="Flute 1", required=False, choices=(("", "— Select flute —"),) + tuple(FLUTE_CHOICES), widget=forms.Select(attrs={"class": "form-select"}))
+    manual_flute_2 = forms.ChoiceField(label="Flute 2", required=False, choices=(("", "— Select flute —"),) + tuple(FLUTE_CHOICES), widget=forms.Select(attrs={"class": "form-select"}))
+    manual_combined_grammage_g_m2 = forms.DecimalField(label="Combined grammage (g/m²)", required=False, min_value=Decimal("0.0001"), widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    ect_override_kn_m = forms.DecimalField(label="ECT override (kN/m)", required=False, min_value=Decimal("0.0001"), widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    caliper_override_mm = forms.DecimalField(label="Actual caliper override (mm)", required=False, min_value=Decimal("0.0001"), widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    measured_bct_override_n = forms.DecimalField(label="Measured BCT override (N)", required=False, min_value=Decimal("0.0001"), widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+
+    distribution_profile = forms.ChoiceField(label="Distribution profile", choices=DISTRIBUTION_CHOICES, initial="NORMAL", widget=forms.Select(attrs={"class": "form-select"}))
+    distribution_factor = forms.DecimalField(label="Distribution factor", required=False, initial=DISTRIBUTION_FACTORS["NORMAL"], min_value=Decimal("0.0001"), widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+
+    co2_mode = forms.ChoiceField(label="CO₂ factor", choices=(("CONSTRUCTION", "Use construction factor"), ("CUSTOM", "Use custom factor")), initial="CONSTRUCTION", widget=forms.RadioSelect)
+    custom_co2_factor_kg_per_kg = forms.DecimalField(label="Custom kg CO₂e/kg", required=False, min_value=Decimal("0"), widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    custom_co2_source = forms.CharField(label="Custom CO₂ source label", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
+    custom_co2_boundary = forms.CharField(label="Custom CO₂ boundary", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
+
+    def clean(self):
+        cleaned = super().clean()
+        action = cleaned.get("action") or "run_analysis"
+        if action not in ("", "run_analysis", "export_pdf"):
+            return cleaned
+
+        if cleaned.get("pallet_source") == "catalogue" and not cleaned.get("pallet_code"):
+            self.add_error("pallet_code", "Select a pallet from the existing catalogue.")
+        if cleaned.get("board_mode") == "catalogue" and not cleaned.get("board_construction_id"):
+            self.add_error("board_construction_id", "Select a corrugated construction from the catalogue.")
+        if cleaned.get("board_mode") == "manual":
+            if not cleaned.get("manual_combined_grammage_g_m2"):
+                self.add_error("manual_combined_grammage_g_m2", "Enter a combined grammage for the manual board entry.")
+            if not cleaned.get("manual_flute_1"):
+                self.add_error("manual_flute_1", "Select flute 1.")
+            if cleaned.get("manual_wall_type") == WALL_DOUBLE and not cleaned.get("manual_flute_2"):
+                self.add_error("manual_flute_2", "Select flute 2 for a double-wall entry.")
+
+        ect = cleaned.get("ect_override_kn_m")
+        caliper = cleaned.get("caliper_override_mm")
+        if (ect is None) != (caliper is None):
+            self.add_error(None, "Enter both ECT and actual finished-board caliper to calculate McKee BCT.")
+
+        if cleaned.get("distribution_profile") == "CUSTOM" and cleaned.get("distribution_factor") is None:
+            self.add_error("distribution_factor", "Enter a custom distribution factor greater than zero.")
+        if cleaned.get("co2_mode") == "CUSTOM":
+            if cleaned.get("custom_co2_factor_kg_per_kg") is None:
+                self.add_error("custom_co2_factor_kg_per_kg", "Enter a custom CO₂ factor or use the construction factor.")
+            if not cleaned.get("custom_co2_source"):
+                self.add_error("custom_co2_source", "Enter the custom CO₂ source label.")
+            if not cleaned.get("custom_co2_boundary"):
+                self.add_error("custom_co2_boundary", "Enter the custom CO₂ boundary.")
+
+        pallet_height = cleaned.get("pallet_height_mm")
+        max_height = cleaned.get("max_palletized_height_mm")
+        if pallet_height is not None and max_height is not None and max_height <= pallet_height:
+            self.add_error("max_palletized_height_mm", "The maximum palletized height must exceed pallet height.")
+
+        if not self.errors:
+            box_l, box_w = cleaned.get("box_length_mm"), cleaned.get("box_width_mm")
+            pallet_l, pallet_w = cleaned.get("pallet_length_mm"), cleaned.get("pallet_width_mm")
+            if all(value is not None for value in (box_l, box_w, pallet_l, pallet_w)):
+                if int(pallet_l // box_l) * int(pallet_w // box_w) < 1 and int(pallet_l // box_w) * int(pallet_w // box_l) < 1:
+                    self.add_error(None, "The box footprint does not fit on the selected pallet.")
+            if all(value is not None for value in (max_height, pallet_height, cleaned.get("box_height_mm"))):
+                if int((max_height - pallet_height) // cleaned["box_height_mm"]) < 1:
+                    self.add_error(None, "The maximum palletized height does not allow one complete box layer.")
+        return cleaned

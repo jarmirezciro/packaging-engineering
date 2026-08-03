@@ -1,0 +1,18 @@
+<section class="mt-4" id="corrugated-results">
+    <div class="app-card mb-3"><div class="app-card-body"><div class="d-flex justify-content-between align-items-start gap-3"><div><div class="corrugated-kicker">Preliminary engineering estimate</div><h2 class="corrugated-section-title mb-1">Analysis results</h2><p class="corrugated-note mb-0">Confirm final specifications with the corrugated supplier and representative testing.</p></div><a href="{% url 'corrugated_material_strength_export_pdf' %}" class="btn btn-outline-success btn-sm">Export PDF</a></div></div></div>
+    <div class="row g-3 mb-3">
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Effective box area" value=result.effective_box_area_m2 unit="m²" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Required sheet area" value=result.production_sheet_area_m2 unit="m²" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Material utilization" value=result.material_utilization_percent unit="%" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Cutting scrap" value=result.total_scrap_area_m2 unit="m²" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Estimated box weight" value=result.finished_box_weight_g unit="g" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Required sheet material" value=result.production_sheet_weight_g unit="g" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Required BCT" value=result.required_bct_n unit="N" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Predicted / measured BCT" value=result.available_bct_n unit="N" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Strength margin" value=result.strength_margin unit="" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Required-sheet CO₂" value=result.required_sheet_co2_kg unit="kg CO₂e" %}
+    </div>
+    {% include "corrugated_material_strength/partials/_fefco_0201_preview.html" %}
+    <div class="row g-3 mt-1"><div class="col-lg-6">{% include "corrugated_material_strength/partials/_material_results.html" %}</div><div class="col-lg-6">{% include "corrugated_material_strength/partials/_pallet_results.html" %}</div><div class="col-lg-6">{% include "corrugated_material_strength/partials/_strength_results.html" %}</div><div class="col-lg-6">{% include "corrugated_material_strength/partials/_carbon_results.html" %}</div></div>
+    {% include "corrugated_material_strength/partials/_calculation_explanation.html" %}
+</section>

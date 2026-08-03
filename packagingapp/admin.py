@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
+from .models import (
+    CorrugatedBoardConstruction,
+    PackagingCatalogue,
+    PackagingMaterial,
+    ProductCatalogue,
+    Product,
+)
 
 
 class PackagingMaterialInline(admin.TabularInline):
@@ -41,3 +47,29 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = ("product_id", "product_name", "catalogue", "desired_qty", "created_at")
     list_filter = ("catalogue", "created_at")
     search_fields = ("product_id", "product_name")
+
+
+@admin.register(CorrugatedBoardConstruction)
+class CorrugatedBoardConstructionAdmin(admin.ModelAdmin):
+    list_display = (
+        "code", "name", "supplier_name", "supplier_grade_code", "wall_type",
+        "flute_display", "combined_grammage_g_m2", "caliper_mm", "ect_kn_m",
+        "measured_bct_n", "source_type", "is_active", "updated_at",
+    )
+    list_filter = ("is_active", "wall_type", "flute_1", "flute_2", "source_type", "co2_source_type")
+    search_fields = ("code", "name", "supplier_name", "supplier_grade_code", "source_label", "source_notes")
+    readonly_fields = ("combined_grammage_g_m2", "nominal_flute_height_mm", "created_at", "updated_at")
+    fieldsets = (
+        ("Identification", {"fields": ("code", "name", "supplier_name", "supplier_grade_code", "description")}),
+        ("Construction", {"fields": ("wall_type", "flute_1", "flute_2", "combined_grammage_g_m2", "nominal_flute_height_mm")}),
+        ("Layer papers", {"fields": ("outer_liner_type", "outer_liner_gsm", "medium_1_type", "medium_1_gsm", "take_up_factor_1", "glue_per_layer_1_gsm", "middle_liner_type", "middle_liner_gsm", "medium_2_type", "medium_2_gsm", "take_up_factor_2", "glue_per_layer_2_gsm", "inner_liner_type", "inner_liner_gsm")}),
+        ("Strength", {"fields": ("caliper_mm", "ect_kn_m", "measured_bct_n", "bct_test_method")}),
+        ("Sustainability", {"fields": ("co2_factor_kg_co2e_per_kg", "co2_boundary", "co2_geography", "co2_data_year", "co2_source_label", "co2_source_type", "co2_factor_basis")}),
+        ("Source and documentation", {"fields": ("source_type", "source_label", "source_notes", "source_document", "source_document_date")}),
+        ("Status and timestamps", {"fields": ("is_active", "sort_order", "created_at", "updated_at")}),
+    )
+    save_as = True
+
+    @admin.display(description="Flute")
+    def flute_display(self, obj):
+        return obj.flute_display

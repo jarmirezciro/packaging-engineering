@@ -251,6 +251,12 @@
                     <span>Palletization Tool</span>
                 </a>
 
+                <a href="{% url 'corrugated_material_strength' %}"
+                   class="app-nav-link {% if request.resolver_match.url_name == 'corrugated_material_strength' %}active{% endif %}">
+                    <i class="bi bi-layers"></i>
+                    <span>Corrugated Material &amp; Strength</span>
+                </a>
+
                 <a href="{% url 'container_tool' %}"
                    class="app-nav-link {% if request.path|slice:':16' == '/container-tool/' %}active{% endif %}">
                     <i class="bi bi-truck"></i>

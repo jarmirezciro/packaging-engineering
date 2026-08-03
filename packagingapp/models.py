@@ -1,6 +1,19 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from decimal import Decimal
 import uuid
+
+from .tools.corrugated_material_strength.constants import (
+    CO2_FACTOR_BASES,
+    CO2_SOURCE_TYPES,
+    FLUTE_CHOICES,
+    PAPER_TYPES,
+    SOURCE_TYPES,
+    WALL_DOUBLE,
+    WALL_SINGLE,
+)
+from .tools.corrugated_material_strength.flute_profiles import nominal_height_for
 
 
 # Create your models here.
@@ -191,3 +204,156 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.product_id} - {self.product_name or ''}".strip()
+
+
+class CorrugatedBoardConstruction(models.Model):
+    """Admin-managed corrugated construction catalogue record.
+
+    ``flute_1`` is the first/inner medium in the selected design order and
+    ``flute_2`` is the second medium for double wall.  Nominal flute height
+    excludes facings and is never used as finished-board caliper.
+    """
+
+    WALL_TYPE_CHOICES = (
+        (WALL_SINGLE, "Single wall"),
+        (WALL_DOUBLE, "Double wall"),
+    )
+
+    code = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=255)
+    supplier_name = models.CharField(max_length=255, blank=True)
+    supplier_grade_code = models.CharField(max_length=120, blank=True)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    source_type = models.CharField(max_length=32, choices=SOURCE_TYPES)
+    source_label = models.CharField(max_length=255)
+    source_notes = models.TextField(blank=True)
+    source_document = models.FileField(upload_to="corrugated_board_documents/", blank=True, null=True)
+    source_document_date = models.DateField(blank=True, null=True)
+
+    wall_type = models.CharField(max_length=20, choices=WALL_TYPE_CHOICES)
+    flute_1 = models.CharField(max_length=1, choices=FLUTE_CHOICES, blank=True, default="")
+    flute_2 = models.CharField(max_length=1, choices=FLUTE_CHOICES, blank=True, default="")
+    outer_liner_type = models.CharField(max_length=40, choices=PAPER_TYPES, blank=True, default="")
+    outer_liner_gsm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    medium_1_type = models.CharField(max_length=40, choices=PAPER_TYPES, blank=True, default="")
+    medium_1_gsm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    middle_liner_type = models.CharField(max_length=40, choices=PAPER_TYPES, blank=True, default="")
+    middle_liner_gsm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    medium_2_type = models.CharField(max_length=40, choices=PAPER_TYPES, blank=True, default="")
+    medium_2_gsm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    inner_liner_type = models.CharField(max_length=40, choices=PAPER_TYPES, blank=True, default="")
+    inner_liner_gsm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    take_up_factor_1 = models.DecimalField(max_digits=6, decimal_places=3, blank=True, null=True)
+    take_up_factor_2 = models.DecimalField(max_digits=6, decimal_places=3, blank=True, null=True)
+    glue_per_layer_1_gsm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    glue_per_layer_2_gsm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    combined_grammage_g_m2 = models.DecimalField(max_digits=12, decimal_places=4, blank=True, null=True)
+    nominal_flute_height_mm = models.DecimalField(max_digits=8, decimal_places=3, blank=True, null=True)
+    caliper_mm = models.DecimalField(max_digits=8, decimal_places=3, blank=True, null=True)
+    ect_kn_m = models.DecimalField(max_digits=8, decimal_places=3, blank=True, null=True)
+    measured_bct_n = models.DecimalField(max_digits=12, decimal_places=3, blank=True, null=True)
+    bct_test_method = models.CharField(max_length=120, blank=True)
+
+    co2_factor_kg_co2e_per_kg = models.DecimalField(max_digits=8, decimal_places=5, blank=True, null=True)
+    co2_boundary = models.CharField(max_length=255, blank=True)
+    co2_geography = models.CharField(max_length=120, blank=True)
+    co2_data_year = models.PositiveIntegerField(blank=True, null=True)
+    co2_source_label = models.CharField(max_length=255, blank=True)
+    co2_source_type = models.CharField(max_length=40, choices=CO2_SOURCE_TYPES, blank=True)
+    co2_factor_basis = models.CharField(max_length=40, choices=CO2_FACTOR_BASES, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "wall_type", "flute_1", "flute_2", "name"]
+        verbose_name = "corrugated board construction"
+        verbose_name_plural = "corrugated board constructions"
+
+    @property
+    def flute_display(self):
+        return f"{self.flute_1}{self.flute_2}" if self.wall_type == WALL_DOUBLE else self.flute_1
+
+    @property
+    def calculated_combined_grammage(self):
+        values = (
+            self.outer_liner_gsm, self.medium_1_gsm, self.inner_liner_gsm,
+            self.take_up_factor_1, self.glue_per_layer_1_gsm,
+        )
+        if any(value is None for value in values):
+            return None
+        total = (
+            self.outer_liner_gsm
+            + self.medium_1_gsm * self.take_up_factor_1
+            + self.inner_liner_gsm
+            + Decimal("2") * self.glue_per_layer_1_gsm
+        )
+        if self.wall_type == WALL_DOUBLE:
+            values_2 = (self.middle_liner_gsm, self.medium_2_gsm, self.take_up_factor_2, self.glue_per_layer_2_gsm)
+            if any(value is None for value in values_2):
+                return None
+            total += (
+                self.middle_liner_gsm
+                + self.medium_2_gsm * self.take_up_factor_2
+                + Decimal("2") * self.glue_per_layer_2_gsm
+            )
+        return total
+
+    def clean(self):
+        errors = {}
+
+        def required(field_names, message="This field is required for this wall type."):
+            for field_name in field_names:
+                if getattr(self, field_name, None) in (None, ""):
+                    errors[field_name] = message
+
+        if self.wall_type == WALL_SINGLE:
+            required(("flute_1", "outer_liner_gsm", "medium_1_gsm", "inner_liner_gsm", "take_up_factor_1", "glue_per_layer_1_gsm"))
+            for field_name in ("flute_2", "middle_liner_gsm", "medium_2_gsm", "take_up_factor_2", "glue_per_layer_2_gsm"):
+                if getattr(self, field_name, None) not in (None, ""):
+                    errors[field_name] = "This field must be blank for a single-wall construction."
+        elif self.wall_type == WALL_DOUBLE:
+            required(("flute_1", "flute_2", "outer_liner_gsm", "medium_1_gsm", "middle_liner_gsm", "medium_2_gsm", "inner_liner_gsm", "take_up_factor_1", "take_up_factor_2", "glue_per_layer_1_gsm", "glue_per_layer_2_gsm"))
+        elif self.wall_type:
+            errors["wall_type"] = "Select a supported wall type."
+
+        positive_fields = (
+            "outer_liner_gsm", "medium_1_gsm", "middle_liner_gsm", "medium_2_gsm", "inner_liner_gsm",
+            "take_up_factor_1", "take_up_factor_2", "glue_per_layer_1_gsm", "glue_per_layer_2_gsm",
+            "combined_grammage_g_m2", "nominal_flute_height_mm", "caliper_mm", "ect_kn_m", "measured_bct_n",
+        )
+        for field_name in positive_fields:
+            value = getattr(self, field_name, None)
+            if value is not None and value <= 0:
+                errors[field_name] = "Value must be greater than zero."
+
+        calculated = self.calculated_combined_grammage
+        if calculated is not None:
+            if self.combined_grammage_g_m2 is not None and abs(self.combined_grammage_g_m2 - calculated) > Decimal("0.0001"):
+                errors["combined_grammage_g_m2"] = "Combined grammage must match the layer calculation."
+            self.combined_grammage_g_m2 = calculated
+            height = nominal_height_for(self.flute_1, self.flute_2 or None)
+            if height is not None:
+                self.nominal_flute_height_mm = height
+
+        if self.co2_factor_kg_co2e_per_kg is not None:
+            if self.co2_factor_kg_co2e_per_kg < 0:
+                errors["co2_factor_kg_co2e_per_kg"] = "CO₂ factor cannot be negative."
+            for field_name in ("co2_boundary", "co2_source_label", "co2_factor_basis"):
+                if not getattr(self, field_name, None):
+                    errors[field_name] = "This field is required when a CO₂ factor exists."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        calculated = self.calculated_combined_grammage
+        if calculated is not None:
+            self.combined_grammage_g_m2 = calculated
+            self.nominal_flute_height_mm = nominal_height_for(self.flute_1, self.flute_2 or None)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.code} — {self.name}"

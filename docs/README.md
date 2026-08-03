@@ -43,6 +43,7 @@ Labels used in domain documents:
 | Bag logic | `domain/bag-selection-logic.md` |
 | Container/box selection | `domain/container-selection-logic.md` |
 | Palletization | `domain/palletization-logic.md` |
+| Corrugated material and strength | `domain/corrugated-material-strength.md` |
 | Transport loading | `domain/transport-selection-logic.md` |
 | 3D/PDF | `features/three-d-rendering-and-reports.md` |
 | Public site/blog/SEO | `features/public-site-blog-and-seo.md` |

@@ -9,6 +9,10 @@ from .views import palletization
 from .views import container_tool
 from .views.home import home
 from .views.marketing import about, blog_detail, blog_list
+from .views.corrugated_material_strength import (
+    corrugated_material_strength,
+    corrugated_material_strength_export_pdf,
+)
 
 from .views.multi_product_bag import (
     multi_product_bag_selection,
@@ -79,6 +83,16 @@ urlpatterns = [
 
     # KolliPack application
     path("kollipack/", home, name="home"),
+    path(
+        "corrugated-material-strength/",
+        corrugated_material_strength,
+        name="corrugated_material_strength",
+    ),
+    path(
+        "corrugated-material-strength/export/pdf/",
+        corrugated_material_strength_export_pdf,
+        name="corrugated_material_strength_export_pdf",
+    ),
     path("blog/<slug:slug>/", blog_detail, name="blog_detail"),
 
 

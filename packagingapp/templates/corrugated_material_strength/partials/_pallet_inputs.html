@@ -1,0 +1,18 @@
+<section class="app-card">
+    <div class="app-card-body">
+        <div class="corrugated-kicker">Section 2</div>
+        <h2 class="corrugated-section-title mb-1">Pallet and stacking</h2>
+        <p class="corrugated-note">Existing pallet catalogue records are reused; manual dimensions are not saved.</p>
+        <div class="mb-3">{{ fields.pallet_source }}</div>
+        <div class="row g-3">
+            <div class="col-md-6" data-corrugated-catalogue-pallet><label class="form-label">{{ fields.pallet_code.label }}</label>{{ fields.pallet_code }}{{ fields.pallet_code.errors }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.pallet_length_mm.label }}</label>{{ fields.pallet_length_mm }}{{ fields.pallet_length_mm.errors }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.pallet_width_mm.label }}</label>{{ fields.pallet_width_mm }}{{ fields.pallet_width_mm.errors }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.pallet_height_mm.label }}</label>{{ fields.pallet_height_mm }}{{ fields.pallet_height_mm.errors }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.pallet_weight_kg.label }}</label>{{ fields.pallet_weight_kg }}{{ fields.pallet_weight_kg.errors }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.max_palletized_height_mm.label }}</label>{{ fields.max_palletized_height_mm }}{{ fields.max_palletized_height_mm.errors }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.pattern.label }}</label>{{ fields.pattern }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.stacked_pallets.label }}</label>{{ fields.stacked_pallets }}{{ fields.stacked_pallets.errors }}</div>
+        </div>
+    </div>
+</section>
