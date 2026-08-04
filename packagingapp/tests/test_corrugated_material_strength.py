@@ -10,7 +10,8 @@ from packagingapp.models import CorrugatedBoardConstruction, CorrugatedECTRefere
 from packagingapp.tools.corrugated_material_strength.contracts import build_shared_corrugated_material_ui_contract
 from packagingapp.tools.corrugated_material_strength.geometry import BoxGeometryInput, Fefco0201GeometryProvider
 from packagingapp.tools.corrugated_material_strength.service import calculate_corrugated_material_strength
-from packagingapp.tools.corrugated_material_strength.strength import predict_bct_mckee_metric
+from packagingapp.tools.corrugated_material_strength.strength import calculate_compression_capacity, predict_bct_mckee_metric
+from packagingapp.tools.corrugated_material_strength.flute_profiles import FLUTE_PROFILES
 
 
 class CorrugatedModelTests(TestCase):
@@ -26,13 +27,25 @@ class CorrugatedModelTests(TestCase):
             "GEN_EB_150_100_125_120_150": Decimal("735.50"),
             "GEN_BC_175_120_150_140_175": Decimal("880.70"),
         }
-        self.assertEqual(CorrugatedBoardConstruction.objects.count(), 9)
+        expected.update({
+            "GEN_F_125_90_125": Decimal("378.00"),
+            "GEN_N_125_90_125": Decimal("378.00"),
+        })
+        self.assertEqual(CorrugatedBoardConstruction.objects.count(), 11)
         for code, grammage in expected.items():
             construction = CorrugatedBoardConstruction.objects.get(code=code)
             self.assertEqual(construction.combined_grammage_g_m2, grammage)
             self.assertIsNone(construction.ect_kn_m)
             self.assertIsNone(construction.caliper_mm)
             self.assertIsNone(construction.measured_bct_n)
+
+    def test_microflute_profiles_and_reference_caliper_coverage(self):
+        self.assertEqual(FLUTE_PROFILES["F"]["nominal_height_mm"], Decimal("0.8"))
+        self.assertEqual(FLUTE_PROFILES["N"]["nominal_height_mm"], Decimal("0.5"))
+        self.assertEqual(FLUTE_PROFILES["F"]["default_take_up"], Decimal("1.20"))
+        self.assertEqual(FLUTE_PROFILES["N"]["default_take_up"], Decimal("1.20"))
+        self.assertEqual(FLUTE_PROFILES["F"]["default_glue_per_layer_gsm"], Decimal("10.0"))
+        self.assertEqual(FLUTE_PROFILES["N"]["default_glue_per_layer_gsm"], Decimal("10.0"))
 
     def test_single_and_double_wall_validation(self):
         single = CorrugatedBoardConstruction(
@@ -76,6 +89,46 @@ class CorrugatedModelTests(TestCase):
 
 
 class CorrugatedCalculationTests(TestCase):
+    def test_compression_capacity_benchmark(self):
+        capacity = calculate_compression_capacity(
+            available_bct_n=Decimal("3376.8044"),
+            distribution_factor=Decimal("3"),
+            gross_box_weight_kg=Decimal("0.59648"),
+            current_static_load_n=Decimal("2.38592") * Decimal("9.80665"),
+            current_supported_mass_kg=Decimal("2.38592"),
+            current_boxes_above=4,
+        )
+        self.assertAlmostEqual(float(capacity["allowable_supported_force_n"]), 1125.6015, places=3)
+        self.assertAlmostEqual(float(capacity["allowable_supported_mass_kg"]), 114.7794, places=3)
+        self.assertEqual(capacity["maximum_equivalent_boxes_above"], 192)
+        self.assertEqual(capacity["maximum_total_boxes_in_column"], 193)
+        self.assertEqual(capacity["current_total_boxes_in_column"], 5)
+        self.assertAlmostEqual(float(capacity["capacity_usage_percent"]), 2.079, places=2)
+        self.assertAlmostEqual(float(capacity["remaining_supported_mass_kg"]), 112.3935, places=3)
+        self.assertEqual(capacity["remaining_equivalent_boxes"], 188)
+        self.assertFalse(capacity["is_overloaded"])
+
+    def test_compression_capacity_overload_and_partial_results(self):
+        overload = calculate_compression_capacity(
+            available_bct_n=Decimal("1000"), distribution_factor=Decimal("5"),
+            gross_box_weight_kg=Decimal("0.5"), current_static_load_n=Decimal("250"),
+            current_supported_mass_kg=Decimal("250") / Decimal("9.80665"), current_boxes_above=1,
+        )
+        self.assertEqual(overload["capacity_usage_percent"], Decimal("125"))
+        self.assertTrue(overload["is_overloaded"])
+        self.assertEqual(overload["remaining_supported_mass_kg"], Decimal("0.0"))
+        self.assertEqual(overload["overload_force_n"], Decimal("50"))
+        missing_bct = calculate_compression_capacity(
+            available_bct_n=None, distribution_factor=Decimal("3"), gross_box_weight_kg=Decimal("0.5")
+        )
+        self.assertFalse(missing_bct["available"])
+        self.assertIsNone(missing_bct["allowable_supported_mass_kg"])
+        mass_only = calculate_compression_capacity(
+            available_bct_n=Decimal("1000"), distribution_factor=Decimal("5"), gross_box_weight_kg=None
+        )
+        self.assertEqual(mass_only["allowable_supported_force_n"], Decimal("200"))
+        self.assertIsNone(mass_only["maximum_equivalent_boxes_above"])
+
     def test_benchmark_geometry_material_pallet_and_strength(self):
         geometry = Fefco0201GeometryProvider().calculate(BoxGeometryInput(
             Decimal("400"), Decimal("300"), Decimal("200"), Decimal("40"), Decimal("20")
@@ -185,14 +238,31 @@ class CorrugatedContractAndViewTests(TestCase):
         json.dumps(contract)
 
     def test_reference_grades_are_seeded_and_admin_registered(self):
-        self.assertEqual(CorrugatedECTReferenceGrade.objects.count(), 28)
+        self.assertEqual(CorrugatedECTReferenceGrade.objects.count(), 36)
         self.assertEqual(CorrugatedECTReferenceGrade.objects.get(code="REF_C_44").ect_kn_m, Decimal("7.705580740"))
         self.assertEqual(CorrugatedECTReferenceGrade.objects.get(code="REF_C_44").reference_caliper_mm, Decimal("4.380"))
-        self.assertIsNone(CorrugatedECTReferenceGrade.objects.get(code="REF_E_32").reference_caliper_mm)
-        self.assertIsNone(CorrugatedECTReferenceGrade.objects.get(code="REF_EB_51").reference_caliper_mm)
-        self.assertIsNone(CorrugatedECTReferenceGrade.objects.get(code="REF_BC_61").reference_caliper_mm)
+        self.assertEqual(CorrugatedECTReferenceGrade.objects.get(code="REF_F_32").reference_caliper_mm, Decimal("0.800"))
+        self.assertEqual(CorrugatedECTReferenceGrade.objects.get(code="REF_N_44").reference_caliper_mm, Decimal("0.500"))
+        self.assertEqual(CorrugatedECTReferenceGrade.objects.get(code="REF_EB_51").reference_caliper_mm, Decimal("4.900"))
+        self.assertEqual(CorrugatedECTReferenceGrade.objects.get(code="REF_BC_61").reference_caliper_mm, Decimal("7.200"))
+        self.assertTrue(all(item.reference_caliper_mm is not None for item in CorrugatedECTReferenceGrade.objects.all()))
         from django.contrib import admin
         self.assertIsInstance(admin.site._registry[CorrugatedECTReferenceGrade], CorrugatedECTReferenceGradeAdmin)
+
+    def test_complete_reference_caliper_matrix(self):
+        expected = {
+            **{f"REF_A_{ect}": value for ect, value in {32: "5.15", 40: "5.31", 44: "5.46", 55: "5.72"}.items()},
+            **{f"REF_B_{ect}": value for ect, value in {32: "3.10", 40: "3.26", 44: "3.41", 55: "3.67"}.items()},
+            **{f"REF_C_{ect}": value for ect, value in {32: "4.08", 40: "4.23", 44: "4.38", 55: "4.64"}.items()},
+            **{f"REF_E_{ect}": "1.60" for ect in (32, 40, 44, 55)},
+            **{f"REF_F_{ect}": "0.80" for ect in (32, 40, 44, 55)},
+            **{f"REF_N_{ect}": "0.50" for ect in (32, 40, 44, 55)},
+            **{f"REF_EB_{ect}": "4.90" for ect in (42, 48, 51, 61, 71, 82)},
+            **{f"REF_BC_{ect}": value for ect, value in {42: "6.62", 48: "6.77", 51: "7.03", 61: "7.20", 71: "7.54", 82: "7.90"}.items()},
+        }
+        self.assertEqual(len(expected), 36)
+        for code, value in expected.items():
+            self.assertEqual(CorrugatedECTReferenceGrade.objects.get(code=code).reference_caliper_mm, Decimal(value))
 
     def test_get_renders_defaults_and_catalogue(self):
         response = self.client.get(reverse("corrugated_material_strength"))
@@ -202,7 +272,7 @@ class CorrugatedContractAndViewTests(TestCase):
         self.assertContains(response, "REF_C_44")
         self.assertContains(response, "Preliminary engineering estimate")
 
-    def test_reference_grade_benchmark_and_missing_caliper_partial_result(self):
+    def test_reference_grade_benchmark_and_complete_family_caliper(self):
         construction = CorrugatedBoardConstruction.objects.get(code="FEFCO_C_175_140_175")
         reference = CorrugatedECTReferenceGrade.objects.get(code="REF_C_44")
         inputs = {
@@ -223,16 +293,16 @@ class CorrugatedContractAndViewTests(TestCase):
         self.assertTrue(result["strength"]["ect_is_reference"])
         self.assertTrue(result["strength"]["caliper_is_reference"])
         self.assertTrue(result["strength"]["bct_is_reference_based"])
-        missing = calculate_corrugated_material_strength(
+        family_reference = calculate_corrugated_material_strength(
             inputs,
             construction=CorrugatedBoardConstruction.objects.get(code="GEN_E_150_100_150"),
             reference_ect_grade=CorrugatedECTReferenceGrade.objects.get(code="REF_E_32"),
         )
-        self.assertTrue(missing["reference_ect_grade"])
-        self.assertIsNone(missing["external_length_mm"])
-        self.assertIsNone(missing["boxes_per_pallet"])
-        self.assertIsNone(missing["required_bct_n"])
-        self.assertIn("ECT reference is available", missing["strength"]["data_note"])
+        self.assertTrue(family_reference["reference_ect_grade"])
+        self.assertAlmostEqual(family_reference["external_length_mm"], 403.2, places=6)
+        self.assertIsNotNone(family_reference["boxes_per_pallet"])
+        self.assertIsNotNone(family_reference["required_bct_n"])
+        self.assertTrue(family_reference["strength"]["ect_is_reference"])
 
     def test_valid_post_renders_result_and_strength_unavailable_state(self):
         construction = CorrugatedBoardConstruction.objects.get(code="GEN_E_125_90_125")

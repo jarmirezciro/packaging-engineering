@@ -3,6 +3,7 @@ from decimal import Decimal
 
 GRAVITY_M_S2 = Decimal("9.80665")
 GENERIC_CO2_FACTOR_KG_PER_KG = Decimal("0.491")
+ECT_LB_IN_TO_KN_M = Decimal("0.175126835")
 
 WALL_SINGLE = "SINGLE_WALL"
 WALL_DOUBLE = "DOUBLE_WALL"
@@ -15,7 +16,19 @@ SOURCE_TYPES = (
     ("COMPANY_MEASURED", "Company measured"),
 )
 
-FLUTE_CHOICES = tuple((code, code) for code in ("A", "B", "C", "E"))
+FLUTE_CHOICES = tuple((code, code) for code in ("A", "B", "C", "E", "F", "N"))
+REFERENCE_FLUTE_FAMILY_CHOICES = (
+    ("A", "A flute"), ("B", "B flute"), ("C", "C flute"),
+    ("E", "E flute"), ("F", "F flute"), ("N", "N flute"),
+    ("EB", "EB double wall"), ("BC", "BC double wall"),
+)
+CALIPER_BASIS_CHOICES = (
+    ("GRADE_SPECIFIC_TARGET", "Grade-specific target caliper"),
+    ("FLUTE_FAMILY_REFERENCE", "Flute-family reference caliper"),
+    ("PUBLISHED_RANGE_MIDPOINT", "Midpoint of published range"),
+    ("LINEAR_INTERPOLATION", "Linear interpolation between published grades"),
+    ("ADMIN_ENTERED", "Admin-entered reference"),
+)
 
 PAPER_TYPES = (
     ("KRAFTLINER", "Kraftliner"),
@@ -76,4 +89,5 @@ DEFAULTS = {
     "distribution_profile": "NORMAL",
     "distribution_factor": DISTRIBUTION_FACTORS["NORMAL"],
     "co2_mode": "CONSTRUCTION",
+    "reference_ect_grade_id": "",
 }

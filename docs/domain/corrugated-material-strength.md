@@ -80,11 +80,11 @@ G = outer liner + medium 1 × TUF 1 + middle liner
     + 2 × glue 1 + 2 × glue 2
 ```
 
-The model preserves decimal values internally and only formats them for display. The nine migration seeds are keyed with `update_or_create()` and remain Admin-editable.
+The model preserves decimal values internally and only formats them for display. The eleven migration seeds are keyed with `update_or_create()` and remain Admin-editable.
 
 ## Seed-data provenance and strength policy
 
-The version-controlled profiles encode the supplied indicative A/B/C/E flute heights, flute counts, take-up ranges and glue ranges. A, B and E defaults use the supplied range midpoints; C uses the supplied worked-example values. These are calculation aids, not commercial specifications.
+The version-controlled profiles encode the supplied indicative A/B/C/E flute heights, flute counts, take-up ranges and glue ranges, plus representative F/N microflute profiles. A, B and E defaults use the supplied range midpoints; C uses the supplied worked-example values; F and N use the task-defined KolliPack representatives. These are calculation aids, not commercial specifications.
 
 The seeded records are:
 
@@ -97,6 +97,8 @@ The seeded records are:
 - `GEN_A_175_140_175` — 573.00 g/m²;
 - `GEN_EB_150_100_125_120_150` — 735.50 g/m²;
 - `GEN_BC_175_120_150_140_175` — 880.70 g/m².
+
+`GEN_F_125_90_125` and `GEN_N_125_90_125` are also seeded at 378.00 g/m².
 
 All research-derived seeds intentionally have null ECT, null actual caliper and null measured BCT. The tool does not infer ECT from grammage or caliper from nominal flute height. If a generic record lacks strength data, geometry, material and CO₂ results remain available while the strength panel states that ECT and actual finished-board caliper must be entered or a material containing strength data selected.
 
@@ -141,7 +143,9 @@ Palletization engine is not modified.
 ## Reference ECT grades
 
 `CorrugatedECTReferenceGrade` is a separate Admin-managed table. It contains
-28 seeded screening categories across A, B, C, E, EB and BC flute families.
+36 seeded screening categories across A, B, C, E, F, N, EB and BC flute
+families. Every seeded category has a finished-board reference caliper and
+separate ECT/caliper source and derivation metadata.
 The metric value is calculated from the stored imperial category using:
 
 ```text
@@ -151,21 +155,24 @@ ECT_kN/m = ECT_lb/in x 0.175126835
 Reference ECT is not a measured result for a selected paper construction. The
 calculator filters active grades by flute family in the browser and validates
 the family and wall type again on the server. Supplier/measured and one-time
-values remain higher priority than a reference grade. Reference caliper is
-only populated where the task provides a defensible target; E-flute, EB and
-BC 61 ECT records intentionally remain without target caliper.
+values remain higher priority than a reference grade. E/F/N calipers are
+family-level references, EB uses a published-range midpoint, and BC 61 uses
+an explicitly recorded linear interpolation.
 
 Strength data priority is:
 
 ```text
 Measured BCT override
       |
-      +-- Highest priority
-Construction ECT + caliper
+Measured construction BCT
       |
-Reference ECT grade + effective caliper
+Complete one-time ECT + caliper
       |
-      +-- Screening fallback
+Complete construction ECT + caliper
+      |
+Reference ECT + reference caliper
+      |
+Unavailable
 ```
 
 When reference ECT or caliper contributes to McKee, the result is labelled as
@@ -177,6 +184,37 @@ perimeter_cm = 2 x (L_internal + W_internal) / 10
 ```
 
 A future methodology review may revisit that convention.
+
+## Practical compression capacity
+
+The strength service translates available BCT into a preliminary supported-load
+screening result without recalculating pallet layers. For available BCT and a
+positive distribution factor:
+
+```text
+F_allowable = BCT_available / distribution_factor
+m_allowable = F_allowable / 9.80665
+N_above_max = floor(m_allowable / gross_packed_box_mass)
+N_column_max = N_above_max + 1
+usage = current_static_force / F_allowable x 100
+F_remaining = max(0, F_allowable - current_static_force)
+m_remaining = F_remaining / 9.80665
+N_remaining = floor(m_remaining / gross_packed_box_mass)
+```
+
+Current boxes above and current static load come from the pallet service. For
+stacked pallets, the complete supported mass is retained and converted to a
+possibly decimal equivalent supported-box load. Overload force and mass are
+reported when current force exceeds allowable force. Missing BCT, gross box
+mass, or current pallet load produces partial results rather than suppressing
+the rest of the analysis.
+
+The UI and PDF label these values as preliminary engineering screening outputs
+and warn that equivalent box capacity applies to one vertical load column; it
+is not a recommended physical stack height. Palletized height, stability,
+interlock, moisture, storage duration, pallet deflection, handling, vibration,
+uneven load distribution, box openings and manufacturing variation may govern
+first.
 
 ## FEFCO 0201 geometry
 
@@ -253,8 +291,8 @@ not implemented in this refinement.
 
 - FEFCO 0201 geometry is preliminary and does not model slots, converter allowances, board thickness or production-sheet nesting.
 - The SVG is a clean orthogonal preview, not a die-line approval drawing.
-- The nine generic board-construction seeds retain null ECT, null actual caliper and null measured BCT; reference ECT grades remain separate.
-- Reference-caliper gaps are intentional for E-flute, EB and BC 61 ECT; supplier or measured caliper is required for those cases.
+- The eleven generic board-construction seeds retain null ECT, null actual caliper and null measured BCT; reference ECT grades remain separate.
+- All 36 seeded reference grades have caliper, but E/F/N are family references, EB is a range midpoint, and BC 61 is interpolated rather than direct.
 - McKee is a screening estimate and does not model humidity, creep, vibration, edge damage or distribution-test effects.
 - Pallet loading is orthogonal and does not reduce compression capacity for interlock.
 - PDF export uses a small ReportLab vector equivalent of the browser preview rather than embedding the browser SVG directly.

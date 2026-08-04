@@ -817,7 +817,7 @@ class CorrugatedMaterialStrengthForm(forms.Form):
     @staticmethod
     def _reference_grade_label(grade):
         caliper = getattr(grade, "reference_caliper_mm", None)
-        caliper_text = f"reference caliper {caliper:g} mm" if caliper is not None else "caliper not included"
+        caliper_text = f"reference caliper {caliper:g} mm"
         wall_text = "double wall" if grade.wall_type == WALL_DOUBLE else "flute"
         return f"{grade.flute_family} {wall_text} - {grade.ect_lb_in:g} ECT - {grade.ect_kn_m:.3f} kN/m - {caliper_text}"
 

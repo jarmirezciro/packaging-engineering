@@ -80,15 +80,23 @@ class CorrugatedBoardConstructionAdmin(admin.ModelAdmin):
 class CorrugatedECTReferenceGradeAdmin(admin.ModelAdmin):
     list_display = (
         "code", "flute_family", "wall_type", "ect_lb_in", "ect_kn_m",
-        "reference_caliper_mm", "source_type", "is_active", "sort_order", "updated_at",
+        "reference_caliper_mm", "caliper_basis", "is_active", "sort_order", "updated_at",
     )
-    list_filter = ("is_active", "wall_type", "flute_family", "source_type")
-    search_fields = ("code", "source_label", "source_notes", "caliper_source_label")
+    list_filter = ("is_active", "wall_type", "flute_family", "caliper_basis")
+    search_fields = ("code", "ect_source_label", "caliper_source_label", "source_notes", "calculation_notes")
     readonly_fields = ("ect_kn_m", "created_at", "updated_at")
     fieldsets = (
-        ("Grade identity", {"fields": ("code", "flute_family", "wall_type")} ),
-        ("ECT reference", {"fields": ("ect_lb_in", "ect_kn_m")} ),
-        ("Reference caliper", {"fields": ("reference_caliper_mm", "caliper_source_label", "caliper_source_notes")} ),
-        ("Sources and limitations", {"fields": ("source_type", "source_label", "source_notes")} ),
+        ("Identity", {
+            "fields": ("code", "flute_family", "wall_type"),
+            "description": "Reference grades are screening categories. Supplier-documented or measured construction values take priority.",
+        } ),
+        ("Strength category", {"fields": ("ect_lb_in", "ect_kn_m")} ),
+        ("Reference caliper", {"fields": ("reference_caliper_mm", "caliper_basis")} ),
+        ("Source traceability", {"fields": (
+            "ect_source_label", "ect_source_url", "caliper_source_label", "caliper_source_url",
+            "source_accessed_date", "source_notes",
+        )} ),
+        ("Calculations and limitations", {"fields": ("calculation_notes",)}),
         ("Status and ordering", {"fields": ("is_active", "sort_order", "created_at", "updated_at")} ),
     )
+    save_on_top = True

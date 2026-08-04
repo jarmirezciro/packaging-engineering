@@ -3,12 +3,12 @@ from decimal import Decimal
 from .carbon import calculate_carbon
 from .constants import DEFAULTS
 from .dimensions import BoxDimensionInput, calculate_external_dimensions
-from .flute_profiles import nominal_height_for
+from .flute_profiles import nominal_height_for, resolve_reference_flute_family
 from .geometry import BoxGeometryInput, Fefco0201GeometryProvider
 from .material import calculate_material
 from .pallet import PalletInput, calculate_pallet, unavailable_pallet_result
 from .serializers import serialize_corrugated_result
-from .strength import calculate_strength
+from .strength import calculate_compression_capacity, calculate_strength
 
 
 def _decimal(value, default=None):
@@ -57,10 +57,16 @@ def _reference_grade_metadata(reference_grade):
         "ect_lb_in": reference_grade.ect_lb_in,
         "ect_kn_m": reference_grade.ect_kn_m,
         "reference_caliper_mm": reference_grade.reference_caliper_mm,
+        "caliper_basis": reference_grade.caliper_basis,
+        "ect_source_label": reference_grade.ect_source_label,
+        "ect_source_url": reference_grade.ect_source_url,
+        "caliper_source_label": reference_grade.caliper_source_label,
+        "caliper_source_url": reference_grade.caliper_source_url,
+        "source_accessed_date": reference_grade.source_accessed_date,
         "source_type": reference_grade.source_type,
         "source_label": reference_grade.source_label,
         "source_notes": reference_grade.source_notes,
-        "caliper_source_label": reference_grade.caliper_source_label,
+        "calculation_notes": reference_grade.calculation_notes,
     }
 
 
@@ -93,9 +99,12 @@ def _validate_reference_compatibility(data, construction, reference_grade):
         flute_1 = data.get("manual_flute_1") or ""
         flute_2 = data.get("manual_flute_2") or ""
         flute_family = f"{flute_1}{flute_2}" if wall_type == "DOUBLE_WALL" else flute_1
-    if wall_type and flute_family and (
-        reference_grade.wall_type != wall_type or reference_grade.flute_family != flute_family
-    ):
+    resolved = resolve_reference_flute_family(
+        wall_type=wall_type,
+        flute_1=flute_family[:1] if wall_type == "DOUBLE_WALL" else flute_family,
+        flute_2=flute_family[1:] if wall_type == "DOUBLE_WALL" else None,
+    )
+    if resolved is None or reference_grade.wall_type != wall_type or reference_grade.flute_family != resolved:
         raise ValueError("The selected reference ECT category does not match the selected flute family.")
 
 
@@ -220,10 +229,25 @@ def calculate_corrugated_material_strength(
         caliper_source_type=dimensions.caliper_source_type,
         caliper_source_label=dimensions.caliper_source_label,
         caliper_is_reference=dimensions.caliper_is_reference,
+        construction_source_type=construction_source_type,
+        construction_source_label=construction_source_label,
     )
-    if construction_ect is not None and construction_caliper is not None:
-        strength["ect_source_type"] = construction_source_type or strength["ect_source_type"]
-        strength["ect_source_label"] = construction_source_label or strength["ect_source_label"]
+
+    gross_box_weight_kg = material.gross_packed_box_weight_g / Decimal("1000") if material.gross_packed_box_weight_g is not None else None
+    current_boxes_above = None
+    if pallet.get("layers") is not None:
+        current_boxes_above = max(int(pallet["layers"]) - 1, 0)
+    capacity = calculate_compression_capacity(
+        available_bct_n=strength["available_bct_n"],
+        distribution_factor=strength["distribution_factor"],
+        gross_box_weight_kg=gross_box_weight_kg,
+        current_static_load_n=pallet.get("static_load_n"),
+        current_supported_mass_kg=pallet.get("supported_mass_kg"),
+        current_boxes_above=current_boxes_above,
+        basis=strength.get("capacity_basis"),
+        capacity_is_reference_based=strength.get("bct_is_reference_based", False),
+    )
+    strength["compression_capacity"] = capacity
 
     carbon = calculate_carbon(
         factor_kg_co2e_per_kg=co2_factor,
@@ -252,6 +276,7 @@ def calculate_corrugated_material_strength(
         )
     if pallet.get("static_load_n") is None:
         warnings.append("Pallet compression requirement cannot be calculated until external box dimensions are available.")
+    warnings.extend(item for item in capacity.get("warnings", []) if item not in warnings)
 
     assumptions = [
         "Preliminary geometry uses the entered internal dimensions directly and does not include converter-specific dimensional allowances.",
@@ -312,6 +337,13 @@ def calculate_corrugated_material_strength(
         "reference_ect_lb_in": getattr(reference_ect_grade, "ect_lb_in", None),
         "reference_ect_kn_m": getattr(reference_ect_grade, "ect_kn_m", None),
         "reference_ect_code": getattr(reference_ect_grade, "code", None),
+        "reference_grade_code": getattr(reference_ect_grade, "code", None),
+        "reference_flute_family": getattr(reference_ect_grade, "flute_family", None),
+        "reference_caliper_mm": getattr(reference_ect_grade, "reference_caliper_mm", None),
+        "reference_caliper_basis": getattr(reference_ect_grade, "caliper_basis", None),
+        "reference_source_label": getattr(reference_ect_grade, "ect_source_label", None),
+        "reference_source_url": getattr(reference_ect_grade, "ect_source_url", None),
+        "reference_data_used": bool(strength.get("bct_is_reference_based")),
         "blank_length_mm": geometry.blank_length_mm,
         "blank_width_mm": geometry.blank_width_mm,
         "blank_bounding_area_m2": geometry.blank_bounding_area_m2,
@@ -340,6 +372,27 @@ def calculate_corrugated_material_strength(
         "strength_source": strength["strength_source"],
         "strength_margin": strength["strength_margin"],
         "strength_status": strength["strength_status"],
+        "available_bct_source": strength.get("available_bct_source"),
+        "bct_is_reference_based": strength.get("bct_is_reference_based"),
+        "compression_capacity": capacity,
+        "allowable_supported_force_n": capacity.get("allowable_supported_force_n"),
+        "allowable_supported_mass_kg": capacity.get("allowable_supported_mass_kg"),
+        "maximum_equivalent_boxes_above": capacity.get("maximum_equivalent_boxes_above"),
+        "maximum_total_boxes_in_column": capacity.get("maximum_total_boxes_in_column"),
+        "current_boxes_above": capacity.get("current_boxes_above"),
+        "current_total_boxes_in_column": capacity.get("current_total_boxes_in_column"),
+        "current_equivalent_boxes_above": capacity.get("current_equivalent_boxes_above"),
+        "current_supported_force_n": capacity.get("current_supported_force_n"),
+        "remaining_supported_force_n": capacity.get("remaining_supported_force_n"),
+        "remaining_supported_mass_kg": capacity.get("remaining_supported_mass_kg"),
+        "remaining_equivalent_boxes": capacity.get("remaining_equivalent_boxes"),
+        "capacity_usage_percent": capacity.get("capacity_usage_percent"),
+        "is_overloaded": capacity.get("is_overloaded"),
+        "overload_force_n": capacity.get("overload_force_n"),
+        "overload_mass_kg": capacity.get("overload_mass_kg"),
+        "overload_equivalent_boxes": capacity.get("overload_equivalent_boxes"),
+        "capacity_basis": capacity.get("capacity_basis"),
+        "capacity_is_reference_based": capacity.get("capacity_is_reference_based"),
         "finished_box_co2_kg": carbon.get("finished_box_co2_kg"),
         "cutting_scrap_co2_kg": carbon.get("cutting_scrap_co2_kg"),
         "required_sheet_co2_kg": carbon.get("required_sheet_co2_kg"),

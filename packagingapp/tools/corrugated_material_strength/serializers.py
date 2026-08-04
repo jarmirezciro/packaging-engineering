@@ -18,6 +18,20 @@ INPUT_KEYS = (
     "custom_co2_boundary",
 )
 
+RESULT_KEYS = (
+    "reference_grade_code", "reference_flute_family", "reference_ect_lb_in",
+    "reference_ect_kn_m", "reference_caliper_mm", "reference_caliper_basis",
+    "reference_source_label", "reference_source_url", "reference_data_used",
+    "allowable_supported_force_n", "allowable_supported_mass_kg",
+    "maximum_equivalent_boxes_above", "maximum_total_boxes_in_column",
+    "current_boxes_above", "current_total_boxes_in_column",
+    "current_equivalent_boxes_above", "remaining_supported_force_n",
+    "remaining_supported_mass_kg", "remaining_equivalent_boxes",
+    "capacity_usage_percent", "is_overloaded", "overload_force_n",
+    "overload_mass_kg", "overload_equivalent_boxes", "capacity_basis",
+    "capacity_is_reference_based",
+)
+
 
 def json_safe(value):
     if isinstance(value, Decimal):

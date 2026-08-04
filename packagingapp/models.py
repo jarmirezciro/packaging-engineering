@@ -7,7 +7,10 @@ import uuid
 from .tools.corrugated_material_strength.constants import (
     CO2_FACTOR_BASES,
     CO2_SOURCE_TYPES,
+    CALIPER_BASIS_CHOICES,
+    ECT_LB_IN_TO_KN_M,
     FLUTE_CHOICES,
+    REFERENCE_FLUTE_FAMILY_CHOICES,
     PAPER_TYPES,
     SOURCE_TYPES,
     WALL_DOUBLE,
@@ -214,10 +217,9 @@ class CorrugatedECTReferenceGrade(models.Model):
         ("MANUFACTURER_EXAMPLE", "Manufacturer example"),
         ("ADMIN_ENTERED", "Admin entered"),
     )
-    FLUTE_FAMILY_CHOICES = (
-        ("A", "A"), ("B", "B"), ("C", "C"), ("E", "E"),
-        ("EB", "EB"), ("BC", "BC"),
-    )
+    FLUTE_FAMILY_CHOICES = REFERENCE_FLUTE_FAMILY_CHOICES
+    REFERENCE_FLUTE_FAMILY_CHOICES = FLUTE_FAMILY_CHOICES
+    CALIPER_BASIS_CHOICES = CALIPER_BASIS_CHOICES
 
     code = models.CharField(max_length=64, unique=True)
     flute_family = models.CharField(max_length=2, choices=FLUTE_FAMILY_CHOICES)
@@ -226,12 +228,21 @@ class CorrugatedECTReferenceGrade(models.Model):
         choices=((WALL_SINGLE, "Single wall"), (WALL_DOUBLE, "Double wall")),
     )
     ect_lb_in = models.DecimalField(max_digits=8, decimal_places=3)
-    ect_kn_m = models.DecimalField(max_digits=12, decimal_places=9)
-    reference_caliper_mm = models.DecimalField(max_digits=8, decimal_places=3, blank=True, null=True)
-    source_type = models.CharField(max_length=32, choices=SOURCE_TYPE_CHOICES)
-    source_label = models.CharField(max_length=255)
+    ect_kn_m = models.DecimalField(max_digits=12, decimal_places=9, editable=False)
+    reference_caliper_mm = models.DecimalField(max_digits=8, decimal_places=3)
+    caliper_basis = models.CharField(max_length=40, choices=CALIPER_BASIS_CHOICES)
+    ect_source_label = models.CharField(max_length=255)
+    ect_source_url = models.URLField(max_length=500)
+    caliper_source_url = models.URLField(max_length=500)
+    source_accessed_date = models.DateField(blank=True, null=True)
+    calculation_notes = models.TextField(blank=True)
+
+    # Legacy source columns remain for compatibility with the original Luna
+    # migration and are kept synchronized by the seed/admin workflow.
+    source_type = models.CharField(max_length=32, choices=SOURCE_TYPE_CHOICES, blank=True, default="INDUSTRY_REFERENCE")
+    source_label = models.CharField(max_length=255, blank=True, default="")
     source_notes = models.TextField(blank=True)
-    caliper_source_label = models.CharField(max_length=255, blank=True)
+    caliper_source_label = models.CharField(max_length=255)
     caliper_source_notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
@@ -251,7 +262,7 @@ class CorrugatedECTReferenceGrade(models.Model):
 
     @property
     def calculated_ect_kn_m(self):
-        return self.ect_lb_in * Decimal("0.175126835")
+        return self.ect_lb_in * ECT_LB_IN_TO_KN_M
 
     def clean(self):
         errors = {}
@@ -260,12 +271,20 @@ class CorrugatedECTReferenceGrade(models.Model):
         if self.ect_lb_in is not None and self.ect_kn_m is not None:
             if abs(self.ect_kn_m - self.calculated_ect_kn_m) > Decimal("0.000000001"):
                 errors["ect_kn_m"] = "Metric ECT must match the calculated imperial conversion."
-        if self.reference_caliper_mm is not None and self.reference_caliper_mm <= 0:
+        if self.reference_caliper_mm is None:
+            errors["reference_caliper_mm"] = "Reference caliper is required for every reference grade."
+        elif self.reference_caliper_mm <= 0:
             errors["reference_caliper_mm"] = "Reference caliper must be greater than zero."
-        if not self.source_label:
-            errors["source_label"] = "Source label is required."
-        if self.flute_family in {"A", "B", "C", "E"} and self.wall_type != WALL_SINGLE:
-            errors["wall_type"] = "A, B, C and E reference grades must be single wall."
+        if not self.ect_source_label:
+            errors["ect_source_label"] = "ECT source label is required."
+        if not self.ect_source_url:
+            errors["ect_source_url"] = "ECT source URL is required."
+        if not self.caliper_source_label:
+            errors["caliper_source_label"] = "Caliper source label is required."
+        if not self.caliper_source_url:
+            errors["caliper_source_url"] = "Caliper source URL is required."
+        if self.flute_family in {"A", "B", "C", "E", "F", "N"} and self.wall_type != WALL_SINGLE:
+            errors["wall_type"] = "A, B, C, E, F and N reference grades must be single wall."
         if self.flute_family in {"EB", "BC"} and self.wall_type != WALL_DOUBLE:
             errors["wall_type"] = "EB and BC reference grades must be double wall."
         if errors:

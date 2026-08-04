@@ -11,8 +11,15 @@
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Required BCT" value=result.required_bct_n unit="N" %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Predicted / measured BCT" value=result.available_bct_n unit="N" %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Strength margin" value=result.strength_margin unit="" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Maximum supported mass above bottom box" value=result.allowable_supported_mass_kg unit="kg" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Equivalent identical packed boxes above" value=result.maximum_equivalent_boxes_above unit="boxes" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Maximum total boxes in one vertical column" value=result.maximum_total_boxes_in_column unit="boxes" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Current boxes above bottom box" value=result.current_boxes_above unit="boxes" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Compression-capacity usage" value=result.capacity_usage_percent unit="%" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Remaining supported mass" value=result.remaining_supported_mass_kg unit="kg" %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Required-sheet CO₂" value=result.required_sheet_co2_kg unit="kg CO₂e" %}
     </div>
+    <p class="corrugated-note">Practical compression values are preliminary engineering screening outputs for one vertical load column. They are not a recommended physical stack height.</p>
     {% include "corrugated_material_strength/partials/_fefco_0201_preview.html" %}
     <div class="row g-3 mt-1"><div class="col-lg-6">{% include "corrugated_material_strength/partials/_material_results.html" %}</div><div class="col-lg-6">{% include "corrugated_material_strength/partials/_pallet_results.html" %}</div><div class="col-lg-6">{% include "corrugated_material_strength/partials/_strength_results.html" %}</div><div class="col-lg-6">{% include "corrugated_material_strength/partials/_carbon_results.html" %}</div></div>
     {% include "corrugated_material_strength/partials/_calculation_explanation.html" %}

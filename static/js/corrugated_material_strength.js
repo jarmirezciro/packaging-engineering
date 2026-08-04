@@ -83,7 +83,7 @@
             if (!selected || !compatible) {
                 info.textContent = family ? "Select a reference category compatible with " + family + "." : "Select a board construction or manual flute to filter categories.";
             } else {
-                info.textContent = selected.flute_family + " · " + selected.ect_lb_in + " ECT · " + Number(selected.ect_kn_m).toFixed(3) + " kN/m · " + (selected.reference_caliper_mm === null ? "caliper not included" : "reference caliper " + selected.reference_caliper_mm + " mm");
+                info.textContent = selected.flute_family + " · " + selected.ect_lb_in + " ECT · " + Number(selected.ect_kn_m).toFixed(3) + " kN/m · reference caliper " + selected.reference_caliper_mm + " mm · " + (selected.caliper_basis || "reference value");
             }
         }
     }

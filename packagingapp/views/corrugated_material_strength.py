@@ -46,10 +46,7 @@ def _pallet_option(material):
 
 
 def _reference_grade_option(grade):
-    caliper = (
-        f"reference caliper {grade.reference_caliper_mm:g} mm"
-        if grade.reference_caliper_mm is not None else "caliper not included"
-    )
+    caliper = f"reference caliper {grade.reference_caliper_mm:g} mm"
     wall = "double wall" if grade.wall_type == "DOUBLE_WALL" else "flute"
     return str(grade.pk), f"{grade.flute_family} {wall} - {grade.ect_lb_in:g} ECT - {grade.ect_kn_m:.3f} kN/m - {caliper}"
 
@@ -91,10 +88,16 @@ def _reference_grade_metadata(grade):
         "ect_lb_in": grade.ect_lb_in,
         "ect_kn_m": grade.ect_kn_m,
         "reference_caliper_mm": grade.reference_caliper_mm,
+        "caliper_basis": grade.caliper_basis,
+        "ect_source_label": grade.ect_source_label,
+        "ect_source_url": grade.ect_source_url,
+        "caliper_source_label": grade.caliper_source_label,
+        "caliper_source_url": grade.caliper_source_url,
+        "source_accessed_date": grade.source_accessed_date,
         "source_type": grade.source_type,
         "source_label": grade.source_label,
         "source_notes": grade.source_notes,
-        "caliper_source_label": grade.caliper_source_label,
+        "calculation_notes": grade.calculation_notes,
     }
 
 
