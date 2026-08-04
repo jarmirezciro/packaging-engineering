@@ -71,5 +71,6 @@
 {% block extra_js %}
 {{ board_metadata_json|json_script:"corrugated-board-metadata" }}
 {{ pallet_metadata_json|json_script:"corrugated-pallet-metadata" }}
+{{ reference_grade_metadata_json|json_script:"corrugated-reference-grade-metadata" }}
 <script src="{% static 'js/corrugated_material_strength.js' %}"></script>
 {% endblock %}

@@ -791,6 +791,59 @@ class CorrugatedMaterialStrengthForm(forms.Form):
     custom_co2_source = forms.CharField(label="Custom CO₂ source label", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
     custom_co2_boundary = forms.CharField(label="Custom CO₂ boundary", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
 
+    reference_ect_grade_id = forms.ChoiceField(
+        label="Reference ECT category",
+        required=False,
+        choices=(("", "\u2014 Select reference ECT category \u2014"),),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    def __init__(self, *args, reference_grades=None, board_constructions=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.reference_grades = {
+            str(getattr(item, "pk", getattr(item, "id", ""))): item
+            for item in (reference_grades or [])
+        }
+        if reference_grades is not None:
+            self.fields["reference_ect_grade_id"].choices = [
+                ("", "\u2014 Select reference ECT category \u2014"),
+                *[(str(item.pk), self._reference_grade_label(item)) for item in reference_grades],
+            ]
+        self.board_constructions = {
+            str(getattr(item, "pk", getattr(item, "id", ""))): item
+            for item in (board_constructions or [])
+        }
+
+    @staticmethod
+    def _reference_grade_label(grade):
+        caliper = getattr(grade, "reference_caliper_mm", None)
+        caliper_text = f"reference caliper {caliper:g} mm" if caliper is not None else "caliper not included"
+        wall_text = "double wall" if grade.wall_type == WALL_DOUBLE else "flute"
+        return f"{grade.flute_family} {wall_text} - {grade.ect_lb_in:g} ECT - {grade.ect_kn_m:.3f} kN/m - {caliper_text}"
+
+    def _selected_flute_family(self, cleaned):
+        if cleaned.get("board_mode") == "catalogue":
+            construction = self.board_constructions.get(str(cleaned.get("board_construction_id")))
+            if construction is not None:
+                return construction.wall_type, construction.flute_display
+            return None, None
+        wall_type = cleaned.get("manual_wall_type")
+        flute_1 = cleaned.get("manual_flute_1") or ""
+        flute_2 = cleaned.get("manual_flute_2") or ""
+        return wall_type, f"{flute_1}{flute_2}" if wall_type == WALL_DOUBLE else flute_1
+
+    def _validate_reference_grade_compatibility(self, cleaned):
+        grade_id = cleaned.get("reference_ect_grade_id")
+        if not grade_id or not self.reference_grades:
+            return
+        grade = self.reference_grades.get(str(grade_id))
+        if grade is None or not getattr(grade, "is_active", True):
+            self.add_error("reference_ect_grade_id", "Select an active reference ECT category.")
+            return
+        wall_type, flute_family = self._selected_flute_family(cleaned)
+        if wall_type and flute_family and (grade.wall_type != wall_type or grade.flute_family != flute_family):
+            self.add_error("reference_ect_grade_id", "The selected reference ECT category does not match the selected flute family.")
+
     def clean(self):
         cleaned = super().clean()
         action = cleaned.get("action") or "run_analysis"
@@ -808,6 +861,8 @@ class CorrugatedMaterialStrengthForm(forms.Form):
                 self.add_error("manual_flute_1", "Select flute 1.")
             if cleaned.get("manual_wall_type") == WALL_DOUBLE and not cleaned.get("manual_flute_2"):
                 self.add_error("manual_flute_2", "Select flute 2 for a double-wall entry.")
+
+        self._validate_reference_grade_compatibility(cleaned)
 
         ect = cleaned.get("ect_override_kn_m")
         caliper = cleaned.get("caliper_override_mm")
@@ -829,13 +884,4 @@ class CorrugatedMaterialStrengthForm(forms.Form):
         if pallet_height is not None and max_height is not None and max_height <= pallet_height:
             self.add_error("max_palletized_height_mm", "The maximum palletized height must exceed pallet height.")
 
-        if not self.errors:
-            box_l, box_w = cleaned.get("box_length_mm"), cleaned.get("box_width_mm")
-            pallet_l, pallet_w = cleaned.get("pallet_length_mm"), cleaned.get("pallet_width_mm")
-            if all(value is not None for value in (box_l, box_w, pallet_l, pallet_w)):
-                if int(pallet_l // box_l) * int(pallet_w // box_w) < 1 and int(pallet_l // box_w) * int(pallet_w // box_l) < 1:
-                    self.add_error(None, "The box footprint does not fit on the selected pallet.")
-            if all(value is not None for value in (max_height, pallet_height, cleaned.get("box_height_mm"))):
-                if int((max_height - pallet_height) // cleaned["box_height_mm"]) < 1:
-                    self.add_error(None, "The maximum palletized height does not allow one complete box layer.")
         return cleaned

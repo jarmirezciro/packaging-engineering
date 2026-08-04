@@ -100,6 +100,84 @@ The seeded records are:
 
 All research-derived seeds intentionally have null ECT, null actual caliper and null measured BCT. The tool does not infer ECT from grammage or caliper from nominal flute height. If a generic record lacks strength data, geometry, material and CO₂ results remain available while the strength panel states that ECT and actual finished-board caliper must be entered or a material containing strength data selected.
 
+## External dimensions and pallet basis
+
+The entered length, width and height are internal dimensions. They remain the
+product-fit definition and the basis for the existing preliminary FEFCO 0201
+blank/effective-area formulas. A separate resolver calculates estimated
+external dimensions only when an effective finished-board caliper is available:
+
+```text
+L_external = L_internal + 2 x caliper
+W_external = W_internal + 2 x caliper
+H_external = H_internal + 2 x caliper
+```
+
+The method code is `CALIPER_TWO_SIDES_ESTIMATE`. The caliper priority is
+one-time actual override, construction caliper with its source metadata, then
+reference-grade target caliper. Nominal flute height is never used as finished
+board caliper. Without caliper, the tool returns material, geometry and CO2
+results but marks external dimensions and palletization unavailable; it never
+silently falls back to internal dimensions.
+
+The architecture boundary is:
+
+```text
+Internal dimensions
+        |
+        +-- FEFCO geometry and material
+        |
+Effective caliper resolver
+        |
+        +-- External dimensions
+                    |
+                    +-- Pallet calculation
+```
+
+Pallet footprint, boxes per layer, layer count, palletized height and boxes per
+pallet use the resolved external dimensions. The existing standalone
+Palletization engine is not modified.
+
+## Reference ECT grades
+
+`CorrugatedECTReferenceGrade` is a separate Admin-managed table. It contains
+28 seeded screening categories across A, B, C, E, EB and BC flute families.
+The metric value is calculated from the stored imperial category using:
+
+```text
+ECT_kN/m = ECT_lb/in x 0.175126835
+```
+
+Reference ECT is not a measured result for a selected paper construction. The
+calculator filters active grades by flute family in the browser and validates
+the family and wall type again on the server. Supplier/measured and one-time
+values remain higher priority than a reference grade. Reference caliper is
+only populated where the task provides a defensible target; E-flute, EB and
+BC 61 ECT records intentionally remain without target caliper.
+
+Strength data priority is:
+
+```text
+Measured BCT override
+      |
+      +-- Highest priority
+Construction ECT + caliper
+      |
+Reference ECT grade + effective caliper
+      |
+      +-- Screening fallback
+```
+
+When reference ECT or caliper contributes to McKee, the result is labelled as
+an illustrative screening estimate. The current McKee perimeter intentionally
+preserves the existing internal-dimension convention:
+
+```text
+perimeter_cm = 2 x (L_internal + W_internal) / 10
+```
+
+A future methodology review may revisit that convention.
+
 ## FEFCO 0201 geometry
 
 Version 1 uses entered internal dimensions directly and does not apply converter-specific dimensional allowances or board-thickness allowances.
@@ -119,6 +197,10 @@ Utilization        = effective area / sheet area × 100
 The corrected effective-area formula includes both complete flap sets. Slot-cut width is treated as negligible. The SVG is generated on the server from these geometry results and shows the sheet boundary, blank boundary, four body panels, eight flaps, joint, fold lines, cut lines and margin/scrap areas. Browser JavaScript only toggles visibility and hydrates metadata; it does not recalculate dimensions.
 
 ## Pallet calculation
+
+The corrugated adapter supplies external length, width and height to the
+calculation and records `dimension_basis = EXTERNAL` in the result. It does
+not modify the existing standalone Palletization engine.
 
 The dedicated adapter reuses existing pallet catalogue records and does not modify the existing Palletization engine. It evaluates both orthogonal footprint orientations, selects the larger count, and uses `L along pallet length` as the deterministic tie result. Layers are based on `maximum palletized height − pallet height`; reported palletized height includes the pallet.
 
@@ -149,7 +231,13 @@ perimeter_cm = 2 × (L + W) / 10
 BCT_N = BCT_kgf × 9.80665
 ```
 
-Inputs are ECT in kN/m, actual finished-board caliper in mm, and perimeter in cm. The strength priority is measured BCT override, catalogue measured BCT, paired one-time ECT/caliper overrides, catalogue ECT/caliper, then unavailable. A single override is never combined with a catalogue value.
+Inputs are ECT in kN/m, actual or reference finished-board caliper in mm, and
+the existing internal-dimension perimeter in cm. The priority is measured BCT
+override, construction measured BCT, a complete one-time ECT/caliper pair, a
+complete construction ECT/caliper pair, then a selected reference ECT grade
+with an effective caliper. A single override is never combined with a
+catalogue value. Reference-based McKee results carry a warning and are not
+called measured, supplier documented, verified, certified or guaranteed.
 
 ## CO₂ screening
 
@@ -157,11 +245,16 @@ Seed records use the supplied generic 0.491 kg CO₂e/kg screening factor with t
 
 Results are labelled `Material-based CO₂ screening estimate`. No process waste, startup loss, printing rejects, supplier price or cost is included.
 
+The shared result contract exposes JSON-safe internal/external dimensions and
+reference-grade metadata for a future Packaging Flow adapter. Packaging Flow is
+not implemented in this refinement.
+
 ## Known limitations and future extensions
 
 - FEFCO 0201 geometry is preliminary and does not model slots, converter allowances, board thickness or production-sheet nesting.
 - The SVG is a clean orthogonal preview, not a die-line approval drawing.
-- Generic ECT and actual caliper remain unavailable by policy.
+- The nine generic board-construction seeds retain null ECT, null actual caliper and null measured BCT; reference ECT grades remain separate.
+- Reference-caliper gaps are intentional for E-flute, EB and BC 61 ECT; supplier or measured caliper is required for those cases.
 - McKee is a screening estimate and does not model humidity, creep, vibration, edge damage or distribution-test effects.
 - Pallet loading is orthogonal and does not reduce compression capacity for interlock.
 - PDF export uses a small ReportLab vector equivalent of the browser preview rather than embedding the browser SVG directly.

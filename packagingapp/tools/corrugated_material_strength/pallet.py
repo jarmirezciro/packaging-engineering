@@ -23,6 +23,26 @@ class PalletInput:
     pattern: str = "COLUMN_ALIGNED"
 
 
+def unavailable_pallet_result(reason):
+    """Return a structured partial-result state without an internal fallback."""
+    return {
+        "available": False,
+        "status": "External dimensions unavailable",
+        "reason": reason,
+        "dimension_basis": "EXTERNAL",
+        "box_length_used_mm": None,
+        "box_width_used_mm": None,
+        "box_height_used_mm": None,
+        "boxes_per_layer": None,
+        "layers": None,
+        "boxes_per_pallet": None,
+        "palletized_height_mm": None,
+        "supported_mass_kg": None,
+        "static_load_n": None,
+        "warnings": [],
+    }
+
+
 def calculate_pallet(inputs: PalletInput):
     values = (
         inputs.pallet_length_mm,
@@ -91,6 +111,12 @@ def calculate_pallet(inputs: PalletInput):
         )
 
     return {
+        "available": True,
+        "status": "Available",
+        "dimension_basis": "EXTERNAL",
+        "box_length_used_mm": inputs.box_length_mm,
+        "box_width_used_mm": inputs.box_width_mm,
+        "box_height_used_mm": inputs.box_height_mm,
         "pallet_length_mm": inputs.pallet_length_mm,
         "pallet_width_mm": inputs.pallet_width_mm,
         "pallet_height_mm": inputs.pallet_height_mm,

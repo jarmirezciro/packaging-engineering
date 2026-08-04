@@ -1,0 +1,18 @@
+<div class="app-card mb-3">
+    <div class="app-card-body">
+        <h3 class="corrugated-section-title">Estimated external dimensions</h3>
+        <dl class="row small mb-0">
+            <dt class="col-6">Entered internal dimensions</dt>
+            <dd class="col-6">{{ result.internal_length_mm|floatformat:2 }} × {{ result.internal_width_mm|floatformat:2 }} × {{ result.internal_height_mm|floatformat:2 }} mm</dd>
+            <dt class="col-6">Estimated external dimensions</dt>
+            <dd class="col-6">{% if result.external_dimensions_available %}{{ result.external_length_mm|floatformat:2 }} × {{ result.external_width_mm|floatformat:2 }} × {{ result.external_height_mm|floatformat:2 }} mm{% else %}External dimensions unavailable{% endif %}</dd>
+            <dt class="col-6">Caliper used</dt>
+            <dd class="col-6">{% if result.caliper_used_mm is not None %}{{ result.caliper_used_mm|floatformat:2 }} mm{% else %}Unavailable{% endif %}</dd>
+            <dt class="col-6">Caliper basis</dt>
+            <dd class="col-6">{{ result.caliper_source_label|default:"Unavailable" }}</dd>
+            <dt class="col-6">Method</dt>
+            <dd class="col-6">{% if result.external_dimensions_available %}Internal dimensions + 2 × finished-board caliper{% else %}Unavailable{% endif %}</dd>
+        </dl>
+        {% if result.dimensions.warning %}<p class="corrugated-note mt-3 mb-0">{{ result.dimensions.warning }}</p>{% endif %}
+    </div>
+</div>

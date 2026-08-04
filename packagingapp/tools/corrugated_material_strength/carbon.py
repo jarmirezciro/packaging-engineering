@@ -20,12 +20,13 @@ def calculate_carbon(
     finished = Decimal(str(finished_box_weight_g)) / Decimal("1000") * factor
     scrap = Decimal(str(cutting_scrap_weight_g)) / Decimal("1000") * factor
     sheet = Decimal(str(production_sheet_weight_g)) / Decimal("1000") * factor
+    pallet_co2 = None if boxes_per_pallet is None else sheet * Decimal(str(boxes_per_pallet))
     return {
         "available": True, "factor_kg_co2e_per_kg": factor,
         "source_label": source_label, "boundary": boundary,
         "finished_box_co2_kg": finished, "cutting_scrap_co2_kg": scrap,
         "required_sheet_co2_kg": sheet,
-        "pallet_co2_kg": sheet * Decimal(str(boxes_per_pallet)),
+        "pallet_co2_kg": pallet_co2,
         "quantity_co2_kg": sheet * Decimal(str(quantity)),
         "label": "Material-based CO₂ screening estimate",
         "note": (

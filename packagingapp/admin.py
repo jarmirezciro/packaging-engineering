@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     CorrugatedBoardConstruction,
+    CorrugatedECTReferenceGrade,
     PackagingCatalogue,
     PackagingMaterial,
     ProductCatalogue,
@@ -73,3 +74,21 @@ class CorrugatedBoardConstructionAdmin(admin.ModelAdmin):
     @admin.display(description="Flute")
     def flute_display(self, obj):
         return obj.flute_display
+
+
+@admin.register(CorrugatedECTReferenceGrade)
+class CorrugatedECTReferenceGradeAdmin(admin.ModelAdmin):
+    list_display = (
+        "code", "flute_family", "wall_type", "ect_lb_in", "ect_kn_m",
+        "reference_caliper_mm", "source_type", "is_active", "sort_order", "updated_at",
+    )
+    list_filter = ("is_active", "wall_type", "flute_family", "source_type")
+    search_fields = ("code", "source_label", "source_notes", "caliper_source_label")
+    readonly_fields = ("ect_kn_m", "created_at", "updated_at")
+    fieldsets = (
+        ("Grade identity", {"fields": ("code", "flute_family", "wall_type")} ),
+        ("ECT reference", {"fields": ("ect_lb_in", "ect_kn_m")} ),
+        ("Reference caliper", {"fields": ("reference_caliper_mm", "caliper_source_label", "caliper_source_notes")} ),
+        ("Sources and limitations", {"fields": ("source_type", "source_label", "source_notes")} ),
+        ("Status and ordering", {"fields": ("is_active", "sort_order", "created_at", "updated_at")} ),
+    )

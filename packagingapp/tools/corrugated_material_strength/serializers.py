@@ -11,6 +11,7 @@ INPUT_KEYS = (
     "pallet_height_mm", "pallet_weight_kg", "max_palletized_height_mm",
     "pattern", "stacked_pallets", "board_mode", "board_construction_id",
     "manual_wall_type", "manual_flute_1", "manual_flute_2",
+    "reference_ect_grade_id",
     "manual_combined_grammage_g_m2", "ect_override_kn_m", "caliper_override_mm",
     "measured_bct_override_n", "distribution_profile", "distribution_factor",
     "co2_mode", "custom_co2_factor_kg_per_kg", "custom_co2_source",

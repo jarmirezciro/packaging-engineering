@@ -2,12 +2,13 @@ from decimal import Decimal
 
 from .carbon import calculate_carbon
 from .constants import DEFAULTS
+from .dimensions import BoxDimensionInput, calculate_external_dimensions
 from .flute_profiles import nominal_height_for
 from .geometry import BoxGeometryInput, Fefco0201GeometryProvider
 from .material import calculate_material
-from .pallet import PalletInput, calculate_pallet
+from .pallet import PalletInput, calculate_pallet, unavailable_pallet_result
 from .serializers import serialize_corrugated_result
-from .strength import calculate_strength, distribution_factor
+from .strength import calculate_strength
 
 
 def _decimal(value, default=None):
@@ -45,9 +46,65 @@ def _construction_metadata(construction):
     }
 
 
-def calculate_corrugated_material_strength(inputs, *, construction=None, pallet_material=None):
+def _reference_grade_metadata(reference_grade):
+    if reference_grade is None:
+        return None
+    return {
+        "id": getattr(reference_grade, "pk", getattr(reference_grade, "id", None)),
+        "code": reference_grade.code,
+        "flute_family": reference_grade.flute_family,
+        "wall_type": reference_grade.wall_type,
+        "ect_lb_in": reference_grade.ect_lb_in,
+        "ect_kn_m": reference_grade.ect_kn_m,
+        "reference_caliper_mm": reference_grade.reference_caliper_mm,
+        "source_type": reference_grade.source_type,
+        "source_label": reference_grade.source_label,
+        "source_notes": reference_grade.source_notes,
+        "caliper_source_label": reference_grade.caliper_source_label,
+    }
+
+
+def _resolve_effective_caliper(data, construction, reference_grade):
+    override = _decimal(data.get("caliper_override_mm"))
+    if override is not None:
+        return override, "ONE_TIME_ACTUAL", "One-time actual caliper override", False
+    construction_caliper = getattr(construction, "caliper_mm", None)
+    if construction_caliper is not None:
+        return (
+            construction_caliper,
+            getattr(construction, "source_type", None) or "CONSTRUCTION",
+            getattr(construction, "source_label", None) or "Board-construction caliper",
+            False,
+        )
+    reference_caliper = getattr(reference_grade, "reference_caliper_mm", None)
+    if reference_caliper is not None:
+        return reference_caliper, "REFERENCE_TARGET", "Reference target caliper", True
+    return None, None, None, False
+
+
+def _validate_reference_compatibility(data, construction, reference_grade):
+    if reference_grade is None:
+        return
+    if construction is not None:
+        wall_type = construction.wall_type
+        flute_family = construction.flute_display
+    else:
+        wall_type = data.get("manual_wall_type")
+        flute_1 = data.get("manual_flute_1") or ""
+        flute_2 = data.get("manual_flute_2") or ""
+        flute_family = f"{flute_1}{flute_2}" if wall_type == "DOUBLE_WALL" else flute_1
+    if wall_type and flute_family and (
+        reference_grade.wall_type != wall_type or reference_grade.flute_family != flute_family
+    ):
+        raise ValueError("The selected reference ECT category does not match the selected flute family.")
+
+
+def calculate_corrugated_material_strength(
+    inputs, *, construction=None, pallet_material=None, reference_ect_grade=None
+):
     """Calculate one JSON-safe standalone or future workflow-safe analysis."""
     data = dict(inputs or {})
+    _validate_reference_compatibility(data, construction, reference_ect_grade)
     box_length = _decimal(data.get("box_length_mm"), DEFAULTS["box_length_mm"])
     box_width = _decimal(data.get("box_width_mm"), DEFAULTS["box_width_mm"])
     box_height = _decimal(data.get("box_height_mm"), DEFAULTS["box_height_mm"])
@@ -71,6 +128,7 @@ def calculate_corrugated_material_strength(inputs, *, construction=None, pallet_
         manual_flute_2 = data.get("manual_flute_2") or None
         nominal_height = nominal_height_for(manual_flute_1, manual_flute_2)
         construction_ect = construction_caliper = construction_bct = None
+        construction_source_type = construction_source_label = None
         is_custom_co2 = str(data.get("co2_mode") or "").upper() == "CUSTOM"
         co2_factor = _decimal(data.get("custom_co2_factor_kg_per_kg")) if is_custom_co2 else None
         co2_source = data.get("custom_co2_source") or "Manual one-time factor"
@@ -81,6 +139,8 @@ def calculate_corrugated_material_strength(inputs, *, construction=None, pallet_
         construction_ect = construction.ect_kn_m
         construction_caliper = construction.caliper_mm
         construction_bct = construction.measured_bct_n
+        construction_source_type = construction.source_type
+        construction_source_label = construction.source_label
         is_custom_co2 = str(data.get("co2_mode") or "CONSTRUCTION").upper() == "CUSTOM"
         if is_custom_co2:
             co2_factor = _decimal(data.get("custom_co2_factor_kg_per_kg"))
@@ -92,20 +152,52 @@ def calculate_corrugated_material_strength(inputs, *, construction=None, pallet_
             co2_boundary = construction.co2_boundary
 
     material = calculate_material(geometry, grammage, product_weight)
+    caliper, caliper_source_type, caliper_source_label, caliper_is_reference = _resolve_effective_caliper(
+        data, construction, reference_ect_grade
+    )
+    dimensions = calculate_external_dimensions(BoxDimensionInput(
+        internal_length_mm=box_length,
+        internal_width_mm=box_width,
+        internal_height_mm=box_height,
+        caliper_mm=caliper,
+        caliper_source_type=caliper_source_type,
+        caliper_source_label=caliper_source_label,
+        caliper_is_reference=caliper_is_reference,
+    ))
+
     pallet_weight = _decimal(data.get("pallet_weight_kg"), DEFAULTS["pallet_weight_kg"])
     if pallet_weight < 0:
         raise ValueError("Pallet weight cannot be negative.")
-    pallet = calculate_pallet(PalletInput(
-        pallet_length_mm=_decimal(data.get("pallet_length_mm"), DEFAULTS["pallet_length_mm"]),
-        pallet_width_mm=_decimal(data.get("pallet_width_mm"), DEFAULTS["pallet_width_mm"]),
-        pallet_height_mm=_decimal(data.get("pallet_height_mm"), DEFAULTS["pallet_height_mm"]),
-        pallet_weight_kg=pallet_weight,
-        max_palletized_height_mm=_decimal(data.get("max_palletized_height_mm"), DEFAULTS["max_palletized_height_mm"]),
-        box_length_mm=box_length, box_width_mm=box_width, box_height_mm=box_height,
-        gross_packed_box_weight_g=material.gross_packed_box_weight_g,
-        stacked_pallets=int(data.get("stacked_pallets") or DEFAULTS["stacked_pallets"]),
-        pattern=data.get("pattern") or DEFAULTS["pattern"],
-    ))
+    pallet_kwargs = {
+        "pallet_length_mm": _decimal(data.get("pallet_length_mm"), DEFAULTS["pallet_length_mm"]),
+        "pallet_width_mm": _decimal(data.get("pallet_width_mm"), DEFAULTS["pallet_width_mm"]),
+        "pallet_height_mm": _decimal(data.get("pallet_height_mm"), DEFAULTS["pallet_height_mm"]),
+        "pallet_weight_kg": pallet_weight,
+        "max_palletized_height_mm": _decimal(data.get("max_palletized_height_mm"), DEFAULTS["max_palletized_height_mm"]),
+        "gross_packed_box_weight_g": material.gross_packed_box_weight_g,
+        "stacked_pallets": int(data.get("stacked_pallets") or DEFAULTS["stacked_pallets"]),
+        "pattern": data.get("pattern") or DEFAULTS["pattern"],
+    }
+    if dimensions.external_dimensions_available:
+        pallet = calculate_pallet(PalletInput(
+            **pallet_kwargs,
+            box_length_mm=dimensions.external_length_mm,
+            box_width_mm=dimensions.external_width_mm,
+            box_height_mm=dimensions.external_height_mm,
+        ))
+    else:
+        pallet = unavailable_pallet_result(
+            "Palletization requires external box dimensions. Enter actual caliper or select a reference grade containing caliper."
+        )
+        pallet.update({
+            "pallet_length_mm": pallet_kwargs["pallet_length_mm"],
+            "pallet_width_mm": pallet_kwargs["pallet_width_mm"],
+            "pallet_height_mm": pallet_kwargs["pallet_height_mm"],
+            "pallet_weight_kg": pallet_weight,
+            "max_palletized_height_mm": pallet_kwargs["max_palletized_height_mm"],
+            "pattern": pallet_kwargs["pattern"],
+            "stacked_pallets": pallet_kwargs["stacked_pallets"],
+        })
     pallet["source"] = "Existing pallet catalogue" if pallet_material is not None else "Manual dimensions"
     pallet["code"] = getattr(pallet_material, "part_number", "") if pallet_material is not None else "MANUAL"
     pallet["name"] = getattr(pallet_material, "part_description", "") if pallet_material is not None else "Manual pallet"
@@ -114,7 +206,7 @@ def calculate_corrugated_material_strength(inputs, *, construction=None, pallet_
     custom_factor = _decimal(data.get("distribution_factor"))
     strength = calculate_strength(
         box_length_mm=box_length, box_width_mm=box_width,
-        required_bct_n=pallet["static_load_n"],
+        required_bct_n=pallet.get("static_load_n"),
         distribution_profile=profile,
         custom_distribution_factor=custom_factor if str(profile).upper() == "CUSTOM" else None,
         construction_ect_kn_m=construction_ect,
@@ -123,7 +215,15 @@ def calculate_corrugated_material_strength(inputs, *, construction=None, pallet_
         ect_override_kn_m=_decimal(data.get("ect_override_kn_m")),
         caliper_override_mm=_decimal(data.get("caliper_override_mm")),
         measured_bct_override_n=_decimal(data.get("measured_bct_override_n")),
+        reference_grade=reference_ect_grade,
+        effective_caliper_mm=dimensions.caliper_used_mm,
+        caliper_source_type=dimensions.caliper_source_type,
+        caliper_source_label=dimensions.caliper_source_label,
+        caliper_is_reference=dimensions.caliper_is_reference,
     )
+    if construction_ect is not None and construction_caliper is not None:
+        strength["ect_source_type"] = construction_source_type or strength["ect_source_type"]
+        strength["ect_source_label"] = construction_source_label or strength["ect_source_label"]
 
     carbon = calculate_carbon(
         factor_kg_co2e_per_kg=co2_factor,
@@ -131,39 +231,64 @@ def calculate_corrugated_material_strength(inputs, *, construction=None, pallet_
         finished_box_weight_g=material.finished_box_weight_g,
         cutting_scrap_weight_g=material.cutting_scrap_weight_g,
         production_sheet_weight_g=material.production_sheet_weight_g,
-        boxes_per_pallet=pallet["boxes_per_pallet"], quantity=quantity,
+        boxes_per_pallet=pallet.get("boxes_per_pallet"), quantity=quantity,
     )
 
     warnings = list(pallet.get("warnings") or [])
+    if dimensions.warning:
+        warnings.append(dimensions.warning)
     if strength["available_bct_n"] is None:
-        if construction is not None and construction.ect_kn_m is None and construction.caliper_mm is None and construction.measured_bct_n is None:
+        if reference_ect_grade is not None and getattr(reference_ect_grade, "reference_caliper_mm", None) is None and caliper is None:
+            strength["data_note"] = (
+                "ECT reference is available, but actual or reference caliper is required for external dimensions and McKee BCT."
+            )
+        elif construction is not None and construction.ect_kn_m is None and construction.caliper_mm is None and construction.measured_bct_n is None and reference_ect_grade is None:
             strength["data_note"] = (
                 "This generic construction contains material information but no supplier ECT or finished-board caliper. "
                 "Enter ECT and caliper for this calculation or select a material containing strength data."
             )
         warnings.append(
-            "Material and CO₂ results are available, but compression strength cannot be estimated from the available data."
+            "Material and CO2 results are available, but compression strength cannot be estimated from the available data."
         )
+    if pallet.get("static_load_n") is None:
+        warnings.append("Pallet compression requirement cannot be calculated until external box dimensions are available.")
+
     assumptions = [
-        "Preliminary geometry uses the entered dimensions directly and does not include converter-specific dimensional allowances.",
+        "Preliminary geometry uses the entered internal dimensions directly and does not include converter-specific dimensional allowances.",
         "Slot-cut width is treated as negligible in the first version.",
         "Only geometric cutting scrap is included; startup loss, trimming, printing rejects and general factory waste are excluded.",
         "The distribution factor is a simplified screening allowance. It is not a detailed humidity, creep or vibration model.",
+        "The current implementation preserves the existing internal-perimeter McKee convention; a future methodology review may revisit this decision.",
     ]
     if nominal_height is not None:
         assumptions.append("Nominal flute height excludes facings and is not used as finished-board caliper.")
-
-    explanation = [
-        f"Blank length = 2 × ({box_length} + {box_width}) + {joint} = {geometry.blank_length_mm} mm",
+    if dimensions.external_dimensions_available:
+        explanation = [
+            f"External length = {box_length} + 2 x {dimensions.caliper_used_mm} = {dimensions.external_length_mm} mm",
+            f"External width = {box_width} + 2 x {dimensions.caliper_used_mm} = {dimensions.external_width_mm} mm",
+            f"External height = {box_height} + 2 x {dimensions.caliper_used_mm} = {dimensions.external_height_mm} mm",
+        ]
+    else:
+        explanation = ["External dimensions unavailable: enter actual caliper or select a reference grade containing caliper."]
+    explanation.extend([
+        f"Blank length = 2 x ({box_length} + {box_width}) + {joint} = {geometry.blank_length_mm} mm",
         f"Blank width = {box_height} + {box_width} = {geometry.blank_width_mm} mm",
-        f"Required sheet length = {geometry.blank_length_mm} + 2 × {sheet_margin} = {geometry.production_sheet_length_mm} mm",
-        f"Required sheet width = {geometry.blank_width_mm} + 2 × {sheet_margin} = {geometry.production_sheet_width_mm} mm",
-        f"Effective finished-box area = {geometry.effective_box_area_m2} m²",
-        f"Required BCT = {pallet['static_load_n']} N × {strength['distribution_factor']} = {strength['required_bct_n']} N",
-    ]
+        f"Required sheet length = {geometry.blank_length_mm} + 2 x {sheet_margin} = {geometry.production_sheet_length_mm} mm",
+        f"Required sheet width = {geometry.blank_width_mm} + 2 x {sheet_margin} = {geometry.production_sheet_width_mm} mm",
+        f"Effective finished-box area = {geometry.effective_box_area_m2} m2",
+    ])
+    if pallet.get("boxes_per_layer") is not None:
+        explanation.append(
+            f"Boxes per layer use external footprint {dimensions.external_length_mm} x {dimensions.external_width_mm} mm; selected count = {pallet['boxes_per_layer']}"
+        )
+    if strength["required_bct_n"] is not None:
+        explanation.append(
+            f"Required BCT = {pallet['static_load_n']} N x {strength['distribution_factor']} = {strength['required_bct_n']} N"
+        )
 
     result = {
         "box_geometry": {**geometry.__dict__}, "material": {**material.__dict__},
+        "dimensions": {**dimensions.__dict__}, "reference_ect_grade": _reference_grade_metadata(reference_ect_grade),
         "pallet": pallet, "strength": strength, "carbon": carbon,
         "assumptions": assumptions, "warnings": warnings,
         "source_metadata": _construction_metadata(construction),
@@ -171,6 +296,22 @@ def calculate_corrugated_material_strength(inputs, *, construction=None, pallet_
         "board": {"combined_grammage_g_m2": grammage, "nominal_flute_height_mm": nominal_height},
     }
     result.update({
+        "internal_length_mm": dimensions.internal_length_mm,
+        "internal_width_mm": dimensions.internal_width_mm,
+        "internal_height_mm": dimensions.internal_height_mm,
+        "external_length_mm": dimensions.external_length_mm,
+        "external_width_mm": dimensions.external_width_mm,
+        "external_height_mm": dimensions.external_height_mm,
+        "external_dimensions_available": dimensions.external_dimensions_available,
+        "external_dimensions_are_estimated": dimensions.external_dimensions_are_estimated,
+        "external_dimension_method": dimensions.external_dimension_method,
+        "caliper_used_mm": dimensions.caliper_used_mm,
+        "caliper_source_type": dimensions.caliper_source_type,
+        "caliper_source_label": dimensions.caliper_source_label,
+        "caliper_is_reference": dimensions.caliper_is_reference,
+        "reference_ect_lb_in": getattr(reference_ect_grade, "ect_lb_in", None),
+        "reference_ect_kn_m": getattr(reference_ect_grade, "ect_kn_m", None),
+        "reference_ect_code": getattr(reference_ect_grade, "code", None),
         "blank_length_mm": geometry.blank_length_mm,
         "blank_width_mm": geometry.blank_width_mm,
         "blank_bounding_area_m2": geometry.blank_bounding_area_m2,
@@ -188,11 +329,11 @@ def calculate_corrugated_material_strength(inputs, *, construction=None, pallet_
         "production_sheet_weight_g": material.production_sheet_weight_g,
         "cutting_scrap_weight_g": material.cutting_scrap_weight_g,
         "gross_packed_box_weight_g": material.gross_packed_box_weight_g,
-        "boxes_per_layer": pallet["boxes_per_layer"], "layers": pallet["layers"],
-        "boxes_per_pallet": pallet["boxes_per_pallet"],
-        "palletized_height_mm": pallet["palletized_height_mm"],
-        "selected_orientation": pallet["selected_orientation"],
-        "supported_mass_kg": pallet["supported_mass_kg"], "static_load_n": pallet["static_load_n"],
+        "boxes_per_layer": pallet.get("boxes_per_layer"), "layers": pallet.get("layers"),
+        "boxes_per_pallet": pallet.get("boxes_per_pallet"),
+        "palletized_height_mm": pallet.get("palletized_height_mm"),
+        "selected_orientation": pallet.get("selected_orientation"),
+        "supported_mass_kg": pallet.get("supported_mass_kg"), "static_load_n": pallet.get("static_load_n"),
         "distribution_factor": strength["distribution_factor"],
         "required_bct_n": strength["required_bct_n"],
         "available_bct_n": strength["available_bct_n"],

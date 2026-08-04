@@ -206,6 +206,79 @@ class Product(models.Model):
         return f"{self.product_id} - {self.product_name or ''}".strip()
 
 
+class CorrugatedECTReferenceGrade(models.Model):
+    """Admin-managed reference ECT category, separate from board construction."""
+
+    SOURCE_TYPE_CHOICES = (
+        ("INDUSTRY_REFERENCE", "Industry reference"),
+        ("MANUFACTURER_EXAMPLE", "Manufacturer example"),
+        ("ADMIN_ENTERED", "Admin entered"),
+    )
+    FLUTE_FAMILY_CHOICES = (
+        ("A", "A"), ("B", "B"), ("C", "C"), ("E", "E"),
+        ("EB", "EB"), ("BC", "BC"),
+    )
+
+    code = models.CharField(max_length=64, unique=True)
+    flute_family = models.CharField(max_length=2, choices=FLUTE_FAMILY_CHOICES)
+    wall_type = models.CharField(
+        max_length=20,
+        choices=((WALL_SINGLE, "Single wall"), (WALL_DOUBLE, "Double wall")),
+    )
+    ect_lb_in = models.DecimalField(max_digits=8, decimal_places=3)
+    ect_kn_m = models.DecimalField(max_digits=12, decimal_places=9)
+    reference_caliper_mm = models.DecimalField(max_digits=8, decimal_places=3, blank=True, null=True)
+    source_type = models.CharField(max_length=32, choices=SOURCE_TYPE_CHOICES)
+    source_label = models.CharField(max_length=255)
+    source_notes = models.TextField(blank=True)
+    caliper_source_label = models.CharField(max_length=255, blank=True)
+    caliper_source_notes = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["wall_type", "flute_family", "sort_order", "ect_lb_in"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("flute_family", "ect_lb_in"),
+                name="corrugated_ect_grade_family_ect_unique",
+            ),
+        ]
+        verbose_name = "corrugated ECT reference grade"
+        verbose_name_plural = "corrugated ECT reference grades"
+
+    @property
+    def calculated_ect_kn_m(self):
+        return self.ect_lb_in * Decimal("0.175126835")
+
+    def clean(self):
+        errors = {}
+        if self.ect_lb_in is not None and self.ect_lb_in <= 0:
+            errors["ect_lb_in"] = "ECT must be greater than zero."
+        if self.ect_lb_in is not None and self.ect_kn_m is not None:
+            if abs(self.ect_kn_m - self.calculated_ect_kn_m) > Decimal("0.000000001"):
+                errors["ect_kn_m"] = "Metric ECT must match the calculated imperial conversion."
+        if self.reference_caliper_mm is not None and self.reference_caliper_mm <= 0:
+            errors["reference_caliper_mm"] = "Reference caliper must be greater than zero."
+        if not self.source_label:
+            errors["source_label"] = "Source label is required."
+        if self.flute_family in {"A", "B", "C", "E"} and self.wall_type != WALL_SINGLE:
+            errors["wall_type"] = "A, B, C and E reference grades must be single wall."
+        if self.flute_family in {"EB", "BC"} and self.wall_type != WALL_DOUBLE:
+            errors["wall_type"] = "EB and BC reference grades must be double wall."
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.ect_kn_m = self.calculated_ect_kn_m
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.code} - {self.flute_family} flute - {self.ect_lb_in:g} ECT"
+
+
 class CorrugatedBoardConstruction(models.Model):
     """Admin-managed corrugated construction catalogue record.
 

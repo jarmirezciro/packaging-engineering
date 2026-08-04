@@ -5,7 +5,8 @@ from django.test import TestCase
 from django.urls import reverse
 
 from packagingapp.forms import CorrugatedMaterialStrengthForm
-from packagingapp.models import CorrugatedBoardConstruction
+from packagingapp.admin import CorrugatedECTReferenceGradeAdmin
+from packagingapp.models import CorrugatedBoardConstruction, CorrugatedECTReferenceGrade
 from packagingapp.tools.corrugated_material_strength.contracts import build_shared_corrugated_material_ui_contract
 from packagingapp.tools.corrugated_material_strength.geometry import BoxGeometryInput, Fefco0201GeometryProvider
 from packagingapp.tools.corrugated_material_strength.service import calculate_corrugated_material_strength
@@ -96,9 +97,15 @@ class CorrugatedCalculationTests(TestCase):
             "ect_override_kn_m": 4.0, "caliper_override_mm": 3.6,
         }, construction=construction)
         self.assertAlmostEqual(result["finished_box_weight_g"], 0.708 * 560.2, places=4)
-        self.assertEqual(result["boxes_per_layer"], 8)
+        self.assertEqual(result["boxes_per_layer"], 4)
         self.assertEqual(result["layers"], 5)
-        self.assertEqual(result["boxes_per_pallet"], 40)
+        self.assertEqual(result["boxes_per_pallet"], 20)
+        self.assertAlmostEqual(result["external_length_mm"], 407.2, places=6)
+        self.assertAlmostEqual(result["external_width_mm"], 307.2, places=6)
+        self.assertAlmostEqual(result["external_height_mm"], 207.2, places=6)
+        self.assertEqual(result["pallet"]["dimension_basis"], "EXTERNAL")
+        self.assertAlmostEqual(result["pallet"]["box_length_used_mm"], 407.2, places=6)
+        self.assertAlmostEqual(result["palletized_height_mm"], 1180.0, places=6)
         self.assertAlmostEqual(result["supported_mass_kg"], 2.3864864, places=5)
         self.assertAlmostEqual(result["required_bct_n"], 70.209, places=2)
         self.assertAlmostEqual(result["available_bct_n"], 1586.695, places=2)
@@ -118,26 +125,114 @@ class CorrugatedCalculationTests(TestCase):
         }, construction=construction)
         self.assertEqual(result["strength_status"], "Strength unavailable")
         self.assertIsNone(result["available_bct_n"])
+        self.assertIsNone(result["required_bct_n"])
+        self.assertIsNone(result["boxes_per_pallet"])
+        self.assertFalse(result["external_dimensions_available"])
         self.assertIn("finished-board caliper", result["strength"]["data_note"])
 
     def test_mckee_units_and_override_priority(self):
         value = predict_bct_mckee_metric(Decimal("4.0"), Decimal("3.6"), Decimal("140"))
         self.assertAlmostEqual(float(value), 1586.695, places=2)
 
+    def test_supplier_and_override_priority_are_preserved_over_reference(self):
+        reference = CorrugatedECTReferenceGrade.objects.get(code="REF_C_44")
+        construction = CorrugatedBoardConstruction.objects.get(code="GEN_C_150_120_150")
+        construction.ect_kn_m = Decimal("6.8")
+        construction.caliper_mm = Decimal("4.10")
+        construction.source_type = "SUPPLIER_DOCUMENTED"
+        construction.source_label = "Supplier documented construction"
+        inputs = {
+            "box_length_mm": 400, "box_width_mm": 300, "box_height_mm": 200,
+            "product_weight_g": 200, "quantity": 1, "joint_width_mm": 40,
+            "sheet_margin_per_edge_mm": 20, "pallet_length_mm": 1200,
+            "pallet_width_mm": 800, "pallet_height_mm": 144,
+            "max_palletized_height_mm": 1200, "distribution_profile": "NORMAL",
+        }
+        supplier = calculate_corrugated_material_strength(inputs, construction=construction, reference_ect_grade=reference)
+        self.assertAlmostEqual(supplier["strength"]["ect_used_kn_m"], 6.8, places=6)
+        self.assertAlmostEqual(supplier["strength"]["caliper_used_mm"], 4.10, places=6)
+        self.assertEqual(supplier["strength"]["ect_source_type"], "SUPPLIER_DOCUMENTED")
+        self.assertFalse(supplier["strength"]["ect_is_reference"])
+        override = calculate_corrugated_material_strength(
+            {**inputs, "ect_override_kn_m": 6.2, "caliper_override_mm": 3.95},
+            construction=CorrugatedBoardConstruction.objects.get(code="FEFCO_C_175_140_175"),
+            reference_ect_grade=reference,
+        )
+        self.assertAlmostEqual(override["strength"]["ect_used_kn_m"], 6.2, places=6)
+        self.assertAlmostEqual(override["caliper_used_mm"], 3.95, places=6)
+        self.assertAlmostEqual(override["external_length_mm"], 407.90, places=6)
+        self.assertEqual(override["strength"]["ect_source_type"], "ONE_TIME_ACTUAL")
+
+    def test_measured_bct_remains_highest_priority(self):
+        construction = CorrugatedBoardConstruction.objects.get(code="GEN_C_150_120_150")
+        construction.measured_bct_n = Decimal("500")
+        result = calculate_corrugated_material_strength(
+            {"box_length_mm": 400, "box_width_mm": 300, "box_height_mm": 200, "product_weight_g": 200, "quantity": 1, "joint_width_mm": 40, "sheet_margin_per_edge_mm": 20, "pallet_length_mm": 1200, "pallet_width_mm": 800, "pallet_height_mm": 144, "max_palletized_height_mm": 1200, "distribution_profile": "NORMAL"},
+            construction=construction,
+            reference_ect_grade=CorrugatedECTReferenceGrade.objects.get(code="REF_C_44"),
+        )
+        self.assertEqual(result["available_bct_n"], Decimal("500"))
+        self.assertEqual(result["strength"]["strength_source"], "Measured BCT")
+        self.assertFalse(result["strength"]["bct_is_reference_based"])
+
 
 class CorrugatedContractAndViewTests(TestCase):
     def test_prefix_contract_is_unique_and_json_safe(self):
         contract = build_shared_corrugated_material_ui_contract(mode="workflow", prefix="3")
         self.assertEqual(contract["field_ids"]["box_length_mm"], "3_box_length_mm")
+        self.assertEqual(contract["field_ids"]["reference_ect_grade_id"], "3_reference_ect_grade_id")
         self.assertEqual(len(contract["field_ids"].values()), len(set(contract["field_ids"].values())))
         json.dumps(contract)
+
+    def test_reference_grades_are_seeded_and_admin_registered(self):
+        self.assertEqual(CorrugatedECTReferenceGrade.objects.count(), 28)
+        self.assertEqual(CorrugatedECTReferenceGrade.objects.get(code="REF_C_44").ect_kn_m, Decimal("7.705580740"))
+        self.assertEqual(CorrugatedECTReferenceGrade.objects.get(code="REF_C_44").reference_caliper_mm, Decimal("4.380"))
+        self.assertIsNone(CorrugatedECTReferenceGrade.objects.get(code="REF_E_32").reference_caliper_mm)
+        self.assertIsNone(CorrugatedECTReferenceGrade.objects.get(code="REF_EB_51").reference_caliper_mm)
+        self.assertIsNone(CorrugatedECTReferenceGrade.objects.get(code="REF_BC_61").reference_caliper_mm)
+        from django.contrib import admin
+        self.assertIsInstance(admin.site._registry[CorrugatedECTReferenceGrade], CorrugatedECTReferenceGradeAdmin)
 
     def test_get_renders_defaults_and_catalogue(self):
         response = self.client.get(reverse("corrugated_material_strength"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Corrugated Material &amp; Strength")
         self.assertContains(response, "GEN_E_125_90_125")
+        self.assertContains(response, "REF_C_44")
         self.assertContains(response, "Preliminary engineering estimate")
+
+    def test_reference_grade_benchmark_and_missing_caliper_partial_result(self):
+        construction = CorrugatedBoardConstruction.objects.get(code="FEFCO_C_175_140_175")
+        reference = CorrugatedECTReferenceGrade.objects.get(code="REF_C_44")
+        inputs = {
+            "box_length_mm": 400, "box_width_mm": 300, "box_height_mm": 200,
+            "product_weight_g": 200, "quantity": 1000, "joint_width_mm": 40,
+            "sheet_margin_per_edge_mm": 20, "pallet_length_mm": 1200,
+            "pallet_width_mm": 800, "pallet_height_mm": 144,
+            "max_palletized_height_mm": 1200, "distribution_profile": "NORMAL",
+        }
+        result = calculate_corrugated_material_strength(inputs, construction=construction, reference_ect_grade=reference)
+        self.assertAlmostEqual(result["external_length_mm"], 408.76, places=6)
+        self.assertAlmostEqual(result["external_width_mm"], 308.76, places=6)
+        self.assertAlmostEqual(result["external_height_mm"], 208.76, places=6)
+        self.assertEqual(result["boxes_per_layer"], 4)
+        self.assertEqual(result["layers"], 5)
+        self.assertEqual(result["boxes_per_pallet"], 20)
+        self.assertAlmostEqual(result["palletized_height_mm"], 1187.80, places=6)
+        self.assertTrue(result["strength"]["ect_is_reference"])
+        self.assertTrue(result["strength"]["caliper_is_reference"])
+        self.assertTrue(result["strength"]["bct_is_reference_based"])
+        missing = calculate_corrugated_material_strength(
+            inputs,
+            construction=CorrugatedBoardConstruction.objects.get(code="GEN_E_150_100_150"),
+            reference_ect_grade=CorrugatedECTReferenceGrade.objects.get(code="REF_E_32"),
+        )
+        self.assertTrue(missing["reference_ect_grade"])
+        self.assertIsNone(missing["external_length_mm"])
+        self.assertIsNone(missing["boxes_per_pallet"])
+        self.assertIsNone(missing["required_bct_n"])
+        self.assertIn("ECT reference is available", missing["strength"]["data_note"])
 
     def test_valid_post_renders_result_and_strength_unavailable_state(self):
         construction = CorrugatedBoardConstruction.objects.get(code="GEN_E_125_90_125")
@@ -154,6 +249,21 @@ class CorrugatedContractAndViewTests(TestCase):
         self.assertContains(response, "Strength unavailable")
         self.assertContains(response, "Required sheet material")
         self.assertIn("corrugated_material_strength_last_analysis", self.client.session)
+
+    def test_incompatible_reference_grade_is_rejected_server_side(self):
+        construction = CorrugatedBoardConstruction.objects.get(code="GEN_E_125_90_125")
+        response = self.client.post(reverse("corrugated_material_strength"), {
+            "action": "run_analysis", "box_length_mm": "400", "box_width_mm": "300", "box_height_mm": "200",
+            "product_weight_g": "200", "quantity": "1000", "fefco_code": "0201", "joint_width_mm": "40",
+            "sheet_margin_per_edge_mm": "20", "pallet_source": "manual", "pallet_length_mm": "1200",
+            "pallet_width_mm": "800", "pallet_height_mm": "144", "pallet_weight_kg": "0",
+            "max_palletized_height_mm": "1200", "pattern": "COLUMN_ALIGNED", "stacked_pallets": "1",
+            "board_mode": "catalogue", "board_construction_id": str(construction.pk),
+            "reference_ect_grade_id": str(CorrugatedECTReferenceGrade.objects.get(code="REF_C_44").pk),
+            "distribution_profile": "NORMAL", "distribution_factor": "3", "co2_mode": "CONSTRUCTION",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "does not match the selected flute family")
 
     def test_manual_board_entry_and_pdf_export(self):
         response = self.client.post(reverse("corrugated_material_strength"), {

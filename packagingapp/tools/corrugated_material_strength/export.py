@@ -78,6 +78,8 @@ def build_corrugated_material_strength_pdf(payload):
     result = payload.get("result") or {}
     geometry = result.get("box_geometry") or {}
     material = result.get("material") or {}
+    dimensions = result.get("dimensions") or {}
+    reference_grade = result.get("reference_ect_grade") or {}
     pallet = result.get("pallet") or {}
     strength = result.get("strength") or {}
     carbon = result.get("carbon") or {}
@@ -93,6 +95,25 @@ def build_corrugated_material_strength_pdf(payload):
             ("Selected construction", source.get("name")), ("Source type", source.get("source_type")),
             ("Source label", source.get("source_label")), ("Board grammage", (result.get("board") or {}).get("combined_grammage_g_m2")),
             ("Preliminary box style", "FEFCO 0201"),
+        ], styles),
+        Paragraph("Dimensions", styles["CMS_Section"]),
+        _table([
+            ("Internal dimensions", f"{_value(dimensions.get('internal_length_mm'))} x {_value(dimensions.get('internal_width_mm'))} x {_value(dimensions.get('internal_height_mm'))} mm"),
+            ("Estimated external dimensions", f"{_value(dimensions.get('external_length_mm'))} x {_value(dimensions.get('external_width_mm'))} x {_value(dimensions.get('external_height_mm'))} mm"),
+            ("Caliper used", _value(dimensions.get("caliper_used_mm"), " mm")),
+            ("Caliper source", dimensions.get("caliper_source_label")),
+            ("External-dimension method", dimensions.get("external_dimension_method")),
+            ("Dimension warning", dimensions.get("warning")),
+        ], styles),
+        Paragraph("ECT reference", styles["CMS_Section"]),
+        _table([
+            ("Reference-grade code", reference_grade.get("code")),
+            ("Flute family", reference_grade.get("flute_family")),
+            ("ECT", _value(reference_grade.get("ect_lb_in"), " lb/in")),
+            ("ECT metric", _value(reference_grade.get("ect_kn_m"), " kN/m")),
+            ("Reference caliper", _value(reference_grade.get("reference_caliper_mm"), " mm")),
+            ("Source label", reference_grade.get("source_label")),
+            ("Source limitation", reference_grade.get("source_notes")),
         ], styles),
         Paragraph("FEFCO 0201 preview", styles["CMS_Section"]),
         BlankPreviewFlowable(geometry),
@@ -116,12 +137,20 @@ def build_corrugated_material_strength_pdf(payload):
         ], styles),
         Paragraph("Pallet and strength", styles["CMS_Section"]),
         _table([
+            ("Dimension basis", pallet.get("dimension_basis")),
+            ("External box dimensions used", f"{_value(pallet.get('box_length_used_mm'))} x {_value(pallet.get('box_width_used_mm'))} x {_value(pallet.get('box_height_used_mm'))} mm"),
+            ("Pallet status", pallet.get("status")),
+            ("Pallet reason", pallet.get("reason")),
             ("Orientation", pallet.get("selected_orientation")), ("Boxes per layer", pallet.get("boxes_per_layer")),
             ("Layers", pallet.get("layers")), ("Boxes per pallet", pallet.get("boxes_per_pallet")),
             ("Palletized height", _value(pallet.get("palletized_height_mm"), " mm")),
             ("Static load", _value(pallet.get("static_load_n"), " N")),
             ("Required BCT", _value(strength.get("required_bct_n"), " N")),
             ("Available BCT", _value(strength.get("available_bct_n"), " N")),
+            ("ECT source", strength.get("ect_source_label")),
+            ("Caliper source", strength.get("caliper_source_label")),
+            ("Reference data contributed", "Yes" if strength.get("bct_is_reference_based") else "No"),
+            ("Strength warning", strength.get("warning")),
             ("Strength margin", _value(strength.get("strength_margin"))),
             ("Interpretation", strength.get("strength_status")),
         ], styles),
