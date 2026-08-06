@@ -68,6 +68,7 @@ Math-enabled articles may use `\(...\)` for inline equations and `\[...\]` for d
 
 ## Approved article types
 
+- `demo_case_study`
 - `engineering_deep_dive`
 - `business_case`
 - `practical_guide`

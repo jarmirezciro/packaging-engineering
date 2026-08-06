@@ -20,6 +20,7 @@ from ..tools.palletization.service import (
     get_selected_pallet_material,
 )
 from ..tools.palletization.state import default_palletization_config
+from ..tools.palletization.case_presets import get_palletization_case_preset
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 
 
@@ -530,12 +531,17 @@ def palletization_mode1(request):
 
 
 def palletization_calculator(request):
+    case_preset = get_palletization_case_preset(request.GET.get("case"))
     is_initial_example = request.method == "GET" and not request.GET
     context = _build_palletization_page_context(
         request,
         mode="seo",
-        initial_config=SEO_PALLETIZATION_EXAMPLE_CONFIG if is_initial_example else None,
-        run_initial_analysis=is_initial_example,
+        initial_config=(
+            case_preset["config"]
+            if case_preset
+            else SEO_PALLETIZATION_EXAMPLE_CONFIG if is_initial_example else None
+        ),
+        run_initial_analysis=bool(case_preset) or is_initial_example,
     )
     canonical_url, faq_items, schema_json = _build_palletization_seo_schema(request)
     context.update(

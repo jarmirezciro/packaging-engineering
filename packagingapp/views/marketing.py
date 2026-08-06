@@ -26,6 +26,12 @@ AUTHOR_PROFILE = {
 
 
 ARTICLE_TYPES = {
+    "demo_case_study": {
+        "label": "Demo case study",
+        "short_label": "Case study",
+        "icon": "bi-bar-chart-line",
+        "description": "Reproducible packaging calculations that compare practical alternatives and support a specific decision.",
+    },
     "engineering_deep_dive": {
         "label": "Engineering deep dive",
         "short_label": "Nerd article",
