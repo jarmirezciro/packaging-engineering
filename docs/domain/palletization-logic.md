@@ -90,16 +90,20 @@ Balanced filler symmetry may improve operational quality but must not falsely in
 
 ### Split Row implementation
 
-KolliPack's Split Row candidate divisions are evaluated arithmetically: each
-possible number of rows in the first orientation is combined with the integer
-row/column capacity of the remaining band. Only the first highest-capacity
-division is materialized as `Placement2D` geometry, preserving the existing
-first-winner tie behavior and Block fallback.
+KolliPack's Split Row candidate divisions are evaluated arithmetically along
+both pallet axes: each possible number of rows or columns in the first
+orientation is combined with the integer row/column capacity of the remaining
+band. Only the winning division is materialized as `Placement2D` geometry. A
+genuine mixed split wins a capacity tie over an all-one-orientation Block
+fallback, so a side split such as 6x3 + 1x6 remains visible when feasible.
 
-Sparse Split Row rows are balanced from their known band boundaries using
-deterministic opposite-edge coordinates. Generic free-position XÃ—Y searches and
-iterative filler reconstruction are not used on this path. The shared collision
-validator remains as a final safety check after the complete layer is built.
+Sparse Split Row rows or columns are balanced from their known band boundaries
+using deterministic opposite-edge coordinates anchored to the fixed main
+arrangement, not the outer pallet boundary. A six-carton compact filler is
+therefore placed 3 + 3 at the main arrangement's opposite edges. Generic
+free-position XÃ—Y searches and iterative filler reconstruction are not used on
+this path. The shared collision validator remains as a final safety check after
+the complete layer is built.
 
 ## Pinwheel
 

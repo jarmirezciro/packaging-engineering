@@ -212,7 +212,7 @@ class ChainOptimizerTests(SimpleTestCase):
         container = build_design_candidate_payload("container", container_candidate("a", 1, 8), upstream)
         bag = build_design_candidate_payload("bag", bag_candidate("b", 1, 6), upstream)
         self.assertEqual(container["total_base_units"], 40)
-        self.assertEqual((container["length"], container["width"], container["height"]), (108, 88, 68))
+        self.assertEqual((container["length"], container["width"], container["height"]), (108, 88, 76))
         self.assertEqual((container["internal_length"], container["internal_width"], container["internal_height"]), (100, 80, 60))
         self.assertTrue(container["box_thickness_assumed"])
         self.assertEqual(bag["total_base_units"], 30)
@@ -228,14 +228,14 @@ class ChainOptimizerTests(SimpleTestCase):
             "box_thickness_assumed": False,
         })
         provided = build_design_candidate_payload("container", provided_candidate)
-        self.assertEqual((provided["length"], provided["width"], provided["height"]), (610, 410, 310))
+        self.assertEqual((provided["length"], provided["width"], provided["height"]), (610, 410, 320))
         self.assertFalse(provided["box_thickness_assumed"])
 
         blank_candidate = dict(provided_candidate)
         blank_candidate.pop("box_thickness_mm")
         blank_candidate.pop("box_thickness_assumed")
         assumed = build_design_candidate_payload("container", blank_candidate)
-        self.assertEqual((assumed["length"], assumed["width"], assumed["height"]), (608, 408, 308))
+        self.assertEqual((assumed["length"], assumed["width"], assumed["height"]), (608, 408, 316))
         self.assertTrue(assumed["box_thickness_assumed"])
 
     def test_invalidation_preserves_only_unchanged_source_row_selection(self):
@@ -569,9 +569,9 @@ class CapacityOnlyEvaluationTests(TestCase):
                 workflow, 0, _evaluate_design_chain_step
             )
 
-        self.assertEqual(received[0], (398.0, 398.0, 308.0))
+        self.assertEqual(received[0], (398.0, 398.0, 316.0))
         self.assertEqual(received[0], received[1])
-        self.assertEqual(received[2], (410.0, 410.0, 320.0))
+        self.assertEqual(received[2], (410.0, 410.0, 340.0))
         self.assertEqual(normal_output["total_base_units"], 6)
         self.assertEqual(optimized["candidate_results"]["thin"]["final_base_units"], 6)
         self.assertEqual(optimized["candidate_results"]["thick"]["final_base_units"], 2)

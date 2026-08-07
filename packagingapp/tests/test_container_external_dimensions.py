@@ -54,7 +54,7 @@ class ExternalCartonDimensionResolverTests(SimpleTestCase):
         self.assertEqual(DEFAULT_BOX_THICKNESS_MM, 4.0)
         self.assertEqual(
             (assumed["external_length"], assumed["external_width"], assumed["external_height"]),
-            (608.0, 408.0, 308.0),
+            (608.0, 408.0, 316.0),
         )
         self.assertEqual(assumed["box_thickness_mm"], 4.0)
         self.assertTrue(assumed["box_thickness_assumed"])
@@ -63,7 +63,7 @@ class ExternalCartonDimensionResolverTests(SimpleTestCase):
         provided = resolve_external_carton_dimensions(600, 400, 300, thickness_mm=5)
         self.assertEqual(
             (provided["external_length"], provided["external_width"], provided["external_height"]),
-            (610.0, 410.0, 310.0),
+            (610.0, 410.0, 320.0),
         )
         self.assertFalse(provided["box_thickness_assumed"])
         self.assertEqual(provided["external_dimension_source"], EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS)
@@ -90,7 +90,7 @@ class ExternalCartonDimensionResolverTests(SimpleTestCase):
         )
         self.assertEqual(
             (incomplete["external_length"], incomplete["external_width"], incomplete["external_height"]),
-            (606.0, 406.0, 306.0),
+            (606.0, 406.0, 312.0),
         )
         self.assertEqual(incomplete["external_dimension_source"], EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS)
 
@@ -114,7 +114,7 @@ class ContainerDimensionContractTests(SimpleTestCase):
             desired_qty=2,
             product_source="manual",
         )
-        self.assertEqual((report["external_length"], report["external_width"], report["external_height"]), (608.0, 408.0, 308.0))
+        self.assertEqual((report["external_length"], report["external_width"], report["external_height"]), (608.0, 408.0, 316.0))
         self.assertTrue(report["box_thickness_assumed"])
 
         html = render_to_string(
@@ -155,7 +155,7 @@ class ContainerDimensionContractTests(SimpleTestCase):
         )
         self.assertEqual(
             (provided_report["external_length"], provided_report["external_width"], provided_report["external_height"]),
-            (610.0, 410.0, 310.0),
+            (610.0, 410.0, 320.0),
         )
         self.assertNotIn("assumed 4 mm box thickness", provided_html)
 
@@ -166,8 +166,8 @@ class ContainerDimensionContractTests(SimpleTestCase):
 
         fixtures = [
             ((609, 409, 309), 3, (609.0, 409.0, 309.0), False),
-            ((None, None, None), 3, (606.0, 406.0, 306.0), False),
-            ((None, None, None), None, (608.0, 408.0, 308.0), True),
+            ((None, None, None), 3, (606.0, 406.0, 312.0), False),
+            ((None, None, None), None, (608.0, 408.0, 316.0), True),
         ]
         for external, thickness, expected, assumed in fixtures:
             with self.subTest(external=external, thickness=thickness):
@@ -223,14 +223,14 @@ class ContainerDimensionContractTests(SimpleTestCase):
         payload = _build_container_non_design_workflow_payload(
             sanitized, 12, None, None, None
         )
-        self.assertEqual((payload["length"], payload["width"], payload["height"]), (608.0, 408.0, 308.0))
+        self.assertEqual((payload["length"], payload["width"], payload["height"]), (608.0, 408.0, 316.0))
         self.assertEqual((payload["internal_length"], payload["internal_width"], payload["internal_height"]), (600.0, 400.0, 300.0))
         self.assertTrue(payload["box_thickness_assumed"])
 
         pallet_config = _apply_payload_to_config({}, "pallet", payload)
         self.assertEqual(
             (pallet_config["box_l"], pallet_config["box_w"], pallet_config["box_h"]),
-            (608.0, 408.0, 308.0),
+            (608.0, 408.0, 316.0),
         )
 
     def test_design_selected_and_optimizer_paths_share_external_payload_builder(self):
@@ -248,11 +248,11 @@ class ContainerDimensionContractTests(SimpleTestCase):
         normal = build_design_candidate_payload("container", candidate)
         optimizer = build_design_candidate_payload("container", candidate)
         self.assertEqual(normal, optimizer)
-        self.assertEqual((normal["length"], normal["width"], normal["height"]), (610.0, 410.0, 310.0))
+        self.assertEqual((normal["length"], normal["width"], normal["height"]), (610.0, 410.0, 320.0))
         self.assertEqual((normal["internal_length"], normal["internal_width"], normal["internal_height"]), (600.0, 400.0, 300.0))
 
         candidate.pop("box_thickness_mm")
         candidate.pop("box_thickness_assumed")
         assumed = build_design_candidate_payload("container", candidate)
-        self.assertEqual((assumed["length"], assumed["width"], assumed["height"]), (608.0, 408.0, 308.0))
+        self.assertEqual((assumed["length"], assumed["width"], assumed["height"]), (608.0, 408.0, 316.0))
         self.assertTrue(assumed["box_thickness_assumed"])

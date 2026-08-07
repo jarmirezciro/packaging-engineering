@@ -55,6 +55,84 @@ class SplitrowEngineTests(SimpleTestCase):
         self.assertEqual(splitrow["total_boxes"], 50)
         self.assertTrue(splitrow["interlock_possible"])
 
+    def test_reference_na4840_case_builds_side_splitrow_alternative(self):
+        rows = run_palletization_analysis(
+            box_l=308,
+            box_w=147,
+            box_h=193,
+            pallet_l=1219,
+            pallet_w=1016,
+            pallet_height=141,
+            max_stack_height=1346,
+        )
+
+        splitrow = next(row for row in rows if row["pattern"] == "Splitrow")
+        self.assertEqual(splitrow["total_boxes"], 144)
+
+        layer = pattern_splitrow(1219, 1016, 308, 147)
+        orientation_counts = {
+            (147, 308): sum(1 for placement in layer if (placement.l, placement.w) == (147, 308)),
+            (308, 147): sum(1 for placement in layer if (placement.l, placement.w) == (308, 147)),
+        }
+        self.assertEqual(orientation_counts, {(147, 308): 18, (308, 147): 6})
+        self._assert_layer_invariants(layer, 1219, 1016)
+
+        balanced_base, _ = get_base_and_interlock_layers(
+            "Splitrow", 1219, 1016, 308, 147
+        )
+        filler_y = sorted(
+            round(placement.y, 6)
+            for placement in balanced_base
+            if (placement.l, placement.w) == (308, 147)
+        )
+        main_max_x = max(
+            placement.x + placement.l
+            for placement in balanced_base
+            if (placement.l, placement.w) == (147, 308)
+        )
+        filler_x = {
+            round(placement.x, 6)
+            for placement in balanced_base
+            if (placement.l, placement.w) == (308, 147)
+        }
+        self.assertEqual(filler_x, {round(main_max_x, 6)})
+        self.assertEqual(filler_y, [46, 193, 340, 529, 676, 823])
+
+    def test_na4840_splitrow_keeps_filler_row_compact(self):
+        base, interlock = get_base_and_interlock_layers(
+            "Splitrow", 1219, 1016, 284, 160
+        )
+
+        self.assertEqual(len(base), 25)
+        self.assertEqual(len(interlock), 25)
+        self._assert_layer_invariants(base, 1219, 1016)
+
+        filler = sorted(
+            (placement for placement in base if placement.orientation == "LxW"),
+            key=lambda placement: placement.x,
+        )
+        self.assertEqual(len(filler), 4)
+        self.assertTrue(
+            all(
+                abs(next_box.x - (box.x + box.l)) <= 1e-6
+                for box, next_box in zip(filler, filler[1:])
+            )
+        )
+
+        main_rows = {}
+        for placement in base:
+            if placement.orientation == "WxL":
+                main_rows.setdefault(round(placement.y, 6), []).append(placement)
+        self.assertEqual(len(main_rows), 3)
+        for row in main_rows.values():
+            row.sort(key=lambda placement: placement.x)
+            self.assertTrue(
+                all(
+                    abs(next_box.x - (box.x + box.l)) <= 1e-6
+                    for box, next_box in zip(row, row[1:])
+                )
+            )
+
     def test_swapped_splitrow_is_deterministic_and_valid(self):
         for swapped in (False, True):
             first = pattern_splitrow(1200, 800, 230, 170, swapped=swapped)
@@ -71,22 +149,29 @@ class SplitrowEngineTests(SimpleTestCase):
 
     def test_sparse_rows_use_direct_opposite_edge_positions(self):
         placements = [
-            Placement2D(x=5, y=0, l=230, w=170, orientation="LxW"),
-            Placement2D(x=235, y=0, l=230, w=170, orientation="LxW"),
-            Placement2D(x=465, y=0, l=230, w=170, orientation="LxW"),
-            Placement2D(x=695, y=0, l=230, w=170, orientation="LxW"),
-            Placement2D(x=925, y=0, l=230, w=170, orientation="LxW"),
-            Placement2D(x=5, y=340, l=170, w=230, orientation="WxL"),
-            Placement2D(x=175, y=340, l=170, w=230, orientation="WxL"),
-            Placement2D(x=345, y=340, l=170, w=230, orientation="WxL"),
+            # The minority row is the filler band. It must be split against
+            # the edges of the fixed main arrangement, not the pallet edges.
+            Placement2D(x=5, y=0, l=170, w=230, orientation="LxW"),
+            Placement2D(x=175, y=0, l=170, w=230, orientation="LxW"),
+            Placement2D(x=345, y=0, l=170, w=230, orientation="LxW"),
+            Placement2D(x=515, y=0, l=170, w=230, orientation="LxW"),
+            Placement2D(x=5, y=300, l=230, w=170, orientation="WxL"),
+            Placement2D(x=235, y=300, l=230, w=170, orientation="WxL"),
+            Placement2D(x=465, y=300, l=230, w=170, orientation="WxL"),
+            Placement2D(x=695, y=300, l=230, w=170, orientation="WxL"),
+            Placement2D(x=925, y=300, l=230, w=170, orientation="WxL"),
         ]
 
         from packagingapp.utils.palletization.engine import balance_splitrow_sparse_rows
 
         balanced = balance_splitrow_sparse_rows(placements, 1200, 800)
         self.assertEqual(
-            [round(p.x, 6) for p in balanced[:5]],
-            [0, 230, 510, 740, 970],
+            [round(p.x, 6) for p in balanced[:4]],
+            [5, 175, 815, 985],
+        )
+        self.assertEqual(
+            [round(p.x, 6) for p in balanced[4:]],
+            [5, 235, 465, 695, 925],
         )
         self._assert_layer_invariants(balanced, 1200, 800)
 
@@ -94,12 +179,12 @@ class SplitrowEngineTests(SimpleTestCase):
         base, interlock = get_base_and_interlock_layers(
             "Splitrow", 1234.5, 987.25, 137.3, 83.7
         )
-        self.assertEqual(len(base), 98)
-        self.assertEqual(len(interlock), 98)
+        self.assertEqual(len(base), 102)
+        self.assertEqual(len(interlock), 102)
         self._assert_layer_invariants(base, 1234.5, 987.25)
         self._assert_layer_invariants(interlock, 1234.5, 987.25)
 
-    def test_splitrow_tie_keeps_block_capacity_and_first_winner_behavior(self):
+    def test_splitrow_tie_keeps_block_capacity_and_deterministic_mixed_choice(self):
         splitrow = pattern_splitrow(500, 400, 120, 80)
         block = pattern_block(500, 400, 120, 80)
         self.assertEqual(len(splitrow), len(block))

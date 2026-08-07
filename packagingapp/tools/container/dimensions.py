@@ -43,7 +43,8 @@ def resolve_external_carton_dimensions(
 
     Explicit external dimensions are authoritative only when all three axes are
     valid. Otherwise the complete triplet is calculated from a known positive
-    thickness, or from the centralized 4 mm default.
+    thickness, or from the centralized 4 mm default. Calculated length and
+    width use ``internal + 2t``; calculated height uses ``internal + 4t``.
     """
     internal = tuple(
         _positive_number(value, field_name=f"Internal {axis}", required=True)
@@ -88,8 +89,10 @@ def resolve_external_carton_dimensions(
             if assumed
             else thickness_source
         )
-        resolved_external = tuple(
-            value + (2 * thickness_used) for value in internal
+        resolved_external = (
+            internal[0] + (2 * thickness_used),
+            internal[1] + (2 * thickness_used),
+            internal[2] + (4 * thickness_used),
         )
 
     return {

@@ -812,6 +812,8 @@ def _splitrow_edge_split_positions(
     area_l: float,
     area_w: float,
     axis: str,
+    edge_min: Optional[float] = None,
+    edge_max: Optional[float] = None,
 ) -> List[Placement2D]:
     """Build one deterministic opposite-edge split for Splitrow fillers."""
     if filler_count < 2 or axis not in {"x", "y"}:
@@ -823,22 +825,26 @@ def _splitrow_edge_split_positions(
         return []
 
     if axis == "x":
-        span = area_l
+        lower_edge = 0.0 if edge_min is None else edge_min
+        upper_edge = area_l if edge_max is None else edge_max
+        span = upper_edge - lower_edge
         unit = template.l
-        start_high = span - high_count * unit
+        start_high = upper_edge - high_count * unit
         positions = [
-            (i * unit, template.y)
+            (lower_edge + i * unit, template.y)
             for i in range(low_count)
         ] + [
             (start_high + i * unit, template.y)
             for i in range(high_count)
         ]
     else:
-        span = area_w
+        lower_edge = 0.0 if edge_min is None else edge_min
+        upper_edge = area_w if edge_max is None else edge_max
+        span = upper_edge - lower_edge
         unit = template.w
-        start_high = span - high_count * unit
+        start_high = upper_edge - high_count * unit
         positions = [
-            (template.x, i * unit)
+            (template.x, lower_edge + i * unit)
             for i in range(low_count)
         ] + [
             (template.x, start_high + i * unit)
@@ -920,39 +926,77 @@ def balance_splitrow_sparse_rows(
     area_l: float,
     area_w: float,
 ) -> List[Placement2D]:
-    """Balance each Splitrow band directly from its row topology.
+    """Balance the minority Splitrow band from its row/column topology.
 
-    Splitrow bands are horizontal rows with a common orientation and carton
-    footprint. Their sparse-row symmetry can therefore be calculated once per
-    row; there is no need to search arbitrary X/Y positions or repeatedly
-    rebuild and validate the full layer during local improvement.
+    A Splitrow filler band may be horizontal or vertical. The sparse minority
+    line is split across the corresponding opposite edges of the fixed main
+    arrangement (3 + 3 for six cartons), while the main block remains fixed.
+    No arbitrary X/Y search or iterative rebuild is needed; the shared
+    validator is the final safety check.
     """
     if not placements or len(_orientation_counts(placements)) < 2:
         return placements
 
-    groups = _group_line_indices(placements, "horizontal")
+    counts = _orientation_counts(placements)
+    filler_orientation, filler_count = min(counts.items(), key=lambda item: item[1])
+    if filler_count < 2:
+        return placements
+
     balanced = list(placements)
-    changed = False
-    for indices in groups.values():
+    vertical_groups = _group_line_indices(placements, "vertical")
+    fixed = [p for p in placements if p.orientation != filler_orientation]
+    fixed_bounds = placements_bbox(fixed) if fixed else None
+    for indices in vertical_groups.values():
         if len(indices) < 2:
             continue
         group = [placements[i] for i in indices]
+        if any(p.orientation != filler_orientation for p in group):
+            continue
+        split_positions = _splitrow_edge_split_positions(
+            template=group[0],
+            filler_count=len(group),
+            area_l=area_l,
+            area_w=area_w,
+            axis="y",
+            edge_min=fixed_bounds[1] if fixed_bounds else None,
+            edge_max=fixed_bounds[3] if fixed_bounds else None,
+        )
+        if len(split_positions) != len(group):
+            continue
+        for index, replacement in zip(indices, split_positions):
+            balanced[index] = replacement
+        if layout_signature(group) != layout_signature(split_positions):
+            return (
+                balanced
+                if placements_are_valid(balanced, area_l, area_w)
+                else placements
+            )
+
+    # Preserve the established horizontal sparse-row balancing for cases that
+    # do not have a compact vertical filler band.
+    for indices in _group_line_indices(placements, "horizontal").values():
+        if len(indices) < 2:
+            continue
+        group = [placements[i] for i in indices]
+        if any(p.orientation != filler_orientation for p in group):
+            continue
         split_positions = _splitrow_edge_split_positions(
             template=group[0],
             filler_count=len(group),
             area_l=area_l,
             area_w=area_w,
             axis="x",
+            edge_min=fixed_bounds[0] if fixed_bounds else None,
+            edge_max=fixed_bounds[2] if fixed_bounds else None,
         )
         if len(split_positions) != len(group):
             continue
         for index, replacement in zip(indices, split_positions):
             balanced[index] = replacement
-        changed = changed or layout_signature(group) != layout_signature(split_positions)
 
-    if not changed:
-        return placements
-    return balanced if placements_are_valid(balanced, area_l, area_w) else placements
+    return balanced if layout_signature(balanced) != layout_signature(placements) and placements_are_valid(
+        balanced, area_l, area_w
+    ) else placements
 
 
 
@@ -2013,63 +2057,142 @@ def pattern_pinwheel(area_l, area_w, box_l, box_w, rotated=False):
     return best
 
 
-def pattern_splitrow(area_l, area_w, box_l, box_w, swapped=False):
-    best: List[Placement2D] = []
-
-    if not swapped:
-        a_l, a_w = box_l, box_w
-        b_l, b_w = box_w, box_l
+def _splitrow_arithmetic_choice(
+    area_l,
+    area_w,
+    a_l,
+    a_w,
+    b_l,
+    b_w,
+    axis,
+):
+    """Choose a two-band split without materializing every candidate."""
+    if axis == "rows":
+        max_a_units = int(area_w // a_w)
+        a_across = int(area_l // a_l)
+        b_across = int(area_l // b_l)
+        for_a = lambda units: (
+            units * a_w,
+            int((area_w - units * a_w) // b_w),
+        )
     else:
-        a_l, a_w = box_w, box_l
-        b_l, b_w = box_l, box_w
+        max_a_units = int(area_l // a_l)
+        a_across = int(area_w // a_w)
+        b_across = int(area_w // b_w)
+        for_a = lambda units: (
+            units * a_l,
+            int((area_l - units * a_l) // b_l),
+        )
 
-    max_rows_a = int(area_w // a_w)
-    cols_a = int(area_l // a_l)
-    cols_b = int(area_l // b_l)
-    best_rows_a: Optional[int] = None
-    best_count = 0
+    best = None
+    best_score = None
+    for a_units in range(max_a_units + 1):
+        band_a, b_units = for_a(a_units)
+        a_count = a_units * a_across
+        b_count = b_units * b_across
+        total = a_count + b_count
+        mixed = a_count > 0 and b_count > 0
+        # Prefer a genuine mixed split when it ties an all-one-orientation
+        # grid. This is what makes the reference 6x3 + 1x6 topology visible
+        # instead of silently falling back to a rotated Block layer.
+        score = (
+            total,
+            int(mixed),
+            -b_units if mixed else 0,
+            min(a_count, b_count) if mixed else 0,
+        )
+        if best_score is None or score > best_score:
+            best_score = score
+            best = {
+                "axis": axis,
+                "a_units": a_units,
+                "b_units": b_units,
+                "a_count": a_count,
+                "b_count": b_count,
+                "band_a": band_a,
+            }
+    return best
 
-    for rows_a in range(max_rows_a + 1):
-        band_a_w = rows_a * a_w
-        band_b_w = area_w - band_a_w
-        rows_b = int(band_b_w // b_w)
-        total = rows_a * cols_a + rows_b * cols_b
 
-        # Strict comparison preserves the existing first-winner tie behavior.
-        if total > best_count:
-            best_count = total
-            best_rows_a = rows_a
+def _materialize_splitrow_choice(choice, area_l, area_w, a_l, a_w, b_l, b_w, box_l, box_w):
+    if not choice or (not choice["a_count"] and not choice["b_count"]):
+        return []
 
-    if best_rows_a is not None:
-        band_a_w = best_rows_a * a_w
+    placements: List[Placement2D] = []
+    if choice["axis"] == "rows":
+        band_a_w = choice["band_a"]
         band_b_w = area_w - band_a_w
         if band_a_w > 0:
-            best.extend(
-                grid_fill(
-                    area_l,
-                    band_a_w,
-                    a_l,
-                    a_w,
-                    box_l,
-                    box_w,
-                    x0=0,
-                    y0=0,
-                )
+            placements.extend(
+                grid_fill(area_l, band_a_w, a_l, a_w, box_l, box_w, x0=0, y0=0)
             )
         if band_b_w > 0:
-            best.extend(
-                grid_fill(
-                    area_l,
-                    band_b_w,
-                    b_l,
-                    b_w,
-                    box_l,
-                    box_w,
-                    x0=0,
-                    y0=band_a_w,
-                )
+            placements.extend(
+                grid_fill(area_l, band_b_w, b_l, b_w, box_l, box_w, x0=0, y0=band_a_w)
             )
+    else:
+        band_a_l = choice["band_a"]
+        band_b_l = area_l - band_a_l
+        if band_a_l > 0:
+            placements.extend(
+                grid_fill(band_a_l, area_w, a_l, a_w, box_l, box_w, x0=0, y0=0)
+            )
+        if band_b_l > 0:
+            placements.extend(
+                grid_fill(band_b_l, area_w, b_l, b_w, box_l, box_w, x0=band_a_l, y0=0)
+            )
+    return placements
 
+
+def pattern_splitrow(area_l, area_w, box_l, box_w, swapped=False):
+    """Build the best deterministic mixed row/column split.
+
+    Split Row is allowed to divide the footprint along either pallet axis. The
+    reference layout for 308 x 147 mm cartons is a side-by-side split, so a
+    row-only search cannot represent it. Arithmetic scoring still evaluates
+    only integer band counts; geometry is materialized for the winning choice
+    and the unchanged Block fallback.
+    """
+    orientation_pairs = [
+        (box_w, box_l, box_l, box_w),
+        (box_l, box_w, box_w, box_l),
+    ]
+    if swapped:
+        orientation_pairs.reverse()
+
+    best_choice = None
+    best_params = None
+    best_score = None
+    for a_l, a_w, b_l, b_w in orientation_pairs:
+        for axis in ("rows", "columns"):
+            choice = _splitrow_arithmetic_choice(
+                area_l, area_w, a_l, a_w, b_l, b_w, axis
+            )
+            if not choice:
+                continue
+            score = (
+                choice["a_count"] + choice["b_count"],
+                int(choice["a_count"] > 0 and choice["b_count"] > 0),
+                -choice["b_units"]
+                if choice["a_count"] > 0 and choice["b_count"] > 0
+                else 0,
+                min(choice["a_count"], choice["b_count"])
+                if choice["a_count"] > 0 and choice["b_count"] > 0
+                else 0,
+            )
+            if best_score is None or score > best_score:
+                best_score = score
+                best_choice = choice
+                best_params = (a_l, a_w, b_l, b_w)
+
+    best = _materialize_splitrow_choice(
+        best_choice,
+        area_l,
+        area_w,
+        *(best_params or (box_l, box_w, box_w, box_l)),
+        box_l,
+        box_w,
+    )
     plain = pattern_block(area_l, area_w, box_l, box_w)
     return best if len(best) >= len(plain) else plain
 

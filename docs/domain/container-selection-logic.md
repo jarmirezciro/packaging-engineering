@@ -138,8 +138,10 @@ The shared Container dimension resolver produces one complete external L/W/H
 triplet using this precedence:
 
 1. a complete, positive catalogue external-dimension triplet;
-2. internal dimensions plus twice the actual box thickness;
-3. internal dimensions plus twice the centralized 4 mm default thickness.
+2. internal length/width plus twice the actual box thickness, and internal
+   height plus four times the actual box thickness;
+3. the same axis-specific formula using the centralized 4 mm default
+   thickness.
 
 Incomplete catalogue external dimensions are never mixed with calculated
 axes. When the 4 mm default is required, the JSON-safe result contract marks
