@@ -40,6 +40,7 @@ def sanitize_container_config_for_session(config):
         "box_l": _safe_str(base.get("box_l") or ""),
         "box_w": _safe_str(base.get("box_w") or ""),
         "box_h": _safe_str(base.get("box_h") or ""),
+        "box_thickness_mm": _safe_str(base.get("box_thickness_mm") or ""),
         "box_weight": _safe_str(base.get("box_weight") or ""),
         "box_max_payload": _safe_str(base.get("box_max_payload") or ""),
         "selected_design_candidate_id": _safe_str(base.get("selected_design_candidate_id") or ""),

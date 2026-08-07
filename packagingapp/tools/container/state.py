@@ -22,6 +22,7 @@ def default_container_config():
         "box_l": "",
         "box_w": "",
         "box_h": "",
+        "box_thickness_mm": "",
         "box_weight": "",
         "box_max_payload": "",
         "selected_design_candidate_id": "",

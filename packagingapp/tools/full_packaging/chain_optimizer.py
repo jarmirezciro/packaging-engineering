@@ -4,6 +4,12 @@ from copy import deepcopy
 import json
 import logging
 
+from ..container.dimensions import (
+    EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
+    EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
+    resolve_external_carton_dimensions,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +75,28 @@ def build_design_candidate_payload(source_type, candidate, upstream=None):
     }
 
     if source_type == "container":
+        thickness = candidate.get("box_thickness_mm")
+        if candidate.get("box_thickness_assumed"):
+            thickness = None
+        thickness_source = candidate.get("external_dimension_source")
+        if thickness_source not in (
+            EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
+            EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
+        ):
+            thickness_source = EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS
+        dimensions = resolve_external_carton_dimensions(
+            candidate.get("container_length"),
+            candidate.get("container_width"),
+            candidate.get("container_height"),
+            thickness_mm=thickness,
+            thickness_source=thickness_source,
+        )
         common.update({
             "label": "Designed Container",
-            "length": candidate.get("container_length"),
-            "width": candidate.get("container_width"),
-            "height": candidate.get("container_height"),
+            **dimensions,
+            "length": dimensions["external_length"],
+            "width": dimensions["external_width"],
+            "height": dimensions["external_height"],
             "metrics": {
                 "cubicity": candidate.get("container_cubicity_score"),
                 "volume": candidate.get("required_container_volume"),

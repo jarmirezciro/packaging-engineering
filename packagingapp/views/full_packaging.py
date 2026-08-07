@@ -66,6 +66,11 @@ from ..tools.container.service import (
     get_selected_product as get_container_selected_product,
 )
 from ..tools.container.state import default_container_config
+from ..tools.container.dimensions import (
+    EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
+    EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
+    resolve_external_carton_dimensions,
+)
 
 from ..tools.transport.presenter import (
     selected_container_summary,
@@ -682,29 +687,6 @@ def _payload_overview_value(payload):
     return f"{label} — {dims}"
 
 
-
-
-def _material_dimension_for_workflow(material, external_attr, part_attr):
-    """Return the physical outside dimension for chained workflow payloads.
-
-    Catalogue items may store external_* as 0 when the usable dimension is in
-    part_*. For workflow inheritance, prefer the first positive outside/part
-    dimension and only keep 0 when no positive fallback exists.
-    """
-    if material is None:
-        return 0.0
-
-    first_numeric = None
-    for attr in (external_attr, part_attr):
-        value = _to_float(getattr(material, attr, None), None)
-        if value is None:
-            continue
-        if first_numeric is None:
-            first_numeric = value
-        if value > 0:
-            return value
-
-    return first_numeric or 0.0
 
 
 def _material_dimension_value(material, external_attr, part_attr):
@@ -1399,6 +1381,7 @@ def _normalized_container_post(cfg):
         "box_l": cfg.get("box_l", ""),
         "box_w": cfg.get("box_w", ""),
         "box_h": cfg.get("box_h", ""),
+        "box_thickness_mm": cfg.get("box_thickness_mm", ""),
         "box_weight": cfg.get("box_weight", ""),
         "box_max_payload": cfg.get("box_max_payload", ""),
         "selected_design_candidate_id": cfg.get("selected_design_candidate_id", ""),
@@ -1428,20 +1411,25 @@ def _build_container_non_design_workflow_payload(
         desired_qty = int(getattr(selected_product, "desired_qty", 1) or 1)
 
     if selected_material is not None:
-        length = _material_dimension_for_workflow(
-            selected_material, "external_length", "part_length"
-        )
-        width = _material_dimension_for_workflow(
-            selected_material, "external_width", "part_width"
-        )
-        height = _material_dimension_for_workflow(
-            selected_material, "external_height", "part_height"
+        dimensions = resolve_external_carton_dimensions(
+            selected_material.part_length,
+            selected_material.part_width,
+            selected_material.part_height,
+            external_length=selected_material.external_length,
+            external_width=selected_material.external_width,
+            external_height=selected_material.external_height,
+            thickness_mm=getattr(selected_material, "box_thickness_mm", None),
+            thickness_source=EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
         )
         label = selected_material.part_number
     else:
-        length = _to_float(cfg.get("box_l"), 0.0) or 0.0
-        width = _to_float(cfg.get("box_w"), 0.0) or 0.0
-        height = _to_float(cfg.get("box_h"), 0.0) or 0.0
+        dimensions = resolve_external_carton_dimensions(
+            cfg.get("box_l"),
+            cfg.get("box_w"),
+            cfg.get("box_h"),
+            thickness_mm=cfg.get("box_thickness_mm"),
+            thickness_source=EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
+        )
         label = "Manual Container"
 
     units_per_parent = int(max_quantity or 0) if cfg.get("mode") == "single" else desired_qty
@@ -1449,9 +1437,10 @@ def _build_container_non_design_workflow_payload(
     upstream_units = _to_int((upstream or {}).get("total_base_units"), 1) or 1
     payload = {
         "label": label,
-        "length": round(length, 2),
-        "width": round(width, 2),
-        "height": round(height, 2),
+        **dimensions,
+        "length": round(dimensions["external_length"], 2),
+        "width": round(dimensions["external_width"], 2),
+        "height": round(dimensions["external_height"], 2),
         "units_per_parent": units_per_parent,
         "total_base_units": units_per_parent * int(upstream_units),
         "transport_qty": 1,
@@ -1540,6 +1529,10 @@ def _process_container_step(step, steps, idx, post):
     cfg["box_l"] = post.get(f"box_l{suffix}", post.get(f"box_l_{idx}", cfg.get("box_l", "")))
     cfg["box_w"] = post.get(f"box_w{suffix}", post.get(f"box_w_{idx}", cfg.get("box_w", "")))
     cfg["box_h"] = post.get(f"box_h{suffix}", post.get(f"box_h_{idx}", cfg.get("box_h", "")))
+    cfg["box_thickness_mm"] = post.get(
+        f"box_thickness_mm{suffix}",
+        post.get(f"box_thickness_mm_{idx}", cfg.get("box_thickness_mm", "")),
+    )
     cfg["box_weight"] = post.get(
         f"box_weight{suffix}",
         post.get(f"box_weight_{idx}", cfg.get("box_weight", ""))

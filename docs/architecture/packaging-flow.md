@@ -166,6 +166,17 @@ can explore layouts without losing optimization results. A changed pallet
 dimension, constraint, or material clears the stale ranking and tells the user
 to run the optimization again.
 
+### Container dimensions passed downstream
+
+Container Selection keeps internal dimensions in explicit `internal_*` result
+fields, while its generic workflow `length`, `width`, and `height` represent the
+resolved physical external carton size. Palletization therefore receives the
+outside carton dimensions. Normal selected Design candidates and temporary
+Packaging Chain Optimizer candidates use the same shared Container dimension
+resolver and payload builder, so both paths provide identical carton dimensions
+to downstream capacity evaluation. Missing thickness in an older workflow
+payload remains valid and resolves through the centralized 4 mm assumption.
+
 ## Future combined report
 
 A proposed Packaging Flow Report would use selected/effective results from each step and present:

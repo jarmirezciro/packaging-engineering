@@ -97,6 +97,7 @@ class PackagingMaterialForm(forms.ModelForm):
             "external_length",
             "external_width",
             "external_height",
+            "box_thickness_mm",
             "part_weight",
             "drawing",
             "picture",
@@ -115,6 +116,7 @@ class PackagingMaterialForm(forms.ModelForm):
             "external_length",
             "external_width",
             "external_height",
+            "box_thickness_mm",
             "part_weight",
         ]:
             self.fields[field_name].widget.attrs.update({"class": "form-control"})
@@ -129,6 +131,7 @@ class PackagingMaterialForm(forms.ModelForm):
             "external_length",
             "external_width",
             "external_height",
+            "box_thickness_mm",
             "part_weight",
         ]:
             self.fields[field_name].widget.attrs.update({"step": "any", "placeholder": "0"})
@@ -276,6 +279,15 @@ class ContainerSelectionMode1Form(forms.Form):
         required=False,
         label="Height",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+
+    box_thickness_mm = forms.FloatField(
+        min_value=0.0001,
+        required=False,
+        label="Box thickness",
+        widget=forms.NumberInput(
+            attrs={"class": "form-control", "step": "any", "min": "0.0001"}
+        ),
     )
 
     box_weight = forms.FloatField(

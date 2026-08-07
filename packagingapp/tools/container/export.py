@@ -331,6 +331,8 @@ def build_container_selection_single_pdf(export_payload):
         ("Description", container.get("description")),
         ("Type", container.get("type")),
         ("Internal dims", container.get("dimensions")),
+        ("External dims", container.get("external_dimensions")),
+        ("Box thickness", f"{container.get('box_thickness_mm')} mm" if container.get("box_thickness_mm") is not None else "Not available"),
         ("Requested / designed", f"{analysis.get('desired_quantity', analysis.get('requested_qty', '-'))} / {analysis.get('design_quantity', analysis.get('max_quantity', '-'))} pcs"),
         ("Arrangement", analysis.get("arrangement")),
         ("Orientation", analysis.get("product_orientation")),
@@ -439,6 +441,7 @@ def build_container_selection_optimal_pdf(export_payload):
         ("Selected candidate", selected_candidate.get("part_number") or recommendation.get("part_number")),
         ("Description", selected_candidate.get("description") or recommendation.get("description")),
         ("Internal dims", selected_candidate.get("dimensions") or recommendation.get("dimensions")),
+        ("External dims", selected_candidate.get("external_dimensions") or recommendation.get("external_dimensions")),
     ], [35 * mm, 67 * mm])
 
     visual_stack = [

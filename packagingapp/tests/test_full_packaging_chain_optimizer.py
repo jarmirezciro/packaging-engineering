@@ -159,9 +159,9 @@ class ChainOptimizerTests(SimpleTestCase):
 
         def evaluate(steps, index):
             incoming = steps[index - 1]["pending_result"]
-            if incoming["length"] == 40:
+            if incoming["length"] == 48:
                 return None
-            multipliers = {10: 5, 20: 4, 30: 20}
+            multipliers = {18: 5, 28: 4, 38: 20}
             output = {"total_base_units": incoming["total_base_units"] * multipliers[incoming["length"]]}
             steps[index]["pending_result"] = output
             return output
@@ -212,10 +212,31 @@ class ChainOptimizerTests(SimpleTestCase):
         container = build_design_candidate_payload("container", container_candidate("a", 1, 8), upstream)
         bag = build_design_candidate_payload("bag", bag_candidate("b", 1, 6), upstream)
         self.assertEqual(container["total_base_units"], 40)
-        self.assertEqual((container["length"], container["width"], container["height"]), (100, 80, 60))
+        self.assertEqual((container["length"], container["width"], container["height"]), (108, 88, 68))
+        self.assertEqual((container["internal_length"], container["internal_width"], container["internal_height"]), (100, 80, 60))
+        self.assertTrue(container["box_thickness_assumed"])
         self.assertEqual(bag["total_base_units"], 30)
         self.assertEqual((bag["length"], bag["width"], bag["height"]), (125, 100, 60))
         self.assertEqual(bag["selected_arrangement_id"], "arr-b")
+
+    def test_container_candidate_payload_uses_provided_or_default_thickness(self):
+        provided_candidate = container_candidate("provided", 1, 8, 600)
+        provided_candidate.update({
+            "container_width": 400,
+            "container_height": 300,
+            "box_thickness_mm": 5,
+            "box_thickness_assumed": False,
+        })
+        provided = build_design_candidate_payload("container", provided_candidate)
+        self.assertEqual((provided["length"], provided["width"], provided["height"]), (610, 410, 310))
+        self.assertFalse(provided["box_thickness_assumed"])
+
+        blank_candidate = dict(provided_candidate)
+        blank_candidate.pop("box_thickness_mm")
+        blank_candidate.pop("box_thickness_assumed")
+        assumed = build_design_candidate_payload("container", blank_candidate)
+        self.assertEqual((assumed["length"], assumed["width"], assumed["height"]), (608, 408, 308))
+        self.assertTrue(assumed["box_thickness_assumed"])
 
     def test_invalidation_preserves_only_unchanged_source_row_selection(self):
         state = {
@@ -487,6 +508,74 @@ class CapacityOnlyEvaluationTests(TestCase):
             full["result"]["selected_row"]["total_boxes"],
         )
         self.assertEqual(capacity["effective_config"], full["effective_config"])
+
+    def test_optimizer_and_normal_path_pass_same_external_carton_size_and_rank_on_it(self):
+        candidate_a = container_candidate("thin", 2, 1, 390)
+        candidate_a.update({
+            "container_width": 390,
+            "container_height": 300,
+            "box_thickness_mm": 4,
+            "box_thickness_assumed": False,
+        })
+        candidate_b = container_candidate("thick", 1, 1, 390)
+        candidate_b.update({
+            "container_width": 390,
+            "container_height": 300,
+            "box_thickness_mm": 10,
+            "box_thickness_assumed": False,
+        })
+
+        pallet = _new_pallet_step()
+        pallet["config"].update({
+            "pallet_l": 1200,
+            "pallet_w": 800,
+            "pallet_height": 144,
+            "max_stack_height": 1200,
+        })
+        received = []
+
+        def controlled_pallet_capacity(*, config, **_kwargs):
+            box_l = float(config["box_l"])
+            box_w = float(config["box_w"])
+            received.append((box_l, box_w, float(config["box_h"])))
+            total_boxes = int(1200 // box_l) * int(800 // box_w)
+            return {
+                "ok": True,
+                "effective_config": config,
+                "selected_row": {
+                    "pattern": "controlled-grid",
+                    "stacking": "column",
+                    "total_boxes": total_boxes,
+                    "used_height_mm": 300,
+                },
+            }
+
+        normal_source = source_step("container", [candidate_a], selected_id="thin")
+        normal_source["pending_result"] = build_design_candidate_payload("container", candidate_a)
+
+        optimizer_source = source_step(
+            "container", [candidate_a, candidate_b], selected_id="thin"
+        )
+        workflow = {"steps": [optimizer_source, pallet]}
+
+        with patch(
+            "packagingapp.views.full_packaging.analyze_palletization_capacity",
+            side_effect=controlled_pallet_capacity,
+        ):
+            normal_output = _evaluate_design_chain_step(
+                [normal_source, deepcopy(pallet)], 1
+            )
+            optimized = optimize_design_chain(
+                workflow, 0, _evaluate_design_chain_step
+            )
+
+        self.assertEqual(received[0], (398.0, 398.0, 308.0))
+        self.assertEqual(received[0], received[1])
+        self.assertEqual(received[2], (410.0, 410.0, 320.0))
+        self.assertEqual(normal_output["total_base_units"], 6)
+        self.assertEqual(optimized["candidate_results"]["thin"]["final_base_units"], 6)
+        self.assertEqual(optimized["candidate_results"]["thick"]["final_base_units"], 2)
+        self.assertEqual(optimized["sorted_candidate_ids"], ["thin", "thick"])
 
 
 class ChainOptimizerViewTests(TestCase):
