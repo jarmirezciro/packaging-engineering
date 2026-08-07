@@ -133,6 +133,35 @@ class SplitrowEngineTests(SimpleTestCase):
                 )
             )
 
+    def test_odd_splitrow_residuals_are_centered_after_invalid_axis_falls_through(self):
+        for box_l, box_w in ((362, 146), (364, 288)):
+            base, _ = get_base_and_interlock_layers(
+                "Splitrow", 1219, 1016, box_l, box_w
+            )
+            self._assert_layer_invariants(base, 1219, 1016)
+
+            main = [placement for placement in base if placement.orientation == "WxL"]
+            filler = [placement for placement in base if placement.orientation == "LxW"]
+            main_min_x = min(placement.x for placement in main)
+            main_max_x = max(placement.x + placement.l for placement in main)
+            unit = filler[0].l
+            center_x = main_min_x + (main_max_x - main_min_x - unit) / 2
+            expected_x = [
+                round(main_min_x, 6),
+                round(center_x, 6),
+                round(main_max_x - unit, 6),
+            ]
+
+            filler_rows = {}
+            for placement in filler:
+                filler_rows.setdefault(round(placement.y, 6), []).append(placement)
+            self.assertTrue(filler_rows)
+            for row in filler_rows.values():
+                self.assertEqual(
+                    [round(placement.x, 6) for placement in sorted(row, key=lambda p: p.x)],
+                    expected_x,
+                )
+
     def test_swapped_splitrow_is_deterministic_and_valid(self):
         for swapped in (False, True):
             first = pattern_splitrow(1200, 800, 230, 170, swapped=swapped)

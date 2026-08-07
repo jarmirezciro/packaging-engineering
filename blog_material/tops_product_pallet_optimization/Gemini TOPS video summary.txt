@@ -1,0 +1,48 @@
+Gemini TOPS video summary
+
+Here is a summary of the video "TOPS Pro - Case Size Optimization" by the TOPS Software Corporation:
+
+The video serves as a tutorial demonstrating the case sizing function within the TOPS Pro software system, highlighting how optimizing case pack quantities can significantly improve pallet yield and save resources.
+
+Key Steps and Takeaways:
+
+The Objective: The demonstration explores a scenario where a company currently using an 8-pack configuration wants to know if they should increase their case pack quantity to a 10, 16, 18, or 24-pack to maximize pallet yield [00:21].
+
+Setting Parameters: The optimization process begins by entering three sets of parameters:
+
+Retail Unit Parameters: Dimensions, weight, and allowed product orientations [00:51].
+
+Shipped Case Parameters: Setting up a "new optimization" to allow the software to recommend the best case size for the tested pack quantities [01:24].
+
+Unit Load Parameters: Defining the pallet type, maximum stack height, and overhang allowances (set to zero for this example) [02:02].
+
+Running Calculations: Upon calculating, the system quickly compares the yields of the different configurations [02:23].
+
+The Results: The software determines that a 16-pack is the most optimized configuration. It yields just over 1,200 units per pallet, compared to the current 8-pack's 1,152 units—an overall yield increase of about 6.9% [02:51].
+
+Business Impact: To illustrate the value of this optimization, the presenter notes that if the company ships one million units annually, switching to the 16-pack configuration would save approximately 57 pallets compared to their old setup [03:41].
+
+Final Outputs: The tutorial concludes by generating an optimized pallet pattern and a printable analysis report [04:11].
+
+You can watch the full video here: https://www.youtube.com/watch?v=aAeo0ZSB7vU
+
+
+Video Background
+
+The Product and Customer Case
+The video does not name a specific real-world company or a concrete consumer product (like cereal or electronics). Instead, it presents a generic, hypothetical case study:
+
+The Product: It is simply referred to as a "primary product," "retail unit," or "carton".
+
+The Packaging: The product is packed into an "RSC style box" (Regular Slotted Container) made of "C flute" corrugated cardboard.
+
+The "Product Manager" and Key Assumptions
+The presenter doesn't explicitly mention a "product manager," but rather refers to the "brand owner" who sets the rules for how the product can be handled. Throughout the demonstration, the presenter asks the viewer to make a few specific assumptions to frame the case study:
+
+The Scenario Assumption: You are asked to assume you are a company using TOPS Pro, trying to decide if you should increase your current case pack quantity from an 8-pack to a 10, 12, 16, 18, or 24-pack to improve efficiency.
+
+The Brand Owner's Orientation Rules: It is assumed that the brand owner allows this specific product to be packed in two ways: either "upright/standing vertical" or "flaps vertical". Allowing the software to test both orientations is what ultimately helps find the most efficient fit.
+
+The Annual Volume Assumption (The ROI): To prove the financial impact of the software, the presenter says, "if we assume we ship a million units of this primary product... every year".
+
+By using that final assumption of 1,000,000 units shipped annually, they demonstrate that switching from the old 8-pack to the newly optimized 16-pack would save the company 57 pallets per year.

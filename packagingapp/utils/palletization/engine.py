@@ -819,40 +819,65 @@ def _splitrow_edge_split_positions(
     if filler_count < 2 or axis not in {"x", "y"}:
         return []
 
-    low_count = filler_count // 2
-    high_count = filler_count - low_count
-    if low_count <= 0 or high_count <= 0:
-        return []
-
     if axis == "x":
         lower_edge = 0.0 if edge_min is None else edge_min
         upper_edge = area_l if edge_max is None else edge_max
-        span = upper_edge - lower_edge
         unit = template.l
-        start_high = upper_edge - high_count * unit
-        positions = [
-            (lower_edge + i * unit, template.y)
-            for i in range(low_count)
-        ] + [
-            (start_high + i * unit, template.y)
-            for i in range(high_count)
-        ]
     else:
         lower_edge = 0.0 if edge_min is None else edge_min
         upper_edge = area_w if edge_max is None else edge_max
-        span = upper_edge - lower_edge
         unit = template.w
-        start_high = upper_edge - high_count * unit
-        positions = [
-            (template.x, lower_edge + i * unit)
-            for i in range(low_count)
-        ] + [
-            (template.x, start_high + i * unit)
-            for i in range(high_count)
-        ]
+    span = upper_edge - lower_edge
+    if unit <= 0 or span <= 0:
+        return []
 
     if filler_count * unit >= span - 1e-6:
         return []
+
+    edge_count = filler_count // 2
+    if edge_count <= 0:
+        return []
+
+    if filler_count % 2:
+        # Odd residuals need a true centre carton. Placing the centre at the
+        # midpoint of the fixed main span produces 1 + 1 + 1 for three boxes
+        # and 2 + 1 + 2 for five, with equal leftover space on both sides.
+        center_start = lower_edge + (span - unit) / 2.0
+        high_start = upper_edge - edge_count * unit
+        if axis == "x":
+            positions = [
+                (lower_edge + i * unit, template.y)
+                for i in range(edge_count)
+            ] + [(center_start, template.y)] + [
+                (high_start + i * unit, template.y)
+                for i in range(edge_count)
+            ]
+        else:
+            positions = [
+                (template.x, lower_edge + i * unit)
+                for i in range(edge_count)
+            ] + [(template.x, center_start)] + [
+                (template.x, high_start + i * unit)
+                for i in range(edge_count)
+            ]
+    else:
+        high_start = upper_edge - edge_count * unit
+        if axis == "x":
+            positions = [
+                (lower_edge + i * unit, template.y)
+                for i in range(edge_count)
+            ] + [
+                (high_start + i * unit, template.y)
+                for i in range(edge_count)
+            ]
+        else:
+            positions = [
+                (template.x, lower_edge + i * unit)
+                for i in range(edge_count)
+            ] + [
+                (template.x, high_start + i * unit)
+                for i in range(edge_count)
+            ]
 
     return [
         Placement2D(
@@ -963,14 +988,16 @@ def balance_splitrow_sparse_rows(
         )
         if len(split_positions) != len(group):
             continue
+        candidate = list(balanced)
         for index, replacement in zip(indices, split_positions):
-            balanced[index] = replacement
+            candidate[index] = replacement
         if layout_signature(group) != layout_signature(split_positions):
-            return (
-                balanced
-                if placements_are_valid(balanced, area_l, area_w)
-                else placements
-            )
+            # A vertical split can be algebraically valid inside the main
+            # span but collide with the main block. Do not abort the complete
+            # symmetry pass in that case; a horizontal residual line may
+            # still have a valid deterministic split.
+            if placements_are_valid(candidate, area_l, area_w):
+                return candidate
 
     # Preserve the established horizontal sparse-row balancing for cases that
     # do not have a compact vertical filler band.
@@ -991,8 +1018,12 @@ def balance_splitrow_sparse_rows(
         )
         if len(split_positions) != len(group):
             continue
+        candidate = list(balanced)
         for index, replacement in zip(indices, split_positions):
-            balanced[index] = replacement
+            candidate[index] = replacement
+        if not placements_are_valid(candidate, area_l, area_w):
+            continue
+        balanced = candidate
 
     return balanced if layout_signature(balanced) != layout_signature(placements) and placements_are_valid(
         balanced, area_l, area_w

@@ -102,8 +102,12 @@ using deterministic opposite-edge coordinates anchored to the fixed main
 arrangement, not the outer pallet boundary. A six-carton compact filler is
 therefore placed 3 + 3 at the main arrangement's opposite edges. Generic
 free-position XÃ—Y searches and iterative filler reconstruction are not used on
-this path. The shared collision validator remains as a final safety check after
-the complete layer is built.
+this path. Odd residual rows use a centered carton (1 + 1 + 1 for three, 2 +
+1 + 2 for five) with equal remaining space on both sides. If a candidate split
+on one axis would collide with the fixed main block, the engine falls through
+to the other known Split Row axis instead of aborting the symmetry pass. The
+shared collision validator remains as a final safety check after the complete
+layer is built.
 
 ## Pinwheel
 

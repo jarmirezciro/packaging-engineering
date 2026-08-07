@@ -1,0 +1,74 @@
+TOPS Pallet Comparison
+
+Topic: Palletization patterns
+Audience: Packaging engineers
+Article type: Engineering deep dive
+
+Purpose: Run an example from TOPS Youtube channel and show that Kollipack delivers equivalent results
+
+Tone: TOPS is an much more experienced and reputed software supplier but Kollipack delivers a good result as well.
+
+https://www.youtube.com/watch?v=rsHM8GqOjvE
+
+Product or Box Inputs
+
+Length=16.2 inches, 411.48 mm
+Width=11.4 inches , 282.72 mm
+Heigth=9.1 inches, 231,14 mm
+
+Weigth=5lbs
+
+GMA Notched Pallet
+
+Maxminum Heigth inc. Pallet= 53 inches, 1346.2 mm
+Pallet 48 x 40 inches, 1219.2 mm x 1001.6 mm
+Pallet height= 4 inches, 101,6 mm
+
+Pallet length overhang=1 inch
+Pallet width overhang=1 inches
+
+Output
+
+TOPS
+
+Delivers 14 results 96% to 77% Area utilization however in the video only 5 results are showed
+
+Kollipack
+
+Deliver 5 results 92% to 55% Area utilization
+
+Observation
+
+Both result 1, 2 and 3 are the same in both tools and are the one that deliver higher stability and area efficiency
+
+Tops results 4 and 5 are a bit unrealistic but more efficient in comparison to Kollipacks less efficient proposals
+
+TOPS seems to present only interlocked results, Kollipack has column arrangement as default but shows if it is possible to interlock, in addition in detailed results Kollipacks shows Interlocked render.
+
+
+
+
+Both tools deliver an exportable palletization report.
+
+Both tools imported pallet information from a catalogue
+
+
+Kollipack advantage- Interative 3D visualization, user friendly and modern UI and customizable packaging catalogues.
+
+
+Conclusion
+
+Both tools deliver good results in youtube video presenter chooses option one that was also the best option according to Kollipack and results are exportable, Kollipack advantage- Interative 3D visualization, user friendly and modern UI and customizable packaging catalogues and of course pricing, that will be way below TOPS. Reasonn for why Kollipack and TOPS results might differ is because Kollipack focuses more in the most common and realistic palletization patterns, while TOPS tries to show more geometries even though they are not so realistic or practical
+ 
+
+
+
+
+
+
+
+
+
+
+
+

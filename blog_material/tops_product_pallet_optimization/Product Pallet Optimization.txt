@@ -1,0 +1,71 @@
+Product Pallet Optimization
+
+Objective: Show that Kollipack has parity to TOPS when it comes to pallet optimization.
+
+Discussion: 
+
+TOPS uses an optimizer where you can select 5 different quantities, in this case 8,10, 16, 18, or 24, after analysis TOPS concludes that 16 products/box optimize pallet utilization.
+
+KolliPack takes a different approach: instead of automatically selecting a single solution, it allows users to inspect suggested quantities such as 8, 10, 16, 18, and 24 individually. This reflects KolliPack's design philosophy rather than a limitation of the optimization engine. KolliLabs wants users to interact with the tool, explore the data, compare alternatives, adjust variables, and progressively fine-tune their solutions.
+
+For design problems that require optimization across multiple packaging steps, KolliPack provides a downstream optimizer for Bag and Box Calculator in Design Model. It evaluates the different packing alternatives generated in Design Mode and ranks them according to how many base product units can ultimately be accommodated at the final step of the logistics flow.
+
+In contrast to TOPS, Kollipacks packaging flow is modular and customizable, therefore you can create more steps and combinations that you have with TOPS. In addition, TOPS does not offer a solution for Bag or Flexible packaging something that make Kollipack unique, for self supporting products a bag is a strong alternative that can be cheaper than a case for example.
+
+In this case because we have not developed unit selection for Kollipack (International and Imperial units) numbers from the case have been transformed to metric units and rounded up. TOPS uses cardboard flutes to calculate calipers, Kollipack has a manual input for kalliper and therefore calculate box external dimensions. In the case Tops uses C-Flute and for Kollipack we use 4 mm.
+
+When it comes to results, and comparing 8 and 16 units per box, we see that Kollipack delivers similar solutions than TOPS
+
+
+
+However a more curious user could have palyed with pallet overhang and could have found that playing a bit with pallet overhang or carton ticknes would have been possible to optimize 8 product proposal Kollipack's because finds a solution that optimizes the pallet quantities in 8 units and there is no need to move to 16 units, and that has a tremendous bussisess impact. and here come some reason
+
+Things to think about when changing quantities per carton:
+
+-It means that you need to change databases
+-Create new barcodes.
+-Create a new documentation
+-Customer needs to do the same
+-moving from 8 to 16 means that a customer or retailer need to have more stock and deposit more money per transaction
+-the above can lead to death stock or returns, lower quantities are more lean.
+-ChatGPT please more things to think about.
+
+(Here I want users to use the pre-populated case and play with the numbers)
+
+
+
+
+Source: TOPS youtube channel https://www.youtube.com/watch?v=aAeo0ZSB7vU
+
+
+Pallet GMA (NOTCHED) 48 x 40 x 5 inches, 1219 x 1016 x 127mm
+Max Pallet Height=53 inches 1346mm
+Overhang Length=0
+Overhand width=0
+
+Product Inputs
+
+Length=6 inches  153 mm
+Width=2.725      70 mm
+Heigth=3.5       89 mm
+
+R1 and R3 allowed
+
+Weigth=0.15 lbs
+Caliper=0.018inches (not relevant for calculations)
+
+
+Shipcase parameters
+
+Customer is using this box for 8 units and has 1152 mm
+
+Current box = 12.313 inch x 5.813 x 7.625 iches
+		312.75 x 147.65 x 193.675
+
+Quantity per Carton 8, 10, 16, 18, 24
+
+
+
+
+
+
