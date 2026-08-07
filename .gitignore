@@ -30,3 +30,6 @@ Thumbs.db
 
 # One-time blog migration backup
 .blog-migration-backup/
+
+# Local blog writing material and evidence
+/blog_material/
