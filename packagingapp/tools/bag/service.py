@@ -11,6 +11,7 @@ from ...utils.bag_selection.engine import (
     best_usage_for_bag,
     compute_max_quantity_for_bag,
     run_bag_mode1_and_render,
+    _select_render_solution,
 )
 from ..product_shape import (
     build_product_unit_scene,
@@ -378,15 +379,15 @@ def build_bag_analysis_report(
     }
 
 
-def _build_pending_result(label, selected_bag, render_res, quantity):
-    bag_box = _resolve_visual_bag_box(selected_bag, render_res.inner_box)
+def _build_pending_result_from_inner_box(label, selected_bag, inner_box, quantity):
+    bag_box = _resolve_visual_bag_box(selected_bag, inner_box)
     if bag_box:
         length, width, height = bag_box
     else:
         length, width, height = (
-            round(render_res.inner_box[0], 2),
-            round(render_res.inner_box[1], 2),
-            round(render_res.inner_box[2], 2),
+            round(inner_box[0], 2),
+            round(inner_box[1], 2),
+            round(inner_box[2], 2),
         )
     return {
         "label": label,
@@ -396,6 +397,15 @@ def _build_pending_result(label, selected_bag, render_res, quantity):
         "units_per_parent": int(quantity or 1),
         "total_base_units": int(quantity or 1),
     }
+
+
+def _build_pending_result(label, selected_bag, render_res, quantity):
+    return _build_pending_result_from_inner_box(
+        label,
+        selected_bag,
+        render_res.inner_box,
+        quantity,
+    )
 
 
 def _positive_integer(value):
@@ -732,4 +742,162 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
         "selected_design_candidate_id": "",
         "pending_result": pending_result,
         "analysis_report": analysis_report,
+    }
+
+
+def analyze_bag_capacity(config, selected_product=None, selected_material=None):
+    """Calculate Bag workflow capacity without images or Three.js scenes."""
+    cfg = sanitize_bag_config_for_session(config or {})
+    mode = cfg.get("mode") or "single"
+    product_source = cfg.get("product_source") or "manual"
+    bag_source = cfg.get("bag_source") or "manual"
+    product = resolve_product_tuple(cfg, selected_product)
+    messages = []
+
+    if product_source == "catalogue" and selected_product is None:
+        messages.append("Please select a product from the product catalogue.")
+    elif not product or any(value is None or float(value) <= 0 for value in product):
+        messages.append("Please enter product dimensions in mm.")
+
+    desired_quantity = _positive_integer(cfg.get("desired_qty"))
+    if mode == "optimal" and product_source == "catalogue" and selected_product is not None:
+        desired_quantity = int(selected_product.desired_qty or 1)
+    if desired_quantity is None:
+        messages.append("Enter the desired quantity as a positive whole number.")
+    if messages:
+        return {"ok": False, "messages": messages, "mode": mode, "pending_result": None}
+
+    if mode == "design":
+        design = build_bag_design_candidates(
+            product[0], product[1], product[2], desired_quantity
+        )
+        candidates = [
+            _add_bag_design_metrics(row, cfg, selected_product)
+            for row in design["candidates"]
+        ]
+        if not candidates:
+            return {
+                "ok": False,
+                "messages": ["No valid bag design candidate could be generated for these inputs."],
+                "mode": mode,
+                "pending_result": None,
+            }
+        requested_id = str(cfg.get("selected_design_candidate_id") or "")
+        selected = next(
+            (row for row in candidates if row["candidate_id"] == requested_id),
+            candidates[0],
+        )
+        pending_result = {
+            "label": "Designed bag",
+            "length": selected["bag_length"],
+            "width": selected["bag_width"],
+            "height": selected["bundle_height"],
+            "units_per_parent": selected["design_quantity"],
+            "total_base_units": selected["design_quantity"],
+            "mode": "design",
+            "desired_quantity": selected["desired_quantity"],
+            "design_quantity": selected["design_quantity"],
+            "additional_capacity": selected["additional_capacity"],
+            "selected_candidate_id": selected["candidate_id"],
+            "selected_arrangement_id": selected["arrangement_id"],
+            "selected_arrangement": selected["arrangement"],
+            "selected_orientation": selected["product_orientation"],
+            "metrics": {
+                "cubicity": selected["bundle_cubicity_score"],
+                "bag_area": selected["bag_area"],
+                "bundle_volume": selected["bundle_length"] * selected["bundle_width"] * selected["bundle_height"],
+            },
+        }
+        if selected["net_content_weight"] is not None:
+            pending_result["net_content_weight_g"] = selected["net_content_weight"]
+        return {
+            "ok": True,
+            "messages": [],
+            "mode": mode,
+            "result": selected,
+            "design_candidates": candidates,
+            "selected_design_candidate_id": selected["candidate_id"],
+            "pending_result": pending_result,
+        }
+
+    if bag_source == "catalogue":
+        if selected_material is None:
+            messages.append("Please select a bag from the packaging catalogue.")
+            selected_bag = None
+        else:
+            selected_bag = (
+                float(selected_material.part_length),
+                float(selected_material.part_width),
+            )
+    else:
+        bag_length = _to_float(cfg.get("bag_length"))
+        bag_width = _to_float(cfg.get("bag_width"))
+        selected_bag = (bag_length, bag_width) if None not in (bag_length, bag_width) else None
+        if selected_bag is None:
+            messages.append("Please enter bag length and width in mm.")
+
+    if mode == "optimal":
+        if not cfg.get("catalogue_id"):
+            messages.append("Please select a packaging catalogue.")
+        if selected_material is None:
+            messages.append("Please select one of the Top 5 bags.")
+    if messages:
+        return {"ok": False, "messages": messages, "mode": mode, "pending_result": None}
+
+    if mode == "single":
+        max_info = compute_max_quantity_for_bag(
+            product[0], product[1], product[2], selected_bag[0], selected_bag[1]
+        )
+        quantity = int(max_info.get("max_quantity") or 0)
+        solutions = max_info.get("solutions") or []
+        selected_required = None
+        if max_info.get("best"):
+            selected_required = (
+                max_info["best"]["req_len"],
+                max_info["best"]["req_w"],
+            )
+    else:
+        required = build_required_bag_options(
+            product[0], product[1], product[2], desired_quantity
+        )
+        best = best_usage_for_bag(
+            selected_bag[0], selected_bag[1], required["required"]
+        )
+        quantity = int(desired_quantity)
+        solutions = required["solutions"]
+        selected_required = (best["req_len"], best["req_w"]) if best else None
+
+    if quantity <= 0 or selected_required is None:
+        return {
+            "ok": False,
+            "messages": ["No product arrangement fits the selected bag."],
+            "mode": mode,
+            "pending_result": None,
+        }
+
+    _best, _solution, option = _select_render_solution(
+        product=product,
+        selected_bag=selected_bag,
+        solutions=solutions,
+        selected_required_bag=selected_required,
+    )
+    if not option:
+        return {
+            "ok": False,
+            "messages": ["No product arrangement fits the selected bag."],
+            "mode": mode,
+            "pending_result": None,
+        }
+
+    label = selected_material.part_number if selected_material else "Manual Bag"
+    return {
+        "ok": True,
+        "messages": [],
+        "mode": mode,
+        "pending_result": _build_pending_result_from_inner_box(
+            label,
+            selected_bag,
+            option["body_box"],
+            quantity,
+        ),
     }

@@ -36,6 +36,12 @@ A valid layer must satisfy:
 - count equals number of placements;
 - equivalent symmetric/rotated duplicates are deduplicated unless operationally distinct.
 
+Before pattern generation, the engine rejects geometry that cannot produce a
+single carton placement. The carton height must not exceed the available cargo
+height, and either the entered length/width footprint or its orthogonal rotation
+must fit inside the effective pallet footprint including permitted overhang.
+Exact height and footprint equality remain feasible.
+
 ## Pattern families
 
 The project has discussed and implemented/refined these engineered pattern families:
@@ -81,6 +87,19 @@ A split/mosaic candidate divides the usable footprint into non-overlapping zones
 6. score symmetry/contour only after feasibility and count.
 
 Balanced filler symmetry may improve operational quality but must not falsely inflate count or create unsupported cartons.
+
+### Split Row implementation
+
+KolliPack's Split Row candidate divisions are evaluated arithmetically: each
+possible number of rows in the first orientation is combined with the integer
+row/column capacity of the remaining band. Only the first highest-capacity
+division is materialized as `Placement2D` geometry, preserving the existing
+first-winner tie behavior and Block fallback.
+
+Sparse Split Row rows are balanced from their known band boundaries using
+deterministic opposite-edge coordinates. Generic free-position XÃ—Y searches and
+iterative filler reconstruction are not used on this path. The shared collision
+validator remains as a final safety check after the complete layer is built.
 
 ## Pinwheel
 

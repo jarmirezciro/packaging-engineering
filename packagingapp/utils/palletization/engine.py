@@ -75,6 +75,19 @@ def effective_pallet_size(
     return pallet_l + stick_l, pallet_w + stick_w
 
 
+def carton_footprint_fits(
+    area_l: float,
+    area_w: float,
+    box_l: float,
+    box_w: float,
+) -> bool:
+    """Return whether either orthogonal carton footprint fits the usable area."""
+    return (
+        (box_l <= area_l + 1e-9 and box_w <= area_w + 1e-9)
+        or (box_w <= area_l + 1e-9 and box_l <= area_w + 1e-9)
+    )
+
+
 def rect_overlap_area(a: Placement2D, b: Placement2D) -> float:
     x_overlap = max(0, min(a.x + a.l, b.x + b.l) - max(a.x, b.x))
     y_overlap = max(0, min(a.y + a.w, b.y + b.w) - max(a.y, b.y))
@@ -791,6 +804,155 @@ def prefer_edge_balanced_filler_layer(
     if best is not placements and best_score > original_score:
         return best
     return placements
+
+
+def _splitrow_edge_split_positions(
+    template: Placement2D,
+    filler_count: int,
+    area_l: float,
+    area_w: float,
+    axis: str,
+) -> List[Placement2D]:
+    """Build one deterministic opposite-edge split for Splitrow fillers."""
+    if filler_count < 2 or axis not in {"x", "y"}:
+        return []
+
+    low_count = filler_count // 2
+    high_count = filler_count - low_count
+    if low_count <= 0 or high_count <= 0:
+        return []
+
+    if axis == "x":
+        span = area_l
+        unit = template.l
+        start_high = span - high_count * unit
+        positions = [
+            (i * unit, template.y)
+            for i in range(low_count)
+        ] + [
+            (start_high + i * unit, template.y)
+            for i in range(high_count)
+        ]
+    else:
+        span = area_w
+        unit = template.w
+        start_high = span - high_count * unit
+        positions = [
+            (template.x, i * unit)
+            for i in range(low_count)
+        ] + [
+            (template.x, start_high + i * unit)
+            for i in range(high_count)
+        ]
+
+    if filler_count * unit >= span - 1e-6:
+        return []
+
+    return [
+        Placement2D(
+            x=x,
+            y=y,
+            l=template.l,
+            w=template.w,
+            orientation=template.orientation,
+        )
+        for x, y in positions
+    ]
+
+
+def balance_splitrow_filler_layer(
+    placements: List[Placement2D],
+    area_l: float,
+    area_w: float,
+) -> List[Placement2D]:
+    """Balance Splitrow's minority-orientation band without free-space search.
+
+    Splitrow already provides a regular band topology. The old generic helper
+    searched a dimension-derived XÃ—Y grid for filler positions and repeatedly
+    collision-tested the complete layer. Here the only valid symmetry choices
+    are the two deterministic opposite-edge splits; each is materialized once
+    and checked once by the shared validator.
+    """
+    if not placements or len(placements) < 3:
+        return placements
+
+    counts = _orientation_counts(placements)
+    if len(counts) != 2:
+        return placements
+
+    filler_orientation, filler_count = min(counts.items(), key=lambda item: item[1])
+    if filler_count < 2:
+        return placements
+
+    filler = [p for p in placements if p.orientation == filler_orientation]
+    fixed = [p for p in placements if p.orientation != filler_orientation]
+    dims = {(round(p.l, 6), round(p.w, 6)) for p in filler}
+    if len(dims) != 1:
+        return placements
+
+    template = filler[0]
+    candidates: List[List[Placement2D]] = [placements]
+    for axis in ("x", "y"):
+        split_positions = _splitrow_edge_split_positions(
+            template=template,
+            filler_count=filler_count,
+            area_l=area_l,
+            area_w=area_w,
+            axis=axis,
+        )
+        if not split_positions:
+            continue
+
+        candidate = fixed + split_positions
+        if len(candidate) == len(placements) and placements_are_valid(
+            candidate, area_l, area_w
+        ):
+            candidates.append(candidate)
+
+    best = max(candidates, key=lambda layer: _filler_edge_balance_score(layer, area_l, area_w))
+    original_score = _filler_edge_balance_score(placements, area_l, area_w)
+    best_score = _filler_edge_balance_score(best, area_l, area_w)
+    return best if best is not placements and best_score > original_score else placements
+
+
+def balance_splitrow_sparse_rows(
+    placements: List[Placement2D],
+    area_l: float,
+    area_w: float,
+) -> List[Placement2D]:
+    """Balance each Splitrow band directly from its row topology.
+
+    Splitrow bands are horizontal rows with a common orientation and carton
+    footprint. Their sparse-row symmetry can therefore be calculated once per
+    row; there is no need to search arbitrary X/Y positions or repeatedly
+    rebuild and validate the full layer during local improvement.
+    """
+    if not placements or len(_orientation_counts(placements)) < 2:
+        return placements
+
+    groups = _group_line_indices(placements, "horizontal")
+    balanced = list(placements)
+    changed = False
+    for indices in groups.values():
+        if len(indices) < 2:
+            continue
+        group = [placements[i] for i in indices]
+        split_positions = _splitrow_edge_split_positions(
+            template=group[0],
+            filler_count=len(group),
+            area_l=area_l,
+            area_w=area_w,
+            axis="x",
+        )
+        if len(split_positions) != len(group):
+            continue
+        for index, replacement in zip(indices, split_positions):
+            balanced[index] = replacement
+        changed = changed or layout_signature(group) != layout_signature(split_positions)
+
+    if not changed:
+        return placements
+    return balanced if placements_are_valid(balanced, area_l, area_w) else placements
 
 
 
@@ -1862,19 +2024,51 @@ def pattern_splitrow(area_l, area_w, box_l, box_w, swapped=False):
         b_l, b_w = box_l, box_w
 
     max_rows_a = int(area_w // a_w)
+    cols_a = int(area_l // a_l)
+    cols_b = int(area_l // b_l)
+    best_rows_a: Optional[int] = None
+    best_count = 0
 
     for rows_a in range(max_rows_a + 1):
         band_a_w = rows_a * a_w
         band_b_w = area_w - band_a_w
+        rows_b = int(band_b_w // b_w)
+        total = rows_a * cols_a + rows_b * cols_b
 
-        placements: List[Placement2D] = []
+        # Strict comparison preserves the existing first-winner tie behavior.
+        if total > best_count:
+            best_count = total
+            best_rows_a = rows_a
+
+    if best_rows_a is not None:
+        band_a_w = best_rows_a * a_w
+        band_b_w = area_w - band_a_w
         if band_a_w > 0:
-            placements.extend(grid_fill(area_l, band_a_w, a_l, a_w, box_l, box_w, x0=0, y0=0))
+            best.extend(
+                grid_fill(
+                    area_l,
+                    band_a_w,
+                    a_l,
+                    a_w,
+                    box_l,
+                    box_w,
+                    x0=0,
+                    y0=0,
+                )
+            )
         if band_b_w > 0:
-            placements.extend(grid_fill(area_l, band_b_w, b_l, b_w, box_l, box_w, x0=0, y0=band_a_w))
-
-        if len(placements) > len(best):
-            best = placements
+            best.extend(
+                grid_fill(
+                    area_l,
+                    band_b_w,
+                    b_l,
+                    b_w,
+                    box_l,
+                    box_w,
+                    x0=0,
+                    y0=band_a_w,
+                )
+            )
 
     plain = pattern_block(area_l, area_w, box_l, box_w)
     return best if len(best) >= len(plain) else plain
@@ -2342,11 +2536,8 @@ def get_base_and_interlock_layers(pattern_name, area_l, area_w, box_l, box_w):
     # mosaic look sparse in the Three.js renderer. Keep Pinwheel and Hybrid
     # pinwheel compact by preserving their generated/centered motif geometry.
     if pattern_name == "Splitrow":
-        base = prefer_edge_balanced_filler_layer(base, area_l, area_w)
-        interlock = prefer_edge_balanced_filler_layer(interlock, area_l, area_w)
-
-        base = prefer_edge_balanced_sparse_filler_lines(base, area_l, area_w)
-        interlock = prefer_edge_balanced_sparse_filler_lines(interlock, area_l, area_w)
+        base = balance_splitrow_sparse_rows(base, area_l, area_w)
+        interlock = balance_splitrow_sparse_rows(interlock, area_l, area_w)
 
     return base, interlock
 
@@ -2626,6 +2817,15 @@ def run_palletization_analysis(
     area_l, area_w = effective_pallet_size(
         pallet_l, pallet_w, max_length_stickout, max_width_stickout
     )
+
+    # Pattern generation is independent of vertical layer construction and can
+    # be expensive for narrow cartons. Reject impossible geometry before any
+    # footprint pattern is enumerated. Equality remains feasible: one carton
+    # layer may exactly consume the available cargo height or footprint.
+    if box_h > available_carton_height + 1e-9:
+        return []
+    if not carton_footprint_fits(area_l, area_w, box_l, box_w):
+        return []
 
     results: List[Dict] = []
 

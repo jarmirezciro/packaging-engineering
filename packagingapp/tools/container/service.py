@@ -734,3 +734,98 @@ def analyze_container_form(
         "design_candidates": [],
         "selected_design_candidate_id": "",
     }
+
+
+def analyze_container_capacity(
+    form,
+    config,
+    selected_product=None,
+    selected_material=None,
+):
+    """Calculate the workflow capacity payload inputs without presentation work."""
+    mode = form.cleaned_data.get("mode") or "single"
+    product_source = form.cleaned_data.get("product_source") or "manual"
+    container_source = form.cleaned_data.get("container_source") or "manual"
+    product, r1, r2, r3 = resolve_product_from_form(
+        form=form,
+        product_source=product_source,
+        selected_product=selected_product,
+    )
+    messages = []
+
+    if product is None or any(float(value) <= 0 for value in product):
+        messages.append("Enter product length, width, and height greater than zero in millimetres.")
+    if not any((r1, r2, r3)):
+        messages.append("Enable at least one permitted product orientation.")
+
+    desired_quantity = resolve_desired_qty(
+        form=form,
+        mode=mode,
+        product_source=product_source,
+        selected_product=selected_product,
+    )
+    if int(desired_quantity or 0) <= 0:
+        messages.append("Enter the desired quantity as a positive whole number.")
+    if messages:
+        return {"ok": False, "messages": messages, "mode": mode, "result": None}
+
+    if mode == "design":
+        design = build_container_design_candidates(
+            product,
+            int(desired_quantity),
+            r1,
+            r2,
+            r3,
+        )
+        candidates = [
+            _add_container_design_metrics(row, form, product_source, selected_product)
+            for row in design["candidates"]
+        ]
+        if not candidates:
+            return {
+                "ok": False,
+                "messages": ["No valid container design candidate could be generated for the permitted orientations."],
+                "mode": mode,
+                "result": None,
+            }
+        requested_id = str(form.cleaned_data.get("selected_design_candidate_id") or "")
+        selected = next(
+            (row for row in candidates if row["candidate_id"] == requested_id),
+            candidates[0],
+        )
+        return {
+            "ok": True,
+            "messages": [],
+            "mode": mode,
+            "result": selected,
+            "design_candidates": candidates,
+            "selected_design_candidate_id": selected["candidate_id"],
+        }
+
+    container = resolve_container_from_form(
+        form=form,
+        container_source=container_source,
+        selected_material=selected_material,
+    )
+    if container_source == "catalogue" and selected_material is None:
+        messages.append("Please select a packaging item from the catalogue table.")
+    elif container is None:
+        messages.append("Please enter all manual container dimensions (L/W/H).")
+    if mode == "optimal" and not config.get("catalogue_id"):
+        messages.append("Please select a packaging catalogue.")
+    if mode == "optimal" and selected_material is None:
+        messages.append("Please select one of the Top 5 containers.")
+    if messages:
+        return {"ok": False, "messages": messages, "mode": mode, "result": None}
+
+    max_quantity = compute_max_quantity_only(product, container, r1, r2, r3)
+    return {
+        "ok": True,
+        "messages": [],
+        "mode": mode,
+        "result": {
+            "container": container,
+            "max_quantity": int(max_quantity or 0),
+            "desired_quantity": int(desired_quantity or 1),
+        },
+    }

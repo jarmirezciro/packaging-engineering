@@ -1,4 +1,5 @@
 from copy import deepcopy
+import logging
 
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
@@ -21,6 +22,7 @@ from ..tools.palletization.presenter import (
 from ..tools.palletization.height import resolve_pallet_height
 from ..tools.palletization.serializers import sanitize_palletization_config_for_session
 from ..tools.palletization.service import (
+    analyze_palletization_capacity,
     analyze_palletization_config,
     get_selected_box_material,
     get_selected_pallet_material,
@@ -37,6 +39,7 @@ from ..tools.bag.serializers import sanitize_bag_config_for_session
 from ..tools.selection_mode import normalize_selection_mode
 from ..tools.product_shape import build_product_unit_scene, normalize_product_shape
 from ..tools.bag.service import (
+    analyze_bag_capacity,
     analyze_bag_config as analyze_bag_config_shared,
     get_materials_for_catalogue as get_bag_materials_for_catalogue,
     get_products_for_catalogue as get_bag_products_for_catalogue,
@@ -51,6 +54,7 @@ from ..tools.container.presenter import (
 )
 from ..tools.container.serializers import sanitize_container_config_for_session
 from ..tools.container.service import (
+    analyze_container_capacity,
     analyze_container_form,
     apply_catalogue_choices as apply_container_catalogue_choices,
     build_container_form,
@@ -69,6 +73,7 @@ from ..tools.transport.presenter import (
 )
 from ..tools.transport.serializers import sanitize_transport_rows_for_session
 from ..tools.transport.service import (
+    analyze_transport_capacity,
     analyze_transport_config,
     read_product_rows_raw,
 )
@@ -80,12 +85,19 @@ from ..tools.full_packaging.export import (
 )
 from ..tools.full_packaging.flow_summary import build_packaging_flow_summary
 from ..tools.full_packaging.case_presets import get_case_preset
+from ..tools.full_packaging.chain_optimizer import (
+    build_design_candidate_payload,
+    build_design_chain_ui,
+    invalidate_design_chain_optimizations,
+    optimize_design_chain,
+)
 
 
 SESSION_KEY = "full_packaging_mode_session"
 CASE_SESSION_PREFIX = f"{SESSION_KEY}_case_"
 PALLETIZATION_VISUAL_SOURCE = "palletization_result"
 PALLETIZATION_VISUAL_TOLERANCE_MM = 1e-6
+logger = logging.getLogger(__name__)
 
 
 def _case_slug_from_request(request):
@@ -331,6 +343,41 @@ def _read_prefixed_pallet_post(step, idx, post):
     return sanitize_palletization_config_for_session(cfg)
 
 
+def _build_pallet_workflow_payload(
+    effective,
+    selected_row,
+    selected_pallet_material,
+    upstream,
+):
+    upstream_units = (upstream or {}).get("total_base_units", 1)
+    payload = build_pallet_pending_result(
+        effective.get("pallet_l"),
+        effective.get("pallet_w"),
+        effective.get("pallet_height"),
+        selected_row,
+        selected_pallet_material=selected_pallet_material,
+        upstream_units=upstream_units,
+    )
+    if not payload:
+        return None
+    prev_weight_g = _to_float((upstream or {}).get("weight_g"), None)
+    pallet_tare_g = _to_float(
+        getattr(selected_pallet_material, "part_weight", None), None
+    )
+    total_boxes = _to_int(selected_row.get("total_boxes"), 1) or 1
+    gross_weight_g = prev_weight_g * total_boxes if prev_weight_g is not None else None
+    if pallet_tare_g is not None:
+        gross_weight_g = (gross_weight_g or 0.0) + pallet_tare_g
+    if gross_weight_g is not None:
+        payload["weight_g"] = round(gross_weight_g, 3)
+        payload["weight_kg"] = round(gross_weight_g / 1000.0, 3)
+    payload.setdefault("transport_qty", 1)
+    payload["source_step_type"] = "pallet"
+    payload["package_type"] = "pallet"
+    payload["source_type"] = PALLETIZATION_VISUAL_SOURCE
+    return payload
+
+
 def _run_pallet_analysis_shared(step, steps, idx):
     step["result"] = None
     step["image_url"] = None
@@ -390,33 +437,12 @@ def _run_pallet_analysis_shared(step, steps, idx):
         effective.get("pallet_height"),
     )
 
-    prev = _selected_input_for_step(steps, idx)
-    upstream_units = prev.get("total_base_units", 1) if prev else 1
-
-    step["pending_result"] = build_pallet_pending_result(
-        effective.get("pallet_l"),
-        effective.get("pallet_w"),
-        effective.get("pallet_height"),
+    step["pending_result"] = _build_pallet_workflow_payload(
+        effective,
         selected_row,
-        selected_pallet_material=selected_pallet_material,
-        upstream_units=upstream_units,
+        selected_pallet_material,
+        _selected_input_for_step(steps, idx),
     )
-    if step["pending_result"]:
-        prev_weight_g = _to_float((prev or {}).get("weight_g"), None)
-        pallet_tare_g = _to_float(getattr(selected_pallet_material, "part_weight", None), None)
-        total_boxes = _to_int(selected_row.get("total_boxes"), 1) or 1
-        gross_weight_g = None
-        if prev_weight_g is not None:
-            gross_weight_g = prev_weight_g * total_boxes
-        if pallet_tare_g is not None:
-            gross_weight_g = (gross_weight_g or 0.0) + pallet_tare_g
-        if gross_weight_g is not None:
-            step["pending_result"]["weight_g"] = round(gross_weight_g, 3)
-            step["pending_result"]["weight_kg"] = round(gross_weight_g / 1000.0, 3)
-        step["pending_result"].setdefault("transport_qty", 1)
-        step["pending_result"]["source_step_type"] = "pallet"
-        step["pending_result"]["package_type"] = "pallet"
-        step["pending_result"]["source_type"] = PALLETIZATION_VISUAL_SOURCE
 
 
 def _compute_pallet_view_model(step, steps, idx):
@@ -741,6 +767,8 @@ def _as_bool(post, key, default=False):
 
 def _invalidate_downstream(steps, start_idx):
     for i in range(start_idx + 1, len(steps)):
+        steps[i].pop("design_chain_optimization", None)
+        steps[i].pop("design_chain_optimization_message", None)
         steps[i]["selected"] = None
         steps[i]["summary"] = ""
         steps[i]["messages"] = ["This step was cleared because an upstream step changed."]
@@ -1316,6 +1344,93 @@ def _prepare_bag_step_view_model(step, idx):
     step["notices"] = step.get("notices") or []
 
 
+def _normalized_container_post(cfg):
+    post = {
+        "mode": cfg.get("mode", "single"),
+        "action": cfg.get("action", "refresh"),
+        "product_source": cfg.get("product_source", "manual"),
+        "product_catalogue_id": cfg.get("product_catalogue_id", ""),
+        "selected_product_id": cfg.get("selected_product_id", ""),
+        "product_l": cfg.get("product_l", ""),
+        "product_w": cfg.get("product_w", ""),
+        "product_h": cfg.get("product_h", ""),
+        "product_weight": cfg.get("product_weight", ""),
+        "desired_qty": cfg.get("desired_qty", "1"),
+        "product_shape": cfg.get("product_shape", "cuboid"),
+        "container_source": cfg.get("container_source", "manual"),
+        "catalogue_id": cfg.get("catalogue_id", ""),
+        "container_id": cfg.get("container_id", ""),
+        "box_l": cfg.get("box_l", ""),
+        "box_w": cfg.get("box_w", ""),
+        "box_h": cfg.get("box_h", ""),
+        "box_weight": cfg.get("box_weight", ""),
+        "box_max_payload": cfg.get("box_max_payload", ""),
+        "selected_design_candidate_id": cfg.get("selected_design_candidate_id", ""),
+    }
+    if cfg.get("r1"):
+        post["r1"] = "on"
+    if cfg.get("r2"):
+        post["r2"] = "on"
+    if cfg.get("r3"):
+        post["r3"] = "on"
+    return post
+
+
+def _build_container_non_design_workflow_payload(
+    cfg,
+    max_quantity,
+    selected_product,
+    selected_material,
+    upstream,
+):
+    desired_qty = _to_int(cfg.get("desired_qty"), 1) or 1
+    if (
+        cfg.get("product_source") == "catalogue"
+        and selected_product
+        and cfg.get("mode") == "optimal"
+    ):
+        desired_qty = int(getattr(selected_product, "desired_qty", 1) or 1)
+
+    if selected_material is not None:
+        length = _material_dimension_for_workflow(
+            selected_material, "external_length", "part_length"
+        )
+        width = _material_dimension_for_workflow(
+            selected_material, "external_width", "part_width"
+        )
+        height = _material_dimension_for_workflow(
+            selected_material, "external_height", "part_height"
+        )
+        label = selected_material.part_number
+    else:
+        length = _to_float(cfg.get("box_l"), 0.0) or 0.0
+        width = _to_float(cfg.get("box_w"), 0.0) or 0.0
+        height = _to_float(cfg.get("box_h"), 0.0) or 0.0
+        label = "Manual Container"
+
+    units_per_parent = int(max_quantity or 0) if cfg.get("mode") == "single" else desired_qty
+    units_per_parent = max(int(units_per_parent or 1), 1)
+    upstream_units = _to_int((upstream or {}).get("total_base_units"), 1) or 1
+    payload = {
+        "label": label,
+        "length": round(length, 2),
+        "width": round(width, 2),
+        "height": round(height, 2),
+        "units_per_parent": units_per_parent,
+        "total_base_units": units_per_parent * int(upstream_units),
+        "transport_qty": 1,
+        "source_step_type": "container",
+        "package_type": "container",
+    }
+    return _enrich_package_payload_weight(
+        payload,
+        product_weight_g=_resolve_product_weight_g(cfg, selected_product),
+        packaging_weight_g=_resolve_packaging_weight_g(
+            cfg, "box_weight", selected_material
+        ),
+    )
+
+
 def _process_container_step(step, steps, idx, post):
     existing_cfg = step.get("config") or {}
     cfg = default_container_config()
@@ -1418,34 +1533,7 @@ def _process_container_step(step, steps, idx, post):
     selected_material = get_container_selected_material(cfg)
     materials = get_container_materials_for_catalogue(cfg)
 
-    normalized_post = {
-        "mode": cfg.get("mode", "single"),
-        "action": cfg.get("action", "refresh"),
-        "product_source": cfg.get("product_source", "manual"),
-        "product_catalogue_id": cfg.get("product_catalogue_id", ""),
-        "selected_product_id": cfg.get("selected_product_id", ""),
-        "product_l": cfg.get("product_l", ""),
-        "product_w": cfg.get("product_w", ""),
-        "product_h": cfg.get("product_h", ""),
-        "product_weight": cfg.get("product_weight", ""),
-        "desired_qty": cfg.get("desired_qty", "1"),
-        "product_shape": cfg.get("product_shape", "cuboid"),
-        "container_source": cfg.get("container_source", "manual"),
-        "catalogue_id": cfg.get("catalogue_id", ""),
-        "container_id": cfg.get("container_id", ""),
-        "box_l": cfg.get("box_l", ""),
-        "box_w": cfg.get("box_w", ""),
-        "box_h": cfg.get("box_h", ""),
-        "box_weight": cfg.get("box_weight", ""),
-        "box_max_payload": cfg.get("box_max_payload", ""),
-        "selected_design_candidate_id": cfg.get("selected_design_candidate_id", ""),
-    }
-    if cfg.get("r1"):
-        normalized_post["r1"] = "on"
-    if cfg.get("r2"):
-        normalized_post["r2"] = "on"
-    if cfg.get("r3"):
-        normalized_post["r3"] = "on"
+    normalized_post = _normalized_container_post(cfg)
 
     request_stub = type(
         "ContainerWorkflowPostRequest",
@@ -1508,32 +1596,8 @@ def _process_container_step(step, steps, idx, post):
             result_payload["product_unit_scene"] = product_unit_scene
             selected_design_candidate_id = render_result["candidate_id"]
             cfg["selected_design_candidate_id"] = selected_design_candidate_id
-            desired_qty = int(render_result["desired_quantity"])
-            units_per_parent = int(render_result["design_quantity"])
             prev = _selected_input_for_step(steps, idx)
-            upstream_units = _to_int(prev.get("total_base_units"), 1) if prev else 1
-            pending_result = {
-                "label": "Designed Container",
-                "length": render_result["container_length"],
-                "width": render_result["container_width"],
-                "height": render_result["container_height"],
-                "units_per_parent": units_per_parent,
-                "total_base_units": units_per_parent * int(upstream_units or 1),
-                "transport_qty": 1,
-                "source_step_type": "container",
-                "package_type": "container",
-                "mode": "design",
-                "desired_quantity": desired_qty,
-                "design_quantity": units_per_parent,
-                "additional_capacity": render_result["additional_capacity"],
-                "selected_candidate_id": selected_design_candidate_id,
-                "selected_arrangement": render_result["arrangement"],
-                "selected_orientation": render_result["product_orientation"],
-                "metrics": {"cubicity": render_result["container_cubicity_score"], "volume": render_result["required_container_volume"]},
-                "render_data": render_result["render_data"],
-            }
-            if render_result.get("net_content_weight") is not None:
-                pending_result["net_content_weight_g"] = render_result["net_content_weight"]
+            pending_result = build_design_candidate_payload("container", render_result, prev)
         elif render_result is not None:
             result_payload = {
                 "kind": "container",
@@ -1544,42 +1608,13 @@ def _process_container_step(step, steps, idx, post):
                 "product_base_image_url": product_base_image_url,
             }
 
-            desired_qty = int(form.cleaned_data.get("desired_qty") or 1)
-            if cfg.get("product_source") == "catalogue" and selected_product and cfg.get("mode") == "optimal":
-                desired_qty = int(getattr(selected_product, "desired_qty", 1) or 1)
-
-            if selected_material is not None:
-                length = _material_dimension_for_workflow(selected_material, "external_length", "part_length")
-                width = _material_dimension_for_workflow(selected_material, "external_width", "part_width")
-                height = _material_dimension_for_workflow(selected_material, "external_height", "part_height")
-                label = selected_material.part_number
-            else:
-                length = _to_float(cfg.get("box_l"), 0.0) or 0.0
-                width = _to_float(cfg.get("box_w"), 0.0) or 0.0
-                height = _to_float(cfg.get("box_h"), 0.0) or 0.0
-                label = "Manual Container"
-
             max_quantity = int(getattr(render_result, "max_quantity", 0) or 0)
-            units_per_parent = max_quantity if cfg.get("mode") == "single" else desired_qty
-            units_per_parent = max(int(units_per_parent or 1), 1)
-            prev = _selected_input_for_step(steps, idx)
-            upstream_units = _to_int(prev.get("total_base_units"), 1) if prev else 1
-
-            pending_result = {
-                "label": label,
-                "length": round(length, 2),
-                "width": round(width, 2),
-                "height": round(height, 2),
-                "units_per_parent": units_per_parent,
-                "total_base_units": units_per_parent * int(upstream_units or 1),
-                "transport_qty": 1,
-                "source_step_type": "container",
-                "package_type": "container",
-            }
-            pending_result = _enrich_package_payload_weight(
-                pending_result,
-                product_weight_g=_resolve_product_weight_g(cfg, selected_product),
-                packaging_weight_g=_resolve_packaging_weight_g(cfg, "box_weight", selected_material),
+            pending_result = _build_container_non_design_workflow_payload(
+                cfg,
+                max_quantity,
+                selected_product,
+                selected_material,
+                _selected_input_for_step(steps, idx),
             )
     else:
         messages = [str(err) for err in form.non_field_errors()]
@@ -1598,6 +1633,34 @@ def _process_container_step(step, steps, idx, post):
     step["pending_result"] = pending_result
     step["messages"] = messages
     step["expanded"] = True
+
+
+def _finalize_bag_workflow_payload(
+    pending_result,
+    cfg,
+    selected_product,
+    selected_material,
+    upstream,
+):
+    if not pending_result:
+        return None
+    payload = dict(pending_result)
+    payload["source_step_type"] = "bag"
+    payload["package_type"] = "bag"
+    payload.setdefault("transport_qty", 1)
+    if cfg.get("mode") != "design":
+        payload = _enrich_package_payload_weight(
+            payload,
+            product_weight_g=_resolve_product_weight_g(cfg, selected_product),
+            packaging_weight_g=_resolve_packaging_weight_g(
+                cfg, "bag_weight", selected_material
+            ),
+        )
+        upstream_units = _to_int((upstream or {}).get("total_base_units"), 1) or 1
+        payload["total_base_units"] = int(
+            payload.get("units_per_parent") or 1
+        ) * int(upstream_units)
+    return payload
 
 
 def _process_bag_step(step, steps, idx, post):
@@ -1707,19 +1770,19 @@ def _process_bag_step(step, steps, idx, post):
     )
 
     pending_result = analysis.get("pending_result")
-    if pending_result:
-        pending_result["source_step_type"] = "bag"
-        pending_result["package_type"] = "bag"
-        pending_result.setdefault("transport_qty", 1)
-        if cfg.get("mode") != "design":
-            pending_result = _enrich_package_payload_weight(
-                pending_result,
-                product_weight_g=_resolve_product_weight_g(cfg, selected_product),
-                packaging_weight_g=_resolve_packaging_weight_g(cfg, "bag_weight", selected_material),
-            )
-        previous = _selected_input_for_step(steps, idx)
-        upstream_units = _to_int(previous.get("total_base_units"), 1) if previous else 1
-        pending_result["total_base_units"] = int(pending_result.get("units_per_parent") or 1) * int(upstream_units or 1)
+    if cfg.get("mode") == "design" and analysis.get("result"):
+        pending_result = build_design_candidate_payload(
+            "bag",
+            analysis["result"],
+            _selected_input_for_step(steps, idx),
+        )
+    pending_result = _finalize_bag_workflow_payload(
+        pending_result,
+        cfg,
+        selected_product,
+        selected_material,
+        _selected_input_for_step(steps, idx),
+    )
 
     step["config"] = cfg
     step["result"] = analysis.get("result")
@@ -1901,6 +1964,171 @@ def _process_pallet_step(step, steps, idx, post):
     _run_pallet_analysis_shared(step, steps, idx)
 
 
+def _evaluate_container_capacity_step(step, temporary_steps, idx):
+    cfg = default_container_config()
+    cfg.update(step.get("config") or {})
+    cfg = sanitize_container_config_for_session(cfg)
+    selected_product = get_container_selected_product(cfg) if idx == 0 else None
+    selected_material = get_container_selected_material(cfg)
+
+    request_stub = type(
+        "ContainerCapacityRequest",
+        (),
+        {"method": "POST", "POST": _normalized_container_post(cfg)},
+    )()
+    form = build_container_form(
+        request=request_stub,
+        config=cfg,
+        selected_product=selected_product,
+        selected_material=selected_material,
+    )
+    apply_container_catalogue_choices(
+        form,
+        get_container_packaging_catalogues(),
+        get_container_product_catalogues(),
+    )
+    if not form.is_valid():
+        return None
+
+    analysis = analyze_container_capacity(
+        form=form,
+        config=cfg,
+        selected_product=selected_product,
+        selected_material=selected_material,
+    )
+    if not analysis.get("ok") or not analysis.get("result"):
+        return None
+
+    upstream = _selected_input_for_step(temporary_steps, idx)
+    if analysis.get("mode") == "design":
+        return build_design_candidate_payload(
+            "container", analysis["result"], upstream
+        )
+    return _build_container_non_design_workflow_payload(
+        cfg,
+        analysis["result"].get("max_quantity"),
+        selected_product,
+        selected_material,
+        upstream,
+    )
+
+
+def _evaluate_bag_capacity_step(step, temporary_steps, idx):
+    cfg = default_bag_config()
+    cfg.update(step.get("config") or {})
+    cfg = sanitize_bag_config_for_session(cfg)
+    selected_product = get_bag_selected_product(cfg) if idx == 0 else None
+    selected_material = get_bag_selected_material(cfg)
+    analysis = analyze_bag_capacity(
+        cfg,
+        selected_product=selected_product,
+        selected_material=selected_material,
+    )
+    if not analysis.get("ok"):
+        return None
+
+    upstream = _selected_input_for_step(temporary_steps, idx)
+    if analysis.get("mode") == "design":
+        pending_result = build_design_candidate_payload(
+            "bag", analysis["result"], upstream
+        )
+    else:
+        pending_result = analysis.get("pending_result")
+    return _finalize_bag_workflow_payload(
+        pending_result,
+        cfg,
+        selected_product,
+        selected_material,
+        upstream,
+    )
+
+
+def _evaluate_pallet_capacity_step(step, temporary_steps, idx):
+    cfg = _extract_pallet_config_from_step(step)
+    selected_box_material = get_selected_box_material(cfg) if idx == 0 else None
+    selected_pallet_material = get_selected_pallet_material(cfg)
+    cfg = _hydrate_pallet_catalogue_values(
+        cfg,
+        selected_box_material=selected_box_material,
+        selected_pallet_material=selected_pallet_material,
+    )
+    analysis = analyze_palletization_capacity(
+        config=cfg,
+        selected_result_key=step.get("selected_result_key") or "",
+        selected_box_material=selected_box_material,
+        selected_pallet_material=selected_pallet_material,
+    )
+    selected_row = analysis.get("selected_row")
+    if not analysis.get("ok") or not selected_row:
+        return None
+    return _build_pallet_workflow_payload(
+        analysis["effective_config"],
+        selected_row,
+        selected_pallet_material,
+        _selected_input_for_step(temporary_steps, idx),
+    )
+
+
+def _evaluate_transport_capacity_step(step, temporary_steps, idx):
+    cfg = step.get("config") or {}
+    selected_material = PackagingMaterial.objects.filter(
+        id=cfg.get("container_id") or None
+    ).select_related("catalogue").first()
+
+    if idx == 0:
+        raw_rows = cfg.get("product_rows") or default_product_rows()
+    else:
+        inherited_rows = _transport_rows_from_selected(
+            _selected_input_for_step(temporary_steps, idx)
+        )
+        raw_rows = _merge_transport_inherited_rows(
+            cfg.get("product_rows"), inherited_rows
+        )
+
+    analysis = analyze_transport_capacity(
+        cfg,
+        raw_rows,
+        selected_material=selected_material,
+    )
+    if not analysis.get("ok") or not analysis.get("result"):
+        return None
+    return _build_transport_workflow_payload(
+        analysis["container"],
+        analysis["result"],
+        analysis.get("summary") or {},
+        selected_material,
+        _selected_input_for_step(temporary_steps, idx),
+    )
+
+
+def _evaluate_design_chain_step(temporary_steps, idx):
+    """Evaluate a copied downstream step without presentation generation."""
+    step = temporary_steps[idx]
+    _apply_chained_defaults(step, temporary_steps, idx)
+    evaluators = {
+        "container": _evaluate_container_capacity_step,
+        "bag": _evaluate_bag_capacity_step,
+        "pallet": _evaluate_pallet_capacity_step,
+        "transport": _evaluate_transport_capacity_step,
+    }
+    evaluator = evaluators.get(step.get("type"))
+    if evaluator is None:
+        return None
+
+    output = deepcopy(evaluator(step, temporary_steps, idx))
+    if not output:
+        return None
+    output.pop("render_data", None)
+    output.pop("pallet_visualization", None)
+    return output
+
+
+def _prepare_design_chain_view_model(step, steps, idx):
+    ui = build_design_chain_ui(step, steps, idx)
+    step["design_chain_ui"] = ui
+    step["design_candidates_for_display"] = ui["display_candidates"]
+
+
 
 
 def full_packaging_export_pdf(request, case_slug=None):
@@ -1936,6 +2164,7 @@ def full_packaging_mode(request, case_slug=None):
             return _redirect_to_workflow(request)
 
         if action == "add_step":
+            invalidate_design_chain_optimizations(steps, structural=True)
             after_index = request.POST.get("after_index", "")
             step_type = request.POST.get("step_type", "container")
             new_step = _new_step(step_type)
@@ -1954,6 +2183,7 @@ def full_packaging_mode(request, case_slug=None):
         if action == "remove_step":
             idx = _to_int(request.POST.get("index"))
             if idx is not None and 0 <= idx < len(steps):
+                invalidate_design_chain_optimizations(steps, structural=True)
                 steps.pop(idx)
                 workflow["show_add_bar_after"] = None
                 _save_workflow(request, workflow)
@@ -1971,9 +2201,41 @@ def full_packaging_mode(request, case_slug=None):
             _reset_workflow(request)
             return _redirect_to_workflow(request)
 
+        if action == "optimize_design_final_capacity":
+            idx = _to_int(request.POST.get("index"))
+            if idx is not None and 0 <= idx < len(steps):
+                step = steps[idx]
+                step.pop("design_chain_optimization", None)
+                step.pop("design_chain_optimization_message", None)
+                try:
+                    step["design_chain_optimization"] = optimize_design_chain(
+                        workflow,
+                        idx,
+                        _evaluate_design_chain_step,
+                    )
+                except ValueError as exc:
+                    step["design_chain_optimization_message"] = str(exc)
+                except Exception:
+                    logger.exception("Packaging Flow final-capacity optimization failed")
+                    step["design_chain_optimization_message"] = (
+                        "Final-capacity optimization could not be completed."
+                    )
+                workflow["show_add_bar_after"] = None
+                _save_workflow(request, workflow)
+            return _redirect_to_workflow(request)
+
         if action == "run_step":
             idx = _to_int(request.POST.get("index"))
             if idx is not None and 0 <= idx < len(steps):
+                step_action = request.POST.get(
+                    f"action_{idx}",
+                    request.POST.get(f"step_action_{idx}", ""),
+                )
+                invalidate_design_chain_optimizations(
+                    steps,
+                    changed_step_index=idx,
+                    preserve_source=step_action == "select_design_candidate",
+                )
                 _apply_chained_defaults(steps[idx], steps, idx)
                 if steps[idx].get("type") == "bag":
                     _process_bag_step(steps[idx], steps, idx, request.POST)
@@ -1990,6 +2252,11 @@ def full_packaging_mode(request, case_slug=None):
         if action == "use_step_result":
             idx = _to_int(request.POST.get("index"))
             if idx is not None and 0 <= idx < len(steps):
+                invalidate_design_chain_optimizations(
+                    steps,
+                    changed_step_index=idx,
+                    preserve_source=True,
+                )
                 _apply_chained_defaults(steps[idx], steps, idx)
 
                 if steps[idx].get("type") == "transport":
@@ -2063,6 +2330,7 @@ def full_packaging_mode(request, case_slug=None):
                 _run_transport_analysis(step, steps, idx)
         elif step.get("type") == "bag":
             _prepare_bag_step_view_model(step, idx)
+            _prepare_design_chain_view_model(step, steps, idx)
         elif step.get("type") == "pallet":
             step.setdefault("results_table", [])
             step.setdefault("show_box_catalogue", False)
@@ -2125,6 +2393,7 @@ def full_packaging_mode(request, case_slug=None):
             _compute_pallet_view_model(step, steps, idx)
         else:
             _prepare_container_step_view_model(step, idx)
+            _prepare_design_chain_view_model(step, steps, idx)
 
         step["workflow_overview"] = _build_step_overview(step, steps, idx)
 
@@ -2139,6 +2408,30 @@ def full_packaging_mode(request, case_slug=None):
         "case_preset": get_case_preset(case_slug) if case_slug else None,
         "full_packaging_export_url": _workflow_export_url(request),
     })
+
+def _build_transport_workflow_payload(
+    container,
+    analysis_result,
+    summary,
+    selected_material,
+    upstream,
+):
+    payload = build_transport_pending_result(
+        container,
+        analysis_result,
+        selected_material=selected_material,
+        upstream_units=(upstream or {}).get("total_base_units", 1),
+    )
+    gross_weight = _to_float((summary or {}).get("gross_weight"), None)
+    if gross_weight is not None and payload:
+        payload["weight_kg"] = round(gross_weight, 3)
+        payload["weight_g"] = round(gross_weight * 1000.0, 3)
+    if payload:
+        payload.setdefault("transport_qty", 1)
+        payload["source_step_type"] = "transport"
+        payload["package_type"] = "transport_unit"
+    return payload
+
 
 def _run_transport_analysis(step, steps, idx):
     cfg = step["config"]
@@ -2186,21 +2479,11 @@ def _run_transport_analysis(step, steps, idx):
         )
     step["threejs_scene"] = transport_scene
 
-    prev = _selected_input_for_step(steps, idx)
-    upstream_units = prev.get("total_base_units", 1) if prev else 1
-
-    step["pending_result"] = build_transport_pending_result(
+    summary = (analysis.get("serialized_result") or {}).get("summary", {}) or {}
+    step["pending_result"] = _build_transport_workflow_payload(
         analysis["container"],
         analysis["result"],
-        selected_material=selected_material,
-        upstream_units=upstream_units,
+        summary,
+        selected_material,
+        _selected_input_for_step(steps, idx),
     )
-    summary = (analysis.get("serialized_result") or {}).get("summary", {}) or {}
-    gross_weight = _to_float(summary.get("gross_weight"), None)
-    if gross_weight is not None and step.get("pending_result"):
-        step["pending_result"]["weight_kg"] = round(gross_weight, 3)
-        step["pending_result"]["weight_g"] = round(gross_weight * 1000.0, 3)
-    if step.get("pending_result"):
-        step["pending_result"].setdefault("transport_qty", 1)
-        step["pending_result"]["source_step_type"] = "transport"
-        step["pending_result"]["package_type"] = "transport_unit"

@@ -215,9 +215,15 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
     }
 
 
-def analyze_palletization_config(config, selected_result_key="", selected_box_material=None, selected_pallet_material=None, media_root=None):
-    selected_base_result_key, render_interlock_preview = split_pallet_result_key(selected_result_key)
-
+def _analyze_palletization_core(
+    config,
+    selected_result_key="",
+    selected_box_material=None,
+    selected_pallet_material=None,
+):
+    selected_base_result_key, render_interlock_preview = split_pallet_result_key(
+        selected_result_key
+    )
     built = build_effective_palletization_config(
         config=config,
         selected_box_material=selected_box_material,
@@ -229,8 +235,9 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
             "ok": False,
             "messages": built["messages"],
             "effective_config": built["effective_config"],
-            "serialized_result": None,
-            "result": None,
+            "raw_results": [],
+            "selected_row": None,
+            "render_interlock_preview": False,
         }
 
     eff = built["effective_config"]
@@ -259,6 +266,52 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
 
     if selected_row is None and raw_results:
         selected_row = raw_results[0]
+
+    return {
+        "ok": True,
+        "messages": [],
+        "effective_config": eff,
+        "raw_results": raw_results,
+        "selected_row": selected_row,
+        "render_interlock_preview": render_interlock_preview,
+    }
+
+
+def analyze_palletization_capacity(
+    config,
+    selected_result_key="",
+    selected_box_material=None,
+    selected_pallet_material=None,
+):
+    """Run authoritative pallet geometry without presentation serialization."""
+    return _analyze_palletization_core(
+        config=config,
+        selected_result_key=selected_result_key,
+        selected_box_material=selected_box_material,
+        selected_pallet_material=selected_pallet_material,
+    )
+
+
+def analyze_palletization_config(config, selected_result_key="", selected_box_material=None, selected_pallet_material=None, media_root=None):
+    core = _analyze_palletization_core(
+        config=config,
+        selected_result_key=selected_result_key,
+        selected_box_material=selected_box_material,
+        selected_pallet_material=selected_pallet_material,
+    )
+    if not core["ok"]:
+        return {
+            "ok": False,
+            "messages": core["messages"],
+            "effective_config": core["effective_config"],
+            "serialized_result": None,
+            "result": None,
+        }
+
+    eff = core["effective_config"]
+    raw_results = core["raw_results"]
+    selected_row = core["selected_row"]
+    render_interlock_preview = core["render_interlock_preview"]
 
     render_result = None
     image_rel_path = None
