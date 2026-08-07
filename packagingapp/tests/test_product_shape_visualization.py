@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.conf import settings
+from django.template.loader import render_to_string
 from django.test import RequestFactory, SimpleTestCase
 
 from packagingapp.forms import BagSelectionForm, ContainerSelectionMode1Form
@@ -915,9 +916,36 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
         self.assertIn("scene|json_script:scene_id", partial)
         self.assertIn("data-product-unit-threejs-viewer", partial)
         self.assertIn("data-product-unit-threejs-reset", partial)
+        for restriction, dimension in (
+            ("R1", "Length"),
+            ("R2", "Width"),
+            ("R3", "Height"),
+        ):
+            self.assertIn(
+                f'data-product-unit-threejs-orientation="{restriction}"',
+                partial,
+            )
+            self.assertIn(
+                f'aria-label="View {restriction} — {dimension} vertical"',
+                partial,
+            )
         self.assertIn("createApprovedProductVisual", viewer)
         self.assertIn("createApprovedProductMaterials", viewer)
         self.assertIn("normalizeProductShape", viewer)
+        self.assertIn("orientationQuaternion", viewer)
+        self.assertIn(
+            'R1: Object.freeze({ verticalDimension: "length", orientationIndex: 3 })',
+            viewer,
+        )
+        self.assertIn(
+            'R2: Object.freeze({ verticalDimension: "width", orientationIndex: 5 })',
+            viewer,
+        )
+        self.assertIn(
+            'R3: Object.freeze({ verticalDimension: "height", orientationIndex: 0 })',
+            viewer,
+        )
+        self.assertIn("root.quaternion.copy(orientationQuaternion", viewer)
         self.assertIn("THREE.Sprite", viewer)
         self.assertIn("THREE.CanvasTexture", viewer)
         self.assertIn("THREE.EdgesGeometry", viewer)
@@ -931,4 +959,77 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
             "_container_selection_scripts.html",
         ):
             scripts = (root / relative_path).read_text(encoding="utf-8")
-            self.assertIn("product_unit_threejs_viewer.js", scripts)
+            self.assertIn(
+                "product_unit_threejs_viewer.js' %}"
+                "?v=20260807-orientation-views",
+                scripts,
+            )
+
+    def test_container_and_bag_product_unit_partials_render_orientation_views(self):
+        scene = build_product_unit_scene(ASYMMETRIC_PRODUCT, "cuboid")
+        cases = (
+            (
+                "container_selection_tool/partials/"
+                "_container_selection_design_result.html",
+                {
+                    "container_ui": {
+                        "ids": {
+                            "threejs_scene": "containerScene",
+                            "threejs_viewer": "containerViewer",
+                            "product_unit_scene": "containerProductScene",
+                            "product_unit_viewer": "containerProductViewer",
+                        },
+                        "prefix": "",
+                    },
+                    "result": {
+                        "container_length": 200,
+                        "container_width": 140,
+                        "container_height": 100,
+                    },
+                },
+            ),
+            (
+                "bag_selection/partials/_bag_selection_design_result.html",
+                {
+                    "bag_ui": {
+                        "ids": {
+                            "threejs_scene": "bagScene",
+                            "threejs_viewer": "bagViewer",
+                            "product_unit_scene": "bagProductScene",
+                            "product_unit_viewer": "bagProductViewer",
+                        },
+                        "prefix": "",
+                    },
+                    "result": {
+                        "bag_width": 220,
+                        "bag_length": 320,
+                        "bundle_length": 180,
+                        "bundle_width": 120,
+                        "bundle_height": 80,
+                    },
+                    "analysis_report": {"shape_score_display": "100%"},
+                },
+            ),
+        )
+
+        for template_name, context in cases:
+            with self.subTest(template=template_name):
+                html = render_to_string(
+                    template_name,
+                    {
+                        **context,
+                        "mode": "workflow",
+                        "threejs_scene": None,
+                        "product_unit_scene": scene,
+                    },
+                )
+                self.assertIn("Base product unit", html)
+                self.assertEqual(
+                    html.count("data-product-unit-threejs-orientation="),
+                    3,
+                )
+                for restriction in ("R1", "R2", "R3"):
+                    self.assertIn(
+                        f'data-product-unit-threejs-orientation="{restriction}"',
+                        html,
+                    )

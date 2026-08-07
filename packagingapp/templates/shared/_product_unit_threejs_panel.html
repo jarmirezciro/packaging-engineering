@@ -2,11 +2,32 @@
 <div class="product-unit-threejs-panel mt-3{% if compact %} product-unit-threejs-panel--compact{% endif %}">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
         <div class="tool-stat-label mb-0">{{ title|default:"Base product unit" }}</div>
-        <button type="button"
-                class="btn btn-app-outline btn-sm"
-                data-product-unit-threejs-reset>
-            Reset view
-        </button>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <div class="btn-group btn-group-sm"
+                 role="group"
+                 aria-label="Base product unit orientation views">
+                <button type="button"
+                        class="btn btn-app-outline"
+                        data-product-unit-threejs-orientation="R1"
+                        title="R1 — Length vertical"
+                        aria-label="View R1 — Length vertical">R1</button>
+                <button type="button"
+                        class="btn btn-app-outline"
+                        data-product-unit-threejs-orientation="R2"
+                        title="R2 — Width vertical"
+                        aria-label="View R2 — Width vertical">R2</button>
+                <button type="button"
+                        class="btn btn-app-outline"
+                        data-product-unit-threejs-orientation="R3"
+                        title="R3 — Height vertical"
+                        aria-label="View R3 — Height vertical">R3</button>
+            </div>
+            <button type="button"
+                    class="btn btn-app-outline btn-sm"
+                    data-product-unit-threejs-reset>
+                Reset view
+            </button>
+        </div>
     </div>
     {{ scene|json_script:scene_id }}
     <div id="{{ viewer_id }}"

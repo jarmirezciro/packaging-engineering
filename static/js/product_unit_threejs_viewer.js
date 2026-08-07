@@ -4,9 +4,19 @@ import {
     createApprovedProductMaterials,
     createApprovedProductVisual,
     normalizeProductShape,
+    orientationQuaternion,
 } from "./product_shape_factory.js?v=20260731-product-shapes";
 
 const initializedViewers = new WeakSet();
+
+// The orientation index is the shared L × W × H axis order after rotation.
+// Its third dimension is vertical in the packing contract; Three.js maps that
+// vertical dimension onto world Y through orientationQuaternion().
+export const PRODUCT_UNIT_ORIENTATION_PRESETS = Object.freeze({
+    R1: Object.freeze({ verticalDimension: "length", orientationIndex: 3 }),
+    R2: Object.freeze({ verticalDimension: "width", orientationIndex: 5 }),
+    R3: Object.freeze({ verticalDimension: "height", orientationIndex: 0 }),
+});
 
 function finitePositive(value) {
     const number = Number(value);
@@ -316,6 +326,8 @@ function initViewer(element) {
     }
 
     function resetView() {
+        root.quaternion.identity();
+        root.updateMatrixWorld(true);
         camera.position.copy(centre).add(new THREE.Vector3(1.35, 0.95, 1.45).normalize().multiplyScalar(radius * 3.2));
         camera.up.set(0, 1, 0);
         camera.zoom = 1;
@@ -333,6 +345,30 @@ function initViewer(element) {
     const panel = element.closest(".product-unit-threejs-panel");
     const resetButton = panel ? panel.querySelector("[data-product-unit-threejs-reset]") : null;
     if (resetButton) resetButton.addEventListener("click", resetView);
+
+    const orientationButtons = panel
+        ? panel.querySelectorAll("[data-product-unit-threejs-orientation]")
+        : [];
+    orientationButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            const preset = PRODUCT_UNIT_ORIENTATION_PRESETS[
+                button.dataset.productUnitThreejsOrientation
+            ];
+            if (!preset) return;
+
+            const cameraOffset = camera.position.clone().sub(controls.target);
+            root.quaternion.copy(orientationQuaternion(preset.orientationIndex));
+            root.updateMatrixWorld(true);
+            const orientedCentre = new THREE.Box3()
+                .setFromObject(root)
+                .getCenter(new THREE.Vector3());
+            controls.target.copy(orientedCentre);
+            camera.position.copy(orientedCentre).add(cameraOffset);
+            camera.lookAt(orientedCentre);
+            controls.update();
+            render();
+        });
+    });
 
     let lastWidth = size.width;
     let lastHeight = size.height;
