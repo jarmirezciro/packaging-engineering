@@ -8,6 +8,7 @@ import {
 } from "./product_shape_factory.js?v=20260731-product-shapes";
 
 const initializedViewers = new WeakSet();
+const viewerInstances = new WeakMap();
 
 // The orientation index is the shared L × W × H axis order after rotation.
 // Its third dimension is vertical in the packing contract; Three.js maps that
@@ -23,28 +24,66 @@ function finitePositive(value) {
     return Number.isFinite(number) && number > 0 ? number : null;
 }
 
+function normalizeProductData(value) {
+    if (!value) return null;
+    const definition = value.productDefinition || value;
+    const length = finitePositive(definition.length);
+    const width = finitePositive(definition.width);
+    const height = finitePositive(definition.height);
+    if (!length || !width || !height) return null;
+
+    const productShape = normalizeProductShape(value.productShape || value.shape);
+    return {
+        productShape,
+        productDefinition: { length, width, height },
+        unit: String(value.unit || "mm"),
+        showBoundingBox: value.showBoundingBox === undefined
+            ? productShape !== "cuboid"
+            : Boolean(value.showBoundingBox),
+    };
+}
+
 function readScene(element) {
     const scriptId = element.dataset.sceneScript;
     const script = scriptId ? document.getElementById(scriptId) : null;
     if (!script) return null;
 
     try {
-        const scene = JSON.parse(script.textContent || "{}");
-        const definition = scene.productDefinition || {};
-        const length = finitePositive(definition.length);
-        const width = finitePositive(definition.width);
-        const height = finitePositive(definition.height);
-        if (!length || !width || !height) return null;
-        return {
-            productShape: normalizeProductShape(scene.productShape),
-            productDefinition: { length, width, height },
-            orientationIndex: 0,
-            unit: String(scene.unit || "mm"),
-            showBoundingBox: Boolean(scene.showBoundingBox),
-        };
+        return normalizeProductData(JSON.parse(script.textContent || "{}"));
     } catch (error) {
         return null;
     }
+}
+
+function findNamedControl(scope, name) {
+    if (!name) return null;
+    return Array.from(scope.querySelectorAll("[name]")).find(
+        (control) => control.name === name,
+    ) || null;
+}
+
+function liveProductControls(element) {
+    if (!element.hasAttribute("data-product-unit-live")) return null;
+    const scope = element.closest("[data-container-tool-root], [data-bag-tool-root]")
+        || element.closest("form")
+        || document;
+    return {
+        length: findNamedControl(scope, element.dataset.productUnitLengthInput),
+        width: findNamedControl(scope, element.dataset.productUnitWidthInput),
+        height: findNamedControl(scope, element.dataset.productUnitHeightInput),
+        shape: findNamedControl(scope, element.dataset.productUnitShapeInput),
+    };
+}
+
+function readLiveProduct(controls) {
+    if (!controls || !controls.length || !controls.width || !controls.height) return null;
+    return normalizeProductData({
+        length: controls.length.value,
+        width: controls.width.value,
+        height: controls.height.value,
+        shape: controls.shape ? controls.shape.value : "cuboid",
+        unit: "mm",
+    });
 }
 
 function viewerSize(element) {
@@ -216,11 +255,13 @@ function addDimensionGuides(group, definition, unit) {
 }
 
 function addProductEdges(group, definition, opacity) {
-    const geometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(
+    const boxGeometry = new THREE.BoxGeometry(
         definition.length,
         definition.height,
         definition.width,
-    ));
+    );
+    const geometry = new THREE.EdgesGeometry(boxGeometry);
+    boxGeometry.dispose();
     const material = new THREE.LineBasicMaterial({
         color: 0x334155,
         transparent: opacity < 1,
@@ -229,22 +270,32 @@ function addProductEdges(group, definition, opacity) {
     group.add(new THREE.LineSegments(geometry, material));
 }
 
-function initViewer(element) {
-    if (initializedViewers.has(element)) return;
-    initializedViewers.add(element);
+function disposeObjectTree(group, preservedMaterials = new Set()) {
+    const geometries = new Set();
+    const materials = new Set();
+    const textures = new Set();
 
-    const sceneData = readScene(element);
-    if (!sceneData) {
-        element.innerHTML = '<div class="product-unit-threejs-fallback">Base product dimensions are unavailable.</div>';
-        return;
-    }
+    group.traverse((object) => {
+        if (object.geometry) geometries.add(object.geometry);
+        const objectMaterials = Array.isArray(object.material)
+            ? object.material
+            : [object.material];
+        objectMaterials.filter(Boolean).forEach((material) => {
+            if (preservedMaterials.has(material)) return;
+            materials.add(material);
+            Object.values(material).forEach((property) => {
+                if (property && property.isTexture) textures.add(property);
+            });
+        });
+    });
 
-    const { productDefinition } = sceneData;
-    const sceneScale = Math.max(
-        productDefinition.length,
-        productDefinition.width,
-        productDefinition.height,
-    );
+    geometries.forEach((geometry) => geometry.dispose());
+    textures.forEach((texture) => texture.dispose());
+    materials.forEach((material) => material.dispose());
+    group.clear();
+}
+
+function createViewerEnvironment(element) {
     const size = viewerSize(element);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf8fafc);
@@ -263,37 +314,29 @@ function initViewer(element) {
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0xdbe4ee, 1.8));
     const keyLight = new THREE.DirectionalLight(0xffffff, 1.45);
-    keyLight.position.set(sceneScale, sceneScale * 1.5, sceneScale * 1.2);
     scene.add(keyLight);
 
     const root = new THREE.Group();
-    const materials = createApprovedProductMaterials("#f59e0b");
-    const product = createApprovedProductVisual({
-        shapeType: sceneData.productShape,
-        productDefinition,
-        orientationIndex: 0,
-        materials,
-    });
-    root.add(product);
-    if (sceneData.productShape === "cuboid") {
-        addProductEdges(root, productDefinition, 0.8);
-    } else if (sceneData.showBoundingBox) {
-        addProductEdges(root, productDefinition, 0.24);
-    }
-    addDimensionGuides(root, productDefinition, sceneData.unit);
     scene.add(root);
-    root.updateMatrixWorld(true);
+    const productMaterials = createApprovedProductMaterials("#f59e0b");
+    const preservedMaterials = new Set(Object.values(productMaterials));
+    const defaultViewDirection = new THREE.Vector3(1.35, 0.95, 1.45).normalize();
+    const centre = new THREE.Vector3();
+    let sceneScale = 1;
+    let radius = 1;
+    let currentOrientationIndex = 0;
+    let hasProduct = false;
+    let contextAvailable = true;
 
-    const bounds = new THREE.Box3().setFromObject(root);
-    const centre = bounds.getCenter(new THREE.Vector3());
-    const radius = Math.max(bounds.getBoundingSphere(new THREE.Sphere()).radius, sceneScale);
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, radius * 30);
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 30);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = false;
     controls.enablePan = false;
     controls.minZoom = 0.55;
     controls.maxZoom = 4;
-    controls.target.copy(centre);
+
+    let lastWidth = size.width;
+    let lastHeight = size.height;
 
     function updateFrustum(width, height) {
         const aspect = Math.max(width, 1) / Math.max(height, 1);
@@ -321,57 +364,86 @@ function initViewer(element) {
     }
 
     function render() {
+        if (!contextAvailable) return;
         updateLabelScales();
         renderer.render(scene, camera);
     }
 
-    function resetView() {
-        root.quaternion.identity();
+    function fitCurrentProduct(viewDirection = null) {
+        if (!hasProduct) return;
         root.updateMatrixWorld(true);
-        camera.position.copy(centre).add(new THREE.Vector3(1.35, 0.95, 1.45).normalize().multiplyScalar(radius * 3.2));
-        camera.up.set(0, 1, 0);
-        camera.zoom = 1;
-        camera.lookAt(centre);
+        const bounds = new THREE.Box3().setFromObject(root);
+        bounds.getCenter(centre);
+        radius = Math.max(
+            bounds.getBoundingSphere(new THREE.Sphere()).radius,
+            sceneScale,
+        );
+        const currentOffset = camera.position.clone().sub(controls.target);
+        const direction = viewDirection
+            || (currentOffset.lengthSq() > 1e-9
+                ? currentOffset.normalize()
+                : defaultViewDirection);
+
+        keyLight.position.set(sceneScale, sceneScale * 1.5, sceneScale * 1.2);
+        camera.far = radius * 30;
         controls.target.copy(centre);
+        camera.position.copy(centre).addScaledVector(direction, radius * 3.2);
+        camera.up.set(0, 1, 0);
+        camera.lookAt(centre);
+        updateFrustum(lastWidth, lastHeight);
         controls.update();
         camera.updateProjectionMatrix();
         render();
     }
 
-    updateFrustum(size.width, size.height);
-    resetView();
-    controls.addEventListener("change", render);
+    function updateProduct(value) {
+        const productData = normalizeProductData(value);
+        if (!productData || !contextAvailable) return false;
 
-    const panel = element.closest(".product-unit-threejs-panel");
-    const resetButton = panel ? panel.querySelector("[data-product-unit-threejs-reset]") : null;
-    if (resetButton) resetButton.addEventListener("click", resetView);
-
-    const orientationButtons = panel
-        ? panel.querySelectorAll("[data-product-unit-threejs-orientation]")
-        : [];
-    orientationButtons.forEach((button) => {
-        button.addEventListener("click", () => {
-            const preset = PRODUCT_UNIT_ORIENTATION_PRESETS[
-                button.dataset.productUnitThreejsOrientation
-            ];
-            if (!preset) return;
-
-            const cameraOffset = camera.position.clone().sub(controls.target);
-            root.quaternion.copy(orientationQuaternion(preset.orientationIndex));
-            root.updateMatrixWorld(true);
-            const orientedCentre = new THREE.Box3()
-                .setFromObject(root)
-                .getCenter(new THREE.Vector3());
-            controls.target.copy(orientedCentre);
-            camera.position.copy(orientedCentre).add(cameraOffset);
-            camera.lookAt(orientedCentre);
-            controls.update();
-            render();
+        disposeObjectTree(root, preservedMaterials);
+        const { productDefinition } = productData;
+        sceneScale = Math.max(
+            productDefinition.length,
+            productDefinition.width,
+            productDefinition.height,
+        );
+        const product = createApprovedProductVisual({
+            shapeType: productData.productShape,
+            productDefinition,
+            orientationIndex: 0,
+            materials: productMaterials,
         });
-    });
+        root.add(product);
+        if (productData.productShape === "cuboid") {
+            addProductEdges(root, productDefinition, 0.8);
+        } else if (productData.showBoundingBox) {
+            addProductEdges(root, productDefinition, 0.24);
+        }
+        addDimensionGuides(root, productDefinition, productData.unit);
+        root.quaternion.copy(orientationQuaternion(currentOrientationIndex));
+        hasProduct = true;
+        fitCurrentProduct();
+        return true;
+    }
 
-    let lastWidth = size.width;
-    let lastHeight = size.height;
+    function setOrientationView(name) {
+        const preset = PRODUCT_UNIT_ORIENTATION_PRESETS[name];
+        if (!preset || !hasProduct || !contextAvailable) return false;
+        currentOrientationIndex = preset.orientationIndex;
+        root.quaternion.copy(orientationQuaternion(currentOrientationIndex));
+        fitCurrentProduct();
+        return true;
+    }
+
+    function resetView() {
+        if (!hasProduct || !contextAvailable) return false;
+        currentOrientationIndex = 0;
+        root.quaternion.identity();
+        camera.zoom = 1;
+        fitCurrentProduct(defaultViewDirection);
+        return true;
+    }
+
     let resizePending = false;
     function applyResize() {
         resizePending = false;
@@ -390,13 +462,94 @@ function initViewer(element) {
     }
     if ("ResizeObserver" in window) {
         const observer = new ResizeObserver(requestResize);
-        observer.observe(panel || element);
+        observer.observe(element.closest(".product-unit-threejs-panel") || element);
     }
     window.addEventListener("resize", requestResize);
+    controls.addEventListener("change", render);
     renderer.domElement.addEventListener("webglcontextlost", (event) => {
         event.preventDefault();
+        contextAvailable = false;
         element.innerHTML = '<div class="product-unit-threejs-fallback">The interactive 3D view lost its graphics context. Reload the page to restore it.</div>';
     }, { once: true });
+
+    return { resetView, setOrientationView, updateProduct };
+}
+
+function initViewer(element) {
+    if (initializedViewers.has(element)) return;
+    initializedViewers.add(element);
+
+    const productControls = liveProductControls(element);
+    let environment = null;
+    let renderingUnavailable = false;
+
+    function updateProduct(value) {
+        const productData = normalizeProductData(value);
+        if (!productData || renderingUnavailable) return false;
+        if (!environment) {
+            environment = createViewerEnvironment(element);
+            if (!environment) {
+                renderingUnavailable = true;
+                return false;
+            }
+        }
+        return environment.updateProduct(productData);
+    }
+
+    const controller = {
+        resetView: () => environment ? environment.resetView() : false,
+        setOrientationView: (name) => environment
+            ? environment.setOrientationView(name)
+            : false,
+        updateProduct,
+    };
+    viewerInstances.set(element, controller);
+
+    const panel = element.closest(".product-unit-threejs-panel");
+    const resetButton = panel
+        ? panel.querySelector("[data-product-unit-threejs-reset]")
+        : null;
+    if (resetButton) {
+        resetButton.addEventListener("click", controller.resetView);
+    }
+    const orientationButtons = panel
+        ? panel.querySelectorAll("[data-product-unit-threejs-orientation]")
+        : [];
+    orientationButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            controller.setOrientationView(
+                button.dataset.productUnitThreejsOrientation,
+            );
+        });
+    });
+
+    if (productControls) {
+        const refreshFromInputs = () => {
+            controller.updateProduct(readLiveProduct(productControls));
+        };
+        new Set(Object.values(productControls).filter(Boolean)).forEach((control) => {
+            control.addEventListener("input", refreshFromInputs);
+            control.addEventListener("change", refreshFromInputs);
+        });
+        const initialProduct = readLiveProduct(productControls) || readScene(element);
+        if (initialProduct) {
+            controller.updateProduct(initialProduct);
+        } else {
+            element.innerHTML = '<div class="product-unit-threejs-fallback">Enter valid product dimensions to preview.</div>';
+        }
+    } else {
+        const initialProduct = readScene(element);
+        if (initialProduct) {
+            controller.updateProduct(initialProduct);
+        } else {
+            element.innerHTML = '<div class="product-unit-threejs-fallback">Base product dimensions are unavailable.</div>';
+        }
+    }
+}
+
+export function updateProductUnitViewer(element, productDefinition) {
+    const controller = viewerInstances.get(element);
+    return controller ? controller.updateProduct(productDefinition) : false;
 }
 
 function initAll() {

@@ -938,6 +938,10 @@ body {
     height: clamp(280px, 31vw, 320px);
 }
 
+.product-unit-threejs-panel--input .product-unit-threejs-viewer {
+    height: clamp(210px, 24vw, 230px);
+}
+
 .product-unit-threejs-viewer canvas {
     display: block;
     width: 100% !important;
@@ -959,6 +963,10 @@ body {
     .product-unit-threejs-viewer,
     .product-unit-threejs-panel--compact .product-unit-threejs-viewer {
         height: 280px;
+    }
+
+    .product-unit-threejs-panel--input .product-unit-threejs-viewer {
+        height: 220px;
     }
 }
 

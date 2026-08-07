@@ -181,6 +181,8 @@
             <div class="app-form-note">Product shape affects the 3D visualization only. Packing calculations use the entered rectangular bounding dimensions.</div>
         </div>
 
+        {% include "shared/_product_unit_threejs_panel.html" with scene=product_unit_scene scene_id=container_ui.ids.product_unit_scene viewer_id=container_ui.ids.product_unit_viewer live=True input_context=True length_input_name=container_ui.names.product_l width_input_name=container_ui.names.product_w height_input_name=container_ui.names.product_h shape_input_name=container_ui.names.product_shape %}
+
         <div id="{{ container_ui.ids.manual_rotation_fields }}">
             <div class="tool-field-group tool-tight-gap">
                 <label class="form-label">Rotation permissions</label>

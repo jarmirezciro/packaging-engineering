@@ -76,6 +76,8 @@
             <div class="app-form-note">Product shape affects the 3D visualization only. Packing calculations use the entered rectangular bounding dimensions.</div>
         </div>
 
+        {% include "shared/_product_unit_threejs_panel.html" with scene=product_unit_scene scene_id=bag_ui.ids.product_unit_scene viewer_id=bag_ui.ids.product_unit_viewer live=True input_context=True length_input_name=bag_ui.names.product_l width_input_name=bag_ui.names.product_w height_input_name=bag_ui.names.product_h shape_input_name=bag_ui.names.product_shape %}
+
         {% if selected_product %}
             <div class="tool-summary-strip">
                 <div class="tool-summary-main"><strong>{{ selected_product.product_id }}</strong>{% if selected_product.product_name %} — {{ selected_product.product_name }}{% endif %}</div>

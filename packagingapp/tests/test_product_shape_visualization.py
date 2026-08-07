@@ -907,15 +907,16 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
         partial = (
             root / "packagingapp/templates/shared/_product_unit_threejs_panel.html"
         ).read_text(encoding="utf-8")
-        container_result = (
-            root
-            / "packagingapp/templates/container_selection_tool/partials/"
-            "_container_selection_result_section.html"
-        ).read_text(encoding="utf-8")
 
         self.assertIn("scene|json_script:scene_id", partial)
         self.assertIn("data-product-unit-threejs-viewer", partial)
         self.assertIn("data-product-unit-threejs-reset", partial)
+        self.assertIn("data-product-unit-live", partial)
+        self.assertIn("data-product-unit-length-input", partial)
+        self.assertIn("data-product-unit-width-input", partial)
+        self.assertIn("data-product-unit-height-input", partial)
+        self.assertIn("data-product-unit-shape-input", partial)
+        self.assertIn("product-unit-threejs-panel--input", partial)
         for restriction, dimension in (
             ("R1", "Length"),
             ("R2", "Width"),
@@ -945,13 +946,30 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
             'R3: Object.freeze({ verticalDimension: "height", orientationIndex: 0 })',
             viewer,
         )
+        self.assertIn("const viewerInstances = new WeakMap()", viewer)
+        self.assertIn("function liveProductControls(element)", viewer)
+        self.assertIn(
+            'element.closest("[data-container-tool-root], [data-bag-tool-root]")',
+            viewer,
+        )
+        self.assertIn("function disposeObjectTree", viewer)
+        self.assertIn("function createViewerEnvironment", viewer)
+        self.assertIn("function updateProduct(value)", viewer)
+        self.assertIn("control.addEventListener(\"input\"", viewer)
+        self.assertIn("control.addEventListener(\"change\"", viewer)
+        self.assertIn(
+            "readLiveProduct(productControls) || readScene(element)",
+            viewer,
+        )
+        self.assertIn("export function updateProductUnitViewer", viewer)
         self.assertIn("root.quaternion.copy(orientationQuaternion", viewer)
         self.assertIn("THREE.Sprite", viewer)
         self.assertIn("THREE.CanvasTexture", viewer)
         self.assertIn("THREE.EdgesGeometry", viewer)
         self.assertNotIn("WireframeGeometry", viewer)
         self.assertNotIn("requestAnimationFrame(animate", viewer)
-        self.assertNotIn("product_base_image_url", container_result)
+        self.assertNotIn("fetch(", viewer)
+        self.assertNotIn(".submit(", viewer)
 
         for relative_path in (
             "packagingapp/templates/bag_selection/partials/_bag_selection_scripts.html",
@@ -961,75 +979,111 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
             scripts = (root / relative_path).read_text(encoding="utf-8")
             self.assertIn(
                 "product_unit_threejs_viewer.js' %}"
-                "?v=20260807-orientation-views",
+                "?v=20260807-live-product-unit",
                 scripts,
             )
 
-    def test_container_and_bag_product_unit_partials_render_orientation_views(self):
-        scene = build_product_unit_scene(ASYMMETRIC_PRODUCT, "cuboid")
+    def test_product_unit_panel_is_only_in_product_configuration(self):
+        root = Path(settings.BASE_DIR) / "packagingapp/templates"
+        container_product = (
+            root
+            / "container_selection_tool/partials/"
+            "_container_selection_product_section.html"
+        ).read_text(encoding="utf-8")
+        bag_product = (
+            root / "bag_selection/partials/_bag_selection_product_section.html"
+        ).read_text(encoding="utf-8")
+
+        for product_template in (container_product, bag_product):
+            self.assertEqual(product_template.count("_product_unit_threejs_panel"), 1)
+            self.assertIn("live=True", product_template)
+            self.assertIn("input_context=True", product_template)
+            self.assertIn("length_input_name=", product_template)
+            self.assertIn("shape_input_name=", product_template)
+
+        self.assertLess(
+            container_product.index("_product_unit_threejs_panel"),
+            container_product.index("manual_rotation_fields"),
+        )
+        for relative_path in (
+            "container_selection_tool/partials/_container_selection_result_section.html",
+            "container_selection_tool/partials/_container_selection_design_result.html",
+            "bag_selection/partials/_bag_selection_result_section.html",
+            "bag_selection/partials/_bag_selection_design_result.html",
+        ):
+            result_template = (root / relative_path).read_text(encoding="utf-8")
+            self.assertNotIn("_product_unit_threejs_panel", result_template)
+
+    def test_prefixed_product_inputs_render_isolated_live_viewer_bindings(self):
         cases = (
             (
                 "container_selection_tool/partials/"
-                "_container_selection_design_result.html",
-                {
-                    "container_ui": {
-                        "ids": {
-                            "threejs_scene": "containerScene",
-                            "threejs_viewer": "containerViewer",
-                            "product_unit_scene": "containerProductScene",
-                            "product_unit_viewer": "containerProductViewer",
-                        },
-                        "prefix": "",
-                    },
-                    "result": {
-                        "container_length": 200,
-                        "container_width": 140,
-                        "container_height": 100,
-                    },
-                },
+                "_container_selection_product_section.html",
+                "container_ui",
+                "container_values",
+                _build_shared_container_ui_contract,
+                default_container_config,
+                {"current_product_source": "manual"},
             ),
             (
-                "bag_selection/partials/_bag_selection_design_result.html",
+                "bag_selection/partials/_bag_selection_product_section.html",
+                "bag_ui",
+                "bag_values",
+                _build_shared_bag_ui_contract,
+                default_bag_config,
                 {
-                    "bag_ui": {
-                        "ids": {
-                            "threejs_scene": "bagScene",
-                            "threejs_viewer": "bagViewer",
-                            "product_unit_scene": "bagProductScene",
-                            "product_unit_viewer": "bagProductViewer",
-                        },
-                        "prefix": "",
-                    },
-                    "result": {
-                        "bag_width": 220,
-                        "bag_length": 320,
-                        "bundle_length": 180,
-                        "bundle_width": 120,
-                        "bundle_height": 80,
-                    },
-                    "analysis_report": {"shape_score_display": "100%"},
+                    "allow_product_catalogue": True,
+                    "current_product_source": "manual",
                 },
             ),
         )
 
-        for template_name, context in cases:
+        for template_name, ui_key, values_key, build_ui, build_values, extra in cases:
             with self.subTest(template=template_name):
-                html = render_to_string(
-                    template_name,
-                    {
-                        **context,
-                        "mode": "workflow",
-                        "threejs_scene": None,
-                        "product_unit_scene": scene,
-                    },
-                )
-                self.assertIn("Base product unit", html)
-                self.assertEqual(
-                    html.count("data-product-unit-threejs-orientation="),
-                    3,
-                )
-                for restriction in ("R1", "R2", "R3"):
+                rendered = []
+                for prefix in ("3", "4"):
+                    ui = build_ui(prefix=prefix)
+                    values = build_values()
+                    values.update(
+                        {
+                            "product_l": "200",
+                            "product_w": "100",
+                            "product_h": "50",
+                            "product_shape": "bottle",
+                        }
+                    )
+                    html = render_to_string(
+                        template_name,
+                        {
+                            ui_key: ui,
+                            values_key: values,
+                            "mode": "workflow",
+                            "current_mode": "single",
+                            "product_unit_scene": None,
+                            **extra,
+                        },
+                    )
+                    rendered.append(html)
+                    self.assertIn(f'id="{ui["ids"]["product_unit_viewer"]}"', html)
                     self.assertIn(
-                        f'data-product-unit-threejs-orientation="{restriction}"',
+                        f'data-product-unit-length-input="{ui["names"]["product_l"]}"',
                         html,
                     )
+                    self.assertIn(
+                        f'data-product-unit-width-input="{ui["names"]["product_w"]}"',
+                        html,
+                    )
+                    self.assertIn(
+                        f'data-product-unit-height-input="{ui["names"]["product_h"]}"',
+                        html,
+                    )
+                    self.assertIn(
+                        f'data-product-unit-shape-input="{ui["names"]["product_shape"]}"',
+                        html,
+                    )
+                    self.assertEqual(
+                        html.count("data-product-unit-threejs-orientation="),
+                        3,
+                    )
+
+                self.assertNotEqual(rendered[0], rendered[1])

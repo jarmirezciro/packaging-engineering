@@ -3,7 +3,6 @@
     {% if result %}
         <div class="tool-summary-strip mb-3"><div class="tool-summary-main"><strong>{{ result.container_length|floatformat:-2 }} × {{ result.container_width|floatformat:-2 }} × {{ result.container_height|floatformat:-2 }} mm</strong></div><div class="tool-summary-meta">{{ result.arrangement }} · {{ result.product_orientation }} · Cubicity {{ result.container_cubicity_score|floatformat:2 }}</div></div>
         {% include "shared/_package_threejs_panel.html" with scene=threejs_scene scene_id=container_ui.ids.threejs_scene viewer_id=container_ui.ids.threejs_viewer package_label="box" %}
-        {% include "shared/_product_unit_threejs_panel.html" with scene=product_unit_scene scene_id=container_ui.ids.product_unit_scene viewer_id=container_ui.ids.product_unit_viewer compact=True %}
         {% if analysis_report %}
             <details class="tool-summary-strip mt-3 mb-0">
                 <summary class="tool-summary-main" style="cursor: pointer;">

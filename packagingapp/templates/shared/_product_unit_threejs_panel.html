@@ -1,5 +1,5 @@
-{% if scene %}
-<div class="product-unit-threejs-panel mt-3{% if compact %} product-unit-threejs-panel--compact{% endif %}">
+{% if scene or live %}
+<div class="product-unit-threejs-panel mt-3{% if compact %} product-unit-threejs-panel--compact{% endif %}{% if input_context %} product-unit-threejs-panel--input{% endif %}">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
         <div class="tool-stat-label mb-0">{{ title|default:"Base product unit" }}</div>
         <div class="d-flex flex-wrap align-items-center gap-2">
@@ -29,11 +29,18 @@
             </button>
         </div>
     </div>
-    {{ scene|json_script:scene_id }}
+    {% if scene %}{{ scene|json_script:scene_id }}{% endif %}
     <div id="{{ viewer_id }}"
          class="product-unit-threejs-viewer"
          data-product-unit-threejs-viewer
-         data-scene-script="{{ scene_id }}"
+         {% if scene %}data-scene-script="{{ scene_id }}"{% endif %}
+         {% if live %}
+         data-product-unit-live
+         data-product-unit-length-input="{{ length_input_name }}"
+         data-product-unit-width-input="{{ width_input_name }}"
+         data-product-unit-height-input="{{ height_input_name }}"
+         data-product-unit-shape-input="{{ shape_input_name }}"
+         {% endif %}
          aria-label="Interactive base product unit viewer"></div>
 </div>
 {% endif %}
