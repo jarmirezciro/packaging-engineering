@@ -97,6 +97,10 @@ SESSION_KEY = "full_packaging_mode_session"
 CASE_SESSION_PREFIX = f"{SESSION_KEY}_case_"
 PALLETIZATION_VISUAL_SOURCE = "palletization_result"
 PALLETIZATION_VISUAL_TOLERANCE_MM = 1e-6
+DESIGN_CHAIN_PALLET_STALE_MESSAGE = (
+    "Final-capacity ranking cleared because a palletization input changed. "
+    "Run Optimize final capacity again."
+)
 logger = logging.getLogger(__name__)
 
 
@@ -596,6 +600,38 @@ def _to_int(value, default=None):
         return int(float(value))
     except Exception:
         return default
+
+
+_PALLET_NUMERIC_INPUT_KEYS = {
+    "box_l",
+    "box_w",
+    "box_h",
+    "box_weight",
+    "max_weight_on_bottom_box",
+    "pallet_l",
+    "pallet_w",
+    "pallet_height",
+    "max_stack_height",
+    "max_width_stickout",
+    "max_length_stickout",
+}
+
+
+def _pallet_capacity_input_signature(step):
+    """Return a stable signature for pallet inputs that affect numeric capacity."""
+    cfg = _extract_pallet_config_from_step(step)
+    values = []
+    for key in default_palletization_config():
+        if key == "show_advanced":
+            continue
+        value = cfg.get(key)
+        if key in _PALLET_NUMERIC_INPUT_KEYS:
+            numeric = _to_float(value)
+            value = None if numeric is None else round(numeric, 9)
+        else:
+            value = str(value or "")
+        values.append((key, value))
+    return tuple(values)
 
 
 def _round_payload_value(value, digits=2):
@@ -2231,12 +2267,19 @@ def full_packaging_mode(request, case_slug=None):
                     f"action_{idx}",
                     request.POST.get(f"step_action_{idx}", ""),
                 )
-                invalidate_design_chain_optimizations(
-                    steps,
-                    changed_step_index=idx,
-                    preserve_source=step_action == "select_design_candidate",
-                )
-                _apply_chained_defaults(steps[idx], steps, idx)
+                is_pallet_step = steps[idx].get("type") == "pallet"
+                pallet_signature_before = None
+                if is_pallet_step:
+                    _apply_chained_defaults(steps[idx], steps, idx)
+                    pallet_signature_before = _pallet_capacity_input_signature(steps[idx])
+                else:
+                    invalidate_design_chain_optimizations(
+                        steps,
+                        changed_step_index=idx,
+                        preserve_source=step_action == "select_design_candidate",
+                    )
+                    _apply_chained_defaults(steps[idx], steps, idx)
+
                 if steps[idx].get("type") == "bag":
                     _process_bag_step(steps[idx], steps, idx, request.POST)
                 elif steps[idx].get("type") == "pallet":
@@ -2245,6 +2288,18 @@ def full_packaging_mode(request, case_slug=None):
                     _process_transport_step(steps[idx], steps, idx, request.POST)
                 else:
                     _process_container_step(steps[idx], steps, idx, request.POST)
+
+                if is_pallet_step:
+                    pallet_capacity_changed = (
+                        pallet_signature_before
+                        != _pallet_capacity_input_signature(steps[idx])
+                    )
+                    if pallet_capacity_changed:
+                        invalidate_design_chain_optimizations(
+                            steps,
+                            changed_step_index=idx,
+                            message=DESIGN_CHAIN_PALLET_STALE_MESSAGE,
+                        )
                 workflow["show_add_bar_after"] = None
                 _save_workflow(request, workflow)
             return _redirect_to_workflow(request)
@@ -2252,12 +2307,20 @@ def full_packaging_mode(request, case_slug=None):
         if action == "use_step_result":
             idx = _to_int(request.POST.get("index"))
             if idx is not None and 0 <= idx < len(steps):
-                invalidate_design_chain_optimizations(
-                    steps,
-                    changed_step_index=idx,
-                    preserve_source=True,
-                )
                 _apply_chained_defaults(steps[idx], steps, idx)
+                is_pallet_step = steps[idx].get("type") == "pallet"
+                pallet_signature_before = (
+                    _pallet_capacity_input_signature(steps[idx])
+                    if is_pallet_step
+                    else None
+                )
+
+                if not is_pallet_step:
+                    invalidate_design_chain_optimizations(
+                        steps,
+                        changed_step_index=idx,
+                        preserve_source=True,
+                    )
 
                 if steps[idx].get("type") == "transport":
                     step = steps[idx]
@@ -2266,6 +2329,16 @@ def full_packaging_mode(request, case_slug=None):
                 elif steps[idx].get("type") == "pallet":
                     step = steps[idx]
                     _run_pallet_analysis_shared(step, steps, idx)
+
+                if is_pallet_step and (
+                    pallet_signature_before
+                    != _pallet_capacity_input_signature(steps[idx])
+                ):
+                    invalidate_design_chain_optimizations(
+                        steps,
+                        changed_step_index=idx,
+                        message=DESIGN_CHAIN_PALLET_STALE_MESSAGE,
+                    )
 
                 pending = _effective_step_output(steps[idx])
                 if pending:

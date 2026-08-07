@@ -16,6 +16,7 @@ from packagingapp.tools.full_packaging.chain_optimizer import (
     terminal_capacity_labels,
 )
 from packagingapp.views.full_packaging import (
+    DESIGN_CHAIN_PALLET_STALE_MESSAGE,
     SESSION_KEY,
     _evaluate_design_chain_step,
     _new_bag_step,
@@ -585,3 +586,141 @@ class ChainOptimizerViewTests(TestCase):
         displayed = page.context["steps"][0]["design_candidates_for_display"]
         self.assertEqual([row["candidate_id"] for row in displayed], ["b", "a"])
         self.assertEqual(page.context["steps"][0]["selected_design_candidate_id"], "a")
+
+    def test_pallet_noop_refresh_preserves_optimized_order(self):
+        workflow = self.workflow()
+        workflow["steps"][0]["design_chain_optimization"] = {
+            "active": True,
+            "source_step_index": 0,
+            "terminal_step_index": 1,
+            "terminal_step_type": "pallet",
+            "terminal_label": "pallet",
+            "column_label": "Max base units / pallet",
+            "candidate_results": {
+                "a": {"status": "ok", "final_base_units": 200},
+                "b": {"status": "ok", "final_base_units": 100},
+            },
+            "sorted_candidate_ids": ["a", "b"],
+            "message": "",
+        }
+        self.save_session_workflow(workflow)
+
+        response = self.client.post(
+            self.url,
+            {
+                "action": "run_step",
+                "index": "1",
+                "step_action_1": "refresh",
+                "show_advanced_1": "1",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        saved = self.client.session[SESSION_KEY]
+        self.assertEqual(
+            saved["steps"][0]["design_chain_optimization"]["sorted_candidate_ids"],
+            ["a", "b"],
+        )
+
+    def test_pallet_capacity_change_clears_ranking_with_rerun_message(self):
+        workflow = self.workflow()
+        workflow["steps"][0]["design_chain_optimization"] = {
+            "active": True,
+            "source_step_index": 0,
+            "terminal_step_index": 1,
+            "terminal_step_type": "pallet",
+            "terminal_label": "pallet",
+            "column_label": "Max base units / pallet",
+            "candidate_results": {
+                "a": {"status": "ok", "final_base_units": 200},
+                "b": {"status": "ok", "final_base_units": 100},
+            },
+            "sorted_candidate_ids": ["a", "b"],
+            "message": "",
+        }
+        self.save_session_workflow(workflow)
+
+        response = self.client.post(
+            self.url,
+            {
+                "action": "run_step",
+                "index": "1",
+                "step_action_1": "refresh",
+                "pallet_l_1": "1400",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        saved = self.client.session[SESSION_KEY]
+        self.assertNotIn("design_chain_optimization", saved["steps"][0])
+        self.assertEqual(
+            saved["steps"][0]["design_chain_optimization_message"],
+            DESIGN_CHAIN_PALLET_STALE_MESSAGE,
+        )
+
+    def test_pallet_layout_selection_preserves_ranking(self):
+        workflow = self.workflow()
+        workflow["steps"][0]["design_chain_optimization"] = {
+            "active": True,
+            "source_step_index": 0,
+            "terminal_step_index": 1,
+            "terminal_step_type": "pallet",
+            "terminal_label": "pallet",
+            "column_label": "Max base units / pallet",
+            "candidate_results": {
+                "a": {"status": "ok", "final_base_units": 200},
+                "b": {"status": "ok", "final_base_units": 100},
+            },
+            "sorted_candidate_ids": ["a", "b"],
+            "message": "",
+        }
+        self.save_session_workflow(workflow)
+
+        response = self.client.post(
+            self.url,
+            {
+                "action": "run_step",
+                "index": "1",
+                "step_action_1": "select_result",
+                "selected_result_key_1": "alternate__column",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        saved = self.client.session[SESSION_KEY]
+        self.assertEqual(
+            saved["steps"][0]["design_chain_optimization"]["sorted_candidate_ids"],
+            ["a", "b"],
+        )
+
+    def test_interlock_preview_selection_preserves_numeric_ranking(self):
+        workflow = self.workflow()
+        workflow["steps"][1]["selected_result_key"] = "alternate__column"
+        workflow["steps"][0]["design_chain_optimization"] = {
+            "active": True,
+            "source_step_index": 0,
+            "terminal_step_index": 1,
+            "terminal_step_type": "pallet",
+            "terminal_label": "pallet",
+            "column_label": "Max base units / pallet",
+            "candidate_results": {
+                "a": {"status": "ok", "final_base_units": 200},
+                "b": {"status": "ok", "final_base_units": 100},
+            },
+            "sorted_candidate_ids": ["a", "b"],
+            "message": "",
+        }
+        self.save_session_workflow(workflow)
+
+        response = self.client.post(
+            self.url,
+            {
+                "action": "run_step",
+                "index": "1",
+                "step_action_1": "select_result",
+                "selected_result_key_1": "alternate__column__interlock_preview",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        saved = self.client.session[SESSION_KEY]
+        self.assertEqual(
+            saved["steps"][0]["design_chain_optimization"]["sorted_candidate_ids"],
+            ["a", "b"],
+        )

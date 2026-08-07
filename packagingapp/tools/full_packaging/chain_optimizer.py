@@ -267,7 +267,13 @@ def optimize_design_chain(workflow, source_step_index, evaluate_step):
     }
 
 
-def invalidate_design_chain_optimizations(steps, changed_step_index=None, structural=False, preserve_source=False):
+def invalidate_design_chain_optimizations(
+    steps,
+    changed_step_index=None,
+    structural=False,
+    preserve_source=False,
+    message=None,
+):
     """Clear stale optimization state after source, downstream, or structure changes."""
     for index, step in enumerate(steps or []):
         state = step.get("design_chain_optimization") or {}
@@ -279,6 +285,8 @@ def invalidate_design_chain_optimizations(steps, changed_step_index=None, struct
         if should_clear:
             step.pop("design_chain_optimization", None)
             step.pop("design_chain_optimization_message", None)
+            if message:
+                step["design_chain_optimization_message"] = str(message)
 
 
 def build_design_chain_ui(step, steps, source_step_index):

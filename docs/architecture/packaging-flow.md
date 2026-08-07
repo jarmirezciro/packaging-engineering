@@ -159,6 +159,12 @@ stable `candidate_id`. Canonical Design candidates remain in engine order; the
 Flow view builds a transient annotated display list. Structural changes and
 relevant source/downstream input changes clear stored optimization state, while
 selecting another candidate from the unchanged source table preserves it.
+Palletization POSTs compare normalized capacity inputs after inherited defaults
+are applied; UI-only advanced-panel changes and no-op refreshes preserve the
+ranking. Pallet row/pattern selection is treated as presentation-only, so users
+can explore layouts without losing optimization results. A changed pallet
+dimension, constraint, or material clears the stale ranking and tells the user
+to run the optimization again.
 
 ## Future combined report
 
