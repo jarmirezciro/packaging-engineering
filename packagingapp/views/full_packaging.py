@@ -509,8 +509,11 @@ def _build_case_workflow(case_slug):
         "product_l_0": str(product["length"]),
         "product_w_0": str(product["width"]),
         "product_h_0": str(product["height"]),
-        "product_weight_0": "",
+        "product_weight_0": str(product.get("weight") or ""),
         "desired_qty_0": str(product["desired_quantity"]),
+        "box_thickness_mm_0": str(
+            preset["box_design"].get("thickness_mm") or ""
+        ),
         "r1_0": "on" if product.get("r1") else "",
         "r2_0": "on" if product.get("r2") else "",
         "r3_0": "on" if product.get("r3") else "",
@@ -543,6 +546,7 @@ def _build_case_workflow(case_slug):
         "pallet_source": "manual",
         "pallet_l": pallet_preset["length"],
         "pallet_w": pallet_preset["width"],
+        "pallet_height": pallet_preset.get("height", ""),
         "max_stack_height": pallet_preset["max_stack_height"],
         "max_width_stickout": pallet_preset["max_width_stickout"],
         "max_length_stickout": pallet_preset["max_length_stickout"],

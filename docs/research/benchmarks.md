@@ -4,6 +4,28 @@
 
 This is a summary of project benchmark discussions from March–June 2026, not a current market audit. Verify features, pricing, availability, and product names before publishing external comparisons.
 
+## External comparison publishing policy
+
+Treat every named-tool comparison as a bounded benchmark, not a complete product review
+or a universal product claim. Before external publication, record the comparator, source
+URL, capture date, region, product/version or plan, exact inputs, unit conversions,
+rounding, settings, supported constraints, outputs, and unresolved discrepancies.
+
+Use neutral, case-scoped language such as “under these inputs, both tools found…”
+Avoid unsupported claims that one product is universally better, cheaper, faster, more
+accurate, equivalent, or compliant. Do not present calculated geometry as physical safety,
+compression validation, transport approval, or a released packaging specification.
+
+Comparison articles should state that KolliLabs/KolliPack is independent of the named
+vendor and that the result does not represent a complete product evaluation. Source
+screenshots, recordings, logos, quotations, and extracts require a rights check. Flag
+claims involving misconduct, infringement, safety, compliance, pricing, market position,
+customer outcomes, restricted material, paid advertising, or vendor complaints for human
+legal review. The benchmark process is not legal advice or legal approval.
+
+The operational checklist for agents is maintained in
+`.agents/skills/blog-article/references/comparative-benchmarking.md`.
+
 ## Similar commercial tools discussed
 
 | Tool/vendor | Benchmark strength | Gap/opportunity for KolliPack |

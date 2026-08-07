@@ -26,6 +26,8 @@ Choose the article profile before drafting.
 - `sustainability`: material, transport, waste, or environmental analysis.
 
 Read `references/demo-case-study-profile.md` whenever the selected profile is `demo_case_study`.
+When a demo case names or compares another tool or vendor, also read
+`references/comparative-benchmarking.md` and `docs/research/benchmarks.md`.
 
 ## Required inputs
 
@@ -40,6 +42,7 @@ Resolve from the task, source package, or current repository:
 - Required CTA and prepopulated case URL.
 - Requested image method.
 - Latest project version when backend reproduction is required.
+- Source link, capture date, version, and comparison assumptions when another tool or vendor is named.
 
 Do not ask unnecessary questions. Infer conservative defaults from the article library and report material assumptions.
 
@@ -55,6 +58,7 @@ Do not ask unnecessary questions. Infer conservative defaults from the article l
 8. Do not commit, push, merge, deploy, or publish unless explicitly requested.
 9. Preserve existing working prepopulated case routes.
 10. Keep rewritten articles in `draft` unless publication is explicitly requested.
+11. Treat competitor comparisons as bounded technical benchmarks, not complete product evaluations or legal opinions.
 
 # Editorial workflow
 
@@ -77,6 +81,10 @@ Determine:
 
 Check for topic overlap and keyword cannibalization.
 
+When another tool or vendor is named, establish the comparison scope, source provenance,
+capture date, version or plan, and required affiliation/disclosure language before drafting.
+Use `references/comparative-benchmarking.md` for the comparison review.
+
 ## 2. Inspect the case package
 
 For a supplied ZIP or folder, follow `references/case-package-contract.md`.
@@ -90,6 +98,7 @@ Read:
 - Existing figures and thumbnail.
 - Structured result files.
 - Current prepopulated case link.
+- Public comparator source, screenshots, recording date, product/version details, and any supplied comparison notes.
 
 Create an internal evidence map. Do not begin drafting before the evidence map and story angle are clear.
 
@@ -188,6 +197,14 @@ For demo articles:
 - Avoid interface documentation unless an interaction is central to the lesson.
 - Avoid repeated disclaimers and repeated numbers.
 
+For external-tool comparisons:
+
+- Scope every conclusion to the stated fixture, inputs, versions, settings, and source date.
+- Distinguish matched outputs from claims about usability, coverage, or product capability.
+- State that KolliPack is independent of the named vendor and does not imply endorsement.
+- Avoid unsupported claims of superiority, equivalence, accuracy, savings, or universal optimality.
+- Include a compact comparison limitation block and flag the article for human/legal review when the reference requires it.
+
 ## 8. Create or revise figures
 
 Follow `references/image-style-guide.md`.
@@ -265,6 +282,13 @@ Also confirm:
 - WebP files open and have expected dimensions.
 - Registry is regenerated when required.
 
+For external-tool comparisons, also confirm:
+
+- Comparator sources, capture dates, versions, and conversion assumptions are recorded.
+- The article includes the required affiliation and scope disclosure.
+- Each comparative claim is supported by the recorded test matrix or source.
+- Human/legal review triggers have been assessed; the skill does not provide legal approval.
+
 Do not run broad Django, browser, screenshot, deployment, or engine tests unless explicitly requested.
 
 Perform one focused correction pass. Stop and report remaining problems instead of entering repeated loops.
@@ -284,6 +308,7 @@ Report:
 - Images and figures revised.
 - CTA and prepopulated URL.
 - Primary keyword and search intent.
+- Comparator, source date/version, comparison scope, disclosure, and review status when applicable.
 - Minimal validation run.
 - Exact files changed.
 - Remaining warnings.
