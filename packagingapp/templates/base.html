@@ -16,17 +16,35 @@
     <!-- Shared App Theme -->
     <link rel="stylesheet" href="{% static 'css/app_theme.css' %}?v=kollilabs-design-results-20260722">
 
+    <script>
+        (function () {
+            try {
+                if (
+                    window.matchMedia("(min-width: 992px)").matches &&
+                    window.localStorage.getItem("kollipackSidebarCollapsed") === "true"
+                ) {
+                    document.documentElement.classList.add("app-sidebar-collapsed");
+                }
+            } catch (error) {
+                // The application shell remains usable when storage is unavailable.
+            }
+        }());
+    </script>
+
     {% block extra_css %}{% endblock %}
 
     <style>
         .app-shell {
+            --app-sidebar-width: 280px;
+            --app-sidebar-collapsed-width: 64px;
             display: flex;
             min-height: 100vh;
             background: var(--app-bg);
         }
 
         .app-sidebar {
-            width: 280px;
+            width: var(--app-sidebar-width);
+            flex: 0 0 var(--app-sidebar-width);
             background: #ffffff;
             border-right: 1px solid var(--app-border);
             padding: 1rem 1rem 1.5rem 1rem;
@@ -35,6 +53,7 @@
             top: 0;
             height: 100vh;
             z-index: 1000;
+            transition: width 0.2s ease, flex-basis 0.2s ease, transform 0.2s ease;
         }
 
         .app-brand {
@@ -44,6 +63,11 @@
             padding: 0.5rem 0.5rem 1rem 0.5rem;
             margin-bottom: 0.5rem;
             border-bottom: 1px solid var(--app-border);
+        }
+
+        .app-brand-copy {
+            min-width: 0;
+            flex: 1;
         }
 
         .app-brand-icon {
@@ -72,6 +96,43 @@
             display: block;
             margin-top: 0.1rem;
             font-size: 0.82rem;
+        }
+
+        .app-sidebar-toggle,
+        .app-sidebar-close,
+        .app-mobile-menu-button {
+            width: 40px;
+            height: 40px;
+            border: 0;
+            border-radius: 0.75rem;
+            background: transparent;
+            color: var(--app-text-muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .app-sidebar-toggle:hover,
+        .app-sidebar-close:hover,
+        .app-mobile-menu-button:hover {
+            background: var(--app-surface-soft);
+            color: var(--app-primary-dark);
+        }
+
+        .app-sidebar-toggle:focus-visible,
+        .app-sidebar-close:focus-visible,
+        .app-mobile-menu-button:focus-visible,
+        .app-nav-link:focus-visible {
+            outline: 3px solid rgba(16, 163, 127, 0.35);
+            outline-offset: 2px;
+        }
+
+        .app-sidebar-close,
+        .app-mobile-header,
+        .app-sidebar-backdrop {
+            display: none;
         }
 
         .app-nav {
@@ -132,45 +193,182 @@
         }
 
         .app-content-wrap {
-            max-width: 1400px;
+            width: 100%;
+            min-width: 0;
         }
 
         .app-alerts {
             margin-bottom: 1rem;
         }
 
+        @media (min-width: 992px) {
+            .app-sidebar-collapsed .app-sidebar {
+                width: var(--app-sidebar-collapsed-width);
+                flex-basis: var(--app-sidebar-collapsed-width);
+                padding-right: 0.5rem;
+                padding-left: 0.5rem;
+            }
+
+            .app-sidebar-collapsed .app-brand {
+                justify-content: center;
+                padding-right: 0;
+                padding-left: 0;
+            }
+
+            .app-sidebar-collapsed .app-brand-icon,
+            .app-sidebar-collapsed .app-brand-copy,
+            .app-sidebar-collapsed .app-nav-section-title {
+                display: none;
+            }
+
+            .app-sidebar-collapsed .app-nav-link > span {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border: 0;
+            }
+
+            .app-sidebar-collapsed .app-nav-section {
+                margin-top: 0.75rem;
+            }
+
+            .app-sidebar-collapsed .app-nav-link {
+                justify-content: center;
+                gap: 0;
+                padding-right: 0.65rem;
+                padding-left: 0.65rem;
+            }
+
+            .app-sidebar-collapsed .app-nav-link i {
+                width: auto;
+                font-size: 1.1rem;
+            }
+        }
+
         @media (max-width: 991px) {
+            body.app-sidebar-drawer-open {
+                overflow: hidden;
+                padding-right: var(--app-drawer-scrollbar-gutter, 0px);
+            }
+
+            .app-mobile-header {
+                min-height: 64px;
+                padding: 0.65rem 1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                position: sticky;
+                top: 0;
+                z-index: 1020;
+                background: #ffffff;
+                border-bottom: 1px solid var(--app-border);
+            }
+
+            .app-mobile-title {
+                margin: 0;
+                color: var(--app-text);
+                font-size: 1rem;
+                font-weight: 700;
+            }
+
             .app-shell {
-                flex-direction: column;
+                display: block;
             }
 
             .app-sidebar {
-                position: relative;
-                width: 100%;
-                height: auto;
-                border-right: 0;
-                border-bottom: 1px solid var(--app-border);
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                width: min(var(--app-sidebar-width), calc(100vw - 3rem));
+                height: 100vh;
+                transform: translateX(-100%);
+                border-right: 1px solid var(--app-border);
+                z-index: 1040;
+                box-shadow: 0 1rem 3rem rgba(15, 23, 42, 0.2);
+            }
+
+            .app-sidebar-drawer-open .app-sidebar {
+                transform: translateX(0);
+            }
+
+            .app-sidebar-close {
+                display: inline-flex;
+            }
+
+            .app-sidebar-toggle {
+                display: none;
+            }
+
+            .app-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 1030;
+                background: rgba(15, 23, 42, 0.45);
+            }
+
+            .app-sidebar-drawer-open .app-sidebar-backdrop {
+                display: block;
             }
 
             .app-main {
                 padding: 1.25rem;
             }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            .app-sidebar {
+                transition: none;
+            }
+        }
     </style>
 </head>
 <body>
 
-<div class="app-shell">
+<header class="app-mobile-header">
+    <button type="button"
+            class="app-mobile-menu-button"
+            id="appMobileMenuButton"
+            aria-label="Open navigation"
+            aria-controls="appSidebar"
+            aria-expanded="false">
+        <i class="bi bi-list" aria-hidden="true"></i>
+    </button>
+    <p class="app-mobile-title">KolliPack</p>
+</header>
 
-    <aside class="app-sidebar">
+<div class="app-shell" id="appShell">
+
+    <aside class="app-sidebar" id="appSidebar" aria-label="Application navigation">
         <div class="app-brand">
             <div class="app-brand-icon">
-                <i class="bi bi-box-seam"></i>
+                <i class="bi bi-box-seam" aria-hidden="true"></i>
             </div>
-            <div>
+            <div class="app-brand-copy">
                 <p class="app-brand-title">KolliPack</p>
                 <small class="app-brand-subtitle">by KolliLabs</small>
             </div>
+            <button type="button"
+                    class="app-sidebar-toggle"
+                    id="appSidebarToggle"
+                    aria-label="Collapse navigation"
+                    aria-controls="appSidebar"
+                    aria-expanded="true"
+                    title="Collapse navigation">
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+            </button>
+            <button type="button"
+                    class="app-sidebar-close"
+                    id="appSidebarClose"
+                    aria-label="Close navigation"
+                    aria-controls="appSidebar">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
         </div>
 
         <nav class="app-nav">
@@ -298,6 +496,8 @@
         </nav>
     </aside>
 
+    <div class="app-sidebar-backdrop" id="appSidebarBackdrop" aria-hidden="true"></div>
+
     <main class="app-main">
         <div class="app-content-wrap">
 
@@ -319,6 +519,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'js/app_sidebar.js' %}?v=kollipack-sidebar-20260808b"></script>
 <script src="{% static 'js/tool_scroll_preservation.js' %}?v=kollipack-design-scroll-20260722d"></script>
 {% block extra_js %}{% endblock %}
 </body>
