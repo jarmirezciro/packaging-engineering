@@ -45,6 +45,8 @@
         .app-sidebar {
             width: var(--app-sidebar-width);
             flex: 0 0 var(--app-sidebar-width);
+            display: flex;
+            flex-direction: column;
             background: #ffffff;
             border-right: 1px solid var(--app-border);
             padding: 1rem 1rem 1.5rem 1rem;
@@ -141,6 +143,10 @@
             gap: 0.25rem;
         }
 
+        .app-nav-home {
+            margin-top: 0.5rem;
+        }
+
         .app-nav-section {
             margin-top: 1.25rem;
         }
@@ -153,6 +159,16 @@
             color: var(--app-text-muted);
             margin-bottom: 0.5rem;
             padding: 0 0.5rem;
+        }
+
+        .app-sidebar-footer {
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid var(--app-border);
+        }
+
+        .app-sidebar-footer .app-nav-section:first-child {
+            margin-top: 0;
         }
 
         .app-nav-link {
@@ -371,28 +387,77 @@
             </button>
         </div>
 
-        <nav class="app-nav">
+        <nav class="app-nav" aria-label="KolliPack tools">
 
-            <div class="app-nav-section">
-                <div class="app-nav-section-title">Home</div>
+            <div class="app-nav-home">
                 <a href="{% url 'home' %}"
                    class="app-nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
-                    <i class="bi bi-house-door"></i>
+                    <i class="bi bi-house-door" aria-hidden="true"></i>
                     <span>Home</span>
                 </a>
             </div>
 
             <div class="app-nav-section">
-                <div class="app-nav-section-title">Company</div>
-                <a href="{% url 'about' %}"
-                   class="app-nav-link {% if request.path|slice:':7' == '/about/' %}active{% endif %}">
-                    <i class="bi bi-building"></i>
-                    <span>KolliLabs</span>
+                <div class="app-nav-section-title">Design</div>
+
+                <a href="{% url 'container_selection_mode1' %}"
+                   class="app-nav-link {% if request.path|slice:':27' == '/container-selection/mode1/' %}active{% endif %}">
+                    <i class="bi bi-box" aria-hidden="true"></i>
+                    <span>Container Selection Tool</span>
                 </a>
-                <a href="{% url 'blog_list' %}"
-                   class="app-nav-link {% if request.path|slice:':6' == '/blog/' %}active{% endif %}">
-                    <i class="bi bi-journal-text"></i>
-                    <span>Blog</span>
+
+                <a href="{% url 'bag_selection_mode1' %}"
+                   class="app-nav-link {% if request.path|slice:':15' == '/bag-selection/' %}active{% endif %}">
+                    <i class="bi bi-handbag" aria-hidden="true"></i>
+                    <span>Bag Selection Tool</span>
+                </a>
+
+                <a href="{% url 'corrugated_material_strength' %}"
+                   class="app-nav-link {% if request.resolver_match.url_name == 'corrugated_material_strength' %}active{% endif %}">
+                    <i class="bi bi-layers" aria-hidden="true"></i>
+                    <span>Corrugated Material &amp; Strength</span>
+                </a>
+            </div>
+
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Logistics</div>
+
+                <a href="{% url 'palletization_mode1' %}"
+                   class="app-nav-link {% if request.path|slice:':21' == '/palletization/mode1/' %}active{% endif %}">
+                    <i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>
+                    <span>Palletization Tool</span>
+                </a>
+
+                <a href="{% url 'container_tool' %}"
+                   class="app-nav-link {% if request.path|slice:':16' == '/container-tool/' %}active{% endif %}">
+                    <i class="bi bi-truck" aria-hidden="true"></i>
+                    <span>Transport Container Tool</span>
+                </a>
+            </div>
+
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Optimization</div>
+
+                <a href="{% url 'full_packaging_mode' %}"
+                   class="app-nav-link {% if request.path|slice:':16' == '/full-packaging/' %}active{% endif %}">
+                    <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                    <span>Packaging Flow</span>
+                </a>
+            </div>
+
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Batch Tools</div>
+
+                <a href="{% url 'multi_product_container_selection' %}"
+                   class="app-nav-link {% if request.path|slice:':25' == '/multi-product-container/' %}active{% endif %}">
+                    <i class="bi bi-boxes" aria-hidden="true"></i>
+                    <span>Multi-product Container Selection</span>
+                </a>
+
+                <a href="{% url 'multi_product_bag_selection' %}"
+                   class="app-nav-link {% if request.path|slice:':19' == '/multi-product-bag/' %}active{% endif %}">
+                    <i class="bi bi-handbag-fill" aria-hidden="true"></i>
+                    <span>Multi-product Bag Selection</span>
                 </a>
             </div>
 
@@ -401,99 +466,60 @@
 
                 <a href="{% url 'product_catalogues' %}"
                    class="app-nav-link {% if request.path|slice:':20' == '/product-catalogues/' %}active{% endif %}">
-                    <i class="bi bi-card-checklist"></i>
+                    <i class="bi bi-card-checklist" aria-hidden="true"></i>
                     <span>Product Catalogue</span>
                 </a>
 
                 <a href="{% url 'catalogue_list' %}"
                    class="app-nav-link {% if request.path|slice:':12' == '/catalogues/' %}active{% endif %}">
-                    <i class="bi bi-archive"></i>
+                    <i class="bi bi-archive" aria-hidden="true"></i>
                     <span>Packaging Catalogue</span>
                 </a>
             </div>
 
             <div class="app-nav-section">
-                <div class="app-nav-section-title">Selection Tools</div>
+                <div class="app-nav-section-title">Resources</div>
 
-                <a href="{% url 'container_selection_mode1' %}"
-                   class="app-nav-link {% if request.path|slice:':27' == '/container-selection/mode1/' %}active{% endif %}">
-                    <i class="bi bi-box"></i>
-                    <span>Container Selection Tool</span>
-                </a>
-
-                <a href="{% url 'bag_selection_mode1' %}"
-                   class="app-nav-link {% if request.path|slice:':15' == '/bag-selection/' %}active{% endif %}">
-                    <i class="bi bi-handbag"></i>
-                    <span>Bag Selection Tool</span>
-                </a>
-
-                <a href="{% url 'multi_product_container_selection' %}"
-                   class="app-nav-link {% if request.path|slice:':25' == '/multi-product-container/' %}active{% endif %}">
-                    <i class="bi bi-boxes"></i>
-                    <span>Container Multi Product</span>
-                </a>
-
-                <a href="{% url 'multi_product_bag_selection' %}"
-                   class="app-nav-link {% if request.path|slice:':19' == '/multi-product-bag/' %}active{% endif %}">
-                    <i class="bi bi-handbag-fill"></i>
-                    <span>Bag Multi Product</span>
+                <a href="{% url 'blog_list' %}"
+                   class="app-nav-link {% if request.path|slice:':6' == '/blog/' %}active{% endif %}">
+                    <i class="bi bi-journal-text" aria-hidden="true"></i>
+                    <span>Blog</span>
                 </a>
             </div>
 
-            <div class="app-nav-section">
-                <div class="app-nav-section-title">Advanced Tools</div>
+        </nav>
 
-                <a href="{% url 'palletization_mode1' %}"
-                   class="app-nav-link {% if request.path|slice:':21' == '/palletization/mode1/' %}active{% endif %}">
-                    <i class="bi bi-grid-3x3-gap"></i>
-                    <span>Palletization Tool</span>
-                </a>
+        <div class="app-sidebar-footer">
+            <a href="{% url 'company_home' %}"
+               class="app-nav-link"
+               target="_blank"
+               rel="noopener noreferrer">
+                <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                <span>KolliLabs website</span>
+            </a>
 
-                <a href="{% url 'corrugated_material_strength' %}"
-                   class="app-nav-link {% if request.resolver_match.url_name == 'corrugated_material_strength' %}active{% endif %}">
-                    <i class="bi bi-layers"></i>
-                    <span>Corrugated Material &amp; Strength</span>
-                </a>
-
-                <a href="{% url 'container_tool' %}"
-                   class="app-nav-link {% if request.path|slice:':16' == '/container-tool/' %}active{% endif %}">
-                    <i class="bi bi-truck"></i>
-                    <span>Transport Container Tool</span>
-                </a>
-            </div>
-
-            <div class="app-nav-section">
-                <div class="app-nav-section-title">Integrated Module</div>
-
-                <a href="{% url 'full_packaging_mode' %}"
-                   class="app-nav-link {% if request.path|slice:':16' == '/full-packaging/' %}active{% endif %}">
-                    <i class="bi bi-diagram-3"></i>
-                    <span>Full Packaging Module</span>
-                </a>
-            </div>
             <div class="app-nav-section">
                 <div class="app-nav-section-title">Account</div>
                 {% if user.is_authenticated %}
                 <div class="app-nav-link" style="background:#f8fafc; cursor:default;">
-                    <i class="bi bi-person-circle"></i>
+                    <i class="bi bi-person-circle" aria-hidden="true"></i>
                     <span>{{ user.username }}</span>
                 </div>
                 <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}
                     <button type="submit" class="app-nav-link w-100 border-0 bg-transparent text-start">
-                        <i class="bi bi-box-arrow-right"></i>
+                        <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                         <span>Sign out</span>
                     </button>
                 </form>
                 {% else %}
                 <a href="{% url 'login' %}?next={{ request.path|urlencode }}" class="app-nav-link">
-                    <i class="bi bi-box-arrow-in-right"></i>
+                    <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>
                     <span>Sign in</span>
                 </a>
                 {% endif %}
             </div>
-
-        </nav>
+        </div>
     </aside>
 
     <div class="app-sidebar-backdrop" id="appSidebarBackdrop" aria-hidden="true"></div>

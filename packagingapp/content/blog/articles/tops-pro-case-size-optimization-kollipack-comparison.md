@@ -29,16 +29,18 @@ og_image = "img/blog/tops-pro-case-size-optimization-kollipack-comparison/thumbn
 takeaways = ["The supplied TOPS Pro case reports 1,152 units per pallet for the 8-pack and 1,232 for the 16-pack.", "KolliPack reproduces those headline pallet capacities with the stated metric inputs and the updated 127 mm pallet height.", "The 80-unit increase is a case-pack change with commercial and operational consequences, not only a pallet result.", "Changing overhang, carton caliper, or carton geometry may be worth exploring before changing an established shipping quantity."]
 
 [cta]
-label = "Open the prepopulated TOPS Pro case in KolliPack"
+label = "Explore this case in KolliPack"
 url = "/full-packaging/case/tops-product-pallet-optimization/?reset=1"
 new_tab = true
 +++
 
 <section class="blog-content-section" markdown="1">
 
-The supplied TOPS Pro tutorial finds **1,152 products per pallet with an 8-pack carton** and **1,232 products with a 16-pack carton**. KolliPack reproduces those same headline capacities in this case. The difference is **80 products per pallet**, or about **6.9%**.
+In this article, we analyze the case-pack optimization example shown in a public TOPS Pro tutorial. The question is familiar to packaging, purchasing, and engineering managers: if a company ships **1,000,000 products per year** in 8-unit cartons, can increasing the quantity per carton reduce pallet and container demand?
 
-That result answers one question: can the second tool reach the same pallet yield under the stated inputs? It does. The more useful business question comes next: **does 80 more products per pallet justify changing an established case pack from 8 to 16?**
+The tutorial moves from **1,152 to 1,232 products per pallet**—an increase of **80 products**, or about **6.9%**. At the illustrative annual volume, that is approximately **57 fewer pallets per year**. If a high-cube container carries 50 pallets, the improvement represents roughly **one fewer container per year**. The calculation in this article stops at the pallet; the container comparison simply expresses the business scale of the pallet result.
+
+KolliPack reproduces the same headline capacities in this case. The more useful business question comes next: **does 80 more products per pallet justify changing an established case pack from 8 to 16?**
 
 > **Comparison scope.** TOPS Pro results were reproduced from the [public tutorial used for this case](https://www.youtube.com/watch?v=aAeo0ZSB7vU). KolliPack is not affiliated with or endorsed by TOPS Software Corporation. This article compares one palletization case and does not represent a complete product evaluation.
 
@@ -46,11 +48,11 @@ That result answers one question: can the second tool reach the same pallet yiel
 
 <section class="blog-content-section" markdown="1">
 
-## The business question behind the video
+## The business question behind the case
 
-The TOPS Pro video presents a generic brand-owner scenario rather than a named company or product. The company is already shipping a product in an **8-unit carton** and wants to know whether a larger case pack would improve pallet utilization. The tool compares **8, 10, 16, 18, and 24 products per carton**, then identifies the 16-pack as the strongest result for the demonstrated pallet case.
+The TOPS Pro case presents a generic brand-owner scenario rather than a named company or product. The company is already shipping a product in an **8-unit carton** and wants to know whether a larger case pack would improve pallet utilization. The tool compares **8, 10, 16, 18, and 24 products per carton**, then identifies the 16-pack as the strongest result for the demonstrated pallet case.
 
-The video also uses an illustrative annual volume of **one million products**. At that volume, its presenter explains that moving from 1,152 to just over 1,200 products per pallet would avoid approximately **57 pallets per year**. That is a useful way to frame the opportunity, but it remains an illustration from the tutorial—not a forecast for a particular company.
+The one-million-product volume is an illustration from the case, not a forecast for a particular company. It is useful because it turns a pallet calculation into a decision that a manager can recognize: whether a packaging change could remove a recurring logistics requirement.
 
 For a packaging or purchasing manager, the decision is familiar. A higher case pack may improve logistics, but it also changes the shipping specification that customers, warehouses, suppliers, and internal systems use. The calculation is therefore a screening step before a packaging change, not the whole approval decision.
 
@@ -63,7 +65,7 @@ For a packaging or purchasing manager, the decision is familiar. A higher case p
 
 <section class="blog-content-section" markdown="1">
 
-## Setting up the same case in both tools
+## Setting up the same case in TOPS Pro and KolliPack
 
 The product in the tutorial is approximately **153 × 70 × 89 mm** and weighs about **68 g** after conversion from the source value. The brand-owner rules allow two permitted upright orientations, represented by **R1 and R3** in KolliPack.
 
@@ -80,7 +82,7 @@ TOPS evaluates the five quantities together and presents a preferred result. Kol
 
 <section class="blog-content-section" markdown="1">
 
-## The result: the same pallet answer in this case
+## KolliPack matches the TOPS Pro result in this case
 
 The matched outputs are simple to read:
 
@@ -140,11 +142,11 @@ A larger case can improve pallet yield while being less convenient for a custome
 
 <section class="blog-content-section" markdown="1">
 
-## Explore the assumptions before changing shipping quantities
+## Now it is your turn: explore this case in KolliPack
 
-The prepopulated KolliPack case opens with the 8-pack baseline, the confirmed **127 mm pallet height**, **1,346 mm maximum total height**, zero overhang, R1 and R3 product orientations, and the 4 mm C-flute caliper assumption.
+The prepopulated KolliPack case opens with the 8-pack baseline and contains only the box-to-pallet calculation: the confirmed **127 mm pallet height**, **1,346 mm maximum total height**, zero overhang, R1 and R3 product orientations, and the 4 mm C-flute caliper assumption.
 
-<a href="/full-packaging/case/tops-product-pallet-optimization/?reset=1" target="_blank" rel="noopener"><strong>Open the prepopulated case in KolliPack</strong></a> and change the desired quantity to compare the 8-pack with 10, 16, 18, or 24. Then try the variables that are often fixed too early: pallet overhang, carton caliper, and the carton geometry selected for palletization.
+<a href="/full-packaging/case/tops-product-pallet-optimization/?reset=1" target="_blank" rel="noopener"><strong>Explore this case in KolliPack</strong></a> and change the desired quantity to compare the 8-pack with 10, 16, 18, or 24. Then try the variables that are often fixed too early: pallet overhang, carton caliper, and the carton geometry selected for palletization.
 
 That experiment may show that changing the shipping quantity is not the only way to improve the 8-pack result. It may also show that a larger case is still the better choice. Either way, the team gets more information before changing master data, labels, customer communication, and physical packaging.
 
@@ -160,6 +162,6 @@ In this focused case, **KolliPack matches the supplied TOPS Pro pallet results**
 
 The more valuable conclusion is not that every company should move to 16. It is that a matched pallet result gives managers a credible starting point for the next decision: compare the case-pack change with the operational cost of keeping the current quantity, and test the assumptions that may improve the existing case before changing it.
 
-<div class="blog-note"><i class="bi bi-box-seam me-2"></i><a href="/full-packaging/case/tops-product-pallet-optimization/?reset=1" target="_blank" rel="noopener">Open the exact KolliPack case</a> and explore the 8-pack, 16-pack, pallet overhang, and carton-caliper assumptions.</div>
+<div class="blog-note"><i class="bi bi-box-seam me-2"></i><a href="/full-packaging/case/tops-product-pallet-optimization/?reset=1" target="_blank" rel="noopener">Explore the exact box-to-pallet case in KolliPack</a> and test the 8-pack, 16-pack, pallet overhang, and carton-caliper assumptions.</div>
 
 </section>

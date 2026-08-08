@@ -76,15 +76,6 @@ _CASE_PRESETS = {
             "max_width_stickout": 0,
             "max_length_stickout": 0,
         },
-        "transport": {
-            "length": 12032,
-            "width": 2352,
-            "height": 2698,
-            "max_weight": 26000,
-            "tare_weight": "",
-            "packing_mode": "maximum_utilization",
-            "calculate_max_quantity": True,
-        },
     },
 }
 

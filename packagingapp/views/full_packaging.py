@@ -556,35 +556,36 @@ def _build_case_workflow(case_slug):
     _run_pallet_analysis_shared(pallet_step, steps, 1)
     _accept_pending_result(pallet_step)
 
-    transport_preset = preset["transport"]
-    transport_step = _new_transport_step()
-    steps.append(transport_step)
-    _apply_chained_defaults(transport_step, steps, 2)
-    transport_cfg = transport_step["config"]
-    transport_cfg.update({
-        "container_source": "manual",
-        "container_l": transport_preset["length"],
-        "container_w": transport_preset["width"],
-        "container_h": transport_preset["height"],
-        "max_weight": transport_preset["max_weight"],
-        "tare_weight": transport_preset["tare_weight"],
-        "packing_mode": transport_preset["packing_mode"],
-    })
-    rows = sanitize_transport_rows_for_session(
-        transport_cfg.get("product_rows") or default_product_rows()
-    )
-    if rows:
-        rows[0]["max_qty"] = bool(transport_preset.get("calculate_max_quantity"))
-        rows[0]["qty"] = 1
-        rows[0]["stackable"] = True
-        rows[0]["sequence"] = 1
-        rows[0]["r1"] = True
-        rows[0]["r2"] = True
-        rows[0]["r3"] = True
-    transport_cfg["product_rows"] = sanitize_transport_rows_for_session(rows)
-    transport_step["analysis_ran"] = True
-    _run_transport_analysis(transport_step, steps, 2)
-    _accept_pending_result(transport_step)
+    transport_preset = preset.get("transport")
+    if transport_preset:
+        transport_step = _new_transport_step()
+        steps.append(transport_step)
+        _apply_chained_defaults(transport_step, steps, 2)
+        transport_cfg = transport_step["config"]
+        transport_cfg.update({
+            "container_source": "manual",
+            "container_l": transport_preset["length"],
+            "container_w": transport_preset["width"],
+            "container_h": transport_preset["height"],
+            "max_weight": transport_preset["max_weight"],
+            "tare_weight": transport_preset["tare_weight"],
+            "packing_mode": transport_preset["packing_mode"],
+        })
+        rows = sanitize_transport_rows_for_session(
+            transport_cfg.get("product_rows") or default_product_rows()
+        )
+        if rows:
+            rows[0]["max_qty"] = bool(transport_preset.get("calculate_max_quantity"))
+            rows[0]["qty"] = 1
+            rows[0]["stackable"] = True
+            rows[0]["sequence"] = 1
+            rows[0]["r1"] = True
+            rows[0]["r2"] = True
+            rows[0]["r3"] = True
+        transport_cfg["product_rows"] = sanitize_transport_rows_for_session(rows)
+        transport_step["analysis_ran"] = True
+        _run_transport_analysis(transport_step, steps, 2)
+        _accept_pending_result(transport_step)
 
     return {
         "steps": steps,

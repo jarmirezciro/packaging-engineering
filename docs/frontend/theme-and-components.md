@@ -32,6 +32,14 @@ full-label modal drawer with backdrop, Escape handling, and focus restoration.
 The drawer compensates for any removed page-scrollbar gutter so opening the
 overlay does not resize the underlying mobile workspace.
 
+The shared navigation order is Home; Design (Container, Bag, Corrugated);
+Logistics (Palletization, Transport); Optimization (Packaging Flow); Batch
+Tools (the multi-product Container and Bag mass-calculation surfaces);
+Catalogues; and Resources (Blog). Product and Packaging Catalogue destinations
+remain in their own category because they are application data-management
+surfaces rather than calculations or learning content. The KolliLabs public
+website and account controls live in the separate sidebar footer.
+
 ## Approved visual direction
 
 KolliPack uses a clean, modern, customer-facing engineering theme with KolliLabs/KolliPack green branding, restrained neutral backgrounds, rounded cards, readable tables, and strong hierarchy.

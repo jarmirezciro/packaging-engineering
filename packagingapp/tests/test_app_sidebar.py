@@ -1,3 +1,5 @@
+import re
+
 from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
@@ -6,6 +8,7 @@ from django.urls import reverse
 class AppSidebarShellTests(TestCase):
     def test_representative_application_pages_use_one_shared_sidebar_shell(self):
         url_names = (
+            "home",
             "container_selection_mode1",
             "bag_selection_mode1",
             "multi_product_container_selection",
@@ -79,3 +82,64 @@ class AppSidebarShellTests(TestCase):
         self.assertNotContains(response, 'id="appSidebar"')
         self.assertIn(".marketing-page {\n    max-width: 1220px;", theme_css)
         self.assertIn(".blog-article {\n    max-width: 980px;", theme_css)
+
+    def test_navigation_uses_engineering_categories_and_preserves_catalogues(self):
+        response = self.client.get(reverse("container_selection_mode1"))
+        html = response.content.decode()
+        nav_html = html.split('<nav class="app-nav" aria-label="KolliPack tools">', 1)[1].split(
+            "</nav>", 1
+        )[0]
+        ordered_labels = (
+            "<span>Home</span>",
+            ">Design</div>",
+            "<span>Container Selection Tool</span>",
+            "<span>Bag Selection Tool</span>",
+            "<span>Corrugated Material &amp; Strength</span>",
+            ">Logistics</div>",
+            "<span>Palletization Tool</span>",
+            "<span>Transport Container Tool</span>",
+            ">Optimization</div>",
+            "<span>Packaging Flow</span>",
+            ">Batch Tools</div>",
+            "<span>Multi-product Container Selection</span>",
+            "<span>Multi-product Bag Selection</span>",
+            ">Catalogues</div>",
+            "<span>Product Catalogue</span>",
+            "<span>Packaging Catalogue</span>",
+            ">Resources</div>",
+            "<span>Blog</span>",
+        )
+
+        positions = [nav_html.index(label) for label in ordered_labels]
+        self.assertEqual(positions, sorted(positions))
+        self.assertNotIn(">Company</div>", nav_html)
+        self.assertNotIn(">Selection Tools</div>", nav_html)
+        self.assertNotIn(">Advanced Tools</div>", nav_html)
+        self.assertNotIn(">Integrated Module</div>", nav_html)
+        self.assertContains(response, "KolliLabs website", count=1)
+        self.assertContains(response, 'target="_blank"', count=1)
+        self.assertContains(response, 'rel="noopener noreferrer"', count=1)
+        self.assertContains(response, f'href="{reverse("company_home")}"', count=1)
+
+    def test_requested_application_destinations_keep_their_active_state(self):
+        url_names = (
+            "home",
+            "container_selection_mode1",
+            "bag_selection_mode1",
+            "corrugated_material_strength",
+            "palletization_mode1",
+            "container_tool",
+            "full_packaging_mode",
+            "multi_product_container_selection",
+            "multi_product_bag_selection",
+        )
+
+        for url_name in url_names:
+            with self.subTest(url_name=url_name):
+                response = self.client.get(reverse(url_name))
+                html = response.content.decode()
+                active_link = (
+                    rf'href="{re.escape(reverse(url_name))}"\s+'
+                    rf'class="app-nav-link active"'
+                )
+                self.assertRegex(html, active_link)
