@@ -74,6 +74,15 @@ Do not imply that the comparator reviewed, approved, endorsed, or participated i
 - Compare like-for-like metrics only. If utilization, efficiency, or ranking conventions differ, say so instead of aligning the percentages.
 - Report discrepancies rather than selecting the value that favors KolliPack.
 
+If a discrepancy makes the comparison incoherent or could change the conclusion, stop drafting and
+request corrected evidence or clarification from the author. Do not proceed with an unresolved
+interpretation merely to complete the article.
+
+For comparison figures, use the vendor-neutral workflow in
+`comparative-figure-workflow.md`. Prefer compact, labeled composites that show the tested
+decision and distinguish source output from independent reproduction. Do not turn the article
+into a sequence of raw vendor screenshots.
+
 ## Human/legal review triggers
 
 Escalate for human/legal review before external publication when the article:

@@ -44,7 +44,8 @@ Labels used in domain documents:
 | Container/box selection | `domain/container-selection-logic.md` |
 | Palletization | `domain/palletization-logic.md` |
 | Corrugated material and strength | `domain/corrugated-material-strength.md` |
-| Transport loading | `domain/transport-selection-logic.md` |
+| Transport packing algorithms/modes | `domain/transport-container-engine.md`, then `engineering/testing-and-verification.md` |
+| Transport tool/service/UI/report contract | `domain/transport-selection-logic.md` |
 | 3D/PDF | `features/three-d-rendering-and-reports.md` |
 | Public site/blog/SEO | `features/public-site-blog-and-seo.md` |
 | Catalogue/access/analytics | `features/catalogue-access-and-analytics.md` |

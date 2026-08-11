@@ -235,6 +235,7 @@ def _new_transport_step():
         "auto_hide_product_catalogue": False,
         "config": {
             "container_source": "manual",
+            "packing_mode": "maximum_utilization",
             "catalogue_id": "",
             "container_id": "",
             "container_l": 12032,
@@ -1844,6 +1845,10 @@ def _process_transport_step(step, steps, idx, post):
     step["auto_hide_product_catalogue"] = False
 
     cfg["container_source"] = post.get(f"container_source_{idx}", cfg.get("container_source", "manual"))
+    cfg["packing_mode"] = post.get(
+        f"packing_mode_{idx}",
+        cfg.get("packing_mode", "maximum_utilization"),
+    )
     cfg["catalogue_id"] = post.get(f"catalogue_id_{idx}", cfg.get("catalogue_id", ""))
     cfg["container_id"] = post.get(f"container_id_{idx}", cfg.get("container_id", ""))
     cfg["container_l"] = post.get(f"container_l_{idx}", cfg.get("container_l", ""))

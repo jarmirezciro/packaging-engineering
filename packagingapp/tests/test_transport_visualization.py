@@ -9,9 +9,53 @@ from django.test import TestCase, SimpleTestCase
 from django.urls import reverse
 
 from packagingapp.tools.transport.serializers import serialize_transport_threejs_scene
+from packagingapp.tools.transport.service import analyze_transport_capacity
+from packagingapp.forms import ContainerToolForm
 
 
 class TransportVisualizationContractTests(SimpleTestCase):
+    def test_space_evenly_is_the_fourth_form_choice(self):
+        self.assertEqual(
+            ContainerToolForm.PACKING_MODE_CHOICES,
+            [
+                ("maximum_utilization", "Maximum utilization"),
+                ("space_evenly", "Space evenly"),
+                ("accessible_sequence_loading", "Sequence loading"),
+                ("sequence_loading", "Strict sequence loading"),
+            ],
+        )
+
+    def test_space_evenly_capacity_service_keeps_mode_and_auto_quantity(self):
+        analysis = analyze_transport_capacity(
+            {
+                "container_source": "manual",
+                "packing_mode": "space_evenly",
+                "container_l": 400,
+                "container_w": 200,
+                "container_h": 100,
+                "max_weight": None,
+                "tare_weight": None,
+            },
+            [{
+                "name": "Auto cube",
+                "length": 100,
+                "width": 100,
+                "height": 100,
+                "qty": 1,
+                "max_qty": True,
+                "stackable": True,
+                "weight": 0,
+                "sequence": 1,
+                "r1": True,
+                "r2": False,
+                "r3": False,
+            }],
+        )
+        self.assertTrue(analysis["ok"])
+        self.assertEqual(analysis["safe_rows"][0]["qty"], 8)
+        self.assertEqual(analysis["result"]["packing_mode"], "space_evenly")
+        self.assertEqual(analysis["result"]["space_evenly_target_total_units"], 8)
+
     def test_three_approved_camera_presets_and_loading_default(self):
         root = Path(settings.BASE_DIR)
         partial = (
@@ -139,6 +183,27 @@ class TransportVisualizationSurfaceTests(TestCase):
         self.assertEqual(missing.status_code, 400)
         self.assertIn(b"Loading, Opposite Side and Top", missing.content)
 
+    def test_public_calculator_inherits_space_evenly_from_shared_form(self):
+        with self.settings(MEDIA_ROOT=self.media_root):
+            response = self.client.get(reverse("transport_container_calculator"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'value="space_evenly"', count=1)
+        self.assertContains(response, "Space evenly")
+
+    def test_standalone_space_evenly_serializes_diagnostics(self):
+        data = dict(self.analysis_data)
+        data["packing_mode"] = "space_evenly"
+        with self.settings(MEDIA_ROOT=self.media_root):
+            response = self.client.post(reverse("container_tool"), data)
+
+        self.assertEqual(response.status_code, 200)
+        result = response.context["result"]
+        self.assertEqual(result["packing_mode"], "space_evenly")
+        self.assertEqual(result["strategy"], "space_evenly")
+        self.assertIn("space_evenly_effective_height", result)
+        self.assertContains(response, "Packing mode: Space evenly")
+        json.dumps(result)
+
     def test_workflow_viewer_ids_are_prefixed_and_unique(self):
         self.client.post(
             reverse("full_packaging_mode"),
@@ -155,6 +220,7 @@ class TransportVisualizationSurfaceTests(TestCase):
             "container_h_0": "1200",
             "max_weight_0": "1000",
             "tare_weight_0": "200",
+            "packing_mode_0": "space_evenly",
         })
         with self.settings(MEDIA_ROOT=self.media_root):
             run_response = self.client.post(reverse("full_packaging_mode"), workflow_data)
@@ -165,4 +231,14 @@ class TransportVisualizationSurfaceTests(TestCase):
         self.assertContains(page, 'id="transportThreeJsScene_0"', count=1)
         self.assertEqual(page.content.count(b"data-transport-threejs-view="), 3)
         self.assertContains(page, "data-transport-product-legend")
-        json.dumps(self.client.session["full_packaging_mode_session"])
+        workflow = self.client.session["full_packaging_mode_session"]
+        self.assertEqual(
+            workflow["steps"][0]["config"]["packing_mode"],
+            "space_evenly",
+        )
+        self.assertEqual(
+            workflow["steps"][0]["result"]["packing_mode"],
+            "space_evenly",
+        )
+        self.assertContains(page, "Packing mode: Space evenly")
+        json.dumps(workflow)

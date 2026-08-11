@@ -89,3 +89,21 @@ Prevention: map the vertical slice first and finish all required layers before f
 Symptom: standalone Bag or Container Selection receives improved graphics/result components, while Multi-product Bag Selection or Multi-product Container Selection still renders the former image style or copied template.
 
 Prevention: include both multi-product tools in the initial consumer map; reuse the shared renderer/presenter/component; verify an equivalent one-row fixture and a genuine multi-row fixture before completion.
+
+## 15. Transport packing-mode semantics leak into another mode
+
+Symptom: fixing a residual/compaction issue in one mode changes geometry in Maximum, Accessible Sequence, or Strict Sequence.
+
+Prevention: treat `docs/domain/transport-container-engine.md` as the algorithm contract; trace dispatch before editing; prefer mode-specific helpers for mode semantics; run direct engine geometry signatures for all unaffected modes after any shared-helper change.
+
+## 16. Strict Sequence reuses a side residual
+
+Symptom: a later product is placed beside an earlier product behind its strict frontier.
+
+Prevention: Strict Sequence creates one full-width forward space after every product row. Do not pass side/top/deep residuals from the completed row to the next row. This is a space-generation rule, not a compaction problem.
+
+## 17. Maximum residual partitions become invisible physical walls
+
+Symptom: later products show repeating gaps aligned with earlier-product split boundaries even though the physical corridor is continuous.
+
+Prevention: Maximum Utilization must evaluate physical free geometry without treating guillotine/residual split planes as obstacles. Regression fixtures and accepted semantics are maintained in `docs/domain/transport-container-engine.md`.

@@ -78,6 +78,25 @@ Lead with 15 to 18 products. Explain orientation once. Move directly from result
 - Figures show real KolliPack evidence.
 - The article explains what the number changes.
 
+## Comparative figure lessons
+
+For comparisons with another tool or result set:
+
+- Build one figure around one reader decision.
+- Use real source screenshots, renders, and tables as evidence, then crop and compose them into a deterministic layout.
+- Use a setup flow for the business chain, a setup collage for inputs, a render matrix for quantities or alternatives, and a result-table matrix when alternative breadth matters.
+- Keep tool names, quantities, and source-versus-reproduction status visible.
+- Preserve source values and distinguish calculated output from physical validation.
+- Keep the figure compact and readable at mobile width; do not turn the article into a raw screenshot sequence.
+
+See `comparative-figure-workflow.md` for the reusable composition procedure and prompt.
+
+## Scope alignment
+
+The article, figure plan, and prepopulated case should describe the same calculation chain. Do not
+add palletization or transport merely because the application can support it. Include a downstream
+stage only when it is part of the approved business question.
+
 ## Avoid
 
 - Generic optimization introductions.

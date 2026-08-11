@@ -4607,7 +4607,722 @@ def _regularize_maximum_supported_top_layers(
     }
 
 
+# =========================================================
+# SPACE EVENLY
+# =========================================================
+
+# Space Evenly deliberately has its own bounded construction path.  These
+# limits cap heuristic breadth; they are not physical limits on requested
+# quantity or on the number of product rows.
+_SPACE_EVENLY_BLOCK_SHAPE_LIMIT = 24
+_SPACE_EVENLY_ANCHOR_AXIS_LIMIT = 24
+_SPACE_EVENLY_ANCHOR_Z_LIMIT = 16
+_SPACE_EVENLY_CEILING_LIMIT = 128
+
+
+def _space_evenly_projection_gain(
+    footprint: Tuple[float, float, float, float],
+    placements: List[Placement],
+) -> float:
+    """Return footprint area not already used by the cargo projection."""
+    remaining = [footprint]
+    for placement in placements:
+        blocker = (
+            placement.x,
+            placement.y,
+            placement.l,
+            placement.w,
+        )
+        updated = []
+        for rectangle in remaining:
+            updated.extend(_subtract_rect_2d(rectangle, blocker))
+        remaining = updated
+        if not remaining:
+            return 0.0
+    return sum(length * width for x, y, length, width in remaining)
+
+
+def _space_evenly_block_shapes(
+    max_counts: Tuple[int, int, int],
+    qty_limit: int,
+    *,
+    stackable: bool,
+) -> List[Tuple[int, int, int]]:
+    """Generate a bounded family of useful homogeneous block shapes."""
+    if qty_limit <= 1 or any(count <= 0 for count in max_counts):
+        return []
+
+    maximum = list(max_counts)
+    if not stackable:
+        maximum[2] = min(maximum[2], 1)
+    max_counts = tuple(maximum)
+
+    candidates = set(_grid_shape_candidates(max_counts, qty_limit))
+
+    # Explicit low/wide and single-layer families.  The generic grid helper
+    # already supplies maximum, balanced, and axis-dominant variants.
+    floor_counts = (max_counts[0], max_counts[1], 1)
+    candidates.update(_grid_shape_candidates(floor_counts, qty_limit))
+
+    # Small structured blocks keep the block phase useful for residual
+    # quantities without disguising a lone unit as a block.
+    for counts in (
+        (min(max_counts[0], 2), 1, 1),
+        (1, min(max_counts[1], 2), 1),
+        (1, 1, min(max_counts[2], 2)),
+    ):
+        if 1 < math.prod(counts) <= qty_limit:
+            candidates.add(counts)
+
+    valid = [
+        counts
+        for counts in candidates
+        if 1 < math.prod(counts) <= qty_limit
+        and all(counts[axis] <= max_counts[axis] for axis in range(3))
+    ]
+
+    def shape_key(counts):
+        nx, ny, nz = counts
+        dimensions = [value for value in counts if value > 0]
+        aspect = max(dimensions) / min(dimensions)
+        return (
+            -math.prod(counts),
+            -(nx * ny),
+            nz,
+            aspect,
+            counts,
+        )
+
+    return sorted(valid, key=shape_key)[:_SPACE_EVENLY_BLOCK_SHAPE_LIMIT]
+
+
+def _space_evenly_anchor_positions(
+    placements: List[Placement],
+    dimensions: Tuple[float, float, float],
+    container: Dict,
+    effective_height: float,
+) -> List[Tuple[float, float, float]]:
+    """Generate physical cargo-face anchors under an artificial ceiling."""
+    length, width, height = dimensions
+    container_length = float(container["L"])
+    container_width = float(container["W"])
+
+    z_values = {0.0}
+    for placement in placements:
+        top = placement.z + placement.h
+        if placement.stackable and top + height <= effective_height + _EPS:
+            z_values.add(round(top, 9))
+    z_levels = _bounded_anchor_values(
+        z_values,
+        0.0,
+        max(effective_height - height, 0.0),
+        _SPACE_EVENLY_ANCHOR_Z_LIMIT,
+    )
+
+    anchors = set()
+    for z in z_levels:
+        if z <= _EPS:
+            relevant = placements
+            x_values = {0.0, max(container_length - length, 0.0)}
+            y_values = {0.0, max(container_width - width, 0.0)}
+        else:
+            relevant = [
+                placement
+                for placement in placements
+                if placement.stackable
+                and abs(placement.z + placement.h - z) <= _EPS
+            ]
+            if not relevant:
+                continue
+            x_values = set()
+            y_values = set()
+
+        for placement in relevant:
+            x_values.update({
+                placement.x,
+                placement.x + placement.l,
+                placement.x - length,
+                placement.x + placement.l - length,
+            })
+            y_values.update({
+                placement.y,
+                placement.y + placement.w,
+                placement.y - width,
+                placement.y + placement.w - width,
+            })
+
+        bounded_x = _bounded_anchor_values(
+            x_values,
+            0.0,
+            max(container_length - length, 0.0),
+            _SPACE_EVENLY_ANCHOR_AXIS_LIMIT,
+        )
+        bounded_y = _bounded_anchor_values(
+            y_values,
+            0.0,
+            max(container_width - width, 0.0),
+            _SPACE_EVENLY_ANCHOR_AXIS_LIMIT,
+        )
+        for x in bounded_x:
+            for y in bounded_y:
+                anchors.add((x, y, z))
+
+    return sorted(anchors, key=lambda point: (point[2], point[0], point[1]))
+
+
+def _space_evenly_materialized_block(
+    group: Dict,
+    orientation: Tuple[float, float, float],
+    counts: Tuple[int, int, int],
+    origin: Tuple[float, float, float],
+    item_index_start: int,
+) -> List[Placement]:
+    """Materialize one homogeneous block into authoritative placements."""
+    origin_space = Space(
+        origin[0],
+        origin[1],
+        origin[2],
+        orientation[0] * counts[0],
+        orientation[1] * counts[1],
+        orientation[2] * counts[2],
+    )
+    raw = _materialize_grid(origin_space, orientation, counts)
+    return [
+        Placement(
+            product_name=group["name"],
+            item_index=item_index_start + offset,
+            row_index=group["row_index"],
+            sequence=group["sequence"],
+            weight=group["weight"],
+            stackable=bool(group.get("stackable", True)),
+            x=x,
+            y=y,
+            z=z,
+            l=length,
+            w=width,
+            h=height,
+        )
+        for offset, (x, y, z, length, width, height) in enumerate(raw)
+    ]
+
+
+def _space_evenly_placements_are_valid(
+    candidates: List[Placement],
+    placements: List[Placement],
+    container: Dict,
+    effective_height: float,
+) -> bool:
+    """Validate block units in materialization order, including support."""
+    accepted = list(placements)
+    for candidate in candidates:
+        if (
+            candidate.x < -_EPS
+            or candidate.y < -_EPS
+            or candidate.z < -_EPS
+            or candidate.x + candidate.l > float(container["L"]) + _EPS
+            or candidate.y + candidate.w > float(container["W"]) + _EPS
+            or candidate.z + candidate.h > effective_height + _EPS
+        ):
+            return False
+        if any(_placements_overlap(candidate, existing) for existing in accepted):
+            return False
+        if not _space_base_is_supported(
+            Space(
+                candidate.x,
+                candidate.y,
+                candidate.z,
+                candidate.l,
+                candidate.w,
+                candidate.h,
+            ),
+            accepted,
+        ):
+            return False
+        accepted.append(candidate)
+    return True
+
+
+def _space_evenly_block_contact(
+    candidates: List[Placement],
+    placements: List[Placement],
+) -> Tuple[float, float]:
+    same_product = 0.0
+    all_cargo = 0.0
+    for candidate in candidates:
+        for existing in placements:
+            contact = _placement_face_contact_area(candidate, existing)
+            all_cargo += contact
+            if candidate.row_index == existing.row_index:
+                same_product += contact
+    return same_product, all_cargo
+
+
+def _space_evenly_best_block(
+    group: Dict,
+    remaining_qty: int,
+    placements: List[Placement],
+    container: Dict,
+    effective_height: float,
+    item_index_start: int,
+) -> Tuple[Optional[List[Placement]], int]:
+    """Return the best bounded physical block and candidates evaluated."""
+    best = None
+    evaluated = 0
+    current_height = max(
+        (placement.z + placement.h for placement in placements),
+        default=0.0,
+    )
+    current_length = max(
+        (placement.x + placement.l for placement in placements),
+        default=0.0,
+    )
+    current_width = max(
+        (placement.y + placement.w for placement in placements),
+        default=0.0,
+    )
+
+    for orientation_index, orientation in enumerate(group["orientations"]):
+        max_counts = _max_grid_counts(
+            Space(0.0, 0.0, 0.0, container["L"], container["W"], effective_height),
+            orientation,
+        )
+        for counts in _space_evenly_block_shapes(
+            max_counts,
+            remaining_qty,
+            stackable=bool(group.get("stackable", True)),
+        ):
+            block_dimensions = tuple(
+                orientation[axis] * counts[axis]
+                for axis in range(3)
+            )
+            for origin in _space_evenly_anchor_positions(
+                placements,
+                block_dimensions,
+                container,
+                effective_height,
+            ):
+                evaluated += 1
+                candidates = _space_evenly_materialized_block(
+                    group,
+                    orientation,
+                    counts,
+                    origin,
+                    item_index_start,
+                )
+                if not _space_evenly_placements_are_valid(
+                    candidates,
+                    placements,
+                    container,
+                    effective_height,
+                ):
+                    continue
+
+                block_length, block_width, block_height = block_dimensions
+                x, y, z = origin
+                projection_gain = _space_evenly_projection_gain(
+                    (x, y, block_length, block_width),
+                    placements,
+                )
+                same_contact, all_contact = _space_evenly_block_contact(
+                    candidates,
+                    placements,
+                )
+                shape_aspect = max(block_dimensions) / min(block_dimensions)
+                resulting_height = max(current_height, z + block_height)
+                resulting_length = max(current_length, x + block_length)
+                resulting_width = max(current_width, y + block_width)
+                score = (
+                    len(candidates),
+                    projection_gain,
+                    -resulting_height,
+                    -block_height,
+                    -shape_aspect,
+                    same_contact,
+                    all_contact,
+                    -resulting_length,
+                    -resulting_width,
+                    -z,
+                    -x,
+                    -y,
+                    -orientation_index,
+                    tuple(-value for value in counts),
+                )
+                if best is None or score > best[0]:
+                    best = (score, candidates)
+
+    return (best[1] if best is not None else None), evaluated
+
+
+def _space_evenly_best_residual_unit(
+    group: Dict,
+    placements: List[Placement],
+    container: Dict,
+    effective_height: float,
+    item_index: int,
+) -> Tuple[Optional[Placement], int]:
+    """Place one residual unit using physical anchors, never residual walls."""
+    best = None
+    evaluated = 0
+    current_height = max(
+        (placement.z + placement.h for placement in placements),
+        default=0.0,
+    )
+    current_length = max(
+        (placement.x + placement.l for placement in placements),
+        default=0.0,
+    )
+    current_width = max(
+        (placement.y + placement.w for placement in placements),
+        default=0.0,
+    )
+
+    for orientation_index, orientation in enumerate(group["orientations"]):
+        length, width, height = orientation
+        for x, y, z in _space_evenly_anchor_positions(
+            placements,
+            orientation,
+            container,
+            effective_height,
+        ):
+            evaluated += 1
+            candidate = Placement(
+                product_name=group["name"],
+                item_index=item_index,
+                row_index=group["row_index"],
+                sequence=group["sequence"],
+                weight=group["weight"],
+                stackable=bool(group.get("stackable", True)),
+                x=x,
+                y=y,
+                z=z,
+                l=length,
+                w=width,
+                h=height,
+            )
+            if not _space_evenly_placements_are_valid(
+                [candidate],
+                placements,
+                container,
+                effective_height,
+            ):
+                continue
+            same_contact, all_contact = _space_evenly_block_contact(
+                [candidate],
+                placements,
+            )
+            projection_gain = _space_evenly_projection_gain(
+                (x, y, length, width),
+                placements,
+            )
+            resulting_height = max(current_height, z + height)
+            resulting_length = max(current_length, x + length)
+            resulting_width = max(current_width, y + width)
+            score = (
+                projection_gain,
+                -resulting_height,
+                same_contact,
+                all_contact,
+                -resulting_length,
+                -resulting_width,
+                -z,
+                -x,
+                -y,
+                -orientation_index,
+            )
+            if best is None or score > best[0]:
+                best = (score, candidate)
+
+    return (best[1] if best is not None else None), evaluated
+
+
+def _space_evenly_construct(
+    container: Dict,
+    products: List[Dict],
+    effective_height: float,
+    target_counts: Optional[Dict[int, int]] = None,
+) -> Dict:
+    """Run one block-first Space Evenly construction at a fixed ceiling."""
+    groups = _product_groups(products, respect_sequence=True)
+    placements: List[Placement] = []
+    loaded_weight = 0.0
+    payload_limit = (
+        float(container.get("max_weight"))
+        if _has_payload_limit(container)
+        else None
+    )
+    packed_counts = {group["row_index"]: 0 for group in groups}
+    block_count = 0
+    block_packed_units = 0
+    residual_packed_units = 0
+    block_candidates_evaluated = 0
+    residual_candidates_evaluated = 0
+
+    for group in groups:
+        row_index = group["row_index"]
+        requested = max(0, int(group.get("qty", 0) or 0))
+        target = (
+            min(requested, max(0, int(target_counts.get(row_index, 0))))
+            if target_counts is not None
+            else requested
+        )
+
+        while packed_counts[row_index] < target:
+            remaining = target - packed_counts[row_index]
+            if payload_limit is not None and group["weight"] > 0:
+                payload_capacity = int(
+                    (max(payload_limit - loaded_weight, 0.0) + _EPS)
+                    // group["weight"]
+                )
+                remaining = min(remaining, payload_capacity)
+            if remaining <= 1:
+                break
+
+            block, evaluated = _space_evenly_best_block(
+                group,
+                remaining,
+                placements,
+                container,
+                effective_height,
+                group["item_index_start"] + packed_counts[row_index],
+            )
+            block_candidates_evaluated += evaluated
+            if not block:
+                break
+            placements.extend(block)
+            packed = len(block)
+            packed_counts[row_index] += packed
+            loaded_weight += packed * group["weight"]
+            block_count += 1
+            block_packed_units += packed
+
+        while packed_counts[row_index] < target:
+            if (
+                payload_limit is not None
+                and group["weight"] > 0
+                and loaded_weight + group["weight"] > payload_limit + _EPS
+            ):
+                break
+            candidate, evaluated = _space_evenly_best_residual_unit(
+                group,
+                placements,
+                container,
+                effective_height,
+                group["item_index_start"] + packed_counts[row_index],
+            )
+            residual_candidates_evaluated += evaluated
+            if candidate is None:
+                break
+            placements.append(candidate)
+            packed_counts[row_index] += 1
+            loaded_weight += group["weight"]
+            residual_packed_units += 1
+
+    unplaced = []
+    for group in groups:
+        row_index = group["row_index"]
+        packed = packed_counts[row_index]
+        requested = max(0, int(group.get("qty", 0) or 0))
+        for offset in range(requested - packed):
+            payload_blocked = (
+                payload_limit is not None
+                and group["weight"] > 0
+                and loaded_weight + group["weight"] > payload_limit + _EPS
+            )
+            unplaced.append({
+                "product_name": group["name"],
+                "dims": group["dims"],
+                "orientations": group["orientations"],
+                "weight": group["weight"],
+                "stackable": bool(group.get("stackable", True)),
+                "sequence": group["sequence"],
+                "item_index": group["item_index_start"] + packed + offset,
+                "row_index": row_index,
+                "reason": (
+                    "Container max payload exceeded"
+                    if payload_blocked
+                    else "No fitting physical anchor below effective height"
+                ),
+            })
+
+    full_space = Space(
+        0.0,
+        0.0,
+        0.0,
+        float(container["L"]),
+        float(container["W"]),
+        float(effective_height),
+    )
+    occupied = [
+        (
+            placement.x,
+            placement.y,
+            placement.z,
+            placement.l,
+            placement.w,
+            placement.h,
+        )
+        for placement in placements
+    ]
+    spaces = _subtract_cuboids_from_spaces([full_space], occupied)
+    return {
+        "placements": placements,
+        "unplaced": unplaced,
+        "spaces": spaces,
+        "loaded_weight": loaded_weight,
+        "packed_counts": packed_counts,
+        "block_count": block_count,
+        "block_packed_units": block_packed_units,
+        "residual_packed_units": residual_packed_units,
+        "block_candidates_evaluated": block_candidates_evaluated,
+        "residual_candidates_evaluated": residual_candidates_evaluated,
+    }
+
+
+def _space_evenly_candidate_heights(
+    container: Dict,
+    products: List[Dict],
+    target_counts: Dict[int, int],
+    full_height_result: Dict,
+) -> Tuple[float, List[float]]:
+    """Build a bounded ordered set of physically meaningful ceilings."""
+    floor_area = float(container["L"]) * float(container["W"])
+    packed_volume = sum(
+        placement.l * placement.w * placement.h
+        for placement in full_height_result["placements"]
+    )
+    theoretical_height = packed_volume / floor_area if floor_area > 0 else 0.0
+    actual_height = float(container["H"])
+
+    orientation_heights = sorted({
+        round(orientation[2], 9)
+        for group in _product_groups(products, respect_sequence=True)
+        if target_counts.get(group["row_index"], 0) > 0
+        for orientation in group["orientations"]
+        if orientation[2] > _EPS
+    })
+    if len(orientation_heights) > 24:
+        orientation_heights = _bounded_anchor_values(
+            orientation_heights,
+            min(orientation_heights),
+            max(orientation_heights),
+            24,
+        )
+
+    levels = {round(actual_height, 9)}
+    levels.update(
+        round(placement.z + placement.h, 9)
+        for placement in full_height_result["placements"]
+    )
+    total_target = sum(target_counts.values())
+    for height in orientation_heights:
+        maximum_layers = min(
+            int((actual_height + _EPS) // height),
+            max(total_target, 1),
+            64,
+        )
+        for layers in range(1, maximum_layers + 1):
+            levels.add(round(layers * height, 9))
+
+    for first_index, first in enumerate(orientation_heights):
+        for second in orientation_heights[first_index:]:
+            if first + second <= actual_height + _EPS:
+                levels.add(round(first + second, 9))
+
+    minimum_item_height = min(orientation_heights, default=0.0)
+    lower_bound = max(theoretical_height, minimum_item_height)
+    ordered = sorted(
+        level
+        for level in levels
+        if lower_bound - _EPS <= level <= actual_height + _EPS
+    )
+    if not ordered or abs(ordered[-1] - actual_height) > _EPS:
+        ordered.append(actual_height)
+
+    if len(ordered) > _SPACE_EVENLY_CEILING_LIMIT:
+        indexes = {
+            int(round(index * (len(ordered) - 1) / (_SPACE_EVENLY_CEILING_LIMIT - 1)))
+            for index in range(_SPACE_EVENLY_CEILING_LIMIT)
+        }
+        ordered = [ordered[index] for index in sorted(indexes)]
+        if abs(ordered[-1] - actual_height) > _EPS:
+            ordered[-1] = actual_height
+
+    return theoretical_height, ordered
+
+
+def _pack_container_space_evenly(container: Dict, products: List[Dict]) -> Dict:
+    """Pack through an independent artificial-ceiling, block-first path."""
+    actual_height = float(container["H"])
+    full_height_result = _space_evenly_construct(
+        container,
+        products,
+        actual_height,
+    )
+    target_counts = dict(full_height_result["packed_counts"])
+    target_total = sum(target_counts.values())
+    theoretical_height, candidate_heights = _space_evenly_candidate_heights(
+        container,
+        products,
+        target_counts,
+        full_height_result,
+    )
+
+    selected = full_height_result
+    selected_height = actual_height if target_total else 0.0
+    candidates_evaluated = 0
+    total_block_candidates_evaluated = full_height_result["block_candidates_evaluated"]
+    total_residual_candidates_evaluated = full_height_result["residual_candidates_evaluated"]
+    if target_total:
+        for candidate_height in candidate_heights:
+            candidates_evaluated += 1
+            if abs(candidate_height - actual_height) <= _EPS:
+                candidate = full_height_result
+            else:
+                candidate = _space_evenly_construct(
+                    container,
+                    products,
+                    candidate_height,
+                    target_counts,
+                )
+                total_block_candidates_evaluated += candidate["block_candidates_evaluated"]
+                total_residual_candidates_evaluated += candidate["residual_candidates_evaluated"]
+            if candidate["packed_counts"] == target_counts:
+                selected = candidate
+                selected_height = candidate_height
+                break
+
+    selected.update({
+        "strategy": "space_evenly",
+        "packing_mode": "space_evenly",
+        "sequence_zones": [],
+        "space_evenly_effective_height": selected_height,
+        "space_evenly_actual_container_height": actual_height,
+        "space_evenly_height_reduction": max(actual_height - selected_height, 0.0),
+        "space_evenly_theoretical_average_height": theoretical_height,
+        "space_evenly_target_total_units": target_total,
+        "space_evenly_target_packed_volume": sum(
+            placement.l * placement.w * placement.h
+            for placement in full_height_result["placements"]
+        ),
+        "space_evenly_target_counts": {
+            str(row_index): target_counts[row_index]
+            for row_index in sorted(target_counts)
+        },
+        "space_evenly_ceiling_candidates_evaluated": candidates_evaluated,
+        "space_evenly_ceiling_candidate_count": len(candidate_heights),
+        "space_evenly_block_count": selected["block_count"],
+        "space_evenly_block_packed_units": selected["block_packed_units"],
+        "space_evenly_residual_packed_units": selected["residual_packed_units"],
+        "space_evenly_block_candidates_evaluated": selected["block_candidates_evaluated"],
+        "space_evenly_residual_candidates_evaluated": selected["residual_candidates_evaluated"],
+        "space_evenly_total_block_candidates_evaluated": total_block_candidates_evaluated,
+        "space_evenly_total_residual_candidates_evaluated": total_residual_candidates_evaluated,
+    })
+    return selected
+
+
 MAXIMUM_UTILIZATION_MODE = "maximum_utilization"
+SPACE_EVENLY_MODE = "space_evenly"
 ACCESSIBLE_SEQUENCE_LOADING_MODE = "accessible_sequence_loading"
 # Legacy internal identifier retained for the existing strict engine.
 SEQUENCE_LOADING_MODE = "sequence_loading"
@@ -4616,6 +5331,8 @@ STRICT_SEQUENCE_LOADING_MODE = "strict_sequence_loading"
 
 def _normalize_packing_mode(mode: Optional[str]) -> str:
     value = str(mode or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if value in {"space_evenly", "evenly_spaced", "spread_evenly"}:
+        return SPACE_EVENLY_MODE
     if value in {
         "accessible_sequence",
         "accessible_sequence_loading",
@@ -4708,11 +5425,16 @@ def pack_container(
     products: List[Dict],
     mode: Optional[str] = None,
 ) -> Dict:
-    """Pack the Transport Container using one of three explicit modes.
+    """Pack the Transport Container using one of four explicit modes.
 
     ``maximum_utilization`` (default)
         Existing sequence-respecting greedy + unrestricted residual engine.
         Every geometrically valid residual may be reused.
+
+    ``space_evenly``
+        Preserve the mode's full-height target quantities while searching a
+        bounded set of lower artificial ceilings. Construction uses
+        homogeneous blocks followed by physical-anchor residual placement.
 
     ``accessible_sequence_loading``
         New middle mode. Products retain strict sequence, back-to-front
@@ -4732,6 +5454,8 @@ def pack_container(
     selected_mode = _normalize_packing_mode(
         mode if mode is not None else container.get("packing_mode")
     )
+    if selected_mode == SPACE_EVENLY_MODE:
+        return _pack_container_space_evenly(container, products)
     if selected_mode == ACCESSIBLE_SEQUENCE_LOADING_MODE:
         return _pack_container_accessible_sequence_layers(container, products)
     if selected_mode == STRICT_SEQUENCE_LOADING_MODE:
@@ -5050,7 +5774,7 @@ def run_container_tool(container: Dict, products: List[Dict], media_root: str) -
         draw_container(container, pack_result["placements"], abs_path, view=view_name)
         image_rel_paths[view_name] = rel_path
 
-    return {
+    result = {
         "summary": summary,
         "placements": pack_result["placements"],
         "unplaced": pack_result["unplaced"],
@@ -5061,3 +5785,9 @@ def run_container_tool(container: Dict, products: List[Dict], media_root: str) -
         "image_rel_path": image_rel_paths.get("main"),
         "image_rel_paths": image_rel_paths,
     }
+    result.update({
+        key: value
+        for key, value in pack_result.items()
+        if key.startswith("space_evenly_")
+    })
+    return result

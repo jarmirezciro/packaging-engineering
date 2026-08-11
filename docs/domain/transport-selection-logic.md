@@ -37,34 +37,27 @@ Reference usable internal dimensions discussed in June 2026 included:
 
 These are reference templates, not universal legal or manufacturer specifications. Catalogue records are the runtime source of truth.
 
-## Core calculation model
+## Algorithm authority and mode contract
 
-**Repository verification required:** inspect the current transport engine to document exact placement and ranking algorithms.
+The detailed packing algorithms, coordinate convention, physical invariants, mode semantics, and algorithm regression fixtures are maintained in:
 
-The intended deterministic flow is:
+`docs/domain/transport-container-engine.md`
 
-1. Normalize the transport unit’s usable internal L/W/H, tare, and optional maximum payload.
-2. Normalize each load unit’s L/W/H, quantity, weight, and rotation/stacking restrictions.
-3. Enumerate allowed orthogonal floor orientations.
-4. Compute feasible positions in the transport footprint and, where supported, vertical levels.
-5. Generate non-overlapping placements within bounds.
-6. Stop when required quantity is loaded or no feasible position remains.
-7. Calculate geometric capacity and payload-limited capacity separately.
-8. Final feasible quantity is constrained by all mandatory limits.
-9. Produce utilization and unallocated quantity with explicit denominators.
+Use this document for the **tool contract**: inputs, catalogue data, service/consumer parity, metrics, visualization, reports, and limitations. Do not restate the packing heuristics here; that creates two algorithm sources of truth.
+
+At a high level the transport tool normalizes the transport unit and product/load rows, delegates placement to the selected engine mode, and then calculates quantities/utilization from the engine placements. Exact mode behavior must be read from the engine document and verified against the current repository.
+
+The shared mode control exposes four choices: Maximum utilization, Space
+evenly, Sequence loading, and Strict sequence loading. Packaging Flow persists
+the same engine value in prefix-safe step configuration and calls the same
+transport service; it does not implement a second packing path. Space Evenly
+diagnostics remain JSON-safe primitives through service/result serialization.
 
 ## Single versus multiple products
 
-The tool has supported dynamic product/load rows. Document after inspection whether the engine uses:
+The tool supports multiple product/load rows. Product `row_index`, quantity, weight, rotation restrictions, stackability, and sequence are engine inputs and must survive service/session serialization without changing identity.
 
-- sequential first-fit;
-- sorted placement order;
-- zone allocation;
-- 3D bin-packing heuristic;
-- one-SKU repeated grid;
-- or a hybrid.
-
-Do not describe the output as globally optimal unless the algorithm and tests establish that claim.
+Do not describe any mode as globally optimal unless the implemented algorithm and proof/tests establish that claim.
 
 ## Weight model
 

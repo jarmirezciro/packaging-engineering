@@ -473,6 +473,13 @@ def analyze_transport_capacity(cfg, raw_rows, selected_material=None):
             "summary": summary,
             "placements": pack_result.get("placements") or [],
             "unplaced": pack_result.get("unplaced") or [],
+            "packing_mode": pack_result.get("packing_mode", "maximum_utilization"),
+            "strategy": pack_result.get("strategy", ""),
+            **{
+                key: value
+                for key, value in pack_result.items()
+                if key.startswith("space_evenly_")
+            },
         },
         "summary": summary,
     }

@@ -39,6 +39,7 @@ Resolve from the task, source package, or current repository:
 - Relevant KolliPack tool.
 - Exact case inputs when the article is a demo.
 - Existing screenshots and figures.
+- Figure source groups and intended comparison layout.
 - Required CTA and prepopulated case URL.
 - Requested image method.
 - Latest project version when backend reproduction is required.
@@ -79,6 +80,11 @@ Determine:
 - Figure plan.
 - CTA and prepopulated URL.
 
+Before drafting, create a short editorial contract containing the primary audience, business
+decision, business consequence, approved workflow scope, first-block result, comparison claim,
+figure plan, and CTA action. Treat explicit author scope as binding. Do not infer downstream
+workflow stages from a tool URL, application name, or available implementation.
+
 Check for topic overlap and keyword cannibalization.
 
 When another tool or vendor is named, establish the comparison scope, source provenance,
@@ -101,6 +107,10 @@ Read:
 - Public comparator source, screenshots, recording date, product/version details, and any supplied comparison notes.
 
 Create an internal evidence map. Do not begin drafting before the evidence map and story angle are clear.
+
+If the evidence is incoherent, incomplete, or contradictory, stop drafting. Identify the exact
+conflict and ask the author for corrected evidence or clarification. Never select the value,
+screenshot, or interpretation that makes the better story.
 
 ## 3. Reproduce demo cases through the backend
 
@@ -208,6 +218,8 @@ For external-tool comparisons:
 ## 8. Create or revise figures
 
 Follow `references/image-style-guide.md`.
+For multi-tool or multi-result comparisons, also follow
+`references/comparative-figure-workflow.md`.
 
 Use the supplied real KolliPack screenshots and renders when claims depend on tool results.
 
@@ -226,6 +238,8 @@ Do not:
 - Change numerical values visible in screenshots.
 - Remove relevant approved images merely to shorten the article.
 - Make every screenshot a separate oversized figure.
+- Let raw screenshots determine the article structure; compose them around the approved reader
+  decision and case scope.
 
 ## 9. Run the Fresh-Eyes Business Reader review
 

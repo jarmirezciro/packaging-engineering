@@ -74,6 +74,30 @@ A task is complete only when:
 - The final diff contains no unexplained unrelated changes.
 - Documentation is updated when architecture, domain rules, assumptions, or public behaviour changed.
 
+## Transport Container engine work
+
+For any Transport Container engine or packing-mode task, read:
+
+- `docs/domain/transport-container-engine.md` — authoritative algorithm and mode contract.
+- `docs/domain/transport-selection-logic.md` — service, UI, workflow, report, and consumer contract.
+- `docs/engineering/testing-and-verification.md` — regression and verification requirements.
+
+Before changing Transport Container packing behaviour, establish or run direct
+engine regression tests for the affected modes.
+
+Maximum Utilization, Sequence Loading, and Strict Sequence Loading are separate
+behavioural contracts. Do not transfer frontiers, residual-space rules,
+compaction behaviour, or scoring logic from one mode to another unless the task
+explicitly requires that mode to change.
+
+Prefer shared helpers for pure physical geometry such as collision, support,
+orientation validation, payload checks, and cuboid operations. Prefer
+mode-specific helpers for behavioural semantics such as frontiers,
+accessibility, candidate scoring, residual reuse, and compaction.
+
+For specialized Transport Container engine work, use
+`.agents/skills/transport-container-engine/SKILL.md` when applicable.
+
 ## Blog architecture
 
 - Blog articles are file-based content under `packagingapp/content/blog/articles/`.

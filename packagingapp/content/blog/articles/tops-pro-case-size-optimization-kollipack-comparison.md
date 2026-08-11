@@ -40,7 +40,7 @@ In this article, we analyze the case-pack optimization example shown in a public
 
 The tutorial moves from **1,152 to 1,232 products per pallet**—an increase of **80 products**, or about **6.9%**. At the illustrative annual volume, that is approximately **57 fewer pallets per year**. If a high-cube container carries 50 pallets, the improvement represents roughly **one fewer container per year**. The calculation in this article stops at the pallet; the container comparison simply expresses the business scale of the pallet result.
 
-KolliPack reproduces the same headline capacities in this case. The more useful business question comes next: **does 80 more products per pallet justify changing an established case pack from 8 to 16?**
+KolliPack reproduces the same headline capacities in this case. The more useful business question comes next: **does the 80-unit gain require changing from 8 to 16 products per case, or can the existing 8-pack reach the same pallet result by testing carton caliper, pallet overhang, or carton geometry?**
 
 > **Comparison scope.** TOPS Pro results were reproduced from the [public tutorial used for this case](https://www.youtube.com/watch?v=aAeo0ZSB7vU). KolliPack is not affiliated with or endorsed by TOPS Software Corporation. This article compares one palletization case and does not represent a complete product evaluation.
 

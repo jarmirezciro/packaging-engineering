@@ -89,3 +89,18 @@ python manage.py test <relevant_app_or_test_module>
 ```
 
 Do not run a broad destructive migration or production command as a substitute for focused verification.
+
+## Transport Container engine regression contract
+
+Before changing Transport Container packing behavior, run or establish a direct engine regression module (preferably `packagingapp/tests/test_transport_container_engine.py`). These tests are independent of Three.js/HTML and complement visualization tests.
+
+For each protected mode fixture, record a deterministic geometry signature containing at least `row_index`, `x`, `y`, `z`, `l`, `w`, and `h`, plus loaded counts by row. Assert the shared physical invariants (bounds, no positive-volume overlap, allowed orientations, support/stackability, and payload).
+
+For a change scoped to one mode:
+
+- the changed mode receives explicit acceptance assertions;
+- unaffected established modes must keep their accepted count/signature fixtures unless the task explicitly approves a semantic change;
+- a shared-helper change is incomplete until all three established modes have been checked;
+- visual appearance alone is never sufficient evidence of a packing-engine fix.
+
+Use the canonical fixture definitions and mode semantics in `docs/domain/transport-container-engine.md`; do not duplicate the complete fixture specification here.

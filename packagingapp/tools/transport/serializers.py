@@ -179,4 +179,9 @@ def serialize_transport_result(result, threejs_scene=None):
     }
     if threejs_scene is not None:
         serialized["threejs_scene"] = threejs_scene
+    serialized.update({
+        key: value
+        for key, value in result.items()
+        if key.startswith("space_evenly_")
+    })
     return serialized

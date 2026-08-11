@@ -21,6 +21,21 @@ A demo article should help a reader:
 - Relevant tool or workflow.
 - Exact prepopulated case URL.
 
+## Editorial contract before drafting
+
+Record these fields before writing:
+
+- Primary audience and the decision they need to make.
+- Business consequence that belongs in the opening block.
+- Approved calculation chain, for example `product → box → pallet`.
+- Explicitly excluded stages or claims.
+- One-sentence comparison message bounded to the tested case.
+- Figure plan, including source panels, comparison rows and columns, and required labels.
+- Reader action for the prepopulated case.
+
+Do not infer an extra pallet, transport, or workflow stage from the route name or application
+surface. The article scope and the prepopulated case should describe the same chain.
+
 ## Mandatory evidence process
 
 1. Reproduce the supplied inputs through the current backend.
@@ -30,6 +45,12 @@ A demo article should help a reader:
 5. Do not modify the engine during article work.
 
 See `backend-evidence-policy.md`.
+
+## Evidence stop condition
+
+If screenshots, source notes, backend output, or author claims do not agree, stop before drafting
+when the conflict could affect the article's conclusion. Report the exact discrepancy and request
+corrected evidence or author clarification. Do not silently choose a convenient interpretation.
 
 ## Recommended narrative
 
@@ -47,7 +68,9 @@ Use this sequence as a story guide, not a rigid heading template:
 
 ## Opening rule
 
-Put the most important verified result within the first 100 words.
+Put the reader, business decision, and most important verified result within the first 100 words.
+Translate the result into a stated consequence when the source provides one. A technical result
+without its business meaning is not a sufficient opening for a manager-focused case study.
 
 Weak:
 
@@ -108,6 +131,9 @@ Each figure should communicate one point:
 - Final tool render.
 
 Keep all relevant approved images, but combine related screenshots where that improves readability.
+
+For comparisons, use the reusable layouts and deterministic composition rules in
+`comparative-figure-workflow.md`.
 
 ## Required review
 

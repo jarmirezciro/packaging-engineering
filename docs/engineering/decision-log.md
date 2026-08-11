@@ -49,3 +49,11 @@ This is a compact log of decisions that repeatedly affect implementation.
 - Avoid duplicate HTML/JS/business logic.
 - Do not touch production/Railway without explicit request.
 - Do not claim completion while another required layer remains pending.
+
+## Transport Container mode boundaries
+
+- Maximum Utilization has no operational accessibility frontier; sequence is processing priority only.
+- Accessible Sequence Loading may use supported, door-visible transition residuals and its dedicated backward/forward compaction behavior.
+- Strict Sequence Loading creates a full-width frontier after **each product row** and does not reuse side/top/deep residuals behind it, even when adjacent rows share the same numeric sequence value.
+- Transport mode semantics must remain isolated; mode-specific behavior should not be smuggled through shared helpers without cross-mode regression proof.
+- `Space evenly` is approved as a future fourth, independent mode using a bounded artificial-ceiling search plus block-first construction and residual physical-anchor filling. It must be added by a new dispatch branch rather than by changing the three established modes.

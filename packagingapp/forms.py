@@ -646,6 +646,7 @@ class ContainerToolForm(forms.Form):
     ]
     PACKING_MODE_CHOICES = [
         ("maximum_utilization", "Maximum utilization"),
+        ("space_evenly", "Space evenly"),
         ("accessible_sequence_loading", "Sequence loading"),
         # Keep the legacy engine value for backward compatibility. Its
         # user-facing name is now Strict sequence loading.
