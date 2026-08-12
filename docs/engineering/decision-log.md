@@ -56,4 +56,15 @@ This is a compact log of decisions that repeatedly affect implementation.
 - Accessible Sequence Loading may use supported, door-visible transition residuals and its dedicated backward/forward compaction behavior.
 - Strict Sequence Loading creates a full-width frontier after **each product row** and does not reuse side/top/deep residuals behind it, even when adjacent rows share the same numeric sequence value.
 - Transport mode semantics must remain isolated; mode-specific behavior should not be smuggled through shared helpers without cross-mode regression proof.
-- `Space evenly` is approved as a future fourth, independent mode using a bounded artificial-ceiling search plus block-first construction and residual physical-anchor filling. It must be added by a new dispatch branch rather than by changing the three established modes.
+- `Space evenly` is an independent mode. V3 selects at most one complete
+  homogeneous cuboid per product sequentially, then calls the existing greedy
+  helper once in a translated full-width door-side sub-container. It has no
+  artificial-ceiling search or beam/global combinatorial search.
+- `Maximum utilization floor first` is an isolated comparison mode. It keeps
+  Maximum Utilization's physical rules and sequence ordering, then selects a
+  homogeneous main block using the bounded transverse `ny × nz` candidate
+  math shared with Space Evenly. It subtracts that block from real free-space
+  geometry and packs its residual units adjacently in x-strip -> z-layer ->
+  y-row order, including available side spaces. It does not use Space Evenly's
+  orchestration or final door-side residual zone. The unchanged Maximum result
+  is retained only when this candidate would lose capacity.

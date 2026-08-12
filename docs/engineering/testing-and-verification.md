@@ -100,7 +100,7 @@ For a change scoped to one mode:
 
 - the changed mode receives explicit acceptance assertions;
 - unaffected established modes must keep their accepted count/signature fixtures unless the task explicitly approves a semantic change;
-- a shared-helper change is incomplete until all three established modes have been checked;
+- a shared-helper change is incomplete until every unaffected established mode has been checked;
 - visual appearance alone is never sufficient evidence of a packing-engine fix.
 
 Use the canonical fixture definitions and mode semantics in `docs/domain/transport-container-engine.md`; do not duplicate the complete fixture specification here.

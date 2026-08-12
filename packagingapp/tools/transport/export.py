@@ -364,6 +364,7 @@ def build_transport_container_pdf(export_payload):
     packing_mode = str(export_payload.get("packing_mode") or "maximum_utilization")
     packing_mode_labels = {
         "maximum_utilization": "Maximum utilization",
+        "maximum_utilization_floor_first": "Maximum utilization floor first",
         "space_evenly": "Space evenly",
         "accessible_sequence_loading": "Sequence loading",
         # ``sequence_loading`` is the legacy identifier of the unchanged

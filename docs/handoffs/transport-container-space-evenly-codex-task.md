@@ -1,153 +1,59 @@
-# Codex Task — Transport Container: Space Evenly MVP
+# Transport Container — Space Evenly V3 Handoff
 
-## Execution style
+This handoff supersedes the earlier artificial-ceiling Space Evenly brief.
+The authoritative contract is `docs/domain/transport-container-engine.md`.
 
-Use Plan mode first. This is an algorithmic change. The three established modes are protected contracts and the baseline regression harness must pass before implementation.
+## Frozen behavior
 
-## Goal
+Space Evenly is an independent mode with two phases:
 
-Add a fourth Transport Container packing mode, **Space evenly** (`space_evenly`), using KolliPack's own deterministic artificial-ceiling + block-first heuristic. The mode should spread cargo across more floor area while preserving the full-height Space-Evenly target quantities whenever feasible.
+1. Select at most one complete homogeneous `nx × ny × nz` cuboid per product,
+   using an existing allowed orientation, and place selected blocks contiguously
+   from the back (`x = 0`) toward the doors.
+2. After every main block is complete, send only the target leftovers to one
+   invocation of the existing greedy helper in a local full-width/full-height
+   sub-container. Translate local `x` by `main_blocks_end_x`.
 
-This is an independent KolliPack implementation direction. Do not claim equivalence with undocumented proprietary algorithms.
+The main blocks never reuse side, top, or deep gaps behind the frontier. No
+leftover may have `x < main_blocks_end_x`.
 
-## Required reading
+## Bounded construction
 
-- `AGENTS.md`
-- `.agents/skills/transport-container-engine/SKILL.md`
-- `docs/domain/transport-container-engine.md` — authoritative mode/invariant/Space-Evenly contract
-- `docs/domain/transport-selection-logic.md` — service/form/consumer contract
-- `docs/engineering/testing-and-verification.md`
-- the direct transport engine regression module created from the baseline-harness task
-- current engine, transport service, form choices, result labeling, and transport integration tests
+- Candidate generation samples useful `ny`/`nz` counts and derives `nx`
+  analytically; retain at most 12 complete candidates per product row.
+- Select one candidate sequentially per product, reserving a cheap later-row
+  volume length estimate.
+- Do not build a beam, Cartesian product, artificial ceiling, repeated full
+  packing attempt, or lateral-direction search.
+- Use the deterministic `y = 0` convention and materialize floor-to-ceiling.
 
-Do not copy mode semantics from this task into another source. If this task and the domain document differ, stop and resolve the domain document first.
+## Payload and physical rules
 
-## Preconditions / stop conditions
+- Transfer payload remaining after main blocks to the local greedy container.
+- Preserve existing allowed orientations, stackability, support, bounds,
+  collision, quantity identity, and zero-weight handling.
+- Maximum Utilization, Maximum Utilization Floor First, Accessible Sequence
+  Loading, and Strict Sequence Loading remain protected and must not be
+  changed to implement this mode.
 
-Stop before editing packing behavior if:
+## Diagnostics
 
-- the direct regression harness does not pass on the starting commit;
-- current Strict Sequence does not enforce the documented full-width-per-row frontier;
-- current Maximum or Accessible Sequence contradicts the documented accepted fixtures;
-- implementing Space Evenly appears to require changing an established mode's semantics.
+Keep JSON-safe metadata for `main_blocks`, `main_blocks_end_x`, main-block
+units, leftover requested/packed units, candidate count, residual-zone start,
+and the one greedy residual evaluation count. Ordinary `Placement` objects
+remain authoritative for rendering, reports, standalone tools, and Packaging
+Flow.
 
-## Phase 1 — Add the fourth mode surface
+## Verification
 
-Add `space_evenly` as a new dispatch branch and user-facing choice **Space evenly** through existing shared form/service/workflow infrastructure.
+Run the direct engine and Transport visualization tests, plus the optional
+benchmark:
 
-Short explanation:
+```powershell
+$env:DEBUG='True'
+python manage.py test packagingapp.tests.test_transport_container_engine packagingapp.tests.test_transport_visualization
+python -m packagingapp.tests.benchmark_transport_container_engine --space-only
+```
 
-> Reduces the effective loading height when possible so cargo uses more of the transport-unit floor area.
-
-No new user inputs in the MVP.
-
-Do not alter the three existing dispatch branches.
-
-## Phase 2 — Separate Space Evenly engine path
-
-Create an isolated entry point such as:
-
-`_pack_container_space_evenly(container, products)`
-
-Sequence controls processing priority only in this mode; it does not create Strict/Accessible frontiers.
-
-### Full-height target
-
-Run the Space-Evenly construction at the full internal height first. Record the packed count vector by original `row_index`, packed volume, and loaded weight. This is the target for ceiling reduction.
-
-Do not use Maximum, Accessible, or Strict results as the target.
-
-### Artificial ceiling
-
-Find the lowest deterministic bounded effective height that reproduces the full-height Space-Evenly target count vector.
-
-Use geometric lower-bound ideas from `docs/domain/transport-container-engine.md`, including cargo volume / floor area and required vertical dimensions, but do not perform a 1-mm brute-force scan. Candidate generation/search must be bounded and deterministic. If no reduced candidate reproduces the target, keep full height.
-
-Expose JSON-safe diagnostic metadata, for example:
-
-- `space_evenly_effective_height`
-- `space_evenly_height_reduction`
-- `space_evenly_ceiling_candidates_evaluated`
-- `space_evenly_target_counts`
-
-## Phase 3 — Block-first construction
-
-Generate a bounded set of homogeneous cuboid blocks for each product/orientation:
-
-`nx × ny × nz`
-
-Respect quantity, orientation restrictions, current free geometry, artificial ceiling, stackability, support assumptions, bounds, and payload.
-
-Do not enumerate every possible integer triple for large requests. Include useful shape diversity such as maximum grid, length-dominant, width-dominant, low/wide, balanced, single-layer, and single-unit fallback candidates.
-
-Lexicographic construction priorities:
-
-1. reproduce target packed quantities / packed volume;
-2. respect the current artificial ceiling;
-3. prefer coherent larger homogeneous blocks;
-4. prefer broader floor use over tall compact stacking when capacity is equal;
-5. use physical contact/compactness as deterministic tie-breakers, not arbitrary visual spacing.
-
-Residual-space bookkeeping must not become an unintended physical frontier.
-
-## Phase 4 — Residual fill
-
-When useful block placement is exhausted, place residual quantities under the same effective ceiling using a bounded physical-anchor/extreme-point-style mechanism.
-
-Reuse existing pure physical helpers where safe, preferably through Space-Evenly-specific wrappers. Do not call Accessible/Strict transition-band, frontier, or compaction helpers.
-
-Validate actual collision, full-base support, stackability, payload, bounds, and allowed rotations.
-
-## Phase 5 — Tests and benchmark
-
-Add direct tests for:
-
-1. a homogeneous case where the artificial ceiling decreases and target quantity is preserved;
-2. a case that requires full-height fallback;
-3. a non-stackable case;
-4. at least one 3-product case;
-5. deterministic repeat output;
-6. unchanged established-mode regression signatures;
-7. minimal standalone/Packaging Flow mode-value integration needed for the new option.
-
-Record, without brittle CI timing assertions, representative diagnostics for approximately:
-
-- 1 product / ~100 units;
-- 2 products / ~120 units;
-- 3 products / ~150–250 units.
-
-Report elapsed time and bounded candidate counts. Keep in mind that transport service may invoke the engine repeatedly during automatic maximum-quantity searches.
-
-## Scope exclusions
-
-Do not in this task:
-
-- redesign Maximum Utilization;
-- redesign Accessible Sequence Loading;
-- redesign Strict Sequence Loading;
-- modify Three.js placement geometry;
-- redesign PDF rendering beyond mode labeling/metadata if required;
-- add axle load, center-of-gravity, lashing, or airflow optimization;
-- add a user-tunable spread factor/ceiling;
-- perform a wholesale engine-module refactor.
-
-## Documentation
-
-Update `docs/domain/transport-container-engine.md` only with what was actually implemented: fourth-mode semantics, exact ceiling search, block generation, residual-fill strategy, limitations, regression cases, and measured performance notes. Change Space Evenly status from future direction to current mode only when the implementation and integration are complete.
-
-Record a concise durable architecture decision in `docs/engineering/decision-log.md` only if the final implementation differs materially from the approved direction.
-
-## Final Codex report
-
-Include:
-
-- files changed;
-- concise algorithm explanation;
-- exact artificial-ceiling candidate/search method;
-- representative before/after Space Evenly metrics;
-- regression result for all three established modes;
-- tests/checks and results;
-- performance diagnostics;
-- limitations/full-height fallback cases;
-- confirmation that no established mode semantics were intentionally changed;
-- confirmation of no commit/push/deployment/migration unless explicitly requested.
+Document only the deferred second-iteration experiment: compare deterministic
+left-to-right and right-to-left lateral construction.

@@ -41,6 +41,7 @@
         <div class="tool-radio-group">
           {% if is_workflow %}
           <label class="tool-radio-option"><input type="radio" name="packing_mode_{{ step_index }}" value="maximum_utilization"{% if step.config.packing_mode|default:"maximum_utilization" == "maximum_utilization" %} checked{% endif %}><span>Maximum utilization</span></label>
+          <label class="tool-radio-option"><input type="radio" name="packing_mode_{{ step_index }}" value="maximum_utilization_floor_first"{% if step.config.packing_mode == "maximum_utilization_floor_first" %} checked{% endif %}><span>Maximum utilization floor first</span></label>
           <label class="tool-radio-option"><input type="radio" name="packing_mode_{{ step_index }}" value="space_evenly"{% if step.config.packing_mode == "space_evenly" %} checked{% endif %}><span>Space evenly</span></label>
           <label class="tool-radio-option"><input type="radio" name="packing_mode_{{ step_index }}" value="accessible_sequence_loading"{% if step.config.packing_mode == "accessible_sequence_loading" %} checked{% endif %}><span>Sequence loading</span></label>
           <label class="tool-radio-option"><input type="radio" name="packing_mode_{{ step_index }}" value="sequence_loading"{% if step.config.packing_mode == "sequence_loading" or step.config.packing_mode == "strict_sequence_loading" %} checked{% endif %}><span>Strict sequence loading</span></label>
@@ -52,6 +53,7 @@
         </div>
         <div class="form-text">
           <div><strong>Maximum utilization:</strong> respects loading sequence and uses every geometrically valid side, top, deep, and inter-product residual.</div>
+          <div><strong>Maximum utilization floor first:</strong> uses the same physical rules while prioritizing lower floor layers before upper residual spaces.</div>
           <div><strong>Space evenly:</strong> reduces the effective loading height when possible so cargo uses more of the transport-unit floor area.</div>
           <div><strong>Sequence loading:</strong> loads back-to-front in horizontal layers and may fill supported, door-accessible residuals between loading zones.</div>
           <div><strong>Strict sequence loading:</strong> preserves the controlled operational frontier and excludes deep residuals behind earlier loading zones.</div>

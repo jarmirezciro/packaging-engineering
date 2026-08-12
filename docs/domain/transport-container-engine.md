@@ -16,8 +16,9 @@ Do not use a stored line count or historical copy as evidence of the current imp
 
 ## Authority and status
 
-- Sections **Current modes and accepted semantics** and **Global physical invariants** are durable behavioral contracts for the three established modes.
-- **Space Evenly mode** documents the implemented fourth-mode contract.
+- Sections **Current modes and accepted semantics** and **Global physical invariants** are durable behavioral contracts for the established modes.
+- **Space Evenly mode** documents the implemented homogeneous-block contract.
+- **Maximum Utilization Floor First** documents the isolated floor-priority variant of Maximum Utilization.
 - `docs/domain/transport-selection-logic.md` owns tool/service/consumer contracts and intentionally does not duplicate algorithm details.
 - Handoff/task files may be more specific about one implementation session, but they must not override this document.
 
@@ -59,7 +60,36 @@ Known regression case:
 - Product 2: 500 × 400 × 700, qty 100, stackable.
 - The long floor-side residual beside repeated EUR pallet rows must behave as a continuous physical corridor; artificial 1200 mm residual cells must not create repeating 200 mm gaps.
 
-### 2. Sequence Loading / Accessible Sequence (`accessible_sequence_loading`)
+### 2. Maximum Utilization Floor First (`maximum_utilization_floor_first`)
+Purpose: provide a directly comparable Maximum Utilization variant that prefers
+lower floor layers before upper residual spaces.
+
+Accepted semantics:
+- Uses the same allowed rotations, support, stackability, payload, bounds,
+  and deterministic residual rules as the other Maximum paths.
+- For each product row, it first selects one homogeneous integer-grid block
+  from the current real free spaces. The candidate family reuses Space
+  Evenly's pure transverse geometry (`ny × nz`) and orientation math, but the
+  Floor First orchestrator selects the candidate by physical `width × height`
+  coverage and back-to-front placement order.
+- The selected block is subtracted from the real free-space geometry. Any
+  remaining units of that product are then packed beside/above that block and
+  into other available side spaces using `x` strip, then upward `z` layer,
+  then width `y` row order. Residuals are not moved to a single final door
+  zone.
+- It has no operational sequence frontier and no strict or accessible sequence
+  compaction.
+- It does not call Space Evenly's main-block orchestration or door-side
+  residual pass. Space Evenly remains an independent mode.
+- The existing `maximum_utilization` path keeps its original best-fit scoring.
+  It is used only as a capacity guardrail: a floor-first candidate wins when
+  capacity is tied, so this mode does not silently reproduce Maximum geometry.
+
+The floor-first policy is a layout preference, not a global-utilization proof.
+It may produce a different geometry while preserving the same feasible quantity
+and physical invariants.
+
+### 3. Sequence Loading / Accessible Sequence (`accessible_sequence_loading`)
 Purpose: operational sequence loading while allowing controlled use of door-accessible residuals in the previous transition band.
 
 Accepted semantics:
@@ -74,7 +104,7 @@ Accepted semantics:
 Regression family used during development:
 - EUR palletized load cases with quantities 21, 23, 25, 27, 29 were repeatedly used as coordinate/regression guards.
 
-### 3. Strict Sequence Loading (`sequence_loading` legacy engine value; UI label “Strict sequence loading”)
+### 4. Strict Sequence Loading (`sequence_loading` legacy engine value; UI label “Strict sequence loading”)
 Purpose: strict operational zones separated by full-width frontiers.
 
 Accepted semantics:
@@ -91,20 +121,31 @@ Critical regression case:
 - Product 2: 500 × 200 × 700, qty 100, stackable, sequence 1.
 - In Strict Sequence, Product 2 must have zero placements beside Product 1. Its minimum x must be >= Product 1 full-width frontier.
 
-### 4. Space Evenly (`space_evenly`)
-Purpose: preserve the mode's full-height load target while reducing occupied
-height and using more useful floor projection.
+### 5. Space Evenly (`space_evenly`)
+Purpose: create a fast, explainable load plan with one complete homogeneous main
+block per product followed by one greedy mixed leftover pass at the doors.
 
 Accepted semantics:
 - Space Evenly has an independent dispatch and construction path.
 - Sequence controls product-row processing priority only; it creates no
   operational frontier or transition band.
-- A full-height Space Evenly construction establishes the target count vector
-  by original `row_index` while honoring payload, rotations, and stackability.
-- A bounded ordered artificial-ceiling search chooses the first candidate that
-  reproduces that complete target vector.
-- Homogeneous blocks are materialized immediately into ordinary `Placement`
-  objects; physical-anchor residual placement handles remaining target units.
+- Each product has at most one homogeneous integer-grid main block using one
+  allowed orientation.
+- Main blocks are contiguous along `x` from the back wall and do not interleave
+  or use another product's side/top gaps.
+- Main-block selection is sequential and deterministic. It chooses at most one
+  candidate for each product after reserving a cheap lower-bound length for
+  later rows; it does not build a beam or Cartesian product.
+- Residual units are packed only at `x >= residual_zone_start`, where
+  `residual_zone_start` is the end of the final main block.
+- All main blocks are completed before any leftovers are calculated.
+- The leftover phase calls the existing greedy helper exactly once on a local
+  full-width/full-height sub-container from `residual_zone_start` to the doors.
+- Space Evenly does not perform artificial-ceiling or effective-height search;
+  `space_evenly_effective_height` reports the actual container height for
+  compatibility with existing consumers.
+- Homogeneous blocks and residual units are materialized as ordinary
+  `Placement` objects.
 - Standard summary, Three.js, report, standalone, and Packaging Flow consumers
   continue to use ordinary placements.
 
@@ -164,6 +205,7 @@ An optional non-asserting timing helper is available at
 
 ```powershell
 python -m packagingapp.tests.benchmark_transport_container_engine
+python -m packagingapp.tests.benchmark_transport_container_engine --space-only
 python -m packagingapp.tests.benchmark_transport_container_engine --all-modes
 ```
 
@@ -181,65 +223,90 @@ Do not attempt a wholesale refactor and a new algorithm in the same change unles
 Mode name: `space_evenly`.
 
 High-level intent:
-- Spread the load across more of the container floor by reducing the effective usable height with an artificial ceiling.
-- Use block-first construction under that ceiling.
-- Preserve cargo quantity/volume as the primary objective; reduce effective height only when the same target cargo can still be packed.
+- Keep every product together in one regular main cuboid where possible.
+- Arrange main blocks sequentially from the back wall toward the doors.
+- Put leftover units from all products in one mixed door-side residual zone.
+- Prefer regular, lower main blocks over fragmented high-utilization mosaics.
 - This mode is independent of Strict and Accessible Sequence frontiers.
 - Sequence controls processing priority only unless a future task explicitly changes that rule.
 
 ### Space Evenly objective hierarchy
-1. Preserve the full-height Space Evenly engine’s packed count vector / packed volume.
-2. Find the lowest feasible artificial ceiling that can reproduce that target.
-3. Subject to 1–2, prefer coherent homogeneous blocks and broad floor use.
-4. Fill residual quantities with bounded physical-anchor or greedy logic that does not create artificial residual boundaries.
+1. Maximize the complete cuboid's transverse `ny × nz` utilization.
+2. Within that transverse choice, maximize complete quantity/volume.
+3. Reserve enough length for later product rows.
+4. Preserve sequence priority, payload, rotations, support, stackability,
+   bounds, collision rules, quantity identity, and deterministic output.
 
-### Artificial ceiling search
-- First run the Space Evenly block engine with full container height; record target packed quantities by row.
-- Compute the theoretical lower bound as target packed volume / container floor area, raised to at least the smallest allowed target orientation height.
-- Generate candidates from allowed orientation-height multiples (at most 64 layers per distinct height), pairwise allowed-height sums, top levels produced by the full-height construction, and actual container height.
-- Deduplicate, sort, and retain at most 128 deterministic candidates. Search upward and select the first construction that reproduces the complete target count vector. This is an ordered search, not a binary search, because heuristic feasibility is not assumed to be monotonic.
-- Avoid assuming the exact proprietary TOPS formula; implement a documented KolliPack interpretation.
-- Ceiling search must be bounded and deterministic.
+### Target quantities
+- Product rows retain the existing sequence-priority ordering.
+- The analytic target is bounded by requested quantity, payload, remaining
+  container volume, and the product's best single-product orientation grid.
+- This is not a preliminary complete packing run.
+- If the bounded architecture cannot realize all target quantities, the best
+  retained valid state is returned and unplaced quantities are reported.
 
-### Block-first construction
-- A block is a homogeneous cuboid arrangement of one product in one allowed orientation: `nx × ny × nz`.
-- Respect available quantity, container/free-space dimensions, effective ceiling, stackability, and payload.
-- Generate at most 24 shapes per product orientation and placement iteration.
-  The family combines maximum/clipped grids, six axis-priority shapes,
-  low/wide single layers, length- and width-dominant strips, balanced shapes,
-  and small two-unit blocks. A lone unit is reserved for residual fill.
-- Score candidate blocks lexicographically by target contribution, new floor
-  projection, lower resulting/block height, coherent aspect, physical face
-  contact, and natural back-wall compactness.
-- Generate block anchors from container walls and actual cargo faces, with at
-  most 24 coordinates per horizontal axis and 16 supported height levels.
-- Use existing safe geometry helpers where appropriate without changing their semantics for the three established modes.
+### Main-block candidate generation
+- A candidate is one homogeneous cuboid grid `nx × ny × nz` for one product
+  and one orientation returned by `allowed_orientations(...)`.
+- Width/height counts are sampled around `1`, maximum, maximum minus one,
+  one-half maximum, and three-quarters maximum.
+- `nx` is derived analytically from target quantity and a small set of
+  quantity/length fractions; there is no complete `nx` loop.
+- Non-stackable products use `nz = 1`.
+- Candidates are deduplicated, ranked by transverse utilization before complete
+  quantity, and capped at:
+
+```text
+SPACE_EVENLY_CANDIDATES_PER_PRODUCT = 12
+```
+
+### Main-block selection
+- Products are processed in the existing sequence-priority order.
+- For each row, candidates that exceed the remaining length or the cheap
+  later-product volume reservation are rejected.
+- The largest remaining complete cuboid is selected once, then the x frontier
+  is advanced contiguously.
+
+### Main-block placement
+- Selected blocks are placed contiguously from `x = 0`.
+- Blocks use the deterministic `y = 0` lateral convention.
+- Every product has at most one main block.
+- Main blocks never use another product's side/top/deep residual geometry.
 
 ### Residual fill
-- After primary blocks, fill remaining units with a bounded physical-anchor / extreme-point-style pass under the same artificial ceiling.
-- The residual filler may cross computational residual partitions if the actual geometry is collision-free and fully supported.
-- Residual candidates prefer new floor projection and lower resulting height,
-  followed by same-product/all-cargo contact and compact deterministic ties.
+- `residual_zone_start` is the maximum main-block `x_end`.
+- Only target leftovers enter the local greedy pass; payload remaining after
+  the main blocks is transferred to that sub-container.
+- Local coordinates start at `x = 0` and are translated by
+  `residual_zone_start`, so no leftover can return behind the frontier.
+- The existing greedy helper validates bounds, collision, support, stackability,
+  rotations, payload, and quantity identity. Maximum Utilization's own call
+  path and result are unchanged.
 
 ### Diagnostics and current limitations
-JSON-safe result metadata includes effective/actual height, height reduction,
-theoretical average height, target counts/volume/units, accepted block and
-residual counts, selected-pass and total ceiling/block/residual candidate
-counts.
+JSON-safe result metadata includes main block summaries/count/units,
+`main_blocks_end_x`, residual-zone start and residual counts,
+effective/actual/theoretical height, target counts/volume/units, retained block
+candidate count, and the one greedy residual evaluation count.
 
-This is a deterministic bounded heuristic, not a proof of globally minimal
-height or globally optimal floor distribution. A candidate height can be
-physically feasible yet missed by the retained height family, and a feasible
-multi-product arrangement can be missed by greedy block choice. In either
-case, the mode retains the full-height Space Evenly result rather than reducing
-its target quantities.
+This is a deterministic bounded heuristic, not a proof of global utilization.
+The one-main-block-per-product rule deliberately rejects interleaving, multiple
+main blocks for one product, and use of side/top gaps behind the residual
+frontier. A physically feasible irregular mosaic can therefore load more units
+than Space Evenly. The engine reports unplaced quantities rather than expanding
+into an exhaustive fallback search.
 
 Indicative local timings on the canonical 12032 × 2352 × 2395 mm fixture
 (August 2026; diagnostic only, no CI threshold):
 
-- 1 product / 100 units: Maximum 4.04 s; Space Evenly 0.29 s, 1/4 ceiling candidates, 48 selected-pass / 128 total block candidates.
-- 2 products / 120 units: Maximum 6.09 s; Space Evenly 1.21 s, 2/5 ceiling candidates, 3,893 selected-pass / 10,395 total block candidates.
-- 3 products / 170 units: Maximum 10.70 s; Space Evenly 4.80 s, 4/8 ceiling candidates, 7,087 selected-pass / 28,641 total block candidates.
+- 1 product / 100 units: 0.006 s; 12 candidates; one greedy pass.
+- 2 products / 120 units: 0.011 s; 24 candidates; one greedy pass.
+- 3 products / 170 units: 0.020 s; 36 candidates; one greedy pass.
+- 4 products / 200 units: 0.030 s; 48 candidates; one greedy pass; all 200
+  units loaded.
+- Reported 12039 × 2362 × 2692 mm case / 1228 units: approximately 0.13 s;
+  48 candidates; 1180 main-block units and 48 leftovers sent to the greedy
+  pass; all 1228 units loaded.
 
 Wall-clock timings vary by machine. Candidate counts are exposed for durable
 bounded-search diagnostics.
@@ -247,17 +314,23 @@ bounded-search diagnostics.
 ## Performance principles
 - Avoid millimetre scanning.
 - Avoid exhaustive permutations of all items.
-- Bound candidate generation per product/orientation/free-space.
+- Bound candidate generation at 12 complete cuboids per product row.
+- Keep Space Evenly to N sequential selections plus one residual greedy pass.
 - Keep automatic max-quantity behavior in mind: transport service may call `pack_container()` repeatedly during binary search.
 - Benchmark representative 1-product, 2-product, and 3-product cases.
 
 ## Mode isolation rule
 Space Evenly preserves these isolation rules:
 - Existing Maximum Utilization coordinates/quantities must remain unchanged for regression fixtures.
+- Maximum Utilization Floor First remains an isolated comparison path and must not change the existing Maximum Utilization path.
 - Existing Accessible Sequence coordinates/quantities must remain unchanged for regression fixtures.
 - Existing Strict Sequence coordinates/quantities must remain unchanged for regression fixtures.
 - Do not repurpose existing mode names.
-- Add a fourth dispatch branch rather than changing existing semantics.
+- Add an explicit dispatch branch rather than changing existing mode semantics.
+
+Future second iteration only: compare deterministic left-to-right and
+right-to-left lateral construction. No lateral-direction search is part of the
+current mode.
 
 ## Definition of done for algorithm changes
 1. Focused direct engine tests added.

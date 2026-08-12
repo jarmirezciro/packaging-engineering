@@ -47,11 +47,12 @@ Use this document for the **tool contract**: inputs, catalogue data, service/con
 
 At a high level the transport tool normalizes the transport unit and product/load rows, delegates placement to the selected engine mode, and then calculates quantities/utilization from the engine placements. Exact mode behavior must be read from the engine document and verified against the current repository.
 
-The shared mode control exposes four choices: Maximum utilization, Space
-evenly, Sequence loading, and Strict sequence loading. Packaging Flow persists
-the same engine value in prefix-safe step configuration and calls the same
-transport service; it does not implement a second packing path. Space Evenly
-diagnostics remain JSON-safe primitives through service/result serialization.
+The shared mode control exposes five choices: Maximum utilization, Maximum
+utilization floor first, Space evenly, Sequence loading, and Strict sequence
+loading. Packaging Flow persists the same engine value in prefix-safe step
+configuration and calls the same transport service; it does not implement a
+second packing path. Space Evenly and floor-first diagnostics remain JSON-safe
+primitives through service/result serialization.
 
 ## Single versus multiple products
 

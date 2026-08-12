@@ -479,6 +479,7 @@ def analyze_transport_capacity(cfg, raw_rows, selected_material=None):
                 key: value
                 for key, value in pack_result.items()
                 if key.startswith("space_evenly_")
+                or key.startswith("floor_first_")
             },
         },
         "summary": summary,

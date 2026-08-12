@@ -308,6 +308,118 @@ class MaximumUtilizationRegressionTests(
         )
 
 
+class MaximumUtilizationFloorFirstTests(
+    TransportEngineInvariantMixin,
+    SimpleTestCase,
+):
+    def test_floor_first_is_isolated_and_preserves_existing_quantities(self):
+        container = transport_container("maximum_utilization_floor_first")
+        products = maximum_regression_products()
+        result = pack_container(container, products)
+        existing = pack_container(
+            transport_container("maximum_utilization"),
+            products,
+        )
+
+        self.assert_transport_invariants(result, container, products)
+        self.assertEqual(result["packing_mode"], "maximum_utilization_floor_first")
+        self.assertEqual(result["strategy"], "floor_first_blocks_adjacent")
+        self.assertEqual(
+            Counter(placement.row_index for placement in result["placements"]),
+            {0: 20, 1: 100},
+        )
+        self.assertLessEqual(
+            max(placement.z for placement in result["placements"]),
+            max(placement.z for placement in existing["placements"]),
+        )
+        repeated = pack_container(container, products)
+        self.assertEqual(
+            self.geometry_signature(result),
+            self.geometry_signature(repeated),
+        )
+
+    def test_floor_first_fills_width_rows_then_vertical_layers(self):
+        container = {
+            "L": 3.0,
+            "W": 2.0,
+            "H": 3.0,
+            "max_weight": None,
+            "packing_mode": "maximum_utilization_floor_first",
+        }
+        products = [product("Cube", 1, 1, 1, 18)]
+
+        result = pack_container(container, products)
+        self.assert_transport_invariants(result, container, products)
+        self.assertEqual(result["strategy"], "floor_first_blocks_adjacent")
+        self.assertEqual(result["floor_first_candidate_source"], "floor_first")
+        self.assertTrue(result["floor_first_candidate_selected"])
+        self.assertEqual(
+            [
+                (placement.x, placement.y, placement.z)
+                for placement in result["placements"]
+            ],
+            [
+                (x, y, z)
+                for x in range(3)
+                for z in range(3)
+                for y in range(2)
+            ],
+        )
+        self.assertEqual(result["unplaced"], [])
+
+    def test_floor_first_reported_case_is_distinct_and_complete(self):
+        container = {
+            "L": 12039.0,
+            "W": 2362.0,
+            "H": 2692.0,
+            "max_weight": 26000.0,
+            "packing_mode": "maximum_utilization_floor_first",
+        }
+        products = [
+            product("SKU302473", 457.2, 279.4, 317.5, 375, weight=0.227, sequence=4),
+            product("SKU503739", 431.8, 318.77, 317.5, 405, weight=0.907, sequence=3),
+            product("Case Pack 12", 558.8, 377.444, 317.5, 288, weight=0.907, sequence=2),
+            product("Case Pack", 558.8, 355.6, 381.0, 160, weight=2.268, sequence=1),
+        ]
+
+        result = pack_container(container, products)
+        maximum = pack_container(
+            {**container, "packing_mode": "maximum_utilization"},
+            products,
+        )
+        self.assert_transport_invariants(result, container, products)
+        self.assertEqual(
+            Counter(placement.row_index for placement in result["placements"]),
+            {0: 375, 1: 405, 2: 288, 3: 160},
+        )
+        self.assertEqual(result["unplaced"], [])
+        self.assertEqual(result["strategy"], "floor_first_blocks_adjacent")
+        self.assertEqual(
+            result["floor_first_residual_packed_units"],
+            result["floor_first_residual_units"],
+        )
+        self.assertEqual(result["floor_first_residual_unplaced_units"], 0)
+        case_pack_block = next(
+            block
+            for block in result["floor_first_main_blocks"]
+            if block["row_index"] == 3
+        )
+        case_pack_residual = [
+            placement
+            for placement in result["placements"]
+            if placement.row_index == 3
+            and placement.x >= case_pack_block["x_end"] - TOLERANCE
+        ]
+        self.assertEqual(
+            len(case_pack_residual),
+            products[3]["qty"] - case_pack_block["qty"],
+        )
+        self.assertNotEqual(
+            self.geometry_signature(result),
+            self.geometry_signature(maximum),
+        )
+
+
 class StrictSequenceRegressionTests(
     TransportEngineInvariantMixin,
     SimpleTestCase,
@@ -460,7 +572,7 @@ class SpaceEvenlyTests(
     TransportEngineInvariantMixin,
     SimpleTestCase,
 ):
-    def test_preserves_quantity_while_lowering_height_and_spreading_on_floor(self):
+    def test_preserves_quantity_with_complete_blocks_and_door_leftovers(self):
         products = [product("Cube", 1000, 1000, 1000, 8)]
         maximum_container = {
             "L": 4000.0,
@@ -478,17 +590,59 @@ class SpaceEvenlyTests(
         result = pack_container(evenly_container, products)
         self.assert_transport_invariants(result, evenly_container, products)
 
+        self.assertEqual(result["strategy"], "space_evenly_blocks")
         self.assertEqual(len(maximum["placements"]), 8)
         self.assertEqual(len(result["placements"]), 8)
         self.assertEqual(result["space_evenly_target_counts"], {"0": 8})
-        self.assertEqual(result["space_evenly_effective_height"], 1000.0)
-        self.assertLess(
-            max(placement.z + placement.h for placement in result["placements"]),
-            max(placement.z + placement.h for placement in maximum["placements"]),
-        )
-        self.assertTrue(all(placement.z == 0 for placement in result["placements"]))
+        self.assertEqual(result["space_evenly_effective_height"], 2000.0)
+        self.assertEqual(result["space_evenly_height_reduction"], 0.0)
+        self.assertEqual(result["space_evenly_main_block_count"], 1)
         self.assertEqual(result["space_evenly_block_packed_units"], 8)
         self.assertEqual(result["space_evenly_residual_packed_units"], 0)
+
+    def test_main_block_is_a_complete_homogeneous_lattice(self):
+        container = {
+            "L": 6000.0,
+            "W": 2000.0,
+            "H": 2000.0,
+            "max_weight": None,
+            "packing_mode": "space_evenly",
+        }
+        products = [product("Remainder", 400, 500, 500, 103)]
+        result = pack_container(container, products)
+        self.assert_transport_invariants(result, container, products)
+
+        block = result["space_evenly_main_blocks"][0]
+        orientation = tuple(block["orientation"])
+        self.assertEqual(block["qty"], block["nx"] * block["ny"] * block["nz"])
+        main = [
+            placement
+            for placement in result["placements"]
+            if placement.x < result["space_evenly_main_blocks_end_x"] - TOLERANCE
+        ]
+        self.assertEqual(len(main), block["qty"])
+        self.assertEqual(
+            {
+                (placement.l, placement.w, placement.h)
+                for placement in main
+            },
+            {orientation},
+        )
+        expected = {
+            (
+                block["x_start"] + ix * orientation[0],
+                block["y_start"] + iy * orientation[1],
+                iz * orientation[2],
+            )
+            for iz in range(block["nz"])
+            for iy in range(block["ny"])
+            for ix in range(block["nx"])
+        }
+        actual = {
+            (placement.x, placement.y, placement.z)
+            for placement in main
+        }
+        self.assertEqual(actual, expected)
 
     def test_full_height_is_kept_when_lower_ceiling_loses_target_quantity(self):
         container = {
@@ -567,6 +721,150 @@ class SpaceEvenlyTests(
                     container["H"],
                 )
 
+    def test_four_product_main_blocks_are_contiguous_and_residuals_are_door_side(self):
+        container = {
+            "L": 7000.0,
+            "W": 2000.0,
+            "H": 2000.0,
+            "max_weight": None,
+            "packing_mode": "space_evenly",
+        }
+        products = [
+            product("A", 1000, 1000, 500, 5, sequence=1),
+            product("B", 800, 1000, 500, 5, sequence=2),
+            product("C", 600, 1000, 500, 5, sequence=3),
+            product("D", 400, 1000, 500, 5, sequence=4),
+        ]
+        result = pack_container(container, products)
+        self.assert_transport_invariants(result, container, products)
+
+        blocks = result["space_evenly_main_blocks"]
+        self.assertEqual(result["strategy"], "space_evenly_blocks")
+        self.assertEqual(len(blocks), 4)
+        self.assertEqual(
+            len({block["row_index"] for block in blocks}),
+            len(blocks),
+        )
+        self.assertEqual(blocks[0]["x_start"], 0.0)
+        for previous, current in zip(blocks, blocks[1:]):
+            self.assertEqual(previous["x_end"], current["x_start"])
+
+        frontier = result["space_evenly_residual_zone_start"]
+        self.assertEqual(frontier, blocks[-1]["x_end"])
+        main_placements = [
+            placement
+            for placement in result["placements"]
+            if placement.x < frontier - TOLERANCE
+        ]
+        residual_placements = [
+            placement
+            for placement in result["placements"]
+            if placement.x >= frontier - TOLERANCE
+        ]
+        self.assertTrue(residual_placements)
+        self.assertGreater(
+            len({placement.row_index for placement in residual_placements}),
+            1,
+        )
+        self.assertTrue(
+            all(
+                placement.x >= frontier - TOLERANCE
+                for placement in residual_placements
+            )
+        )
+
+        matched_main = 0
+        for block in blocks:
+            zone = [
+                placement
+                for placement in main_placements
+                if placement.x >= block["x_start"] - TOLERANCE
+                and placement.x + placement.l <= block["x_end"] + TOLERANCE
+            ]
+            self.assertEqual(len(zone), block["qty"])
+            self.assertEqual(
+                {placement.row_index for placement in zone},
+                {block["row_index"]},
+            )
+            matched_main += len(zone)
+        self.assertEqual(matched_main, len(main_placements))
+
+        self.assertLessEqual(
+            result["space_evenly_block_candidates_generated"],
+            12 * len(products),
+        )
+        self.assertLessEqual(
+            result["space_evenly_beam_states_evaluated"],
+            len(products) * (12 + 1) * 10,
+        )
+        self.assertLessEqual(
+            result["space_evenly_residual_states_evaluated"],
+            6,
+        )
+
+    def test_reported_1228_unit_case_is_complete_bounded_and_deterministic(self):
+        container = {
+            "L": 12039.0,
+            "W": 2362.0,
+            "H": 2692.0,
+            "max_weight": 26000.0,
+            "packing_mode": "space_evenly",
+        }
+        products = [
+            product("SKU302473", 457.2, 279.4, 317.5, 375, weight=0.227, sequence=1),
+            product("SKU503739", 431.8, 318.77, 317.5, 405, weight=0.907, sequence=2),
+            product("Case Pack 12", 558.8, 377.444, 317.5, 288, weight=0.907, sequence=3),
+            product("Case Pack", 558.8, 355.6, 381.0, 160, weight=2.268, sequence=4),
+        ]
+
+        first = pack_container(container, products)
+        second = pack_container(container, products)
+        self.assert_transport_invariants(first, container, products)
+        self.assertEqual(
+            Counter(placement.row_index for placement in first["placements"]),
+            {0: 375, 1: 405, 2: 288, 3: 160},
+        )
+        self.assertEqual(first["unplaced"], [])
+        self.assertEqual(first["space_evenly_main_block_count"], 4)
+        self.assertEqual(
+            [
+                (block["row_index"], block["qty"])
+                for block in first["space_evenly_main_blocks"]
+            ],
+            [(0, 360), (1, 392), (2, 288), (3, 140)],
+        )
+        self.assertEqual(first["space_evenly_main_block_units"], 1180)
+        self.assertEqual(first["space_evenly_residual_units"], 48)
+        self.assertLessEqual(first["space_evenly_block_candidates_generated"], 48)
+        self.assertEqual(first["space_evenly_beam_states_evaluated"], 0)
+        self.assertEqual(first["space_evenly_residual_states_evaluated"], 1)
+        frontier = first["space_evenly_residual_zone_start"]
+        main_placements = [
+            placement
+            for placement in first["placements"]
+            if placement.x < frontier - TOLERANCE
+        ]
+        self.assertEqual(
+            len(main_placements),
+            first["space_evenly_main_block_units"],
+        )
+        for block in first["space_evenly_main_blocks"]:
+            block_placements = [
+                placement
+                for placement in main_placements
+                if placement.x >= block["x_start"] - TOLERANCE
+                and placement.x + placement.l <= block["x_end"] + TOLERANCE
+            ]
+            self.assertEqual(len(block_placements), block["qty"])
+            self.assertEqual(
+                {placement.row_index for placement in block_placements},
+                {block["row_index"]},
+            )
+        self.assertEqual(
+            self.geometry_signature(first),
+            self.geometry_signature(second),
+        )
+
     def test_non_stackable_rotation_payload_and_zero_weight_contracts(self):
         non_stackable_container = {
             "L": 500.0,
@@ -630,8 +928,9 @@ class SpaceEvenlyTests(
                 placement.row_index
                 for placement in payload_result["placements"]
             ),
-            {0: 1, 1: 3},
+            {1: 3},
         )
+        self.assertEqual(len(payload_result["unplaced"]), 3)
 
     def test_result_is_deterministic_and_metadata_is_json_safe(self):
         container = {

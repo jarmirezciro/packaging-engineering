@@ -14,11 +14,12 @@ from packagingapp.forms import ContainerToolForm
 
 
 class TransportVisualizationContractTests(SimpleTestCase):
-    def test_space_evenly_is_the_fourth_form_choice(self):
+    def test_transport_form_exposes_all_five_packing_modes(self):
         self.assertEqual(
             ContainerToolForm.PACKING_MODE_CHOICES,
             [
                 ("maximum_utilization", "Maximum utilization"),
+                ("maximum_utilization_floor_first", "Maximum utilization floor first"),
                 ("space_evenly", "Space evenly"),
                 ("accessible_sequence_loading", "Sequence loading"),
                 ("sequence_loading", "Strict sequence loading"),
@@ -55,6 +56,41 @@ class TransportVisualizationContractTests(SimpleTestCase):
         self.assertEqual(analysis["safe_rows"][0]["qty"], 8)
         self.assertEqual(analysis["result"]["packing_mode"], "space_evenly")
         self.assertEqual(analysis["result"]["space_evenly_target_total_units"], 8)
+
+    def test_floor_first_capacity_service_keeps_mode_and_diagnostics(self):
+        analysis = analyze_transport_capacity(
+            {
+                "container_source": "manual",
+                "packing_mode": "maximum_utilization_floor_first",
+                "container_l": 400,
+                "container_w": 200,
+                "container_h": 100,
+                "max_weight": None,
+                "tare_weight": None,
+            },
+            [{
+                "name": "Floor-first cube",
+                "length": 100,
+                "width": 100,
+                "height": 100,
+                "qty": 1,
+                "max_qty": True,
+                "stackable": True,
+                "weight": 0,
+                "sequence": 1,
+                "r1": True,
+                "r2": False,
+                "r3": False,
+            }],
+        )
+        self.assertTrue(analysis["ok"])
+        self.assertEqual(analysis["safe_rows"][0]["qty"], 8)
+        self.assertEqual(
+            analysis["result"]["packing_mode"],
+            "maximum_utilization_floor_first",
+        )
+        self.assertIn("floor_first_candidate_selected", analysis["result"])
+        self.assertIn("floor_first_candidate_source", analysis["result"])
 
     def test_three_approved_camera_presets_and_loading_default(self):
         root = Path(settings.BASE_DIR)
@@ -187,6 +223,8 @@ class TransportVisualizationSurfaceTests(TestCase):
         with self.settings(MEDIA_ROOT=self.media_root):
             response = self.client.get(reverse("transport_container_calculator"))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'value="maximum_utilization_floor_first"', count=1)
+        self.assertContains(response, "Maximum utilization floor first")
         self.assertContains(response, 'value="space_evenly"', count=1)
         self.assertContains(response, "Space evenly")
 
@@ -199,7 +237,7 @@ class TransportVisualizationSurfaceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         result = response.context["result"]
         self.assertEqual(result["packing_mode"], "space_evenly")
-        self.assertEqual(result["strategy"], "space_evenly")
+        self.assertEqual(result["strategy"], "space_evenly_blocks")
         self.assertIn("space_evenly_effective_height", result)
         self.assertContains(response, "Packing mode: Space evenly")
         json.dumps(result)
@@ -231,6 +269,7 @@ class TransportVisualizationSurfaceTests(TestCase):
         self.assertContains(page, 'id="transportThreeJsScene_0"', count=1)
         self.assertEqual(page.content.count(b"data-transport-threejs-view="), 3)
         self.assertContains(page, "data-transport-product-legend")
+        self.assertContains(page, 'value="maximum_utilization_floor_first"')
         workflow = self.client.session["full_packaging_mode_session"]
         self.assertEqual(
             workflow["steps"][0]["config"]["packing_mode"],
