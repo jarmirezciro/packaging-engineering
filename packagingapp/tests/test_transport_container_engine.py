@@ -419,6 +419,199 @@ class MaximumUtilizationFloorFirstTests(
             self.geometry_signature(maximum),
         )
 
+    def test_floor_first_continuation_prefers_main_orientation_at_frontier(self):
+        container = {
+            "L": 12039.0,
+            "W": 2362.0,
+            "H": 2692.0,
+            "max_weight": None,
+            "packing_mode": "maximum_utilization_floor_first",
+        }
+        products = [
+            product("SKU302473", 457.2, 279.4, 317.5, 375, weight=0.2427, sequence=4),
+            product("SKU503739", 431.8, 318.77, 317.5, 405, weight=0.907, sequence=3),
+            product("Case Pack 12", 558.8, 377.444, 317.5, 288, weight=0.907, sequence=1),
+            product("Case Pack", 558.8, 355.6, 381.0, 160, weight=2.268, sequence=2),
+        ]
+
+        result = pack_container(container, products)
+        self.assert_transport_invariants(result, container, products)
+        self.assertEqual(result["unplaced"], [])
+        self.assertEqual(
+            Counter(placement.row_index for placement in result["placements"]),
+            {0: 375, 1: 405, 2: 288, 3: 160},
+        )
+        self.assertEqual(
+            result["floor_first_frontier_traversals_evaluated"],
+            24,
+        )
+
+        p4_block = next(
+            block
+            for block in result["floor_first_main_blocks"]
+            if block["row_index"] == 3
+        )
+        p4_continuation = next(
+            continuation
+            for continuation in result["floor_first_continuations"]
+            if continuation["row_index"] == 3
+        )
+        self.assertEqual(
+            p4_continuation["selected_orientation"],
+            p4_block["orientation"],
+        )
+        self.assertAlmostEqual(p4_block["x_start"], 3352.8)
+        self.assertAlmostEqual(p4_block["x_end"], 5130.8)
+        self.assertFalse(p4_continuation["frontier_search_triggered"])
+        self.assertEqual(p4_continuation["traversals_evaluated"], 0)
+        self.assertGreaterEqual(p4_continuation["plans_evaluated"], 2)
+        self.assertEqual(p4_continuation["unplaced_qty"], 0)
+        self.assertEqual(
+            p4_continuation["continuation_block_qty"]
+            + p4_continuation["residual_greedy_qty"],
+            products[3]["qty"] - p4_block["qty"],
+        )
+        p4_residual = [
+            placement
+            for placement in result["placements"]
+            if placement.row_index == 3
+            and placement.x >= p4_block["x_end"] - TOLERANCE
+        ]
+        main_orientation = tuple(p4_block["orientation"])
+        self.assertTrue(p4_residual)
+        self.assertTrue(
+            all(
+                (placement.l, placement.w, placement.h) == main_orientation
+                for placement in p4_residual
+            )
+        )
+
+        p2_block = next(
+            block
+            for block in result["floor_first_main_blocks"]
+            if block["row_index"] == 1
+        )
+        p2_continuation = next(
+            continuation
+            for continuation in result["floor_first_continuations"]
+            if continuation["row_index"] == 1
+        )
+        # The existing strong P4/P2 construction remains the incumbent. The
+        # generic frontier search is activated at the fragmented P2/P1 edge,
+        # without product-specific branching.
+        self.assertEqual(
+            p2_block["orientation"],
+            [318.77, 431.8, 317.5],
+        )
+        self.assertEqual(p2_block["qty"], 10)
+        self.assertAlmostEqual(p2_block["x_start"], 5130.8)
+        self.assertAlmostEqual(p2_block["x_end"], 5449.57)
+        self.assertEqual(
+            p2_continuation["selected_orientation"],
+            [431.8, 318.77, 317.5],
+        )
+        self.assertEqual(p2_continuation["continuation_block_qty"], 168)
+        self.assertEqual(p2_continuation["residual_greedy_qty"], 227)
+        self.assertTrue(p2_continuation["frontier_search_triggered"])
+        self.assertEqual(p2_continuation["traversals_evaluated"], 24)
+        self.assertEqual(
+            {
+                plan["traversal"]
+                for plan in p2_continuation["traversal_plans"]
+            },
+            {
+                "floor_first",
+                "row_first_top_left",
+                "row_first_top_right",
+                "column_first_bottom_top",
+                "column_first_top_bottom",
+            },
+        )
+        self.assertEqual(
+            p2_continuation["selected_traversal"],
+            "row_first_top_left",
+        )
+        self.assertEqual(
+            p2_continuation["selected_reflow_orientation"],
+            [318.77, 431.8, 317.5],
+        )
+        self.assertEqual(
+            p2_continuation["selected_reflow_tail_qty"],
+            3,
+        )
+        p2_tail = [
+            placement
+            for placement in result["placements"]
+            if placement.row_index == 1
+            and placement.item_index >= 777
+        ]
+        self.assertEqual(len(p2_tail), 3)
+        self.assertTrue(
+            all(
+                (placement.l, placement.w, placement.h)
+                == (318.77, 431.8, 317.5)
+                for placement in p2_tail
+            )
+        )
+        self.assertTrue(
+            all(abs(placement.x - 8509.0) <= TOLERANCE for placement in p2_tail)
+        )
+        p1_envelope = next(
+            placement
+            for placement in result["placements"]
+            if placement.row_index == 0
+            and abs(placement.x - 8509.0) <= TOLERANCE
+            and abs(placement.y - 431.8) <= TOLERANCE
+            and abs(placement.z) <= TOLERANCE
+        )
+        self.assertEqual(
+            (p1_envelope.l, p1_envelope.w, p1_envelope.h),
+            (279.4, 457.2, 317.5),
+        )
+        self.assertLess(
+            p2_continuation["selected_frontier_metrics"]["x_spread"],
+            p2_continuation["incumbent_frontier_metrics"]["x_spread"],
+        )
+
+        # The selected P2 frontier traversal is inherited by P1's residual
+        # continuation. This keeps the large P1 block regular instead of
+        # silently falling back to the generic column-oriented fill.
+        p1_continuation = next(
+            continuation
+            for continuation in result["floor_first_continuations"]
+            if continuation["row_index"] == 0
+        )
+        self.assertEqual(
+            p1_continuation["residual_traversal_policy"],
+            "row_first_top_left",
+        )
+        self.assertEqual(
+            p1_continuation["selected_traversal"],
+            "row_first_top_left",
+        )
+        p1_residual_start = (
+            next(
+                block
+                for block in result["floor_first_main_blocks"]
+                if block["row_index"] == 0
+            )["qty"]
+            + p1_continuation["continuation_block_qty"]
+        )
+        p1_residual = [
+            placement
+            for placement in result["placements"]
+            if placement.row_index == 0
+            and placement.item_index >= p1_residual_start
+        ]
+        self.assertTrue(p1_residual)
+        self.assertTrue(
+            all(
+                (placement.l, placement.w, placement.h)
+                == (279.4, 457.2, 317.5)
+                for placement in p1_residual
+            )
+        )
+
 
 class StrictSequenceRegressionTests(
     TransportEngineInvariantMixin,

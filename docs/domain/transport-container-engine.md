@@ -77,6 +77,22 @@ Accepted semantics:
   into other available side spaces using `x` strip, then upward `z` layer,
   then width `y` row order. Residuals are not moved to a single final door
   zone.
+- At each non-final fragmented main-block boundary, Floor First keeps the
+  existing continuation as an incumbent and evaluates a bounded two-product
+  reflow. It tests up to three suffix windows of the current product, the main
+  orientation plus one alternate orientation, and four residual traversals:
+  row-first top-left/right and column-first bottom-to-top/top-to-bottom. For
+  each candidate it previews the next product's first supported block so the
+  score describes the shared frontier. Candidates are ranked by quantity,
+  frontier X-step reduction, transverse coverage, usable void/discontinuity,
+  and resulting X footprint. Exact ties keep the incumbent. This is local
+  per product row, not global orientation backtracking or a Cartesian search;
+  all placements still require gravity and support.
+- When that boundary search selects a non-default traversal for a reflowed
+  suffix, the selected traversal is passed once to the immediately following
+  product's residual continuation. This keeps the next large product's
+  homogeneous continuation coherent with the shared frontier; later product
+  boundaries may select a new policy independently.
 - It has no operational sequence frontier and no strict or accessible sequence
   compaction.
 - It does not call Space Evenly's main-block orchestration or door-side
@@ -88,6 +104,15 @@ Accepted semantics:
 The floor-first policy is a layout preference, not a global-utilization proof.
 It may produce a different geometry while preserving the same feasible quantity
 and physical invariants.
+
+Floor First continuation search remains bounded at three homogeneous
+continuation candidates for the main orientation plus three for one alternate
+orientation per product boundary. The local reflow adds at most
+`3 × 2 × 4 = 24` suffix/traversal candidates at a fragmented boundary and
+previews only a bounded next-product window; it never branches future product
+rows. On the reported 12039 x 2362 x 2692 mm / 1228-unit case, the P2/P1
+frontier evaluates 24 candidates, rotates the three-unit P2 suffix to reduce
+the frontier X step, and all 1228 units remain loaded.
 
 ### 3. Sequence Loading / Accessible Sequence (`accessible_sequence_loading`)
 Purpose: operational sequence loading while allowing controlled use of door-accessible residuals in the previous transition band.

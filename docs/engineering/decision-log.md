@@ -65,6 +65,12 @@ This is a compact log of decisions that repeatedly affect implementation.
   homogeneous main block using the bounded transverse `ny × nz` candidate
   math shared with Space Evenly. It subtracts that block from real free-space
   geometry and packs its residual units adjacently in x-strip -> z-layer ->
-  y-row order, including available side spaces. It does not use Space Evenly's
-  orchestration or final door-side residual zone. The unchanged Maximum result
-  is retained only when this candidate would lose capacity.
+  y-row order, including available side spaces. At each non-final fragmented
+  frontier it additionally reflows at most three current-product suffix
+  windows, two orientation choices, and four local residual traversal orders,
+  previewing the next product's first supported block. It ranks the shared
+  frontier's X-step reduction, transverse coverage, usable void/discontinuity,
+  and X footprint, while retaining the incumbent on exact ties. This is
+  bounded per frontier and never branches future product rows. It does not use
+  Space Evenly's orchestration or final door-side residual zone. The unchanged
+  Maximum result is retained only when this candidate would lose capacity.

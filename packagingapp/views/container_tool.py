@@ -14,6 +14,7 @@ from ..tools.transport.presenter import selected_container_summary
 from ..tools.transport.serializers import sanitize_transport_rows_for_session
 from ..tools.transport.service import analyze_transport_config, read_product_rows_raw
 from ..tools.transport.state import default_product_rows
+from ..tools.transport.case_presets import get_transport_container_case_preset
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 
 
@@ -580,13 +581,24 @@ def container_tool(request):
 
 
 def transport_container_calculator(request):
+    case_slug = (request.GET.get("case") or "").strip() if request.method == "GET" else ""
+    case_preset = get_transport_container_case_preset(case_slug)
     is_initial_example = request.method == "GET" and not request.GET
+    is_case_example = request.method == "GET" and case_preset is not None
     context = _build_transport_page_context(
         request,
         mode="seo",
-        initial_config=SEO_TRANSPORT_EXAMPLE_CONFIG if is_initial_example else None,
-        initial_rows=SEO_TRANSPORT_EXAMPLE_ROWS if is_initial_example else None,
-        run_initial_analysis=is_initial_example,
+        initial_config=(
+            case_preset["config"]
+            if is_case_example
+            else SEO_TRANSPORT_EXAMPLE_CONFIG if is_initial_example else None
+        ),
+        initial_rows=(
+            case_preset["rows"]
+            if is_case_example
+            else SEO_TRANSPORT_EXAMPLE_ROWS if is_initial_example else None
+        ),
+        run_initial_analysis=is_initial_example or is_case_example,
     )
     canonical_url, faq_items, schema_json = _build_transport_seo_schema(request)
     context.update(
@@ -595,6 +607,8 @@ def transport_container_calculator(request):
             "faq_items": faq_items,
             "seo_schema_json": schema_json,
             "is_initial_example": is_initial_example,
+            "is_case_example": is_case_example,
+            "case_preset": case_preset,
             "example_transport_dimensions": "12032 x 2352 x 2395 mm",
             "example_load_dimensions": "1200 x 800 x 1100 mm",
             "example_quantity": 20,

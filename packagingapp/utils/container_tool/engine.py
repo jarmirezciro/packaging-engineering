@@ -6035,6 +6035,8 @@ def _floor_first_block_candidates(
     group: Dict,
     space: Space,
     qty_limit: int,
+    *,
+    orientations: Optional[Tuple[Tuple[float, float, float], ...]] = None,
 ) -> List[SpaceEvenlyBlockCandidate]:
     """Reuse Space Evenly's bounded transverse candidate math for one space.
 
@@ -6045,12 +6047,18 @@ def _floor_first_block_candidates(
     """
     if qty_limit <= 0:
         return []
+    candidate_orientations = tuple(
+        group["orientations"] if orientations is None else orientations
+    )
+    if not candidate_orientations:
+        return []
     scoped_group = dict(group)
     scoped_group.update({
         "target_qty": int(qty_limit),
         "main_length_share": float(space.L),
         "target_effective_height": float(space.H),
         "unit_volume": math.prod(group["dims"]),
+        "orientations": candidate_orientations,
     })
     scoped_container = {
         "L": float(space.L),
@@ -6059,7 +6067,7 @@ def _floor_first_block_candidates(
         "max_weight": None,
     }
     feasible_shapes = []
-    for orientation in group["orientations"]:
+    for orientation in candidate_orientations:
         max_counts = _max_grid_counts(space, orientation)
         if not bool(group.get("stackable", True)):
             max_counts = (
@@ -6123,6 +6131,876 @@ def _floor_first_block_candidates(
             -candidate.nz,
         ),
         reverse=True,
+    )
+
+
+_FLOOR_FIRST_CONTINUATION_CANDIDATES_PER_ORIENTATION = 3
+
+
+def _floor_first_orientation_choices(
+    group: Dict,
+    main_orientation: Tuple[float, float, float],
+) -> List[Tuple[float, float, float]]:
+    """Return the main orientation plus one bounded alternate orientation."""
+    choices = [main_orientation]
+    alternatives = [
+        tuple(orientation)
+        for orientation in group["orientations"]
+        if tuple(orientation) != tuple(main_orientation)
+    ]
+    alternatives.sort(
+        key=lambda orientation: (
+            orientation[1] * orientation[2],
+            orientation[1],
+            -orientation[0],
+            -orientation[2],
+        ),
+        reverse=True,
+    )
+    if alternatives:
+        choices.append(alternatives[0])
+    return choices
+
+
+def _floor_first_frontier_discontinuity(
+    main_summary: Dict,
+    continuation: Optional[SpaceEvenlyBlockCandidate],
+) -> float:
+    """Measure transverse face mismatch at a main/continuation boundary."""
+    if continuation is None:
+        return float("inf")
+    main_width = float(main_summary.get("width", 0.0))
+    main_height = float(main_summary.get("height", 0.0))
+    width_delta = abs(main_width - continuation.width)
+    height_delta = abs(main_height - continuation.height)
+    return (
+        width_delta * max(main_height, continuation.height)
+        + height_delta * min(main_width, continuation.width)
+    )
+
+
+_FLOOR_FIRST_FRONTIER_TRAVERSALS = (
+    ("row_first_top_left", "row_first_top_left"),
+    ("row_first_top_right", "row_first_top_right"),
+    ("column_first_bottom_top", "column_first_bottom_top"),
+    ("column_first_top_bottom", "column_first_top_bottom"),
+)
+_FLOOR_FIRST_FRONTIER_TRAVERSAL_POLICIES = frozenset(
+    policy for policy, _label in _FLOOR_FIRST_FRONTIER_TRAVERSALS
+)
+_FLOOR_FIRST_FRONTIER_RECTANGLE_LIMIT = 96
+_FLOOR_FIRST_FRONTIER_METRIC_TOLERANCE = 1e-6
+_FLOOR_FIRST_FRONTIER_TAIL_WINDOWS = (3, 6, 12)
+_FLOOR_FIRST_FRONTIER_PREVIEW_UNITS = 12
+
+
+def _floor_first_choose_traversal_placement(
+    spaces: List[Space],
+    item: Dict,
+    traversal_policy: str,
+) -> Optional[Dict]:
+    """Choose one supported residual unit using a bounded local traversal.
+
+    This policy is intentionally mode-local. The shared Maximum/Sequence
+    placement helper keeps its established best-fit and floor-first contracts;
+    only Floor First's four frontier candidates use these transverse orders.
+    """
+    scores = {
+        "row_first_top_left": lambda space, waste: (
+            space.x,
+            -space.z,
+            space.y,
+            waste,
+        ),
+        "row_first_top_right": lambda space, waste: (
+            space.x,
+            -space.z,
+            -space.y,
+            waste,
+        ),
+        "column_first_bottom_top": lambda space, waste: (
+            space.x,
+            space.y,
+            space.z,
+            waste,
+        ),
+        "column_first_top_bottom": lambda space, waste: (
+            space.x,
+            space.y,
+            -space.z,
+            waste,
+        ),
+    }
+    score_for = scores[traversal_policy]
+    best = None
+    for space_index, space in enumerate(spaces):
+        for rotation in item["orientations"]:
+            if not space.fits(rotation):
+                continue
+            waste = space.volume - math.prod(rotation)
+            score = score_for(space, waste)
+            if best is None or score < best["score"]:
+                best = {
+                    "score": score,
+                    "space_index": space_index,
+                    "space": space,
+                    "rotation": rotation,
+                }
+    return best
+
+
+def _floor_first_frontier_metrics(
+    placements: List[Placement],
+) -> Dict:
+    """Return bounded shape/void metrics for one product's forward frontier."""
+    if not placements:
+        return {
+            "max_x": 0.0,
+            "x_spread": 0.0,
+            "void_area": 0.0,
+            "covered_area": 0.0,
+            "bounding_area": 0.0,
+            "shape_count": 0,
+            "frontier_count": 0,
+        }
+
+    max_x = max(placement.x + placement.l for placement in placements)
+    frontier_depth = max(placement.l for placement in placements)
+    frontier = [
+        placement
+        for placement in placements
+        if placement.x + placement.l >= max_x - frontier_depth - _EPS
+    ]
+    frontier.sort(key=lambda placement: (
+        placement.x + placement.l,
+        placement.y,
+        placement.z,
+    ), reverse=True)
+    measured = frontier[:_FLOOR_FIRST_FRONTIER_RECTANGLE_LIMIT]
+    rectangles = [
+        (placement.y, placement.z, placement.w, placement.h)
+        for placement in measured
+    ]
+    covered_area = 0.0
+    prior = []
+    for rectangle in rectangles:
+        remaining = [rectangle]
+        for blocker in prior:
+            updated = []
+            for piece in remaining:
+                updated.extend(_subtract_rect_2d(piece, blocker))
+            remaining = updated
+            if not remaining:
+                break
+        covered_area += sum(width * height for _, _, width, height in remaining)
+        prior.append(rectangle)
+
+    min_y = min(placement.y for placement in measured)
+    max_y = max(placement.y + placement.w for placement in measured)
+    min_z = min(placement.z for placement in measured)
+    max_z = max(placement.z + placement.h for placement in measured)
+    bounding_area = max(0.0, (max_y - min_y) * (max_z - min_z))
+    x_ends = [placement.x + placement.l for placement in frontier]
+    shape_count = len({
+        (
+            round(placement.l, 6),
+            round(placement.w, 6),
+            round(placement.h, 6),
+        )
+        for placement in frontier
+    })
+    return {
+        "max_x": max_x,
+        "x_spread": max(x_ends) - min(x_ends) if x_ends else 0.0,
+        "void_area": max(0.0, bounding_area - covered_area),
+        "covered_area": covered_area,
+        "bounding_area": bounding_area,
+        "shape_count": shape_count,
+        "frontier_count": len(frontier),
+    }
+
+
+def _floor_first_main_block_choice(
+    spaces: List[Space],
+    group: Dict,
+    qty_limit: int,
+) -> Optional[Dict]:
+    """Select the established Floor First main-block candidate."""
+    if qty_limit <= 0:
+        return None
+    candidates = []
+    for space_index, space in enumerate(spaces):
+        for candidate in _floor_first_block_candidates(
+            group,
+            space,
+            qty_limit,
+        ):
+            candidates.append({
+                "space_index": space_index,
+                "space": space,
+                "candidate": candidate,
+                "score": (
+                    -space.x,
+                    -space.z,
+                    candidate.width * candidate.height,
+                    candidate.ny * candidate.nz,
+                    candidate.qty,
+                    -space.y,
+                    -candidate.length,
+                    -candidate.orientation_index,
+                ),
+            })
+    if not candidates:
+        return None
+    return max(candidates, key=lambda entry: entry["score"])
+
+
+def _floor_first_preview_next_block(
+    spaces: List[Space],
+    group: Optional[Dict],
+    qty_limit: int,
+    item_offset: int,
+    loaded_weight: float,
+    payload_limit: Optional[float],
+) -> Tuple[List[Placement], Optional[Dict]]:
+    """Preview the next product's first block without committing it."""
+    if group is None or qty_limit <= 0:
+        return [], None
+    remaining = int(qty_limit)
+    if payload_limit is not None and group["weight"] > 0:
+        remaining = min(
+            remaining,
+            max(
+                0,
+                int(
+                    (payload_limit - loaded_weight + _EPS)
+                    // group["weight"]
+                ),
+            ),
+        )
+    selected = _floor_first_main_block_choice(spaces, group, remaining)
+    if selected is None:
+        return [], None
+    preview_placements, preview_summary = _floor_first_materialize_block(
+        selected["space"],
+        group,
+        selected["candidate"],
+        item_offset,
+    )
+    preview_spaces = _subtract_cuboids_from_spaces(
+        [replace(space) for space in spaces],
+        [
+            (
+                placement.x,
+                placement.y,
+                placement.z,
+                placement.l,
+                placement.w,
+                placement.h,
+            )
+            for placement in preview_placements
+        ],
+    )
+    preview_loaded_weight = (
+        loaded_weight
+        + selected["candidate"].qty * group["weight"]
+    )
+    preview_remaining = max(
+        0,
+        remaining - selected["candidate"].qty,
+    )
+    preview_qty = selected["candidate"].qty
+    if preview_remaining > 0:
+        preview_residual_qty = min(
+            preview_remaining,
+            _FLOOR_FIRST_FRONTIER_PREVIEW_UNITS,
+        )
+        preferred = [tuple(selected["candidate"].orientation)]
+        preferred.extend(
+            tuple(orientation)
+            for orientation in group["orientations"]
+            if tuple(orientation) not in preferred
+        )
+        (
+            preview_spaces,
+            preview_filled,
+            preview_loaded_weight,
+        ) = _floor_first_fill_group(
+            preview_spaces,
+            group,
+            preview_residual_qty,
+            item_offset + preview_qty,
+            preview_placements,
+            preview_loaded_weight,
+            payload_limit,
+            preferred_orientations=tuple(preferred),
+            traversal_policy="floor_first",
+        )
+        preview_qty += preview_filled
+    preview_summary["preview_qty"] = preview_qty
+    preview_summary["preview_x_end"] = max(
+        (
+            placement.x + placement.l
+            for placement in preview_placements
+        ),
+        default=preview_summary["x_end"],
+    )
+    return preview_placements, preview_summary
+
+
+def _floor_first_needs_frontier_search(metrics: Dict) -> bool:
+    """Avoid extra work for already coherent homogeneous frontiers."""
+    return bool(
+        metrics["shape_count"] > 1
+        or metrics["x_spread"] > _FLOOR_FIRST_FRONTIER_METRIC_TOLERANCE
+        or metrics["void_area"] > _FLOOR_FIRST_FRONTIER_METRIC_TOLERANCE
+    )
+
+
+def _floor_first_compare_frontier_reflow(
+    base_spaces: List[Space],
+    group: Dict,
+    remaining_qty: int,
+    item_offset: int,
+    loaded_weight: float,
+    payload_limit: Optional[float],
+    main_summary: Dict,
+    main_block_placements: List[Placement],
+    selected_plan: Dict,
+    next_group: Optional[Dict],
+    next_remaining_qty: int,
+    next_item_offset: int,
+) -> Tuple[Dict, Dict]:
+    """Evaluate a bounded two-product reflow at one product boundary.
+
+    The current product's homogeneous continuation remains fixed. Only a
+    bounded suffix of its residual units is reflowed, then the next product's
+    first supported block is previewed in the resulting free space. This makes
+    the score describe the shared frontier instead of the current product in
+    isolation, without branching the rest of the load.
+    """
+    current_metrics = _floor_first_frontier_metrics(
+        selected_plan["placements"]
+    )
+    diagnostics = {
+        "frontier_search_triggered": False,
+        "traversals_evaluated": 0,
+        "selected_traversal": "floor_first",
+        "selected_reflow_orientation": [
+            float(value) for value in selected_plan["orientation"]
+        ],
+        "selected_reflow_tail_qty": 0,
+        "incumbent_frontier_metrics": current_metrics,
+        "traversal_plans": [],
+    }
+    continuation = selected_plan.get("continuation")
+    continuation_space = selected_plan.get("continuation_space")
+    if (
+        continuation is None
+        or continuation_space is None
+        or next_group is None
+        or next_remaining_qty <= 0
+    ):
+        return selected_plan, diagnostics
+    if not _floor_first_needs_frontier_search(current_metrics):
+        return selected_plan, diagnostics
+
+    block_qty = int(selected_plan["continuation_block_qty"])
+    residual_placements = selected_plan["placements"][block_qty:]
+    if not residual_placements:
+        return selected_plan, diagnostics
+
+    diagnostics["frontier_search_triggered"] = True
+    choices = _floor_first_orientation_choices(
+        group,
+        tuple(selected_plan["orientation"]),
+    )
+    incumbent_preview, incumbent_summary = _floor_first_preview_next_block(
+        selected_plan["spaces"],
+        next_group,
+        next_remaining_qty,
+        next_item_offset,
+        selected_plan["loaded_weight"],
+        payload_limit,
+    )
+    incumbent_combined = (
+        list(main_block_placements)
+        + list(selected_plan["placements"])
+        + incumbent_preview
+    )
+    incumbent_metrics = _floor_first_frontier_metrics(incumbent_combined)
+    diagnostics["incumbent_frontier_metrics"] = incumbent_metrics
+    plans = [{
+        **selected_plan,
+        "traversal_policy": "floor_first",
+        "reflow_orientation": tuple(selected_plan["orientation"]),
+        "reflow_tail_qty": 0,
+        "next_preview_qty": (
+            int(incumbent_summary["preview_qty"])
+            if incumbent_summary is not None
+            else 0
+        ),
+        "next_preview_x_end": (
+            float(incumbent_summary["preview_x_end"])
+            if incumbent_summary is not None
+            else None
+        ),
+        "frontier_metrics": incumbent_metrics,
+        "traversal_priority": 0,
+    }]
+
+    priority = 1
+    for tail_qty in _FLOOR_FIRST_FRONTIER_TAIL_WINDOWS:
+        if tail_qty > len(residual_placements):
+            continue
+        tail = residual_placements[-tail_qty:]
+        retained = selected_plan["placements"][:-tail_qty]
+        retained_cuboids = [
+            (
+                placement.x,
+                placement.y,
+                placement.z,
+                placement.l,
+                placement.w,
+                placement.h,
+            )
+            for placement in retained
+        ]
+        tail_offset = (
+            tail[0].item_index - group["item_index_start"]
+        )
+        branch_spaces = _subtract_cuboids_from_spaces(
+            [replace(space) for space in base_spaces],
+            retained_cuboids,
+        )
+        branch_loaded_weight = (
+            selected_plan["loaded_weight"]
+            - tail_qty * group["weight"]
+        )
+        for orientation in choices:
+            for traversal_priority, (policy, _label) in enumerate(
+                _FLOOR_FIRST_FRONTIER_TRAVERSALS
+            ):
+                candidate_spaces = [replace(space) for space in branch_spaces]
+                candidate_placements = list(retained)
+                candidate_loaded_weight = branch_loaded_weight
+                candidate_spaces, filled_tail, candidate_loaded_weight = (
+                    _floor_first_fill_group(
+                        candidate_spaces,
+                        group,
+                        tail_qty,
+                        tail_offset,
+                        candidate_placements,
+                        candidate_loaded_weight,
+                        payload_limit,
+                        preferred_orientations=(tuple(orientation),),
+                        traversal_policy=policy,
+                    )
+                )
+                if filled_tail < tail_qty:
+                    priority += 1
+                    continue
+                preview, preview_summary = _floor_first_preview_next_block(
+                    candidate_spaces,
+                    next_group,
+                    next_remaining_qty,
+                    next_item_offset,
+                    candidate_loaded_weight,
+                    payload_limit,
+                )
+                combined = (
+                    list(main_block_placements)
+                    + candidate_placements
+                    + preview
+                )
+                frontier_metrics = _floor_first_frontier_metrics(combined)
+                plans.append({
+                    **selected_plan,
+                    "spaces": candidate_spaces,
+                    "placements": candidate_placements,
+                    "filled_qty": (
+                        selected_plan["filled_qty"]
+                        - tail_qty
+                        + filled_tail
+                    ),
+                    "loaded_weight": candidate_loaded_weight,
+                    "residual_greedy_qty": (
+                        selected_plan["residual_greedy_qty"]
+                        - tail_qty
+                        + filled_tail
+                    ),
+                    "max_x": max(
+                        (
+                            placement.x + placement.l
+                            for placement in candidate_placements
+                        ),
+                        default=float(main_summary.get("x_end", 0.0)),
+                    ),
+                    "traversal_policy": policy,
+                    "reflow_orientation": tuple(orientation),
+                    "reflow_tail_qty": tail_qty,
+                    "next_preview_qty": (
+                        int(preview_summary["preview_qty"])
+                        if preview_summary is not None
+                        else 0
+                    ),
+                    "next_preview_x_end": (
+                        float(preview_summary["preview_x_end"])
+                        if preview_summary is not None
+                        else None
+                    ),
+                    "frontier_metrics": frontier_metrics,
+                    "traversal_priority": priority,
+                })
+                priority += 1
+
+    def reflow_score(plan: Dict) -> Tuple:
+        metrics = plan["frontier_metrics"]
+        discontinuity = plan["frontier_discontinuity"]
+        return (
+            plan["filled_qty"],
+            -metrics["x_spread"],
+            -plan["reflow_tail_qty"],
+            metrics["covered_area"],
+            -metrics["void_area"],
+            -metrics["max_x"],
+            (
+                -plan["next_preview_x_end"]
+                if plan["next_preview_x_end"] is not None
+                else -float("inf")
+            ),
+            plan["next_preview_qty"],
+            (
+                -discontinuity
+                if discontinuity is not None
+                else -float("inf")
+            ),
+            -plan["traversal_priority"],
+        )
+
+    selected = max(plans, key=reflow_score)
+    diagnostics.update({
+        "traversals_evaluated": len(plans) - 1,
+        "selected_traversal": selected["traversal_policy"],
+        "selected_reflow_orientation": [
+            float(value) for value in selected["reflow_orientation"]
+        ],
+        "selected_reflow_tail_qty": selected["reflow_tail_qty"],
+        "selected_frontier_metrics": selected["frontier_metrics"],
+        "traversal_plans": [
+            {
+                "traversal": plan["traversal_policy"],
+                "reflow_orientation": [
+                    float(value)
+                    for value in plan["reflow_orientation"]
+                ],
+                "reflow_tail_qty": plan["reflow_tail_qty"],
+                "next_preview_qty": plan["next_preview_qty"],
+                "next_preview_x_end": plan["next_preview_x_end"],
+                "filled_qty": plan["filled_qty"],
+                "frontier_metrics": plan["frontier_metrics"],
+            }
+            for plan in plans
+        ],
+    })
+    return selected, diagnostics
+
+
+def _floor_first_continuation_candidates(
+    spaces: List[Space],
+    group: Dict,
+    qty_limit: int,
+    main_end_x: float,
+    orientation: Tuple[float, float, float],
+) -> List[Dict]:
+    """Generate a small set of blocks anchored at the current x frontier."""
+    entries = []
+    for space in spaces:
+        for candidate in _floor_first_block_candidates(
+            group,
+            space,
+            qty_limit,
+            orientations=(orientation,),
+        ):
+            entries.append({
+                "space": space,
+                "candidate": candidate,
+            })
+    if not entries:
+        return []
+
+    anchored = [
+        entry
+        for entry in entries
+        if abs(entry["space"].x - main_end_x) <= _EPS
+    ]
+    if anchored:
+        entries = anchored
+
+    entries.sort(
+        key=lambda entry: (
+            entry["candidate"].width * entry["candidate"].height,
+            entry["candidate"].qty,
+            -entry["candidate"].length,
+            -entry["space"].z,
+            -entry["space"].y,
+            -entry["candidate"].nx,
+            -entry["candidate"].ny,
+            -entry["candidate"].nz,
+        ),
+        reverse=True,
+    )
+    selected = []
+    seen = set()
+    for entry in entries:
+        candidate = entry["candidate"]
+        space = entry["space"]
+        signature = (
+            round(space.x, 9),
+            round(space.y, 9),
+            round(space.z, 9),
+            candidate.orientation,
+            candidate.nx,
+            candidate.ny,
+            candidate.nz,
+        )
+        if signature in seen:
+            continue
+        seen.add(signature)
+        selected.append(entry)
+        if len(selected) >= _FLOOR_FIRST_CONTINUATION_CANDIDATES_PER_ORIENTATION:
+            break
+    return selected
+
+
+def _floor_first_choose_continuation(
+    spaces: List[Space],
+    group: Dict,
+    remaining_qty: int,
+    item_offset: int,
+    loaded_weight: float,
+    payload_limit: Optional[float],
+    main_summary: Dict,
+    main_orientation: Tuple[float, float, float],
+    *,
+    has_next_frontier: bool = True,
+    main_block_placements: Optional[List[Placement]] = None,
+    next_group: Optional[Dict] = None,
+    next_remaining_qty: int = 0,
+    next_item_offset: int = 0,
+    residual_traversal_policy: str = "floor_first",
+) -> Tuple[List[Space], List[Placement], int, float, Dict]:
+    """Choose one local continuation plan at a main-block boundary.
+
+    At most three bounded homogeneous candidates are evaluated for the main
+    orientation and one alternate orientation. When the selected frontier is
+    fragmented, a bounded suffix is reflowed in four transverse orders while
+    previewing the next product's first supported block. Exactly one plan is
+    committed; this is deliberately local and does not branch future rows.
+    """
+    choices = _floor_first_orientation_choices(group, main_orientation)
+    main_end_x = float(main_summary.get("x_end", 0.0))
+    plans = []
+
+    for orientation_priority, orientation in enumerate(choices):
+        candidates = _floor_first_continuation_candidates(
+            spaces,
+            group,
+            remaining_qty,
+            main_end_x,
+            orientation,
+        )
+        # A no-block plan keeps the bounded comparison complete when a
+        # narrow residual can accept individual units but no regular cuboid.
+        entries = candidates or [None]
+        for entry in entries:
+            branch_spaces = [replace(space) for space in spaces]
+            branch_placements: List[Placement] = []
+            branch_loaded_weight = loaded_weight
+            continuation = None
+            block_qty = 0
+
+            if entry is not None:
+                continuation = entry["candidate"]
+                block_space = entry["space"]
+                block_placements, block_summary = _floor_first_materialize_block(
+                    block_space,
+                    group,
+                    continuation,
+                    item_offset,
+                )
+                branch_placements.extend(block_placements)
+                branch_spaces = _subtract_cuboids_from_spaces(
+                    branch_spaces,
+                    [
+                        (
+                            placement.x,
+                            placement.y,
+                            placement.z,
+                            placement.l,
+                            placement.w,
+                            placement.h,
+                        )
+                        for placement in block_placements
+                    ],
+                )
+                branch_loaded_weight += continuation.qty * group["weight"]
+                block_qty = continuation.qty
+
+            preferred = [orientation]
+            preferred.extend(
+                candidate_orientation
+                for candidate_orientation in choices
+                if candidate_orientation != orientation
+            )
+            preferred.extend(
+                tuple(candidate_orientation)
+                for candidate_orientation in group["orientations"]
+                if tuple(candidate_orientation) not in preferred
+            )
+            residual_qty = max(0, remaining_qty - block_qty)
+            if residual_qty > 0:
+                branch_spaces, residual_filled, branch_loaded_weight = (
+                    _floor_first_fill_group(
+                        branch_spaces,
+                        group,
+                        residual_qty,
+                        item_offset + block_qty,
+                        branch_placements,
+                        branch_loaded_weight,
+                        payload_limit,
+                        preferred_orientations=tuple(preferred),
+                        traversal_policy=residual_traversal_policy,
+                    )
+                )
+            else:
+                residual_filled = 0
+
+            filled_qty = block_qty + residual_filled
+            max_x = main_end_x
+            if branch_placements:
+                max_x = max(
+                    max_x,
+                    max(
+                        placement.x + placement.l
+                        for placement in branch_placements
+                    ),
+                )
+            transverse_area = (
+                continuation.width * continuation.height
+                if continuation is not None
+                else 0.0
+            )
+            discontinuity = _floor_first_frontier_discontinuity(
+                main_summary,
+                continuation,
+            )
+            plan_score = (
+                filled_qty,
+                transverse_area,
+                -max_x,
+                -discontinuity,
+                orientation_priority == 0,
+                -block_qty,
+            )
+            plans.append({
+                "spaces": branch_spaces,
+                "placements": branch_placements,
+                "filled_qty": filled_qty,
+                "loaded_weight": branch_loaded_weight,
+                "score": plan_score,
+                "orientation": orientation,
+                "orientation_priority": orientation_priority,
+                "continuation": continuation,
+                "continuation_space": (
+                    block_space if entry is not None else None
+                ),
+                "continuation_block_qty": block_qty,
+                "residual_greedy_qty": residual_filled,
+                "max_x": max_x,
+                "transverse_area": transverse_area,
+                "frontier_discontinuity": (
+                    None if math.isinf(discontinuity) else discontinuity
+                ),
+            })
+
+    selected_index, selected = max(
+        enumerate(plans),
+        key=lambda item: item[1]["score"],
+    )
+    if has_next_frontier:
+        selected, traversal_diagnostics = (
+            _floor_first_compare_frontier_reflow(
+                spaces,
+                group,
+                remaining_qty,
+                item_offset,
+                loaded_weight,
+                payload_limit,
+                main_summary,
+                main_block_placements or [],
+                selected,
+                next_group,
+                next_remaining_qty,
+                next_item_offset,
+            )
+        )
+    else:
+        traversal_diagnostics = {
+            "frontier_search_triggered": False,
+            "traversals_evaluated": 0,
+            "selected_traversal": residual_traversal_policy,
+            "selected_reflow_orientation": [
+                float(value) for value in selected["orientation"]
+            ],
+            "selected_reflow_tail_qty": 0,
+            "incumbent_frontier_metrics": _floor_first_frontier_metrics(
+                selected["placements"]
+            ),
+            "traversal_plans": [],
+        }
+    diagnostics = {
+        "row_index": group["row_index"],
+        "product_name": group["name"],
+        "main_orientation": [float(value) for value in main_orientation],
+        "selected_orientation": [
+            float(value) for value in selected["orientation"]
+        ],
+        "continuation_block_qty": selected["continuation_block_qty"],
+        "residual_greedy_qty": selected["residual_greedy_qty"],
+        "filled_qty": selected["filled_qty"],
+        "unplaced_qty": max(0, remaining_qty - selected["filled_qty"]),
+        "transverse_area": selected["transverse_area"],
+        "x_end": selected["max_x"],
+        "frontier_discontinuity": selected["frontier_discontinuity"],
+        "residual_traversal_policy": residual_traversal_policy,
+        "plans_evaluated": len(plans),
+        "selected_plan_index": selected_index,
+        **traversal_diagnostics,
+        "plans": [
+            {
+                "orientation": [float(value) for value in plan["orientation"]],
+                "orientation_priority": plan["orientation_priority"],
+                "continuation_block_qty": plan["continuation_block_qty"],
+                "residual_greedy_qty": plan["residual_greedy_qty"],
+                "filled_qty": plan["filled_qty"],
+                "unplaced_qty": max(
+                    0,
+                    remaining_qty - plan["filled_qty"],
+                ),
+                "transverse_area": plan["transverse_area"],
+                "x_end": plan["max_x"],
+                "frontier_discontinuity": plan["frontier_discontinuity"],
+            }
+            for plan in plans
+        ],
+    }
+    return (
+        selected["spaces"],
+        selected["placements"],
+        selected["filled_qty"],
+        selected["loaded_weight"],
+        diagnostics,
     )
 
 
@@ -6192,8 +7070,18 @@ def _floor_first_fill_group(
     placements: List[Placement],
     loaded_weight: float,
     payload_limit: Optional[float],
+    *,
+    preferred_orientations: Optional[
+        Tuple[Tuple[float, float, float], ...]
+    ] = None,
+    traversal_policy: str = "floor_first",
 ) -> Tuple[List[Space], int, float]:
-    """Fill one product's residual units beside/after its main block."""
+    """Fill residual units with bounded orientation and traversal policies."""
+    orientations = tuple(
+        group["orientations"]
+        if preferred_orientations is None
+        else preferred_orientations
+    )
     filled = 0
     while filled < remaining_qty:
         if (
@@ -6209,13 +7097,20 @@ def _floor_first_fill_group(
             "sequence": group["sequence"],
             "weight": group["weight"],
             "stackable": bool(group.get("stackable", True)),
-            "orientations": group["orientations"],
+            "orientations": orientations,
         }
-        best = choose_best_placement(
-            spaces,
-            item,
-            placement_policy="floor_first",
-        )
+        if traversal_policy in _FLOOR_FIRST_FRONTIER_TRAVERSAL_POLICIES:
+            best = _floor_first_choose_traversal_placement(
+                spaces,
+                item,
+                traversal_policy,
+            )
+        else:
+            best = choose_best_placement(
+                spaces,
+                item,
+                placement_policy=traversal_policy,
+            )
         if best is None:
             break
         space_index = best["space_index"]
@@ -6264,16 +7159,18 @@ def _pack_container_floor_first_blocks(
     )]
     placements: List[Placement] = []
     main_blocks = []
+    continuations = []
     packed_by_row = {group["row_index"]: 0 for group in groups}
     residual_packed_units = 0
     loaded_weight = 0.0
+    inherited_residual_traversal = "floor_first"
     payload_limit = (
         float(container["max_weight"])
         if _has_payload_limit(container)
         else None
     )
 
-    for group in groups:
+    for group_index, group in enumerate(groups):
         remaining = int(group.get("qty", 0) or 0)
         if payload_limit is not None and group["weight"] > 0:
             remaining = min(
@@ -6286,30 +7183,18 @@ def _pack_container_floor_first_blocks(
         if remaining <= 0:
             continue
 
-        candidates = []
-        for space_index, space in enumerate(spaces):
-            for candidate in _floor_first_block_candidates(
-                group,
-                space,
-                remaining,
-            ):
-                candidates.append({
-                    "space_index": space_index,
-                    "space": space,
-                    "candidate": candidate,
-                    "score": (
-                        -space.x,
-                        -space.z,
-                        candidate.width * candidate.height,
-                        candidate.ny * candidate.nz,
-                        candidate.qty,
-                        -space.y,
-                        -candidate.length,
-                        -candidate.orientation_index,
-                    ),
-                })
-        if candidates:
-            selected = max(candidates, key=lambda entry: entry["score"])
+        # A selected frontier traversal is inherited by the immediately
+        # following product's residual continuation. It is consumed once;
+        # the next boundary can select a new policy independently.
+        residual_traversal_policy = inherited_residual_traversal
+        inherited_residual_traversal = "floor_first"
+
+        selected = _floor_first_main_block_choice(
+            spaces,
+            group,
+            remaining,
+        )
+        if selected is not None:
             space = selected["space"]
             candidate = selected["candidate"]
             block_placements, block_summary = _floor_first_materialize_block(
@@ -6338,7 +7223,56 @@ def _pack_container_floor_first_blocks(
             )
             remaining -= candidate.qty
 
-        if remaining > 0:
+        if remaining > 0 and selected is not None:
+            next_group = (
+                groups[group_index + 1]
+                if group_index < len(groups) - 1
+                else None
+            )
+            (
+                spaces,
+                continuation_placements,
+                filled,
+                loaded_weight,
+                continuation_summary,
+            ) = _floor_first_choose_continuation(
+                spaces,
+                group,
+                remaining,
+                packed_by_row[group["row_index"]],
+                loaded_weight,
+                payload_limit,
+                block_summary,
+                candidate.orientation,
+                has_next_frontier=(
+                    group_index < len(groups) - 1
+                ),
+                main_block_placements=block_placements,
+                next_group=next_group,
+                next_remaining_qty=(
+                    int(next_group.get("qty", 0) or 0)
+                    if next_group is not None
+                    else 0
+                ),
+                next_item_offset=(
+                    packed_by_row[next_group["row_index"]]
+                    if next_group is not None
+                    else 0
+                ),
+                residual_traversal_policy=residual_traversal_policy,
+            )
+            placements.extend(continuation_placements)
+            continuations.append(continuation_summary)
+            selected_traversal = continuation_summary.get(
+                "selected_traversal"
+            )
+            if (
+                continuation_summary.get("selected_reflow_tail_qty", 0) > 0
+                and selected_traversal
+                in _FLOOR_FIRST_FRONTIER_TRAVERSAL_POLICIES
+            ):
+                inherited_residual_traversal = selected_traversal
+        elif remaining > 0:
             spaces, filled, loaded_weight = _floor_first_fill_group(
                 spaces,
                 group,
@@ -6347,7 +7281,12 @@ def _pack_container_floor_first_blocks(
                 placements,
                 loaded_weight,
                 payload_limit,
+                traversal_policy=residual_traversal_policy,
             )
+            packed_by_row[group["row_index"]] += filled
+            residual_packed_units += filled
+
+        if remaining > 0 and selected is not None:
             packed_by_row[group["row_index"]] += filled
             residual_packed_units += filled
 
@@ -6382,6 +7321,15 @@ def _pack_container_floor_first_blocks(
         "loaded_weight": loaded_weight,
         "strategy": "floor_first_blocks_adjacent",
         "floor_first_main_blocks": main_blocks,
+        "floor_first_continuations": continuations,
+        "floor_first_continuation_plans_evaluated": sum(
+            continuation["plans_evaluated"]
+            for continuation in continuations
+        ),
+        "floor_first_frontier_traversals_evaluated": sum(
+            continuation["traversals_evaluated"]
+            for continuation in continuations
+        ),
         "floor_first_main_block_units": sum(
             block["qty"] for block in main_blocks
         ),
@@ -6484,8 +7432,11 @@ def pack_container(
         the bounded ``ny * nz`` candidate family, subtracts each block from
         the real free-space geometry, and fills that product's residual units
         in adjacent side/top spaces with an x-strip -> z-layer -> y-row
-        greedy order. The unchanged Maximum greedy result is retained only
-        as a capacity guardrail; Floor First wins capacity ties.
+        greedy order. At each block boundary it compares bounded continuation
+        blocks in the main and one alternate orientation, preferring capacity,
+        transverse coverage, compact X footprint, and frontier continuity.
+        The unchanged Maximum greedy result is retained only as a capacity
+        guardrail; Floor First wins capacity ties.
 
     ``space_evenly``
         Select at most one complete homogeneous block per product in sequence

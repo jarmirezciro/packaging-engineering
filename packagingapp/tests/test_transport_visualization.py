@@ -228,6 +228,42 @@ class TransportVisualizationSurfaceTests(TestCase):
         self.assertContains(response, 'value="space_evenly"', count=1)
         self.assertContains(response, "Space evenly")
 
+    def test_public_calculator_loads_tops_high_cube_case_preset(self):
+        case_url = (
+            f"{reverse('transport_container_calculator')}"
+            "?case=tops-max-load-high-cube-benchmark"
+        )
+        with self.settings(MEDIA_ROOT=self.media_root):
+            response = self.client.get(case_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["is_case_example"])
+        self.assertEqual(
+            response.context["case_preset"]["label"],
+            "TOPS Max Load High Cube Benchmark",
+        )
+        self.assertEqual(response.context["form"]["packing_mode"].value(), "maximum_utilization_floor_first")
+        self.assertEqual(response.context["form"]["container_l"].value(), 12039)
+        self.assertEqual(response.context["form"]["container_w"].value(), 2362)
+        self.assertEqual(response.context["form"]["container_h"].value(), 2692)
+        self.assertEqual(
+            [row["name"] for row in response.context["product_rows"]],
+            ["SKU302473", "SKU503739", "Case Pack 12", "Case Pack"],
+        )
+        self.assertEqual(
+            [row["qty"] for row in response.context["product_rows"]],
+            [375, 405, 288, 160],
+        )
+        self.assertEqual(
+            [row["sequence"] for row in response.context["product_rows"]],
+            [4, 3, 1, 2],
+        )
+        self.assertEqual(
+            [row["qty_packed"] for row in response.context["result"]["summary"]["product_rows"]],
+            [375, 405, 288, 160],
+        )
+        self.assertContains(response, "TOPS Max Load High Cube Benchmark loaded")
+
     def test_standalone_space_evenly_serializes_diagnostics(self):
         data = dict(self.analysis_data)
         data["packing_mode"] = "space_evenly"
