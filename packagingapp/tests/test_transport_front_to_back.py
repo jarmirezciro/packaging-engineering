@@ -7,6 +7,7 @@ from packagingapp.tools.transport.service import analyze_transport_capacity
 from packagingapp.utils.container_tool.engine import (
     TOLERANCE,
     _evaluate_next_product_frontier_orientations,
+    _select_frontier_transition_candidate,
     allowed_orientations,
     build_product_block_candidates,
     choose_product_block,
@@ -29,7 +30,20 @@ def container(length, width, height, max_weight=None):
     }
 
 
-def product(name, length, width, height, qty, *, weight=0.0, stackable=True, sequence=1):
+def product(
+    name,
+    length,
+    width,
+    height,
+    qty,
+    *,
+    weight=0.0,
+    stackable=True,
+    sequence=1,
+    r1=True,
+    r2=False,
+    r3=False,
+):
     return {
         "name": name,
         "length": float(length),
@@ -39,9 +53,9 @@ def product(name, length, width, height, qty, *, weight=0.0, stackable=True, seq
         "weight": float(weight),
         "stackable": bool(stackable),
         "sequence": int(sequence),
-        "r1": True,
-        "r2": False,
-        "r3": False,
+        "r1": bool(r1),
+        "r2": bool(r2),
+        "r3": bool(r3),
     }
 
 
@@ -159,6 +173,187 @@ class FrontToBackInvariantMixin:
 
 
 class LoadFrontToBackV1Tests(FrontToBackInvariantMixin, SimpleTestCase):
+    def transition_result(
+        self,
+        next_dimensions,
+        *,
+        current_quantity=3,
+        current_stackable=True,
+        next_r2=False,
+        next_r3=False,
+    ):
+        source = [
+            product(
+                "Current",
+                10,
+                1,
+                1,
+                current_quantity,
+                stackable=current_stackable,
+            ),
+            product(
+                "Next",
+                *next_dimensions,
+                99,
+                r2=next_r2,
+                r3=next_r3,
+            ),
+        ]
+        return pack_container(container(10, 3, 2), source), source
+
+    def test_row_first_wins_when_it_packs_more_next_product(self):
+        result, source = self.transition_result((2, 3, 1))
+        frontier = result["front_to_back_frontiers"][0]
+        candidates = frontier["residual_strategy_candidates"]
+
+        self.assertEqual(frontier["selected_residual_strategy"], "row_first")
+        self.assertEqual(frontier["selection_reason"], "better_frontier_efficiency")
+        self.assertEqual(frontier["next_product_population_strategy"], "row_first")
+        self.assertEqual(
+            [item["current_product_residual_packed"] for item in candidates],
+            [3, 3, 0, 0],
+        )
+        self.assertEqual(
+            [item["next_product_qty_packed"] for item in candidates],
+            [5, 0, 0, 0],
+        )
+        self.assert_geometry(result, container(10, 3, 2), source)
+
+    def test_column_first_wins_when_it_packs_more_next_product(self):
+        result, source = self.transition_result((2, 1, 2))
+        frontier = result["front_to_back_frontiers"][0]
+        candidates = frontier["residual_strategy_candidates"]
+
+        self.assertEqual(frontier["selected_residual_strategy"], "column_first")
+        self.assertEqual(frontier["selection_reason"], "better_frontier_efficiency")
+        self.assertEqual(
+            [item["current_product_residual_packed"] for item in candidates],
+            [3, 3, 0, 0],
+        )
+        self.assertEqual(
+            [item["next_product_qty_packed"] for item in candidates],
+            [0, 5, 0, 0],
+        )
+        self.assert_geometry(result, container(10, 3, 2), source)
+
+    def test_exact_next_product_tie_prefers_row_first(self):
+        result, _ = self.transition_result((2, 1, 1))
+        frontier = result["front_to_back_frontiers"][0]
+
+        self.assertEqual(frontier["selected_residual_strategy"], "row_first")
+        self.assertEqual(frontier["selection_reason"], "tie_prefer_row_first")
+        self.assertEqual(
+            [item["next_product_qty_packed"] for item in frontier["residual_strategy_candidates"]],
+            [15, 15, 0, 0],
+        )
+
+    def test_current_product_quantity_is_authoritative(self):
+        winner, reason = _select_frontier_transition_candidate(
+            [
+                {
+                    "strategy": "row_first",
+                    "current_product_qty_packed": 13,
+                    "next_product_qty_packed": 2,
+                    "valid": True,
+                },
+                {
+                    "strategy": "column_first",
+                    "current_product_qty_packed": 12,
+                    "next_product_qty_packed": 99,
+                    "valid": False,
+                },
+            ]
+        )
+
+        self.assertEqual(winner["strategy"], "row_first")
+        self.assertEqual(reason, "current_product_quantity")
+
+    def test_both_candidates_evaluate_all_enabled_next_orientations(self):
+        result, _ = self.transition_result((2, 1, 2))
+        candidates = result["front_to_back_frontiers"][0][
+            "residual_strategy_candidates"
+        ]
+
+        self.assertEqual(len(candidates), 4)
+        self.assertTrue(
+            all(
+                len(candidate["next_product_orientation_candidates"]) == 2
+                and candidate["next_product_valid_orientation_count"] == 2
+                for candidate in candidates
+                if candidate["current_product_residual_packed"] == 3
+            )
+        )
+
+    def test_winner_quantity_is_carried_into_next_product_phase(self):
+        result, _ = self.transition_result((2, 1, 2))
+        current_summary, next_summary = result["front_to_back_product_blocks"]
+
+        self.assertEqual(current_summary["qty_of_next_product_loaded_in_frontier"], 5)
+        self.assertEqual(next_summary["qty_already_loaded_in_previous_frontier"], 5)
+        self.assertEqual(next_summary["qty_entering_product_phase"], 94)
+
+    def test_last_product_uses_row_first_without_two_candidate_evaluation(self):
+        source = [product("Final", 10, 1, 1, 3)]
+        result = pack_container(container(10, 3, 2), source)
+        frontier = result["front_to_back_frontiers"][0]
+
+        self.assertEqual(frontier["selected_residual_strategy"], "row_first")
+        self.assertEqual(frontier["selection_reason"], "no_next_product")
+        self.assertEqual(frontier["residual_strategy_candidates"], [])
+        self.assertIsNone(frontier["next_product_population_strategy"])
+
+    def test_non_stackable_current_product_cannot_create_vertical_column_layout(self):
+        result, source = self.transition_result(
+            (2, 1, 2),
+            current_quantity=2,
+            current_stackable=False,
+        )
+        frontier = result["front_to_back_frontiers"][0]
+
+        self.assertTrue(
+            all(
+                placement.row_index != 0 or placement.z == 0.0
+                for placement in result["placements"]
+            )
+        )
+        self.assertEqual(frontier["selected_residual_strategy"], "row_first")
+        self.assertEqual(frontier["selection_reason"], "tie_prefer_row_first")
+        self.assert_geometry(result, container(10, 3, 2), source)
+
+    def test_transition_diagnostics_and_geometry_are_deterministic(self):
+        first, _ = self.transition_result((2, 3, 1))
+        second, _ = self.transition_result((2, 3, 1))
+
+        self.assertEqual(
+            [
+                (
+                    placement.row_index,
+                    placement.item_index,
+                    placement.x,
+                    placement.y,
+                    placement.z,
+                    placement.l,
+                    placement.w,
+                    placement.h,
+                )
+                for placement in first["placements"]
+            ],
+            [
+                (
+                    placement.row_index,
+                    placement.item_index,
+                    placement.x,
+                    placement.y,
+                    placement.z,
+                    placement.l,
+                    placement.w,
+                    placement.h,
+                )
+                for placement in second["placements"]
+            ],
+        )
+        self.assertEqual(first["front_to_back_frontiers"], second["front_to_back_frontiers"])
+
     def test_shared_sort_prioritizes_largest_valid_footprint(self):
         selected_container = container(12039, 2362, 2692)
         ordered = sort_products(
@@ -394,6 +589,10 @@ class LoadFrontToBackV1Tests(FrontToBackInvariantMixin, SimpleTestCase):
             first["front_to_back_phase_order"],
             second["front_to_back_phase_order"],
         )
+        self.assertEqual(
+            first["front_to_back_frontiers"],
+            second["front_to_back_frontiers"],
+        )
         json.dumps(
             {
                 key: value
@@ -484,6 +683,79 @@ class LoadFrontToBackV1Tests(FrontToBackInvariantMixin, SimpleTestCase):
         self.assertEqual(p2_summary["requested_qty"], 405)
         self.assertEqual(p2_summary["qty_already_loaded_in_previous_frontier"], 10)
         self.assertEqual(p2_summary["qty_entering_product_phase"], 395)
+
+    def test_primary_p2_to_p1_evaluates_orientation_traversal_and_efficiency(self):
+        result = pack_container(
+            container(12039, 2362, 2692),
+            primary_case_products(),
+            mode=MODE,
+        )
+        frontier = next(
+            item
+            for item in result["front_to_back_frontiers"]
+            if item["current_product"] == "SKU503739"
+            and item["next_product"] == "SKU302473"
+        )
+        candidates = frontier["residual_strategy_candidates"]
+
+        self.assertEqual(len(candidates), 4)
+        self.assertEqual(
+            [
+                (
+                    candidate["current_product_orientation_index"],
+                    candidate["strategy"],
+                    candidate["frontier_depth"],
+                    candidate["current_product_residual_packed"],
+                    candidate["next_product_qty_packed"],
+                )
+                for candidate in candidates
+            ],
+            [
+                (0, "row_first", 431.8, 3, 38),
+                (0, "column_first", 431.8, 3, 32),
+                (1, "row_first", 318.77, 3, 30),
+                (1, "column_first", 318.77, 3, 32),
+            ],
+        )
+        self.assertAlmostEqual(
+            candidates[0]["frontier_volume_efficiency"],
+            0.6090868620,
+            places=6,
+        )
+        self.assertAlmostEqual(
+            candidates[3]["frontier_volume_efficiency"],
+            0.7049987651,
+            places=6,
+        )
+        self.assertEqual(
+            frontier["selected_residual_orientation"],
+            [318.77, 431.8, 317.5],
+        )
+        self.assertEqual(frontier["selected_residual_strategy"], "column_first")
+        self.assertEqual(frontier["selected_frontier_depth"], 318.77)
+        self.assertAlmostEqual(
+            frontier["selected_frontier_volume_efficiency"],
+            0.7049987651,
+            places=6,
+        )
+        self.assertEqual(frontier["selection_reason"], "better_frontier_efficiency")
+        self.assertTrue(
+            all(
+                len(candidate["next_product_orientation_candidates"]) == 2
+                and candidate["next_product_valid_orientation_count"] == 1
+                for candidate in candidates
+            )
+        )
+
+        p1_summary = next(
+            item
+            for item in result["front_to_back_product_blocks"]
+            if item["product_name"] == "SKU302473"
+        )
+        self.assertEqual(p1_summary["qty_already_loaded_in_previous_frontier"], 32)
+        self.assertEqual(p1_summary["qty_entering_product_phase"], 343)
+        self.assertEqual(len(result["placements"]), 1228)
+        self.assertEqual(result["unplaced"], [])
 
     def test_next_product_without_a_frontier_fit_is_left_for_product_phase(self):
         normalized = normalize_products([product("Next", 4, 3, 1, 1)])[0]

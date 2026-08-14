@@ -30,18 +30,30 @@ orchestration is:
 
 ```text
 complete Product Block
-→ current-product residual in one local row-first frontier
-→ immediate next-product fill in unused frontier capacity
+→ current-product residual orientation × traversal candidates
+→ row-first next-product evaluation for each candidate
+→ select the bounded transition winner
 → close frontier
 → next product's complete Product Block
 ```
 
 The V1 frontier is bounded to the current product's transition slice. It is
-populated Y → Z → X, accepts only full-support upper placements, and is never
-reopened by later products. There is no global residual-at-the-end phase, no
-free-space tree, no compaction, and no legacy solver import. All products are
-forced to sequence `1` and use the same deterministic size ordering as Space
-Evenly.
+populated Y → Z → X for Row First and Z → Y → X for Column First. When a next
+product exists, every enabled current-product orientation is paired with both
+traversals. Each candidate derives its own minimum required X depth from its
+orientation and residual quantity, then uses the existing all-orientation
+next-product evaluation and Row-First population logic. A candidate must first
+protect current-product residual quantity; among equal quantities, frontier
+volume efficiency is maximized, Row First wins an effective efficiency tie, and
+remaining ties use next quantity, smaller depth, and stable orientation order.
+The last product keeps Row-First residual behavior without orientation ×
+traversal optimization.
+
+Every candidate accepts only full-support upper placements and the winning
+frontier is never reopened by later products. There is no global
+residual-at-the-end phase, no free-space tree, no compaction, and no legacy
+solver import. All products are forced to sequence `1` and use the same
+deterministic size ordering as Space Evenly.
 
 ## What Space Evenly is
 
@@ -573,6 +585,12 @@ fields are:
 | `space_evenly_block_candidates_evaluated` | Phase 1 candidates evaluated |
 | `space_evenly_residual_candidates_evaluated` | Phase 2 candidates evaluated |
 | `space_evenly_x_used` | final occupied longitudinal frontier |
+| `front_to_back_frontiers` | bounded transition diagnostics, including both residual strategies and the selected winner |
+| `front_to_back_product_blocks` | per-product block, residual, and carry-forward summaries |
+| `front_to_back_frontier_candidates_evaluated` | next-product orientation evaluations across the isolated transition candidates |
+| `residual_strategy_candidates` | current orientation, traversal, candidate depth, packed volumes, efficiency, and validity for each bounded transition candidate |
+| `selected_residual_orientation` | current-product orientation selected for the committed frontier |
+| `selected_frontier_volume_efficiency` | packed current-plus-next frontier volume divided by the candidate frontier prism volume |
 
 The result also retains compatibility aliases such as
 `space_evenly_residual_miniblocks`, target counts, packed volume, actual height,
@@ -626,6 +644,8 @@ Direct engine regression should check, at minimum:
 - parent-pattern continuation;
 - breadth-first residual pass order;
 - frontier advancement without floor side-gap filler;
+- Front-to-Back orientation × traversal candidate depth and efficiency;
+- current-residual priority, Row-First efficiency ties, and carry-forward quantity;
 - JSON-safe diagnostics and standalone/Packaging Flow parity.
 
 The engine is the source of truth for any discrepancy. Historical handoffs and

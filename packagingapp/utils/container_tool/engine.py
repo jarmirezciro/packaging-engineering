@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Tuple
 
 
 TOLERANCE = 1e-7
+FRONTIER_EFFICIENCY_TOLERANCE = 1e-9
 YZ_UTILIZATION_EQ_TOL = 0.0025
 RESIDUAL_WIDTH_UTILIZATION_EQ_TOL = 0.001
 SPACE_EVENLY_MODE = "space_evenly"
@@ -1990,8 +1991,9 @@ def _frontier_grid_placements(
     placements: List[Placement],
     first_item_index: int,
     loaded_weight: float,
+    traversal: str = "row_first",
 ) -> Tuple[List[Placement], float, int]:
-    """Populate one bounded frontier slice in Y, then Z, then X order."""
+    """Populate one bounded frontier slice with a deterministic traversal."""
     length, width, height = orientation
     x_count = _fit_count(x_depth, length)
     y_count = _fit_count(container["W"], width)
@@ -2009,35 +2011,85 @@ def _frontier_grid_placements(
     )
     local = []
     item_offset = 0
-    for x_index in range(x_count):
-        for z_index in range(z_count):
-            for y_index in range(y_count):
-                if item_offset >= payload_quantity:
-                    return local, loaded_weight, item_offset
-                placement = Placement(
-                    product_name=product.name,
-                    item_index=first_item_index + item_offset,
-                    row_index=product.row_index,
-                    sequence=product.sequence,
-                    weight=product.weight,
-                    stackable=product.stackable,
-                    x=x_start + x_index * length,
-                    y=y_index * width,
-                    z=z_index * height,
-                    l=length,
-                    w=width,
-                    h=height,
-                )
-                if placement.z > TOLERANCE and not _frontier_supports_full_base(
-                    placement,
-                    local,
-                ):
-                    continue
-                local.append(placement)
-                placements.append(placement)
-                loaded_weight += product.weight
-                item_offset += 1
+    if traversal == "row_first":
+        indices = (
+            (x_index, z_index, y_index)
+            for x_index in range(x_count)
+            for z_index in range(z_count)
+            for y_index in range(y_count)
+        )
+    elif traversal == "column_first":
+        indices = (
+            (x_index, z_index, y_index)
+            for x_index in range(x_count)
+            for y_index in range(y_count)
+            for z_index in range(z_count)
+        )
+    else:
+        raise ValueError(f"Unsupported frontier traversal: {traversal}")
+
+    for x_index, z_index, y_index in indices:
+        if item_offset >= payload_quantity:
+            return local, loaded_weight, item_offset
+        placement = Placement(
+            product_name=product.name,
+            item_index=first_item_index + item_offset,
+            row_index=product.row_index,
+            sequence=product.sequence,
+            weight=product.weight,
+            stackable=product.stackable,
+            x=x_start + x_index * length,
+            y=y_index * width,
+            z=z_index * height,
+            l=length,
+            w=width,
+            h=height,
+        )
+        if placement.z > TOLERANCE and not _frontier_supports_full_base(
+            placement,
+            local,
+        ):
+            continue
+        local.append(placement)
+        placements.append(placement)
+        loaded_weight += product.weight
+        item_offset += 1
     return local, loaded_weight, item_offset
+
+
+def _frontier_required_depth(
+    product: NormalizedProduct,
+    quantity: int,
+    orientation: Tuple[float, float, float],
+    container: Dict,
+    loaded_weight: float,
+    remaining_length: float,
+) -> Tuple[float, int]:
+    """Return the bounded X depth needed for one residual orientation."""
+    length, width, height = orientation
+    payload_quantity = _payload_units_available(
+        container,
+        loaded_weight,
+        product.weight,
+        quantity,
+    )
+    y_count = _fit_count(container["W"], width)
+    z_count = _fit_count(container["H"], height)
+    if not product.stackable:
+        z_count = min(z_count, 1)
+    capacity_per_x_slice = y_count * z_count
+    if (
+        capacity_per_x_slice <= 0
+        or length <= 0
+        or remaining_length <= 0
+    ):
+        return 0.0, int(payload_quantity)
+    if payload_quantity <= 0:
+        return min(float(length), float(remaining_length)), int(payload_quantity)
+
+    nx_required = math.ceil(payload_quantity / capacity_per_x_slice)
+    required_depth = nx_required * length
+    return min(float(required_depth), float(remaining_length)), int(payload_quantity)
 
 
 def _frontier_fill_next_product(
@@ -2232,6 +2284,206 @@ def _evaluate_next_product_frontier_orientations(
     )
 
 
+def _evaluate_frontier_transition_candidate(
+    current_product: NormalizedProduct,
+    current_residual_qty: int,
+    next_product: NormalizedProduct,
+    next_remaining_qty: int,
+    strategy: str,
+    x_start: float,
+    x_depth: float,
+    current_orientation: Tuple[float, float, float],
+    container: Dict,
+    placements: List[Placement],
+    current_first_item_index: int,
+    next_first_item_index: int,
+    loaded_weight: float,
+    preferred_next_orientation: Optional[Tuple[float, float, float]] = None,
+    current_orientation_index: int = 0,
+    remaining_length: Optional[float] = None,
+) -> Dict:
+    """Evaluate one isolated current-residual/next-product transition."""
+    candidate_depth, _ = _frontier_required_depth(
+        current_product,
+        current_residual_qty,
+        current_orientation,
+        container,
+        loaded_weight,
+        x_depth if remaining_length is None else remaining_length,
+    )
+    trial_placements = list(placements)
+    current_placements, loaded_after_current, current_qty = (
+        _frontier_grid_placements(
+            current_product,
+            current_residual_qty,
+            x_start,
+            candidate_depth,
+            current_orientation,
+            container,
+            trial_placements,
+            current_first_item_index,
+            loaded_weight,
+            traversal=strategy,
+        )
+    )
+
+    next_placements: List[Placement] = []
+    next_selected_orientation = None
+    next_orientation_candidates: List[Dict] = []
+    next_valid_orientation_count = 0
+    next_qty = 0
+    loaded_after = loaded_after_current
+    candidate_evaluations = 0
+
+    if current_qty == current_residual_qty:
+        (
+            next_selected_orientation,
+            next_orientation_candidates,
+            candidate_evaluations,
+        ) = _evaluate_next_product_frontier_orientations(
+            next_product,
+            next_remaining_qty,
+            x_start,
+            candidate_depth,
+            container,
+            trial_placements,
+            next_first_item_index,
+            loaded_after_current,
+            preferred_next_orientation,
+        )
+        next_valid_orientation_count = sum(
+            1
+            for candidate in next_orientation_candidates
+            if candidate["fits_frontier"]
+        )
+        if next_selected_orientation is not None:
+            next_placements, loaded_after, next_qty, _ = _frontier_fill_next_product(
+                next_product,
+                next_remaining_qty,
+                x_start,
+                candidate_depth,
+                next_selected_orientation,
+                container,
+                trial_placements,
+                next_first_item_index,
+                loaded_after_current,
+            )
+
+    current_packed_volume = current_qty * current_product.unit_volume
+    next_packed_volume = next_qty * next_product.unit_volume
+    total_packed_volume = current_packed_volume + next_packed_volume
+    frontier_prism_volume = (
+        candidate_depth * container["W"] * container["H"]
+    )
+    frontier_volume_efficiency = (
+        total_packed_volume / frontier_prism_volume
+        if frontier_prism_volume > TOLERANCE
+        else 0.0
+    )
+
+    return {
+        "strategy": strategy,
+        "current_product_orientation": [
+            float(value) for value in current_orientation
+        ],
+        "current_product_orientation_index": int(current_orientation_index),
+        "placements": current_placements + next_placements,
+        "current_product_placements": current_placements,
+        "next_product_placements": next_placements,
+        "current_product_qty_packed": int(current_qty),
+        "frontier_depth": float(candidate_depth),
+        "frontier_x_start": float(x_start),
+        "frontier_x_end": float(x_start + candidate_depth),
+        "next_product_qty_packed": int(next_qty),
+        "next_product_selected_orientation": next_selected_orientation,
+        "next_product_orientation_candidates": next_orientation_candidates,
+        "next_product_valid_orientation_count": int(next_valid_orientation_count),
+        "current_product_packed_volume": float(current_packed_volume),
+        "next_product_packed_volume": float(next_packed_volume),
+        "total_frontier_packed_volume": float(total_packed_volume),
+        "frontier_prism_volume": float(frontier_prism_volume),
+        "frontier_volume_efficiency": float(frontier_volume_efficiency),
+        "loaded_weight_after": float(loaded_after),
+        "candidate_evaluations": int(candidate_evaluations),
+        "valid": bool(current_qty == current_residual_qty),
+    }
+
+
+def _select_frontier_transition_candidate(
+    candidates: List[Dict],
+) -> Tuple[Dict, str]:
+    """Select by current quantity, then efficient deterministic frontier use."""
+    maximum_current_qty = max(
+        candidate["current_product_qty_packed"] for candidate in candidates
+    )
+    current_shortlist = [
+        candidate
+        for candidate in candidates
+        if candidate["current_product_qty_packed"] == maximum_current_qty
+    ]
+    positive_depth_shortlist = [
+        candidate
+        for candidate in current_shortlist
+        if candidate.get("frontier_depth", 1.0) > TOLERANCE
+    ]
+    if positive_depth_shortlist:
+        current_shortlist = positive_depth_shortlist
+    if len(current_shortlist) == 1:
+        winner = current_shortlist[0]
+        return winner, "current_product_quantity"
+
+    maximum_efficiency = max(
+        candidate["frontier_volume_efficiency"]
+        for candidate in current_shortlist
+    )
+    efficiency_shortlist = [
+        candidate
+        for candidate in current_shortlist
+        if maximum_efficiency - candidate["frontier_volume_efficiency"]
+        <= FRONTIER_EFFICIENCY_TOLERANCE
+    ]
+    row_first_shortlist = [
+        candidate
+        for candidate in efficiency_shortlist
+        if candidate["strategy"] == "row_first"
+    ]
+    row_first_tie = bool(row_first_shortlist) and any(
+        candidate["strategy"] == "column_first"
+        for candidate in efficiency_shortlist
+    )
+    ranking_pool = row_first_shortlist or efficiency_shortlist
+    maximum_next_qty = max(
+        candidate["next_product_qty_packed"] for candidate in ranking_pool
+    )
+    next_qty_shortlist = [
+        candidate
+        for candidate in ranking_pool
+        if candidate["next_product_qty_packed"] == maximum_next_qty
+    ]
+    minimum_depth = min(candidate["frontier_depth"] for candidate in next_qty_shortlist)
+    depth_shortlist = [
+        candidate
+        for candidate in next_qty_shortlist
+        if abs(candidate["frontier_depth"] - minimum_depth) <= TOLERANCE
+    ]
+    winner = min(
+        depth_shortlist,
+        key=lambda candidate: candidate["current_product_orientation_index"],
+    )
+
+    if maximum_efficiency - min(
+        candidate["frontier_volume_efficiency"] for candidate in current_shortlist
+    ) > FRONTIER_EFFICIENCY_TOLERANCE:
+        return winner, "better_frontier_efficiency"
+    if row_first_tie:
+        return winner, "tie_prefer_row_first"
+    if len({candidate["next_product_qty_packed"] for candidate in ranking_pool}) > 1:
+        return winner, "more_next_product_units"
+    if len({candidate["frontier_depth"] for candidate in next_qty_shortlist}) > 1:
+        return winner, "smaller_frontier_depth"
+    return winner, "stable_orientation_tiebreak"
+
+
 def _frontier_support_surface_count(placements: List[Placement]) -> int:
     """Count contiguous local top surfaces available to the frontier."""
     grouped = {}
@@ -2372,6 +2624,13 @@ def _pack_container_front_to_back(
             "main_block_end_x": float(frontier_x),
             "frontier_start_x": None,
             "frontier_end_x": None,
+            "current_product_residual_strategy": None,
+            "next_product_population_strategy": None,
+            "selected_residual_strategy": None,
+            "selected_residual_orientation": None,
+            "selected_frontier_depth": None,
+            "selected_frontier_volume_efficiency": None,
+            "selection_reason": None,
             "block": _candidate_metadata(selected) if selected else None,
         }
 
@@ -2396,42 +2655,49 @@ def _pack_container_front_to_back(
                 # that slice, but it may not extend the frontier toward the
                 # doors to accept individual units.
                 frontier_depth = min(current_depth, available_length)
-                local_frontier, loaded_weight, own_frontier_qty = (
-                    _frontier_grid_placements(
-                        product,
-                        residual_qty,
-                        frontier_start,
-                        frontier_depth,
-                        current_orientation,
-                        normalized_container,
-                        placements,
-                        next_item_index[product.row_index],
-                        loaded_weight,
-                    )
-                )
-                next_item_index[product.row_index] += own_frontier_qty
-                frontier_loaded[product.row_index] += own_frontier_qty
-                summary["qty_loaded_in_own_frontier"] = int(own_frontier_qty)
-                phase_order.append(
-                    {
-                        "phase": "current_product_residual",
-                        "row_index": product.row_index,
-                        "product_name": product.name,
-                        "quantity_requested": int(residual_qty),
-                        "quantity_packed": int(own_frontier_qty),
-                        "x_start": float(frontier_start),
-                    }
-                )
-
-                next_frontier_qty = 0
-                transition_frontier_candidates_evaluated = 0
                 next_product_orientation_candidates: List[Dict] = []
                 next_product_selected_orientation = None
                 next_product_valid_orientation_count = 0
-                if (
-                    next_product is not None
-                    and own_frontier_qty == residual_qty
-                ):
+                next_frontier_qty = 0
+                transition_frontier_candidates_evaluated = 0
+                local_frontier: List[Placement] = []
+                own_frontier_qty = 0
+                selected_residual_strategy = "row_first"
+                selection_reason = "no_next_product"
+                current_product_residual_strategy = "row_first"
+                next_product_population_strategy = None
+                residual_strategy_candidates: List[Dict] = []
+                selected_residual_orientation = None
+                selected_frontier_volume_efficiency = 0.0
+
+                if next_product is None:
+                    local_frontier, loaded_weight, own_frontier_qty = (
+                        _frontier_grid_placements(
+                            product,
+                            residual_qty,
+                            frontier_start,
+                            frontier_depth,
+                            current_orientation,
+                            normalized_container,
+                            placements,
+                            next_item_index[product.row_index],
+                            loaded_weight,
+                        )
+                    )
+                    selected_residual_orientation = [
+                        float(value) for value in current_orientation
+                    ]
+                    selected_frontier_volume_efficiency = (
+                        own_frontier_qty * product.unit_volume
+                        / (
+                            frontier_depth
+                            * normalized_container["W"]
+                            * normalized_container["H"]
+                        )
+                        if frontier_depth > TOLERANCE
+                        else 0.0
+                    )
+                else:
                     next_remaining = max(
                         next_product.qty - frontier_loaded[next_product.row_index],
                         0,
@@ -2447,7 +2713,8 @@ def _pack_container_front_to_back(
                             preferred_candidates,
                             _payload_units_available(
                                 normalized_container,
-                                loaded_weight,
+                                loaded_weight
+                                + residual_qty * product.weight,
                                 next_product.weight,
                                 next_remaining,
                             ),
@@ -2455,45 +2722,157 @@ def _pack_container_front_to_back(
                         )
                         if preferred_block is not None:
                             preferred_next_orientation = preferred_block.orientations[0]
-                    (
-                        next_product_selected_orientation,
-                        next_product_orientation_candidates,
-                        evaluated_frontier,
-                    ) = _evaluate_next_product_frontier_orientations(
-                        next_product,
-                        next_remaining,
-                        frontier_start,
-                        frontier_depth,
-                        normalized_container,
-                        placements,
-                        next_item_index[next_product.row_index],
-                        loaded_weight,
-                        preferred_next_orientation,
-                    )
-                    next_product_valid_orientation_count = sum(
-                        1
-                        for candidate in next_product_orientation_candidates
-                        if candidate["fits_frontier"]
-                    )
-                    if next_product_selected_orientation is not None:
-                        next_placements, loaded_weight, next_frontier_qty, _ = (
-                            _frontier_fill_next_product(
-                                next_product,
-                                next_remaining,
-                                frontier_start,
-                                frontier_depth,
-                                next_product_selected_orientation,
-                                normalized_container,
-                                placements,
-                                next_item_index[next_product.row_index],
-                                loaded_weight,
-                            )
+
+                    transition_candidates = [
+                        _evaluate_frontier_transition_candidate(
+                            product,
+                            residual_qty,
+                            next_product,
+                            next_remaining,
+                            strategy,
+                            frontier_start,
+                            available_length,
+                            orientation,
+                            normalized_container,
+                            placements,
+                            next_item_index[product.row_index],
+                            next_item_index[next_product.row_index],
+                            loaded_weight,
+                            preferred_next_orientation,
+                            current_orientation_index=orientation_index,
+                            remaining_length=available_length,
                         )
-                    else:
-                        next_placements = []
-                        next_frontier_qty = 0
-                    frontier_candidates_evaluated += evaluated_frontier
-                    transition_frontier_candidates_evaluated = evaluated_frontier
+                        for orientation_index, orientation in enumerate(
+                            product.orientations
+                        )
+                        for strategy in ("row_first", "column_first")
+                    ]
+                    winner, selection_reason = _select_frontier_transition_candidate(
+                        transition_candidates
+                    )
+                    selected_residual_strategy = winner["strategy"]
+                    current_product_residual_strategy = winner["strategy"]
+                    next_product_population_strategy = "row_first"
+                    local_frontier = winner["placements"]
+                    own_frontier_qty = winner["current_product_qty_packed"]
+                    next_frontier_qty = winner["next_product_qty_packed"]
+                    frontier_depth = winner["frontier_depth"]
+                    selected_residual_orientation = winner[
+                        "current_product_orientation"
+                    ]
+                    selected_frontier_volume_efficiency = winner[
+                        "frontier_volume_efficiency"
+                    ]
+                    loaded_weight = winner["loaded_weight_after"]
+                    placements.extend(winner["placements"])
+                    next_product_selected_orientation = winner[
+                        "next_product_selected_orientation"
+                    ]
+                    next_product_orientation_candidates = winner[
+                        "next_product_orientation_candidates"
+                    ]
+                    next_product_valid_orientation_count = winner[
+                        "next_product_valid_orientation_count"
+                    ]
+                    transition_frontier_candidates_evaluated = sum(
+                        candidate["candidate_evaluations"]
+                        for candidate in transition_candidates
+                    )
+                    frontier_candidates_evaluated += (
+                        transition_frontier_candidates_evaluated
+                    )
+                    residual_strategy_candidates = [
+                        {
+                            "current_product_orientation": candidate[
+                                "current_product_orientation"
+                            ],
+                            "current_product_orientation_index": int(
+                                candidate["current_product_orientation_index"]
+                            ),
+                            "strategy": candidate["strategy"],
+                            "current_product_residual_requested": int(
+                                residual_qty
+                            ),
+                            "current_product_residual_packed": int(
+                                candidate["current_product_qty_packed"]
+                            ),
+                            "next_product_qty_packed": int(
+                                candidate["next_product_qty_packed"]
+                            ),
+                            "frontier_depth": float(candidate["frontier_depth"]),
+                            "frontier_x_start": float(candidate["frontier_x_start"]),
+                            "frontier_x_end": float(candidate["frontier_x_end"]),
+                            "next_product_selected_orientation": (
+                                [
+                                    float(value)
+                                    for value in candidate[
+                                        "next_product_selected_orientation"
+                                    ]
+                                ]
+                                if candidate["next_product_selected_orientation"]
+                                is not None
+                                else None
+                            ),
+                            "next_product_valid_orientation_count": int(
+                                candidate["next_product_valid_orientation_count"]
+                            ),
+                            "next_product_orientation_candidates": candidate[
+                                "next_product_orientation_candidates"
+                            ],
+                            "current_product_packed_volume": float(
+                                candidate["current_product_packed_volume"]
+                            ),
+                            "next_product_packed_volume": float(
+                                candidate["next_product_packed_volume"]
+                            ),
+                            "total_frontier_packed_volume": float(
+                                candidate["total_frontier_packed_volume"]
+                            ),
+                            "frontier_prism_volume": float(
+                                candidate["frontier_prism_volume"]
+                            ),
+                            "frontier_volume_efficiency": float(
+                                candidate["frontier_volume_efficiency"]
+                            ),
+                            "candidate_evaluations": int(
+                                candidate["candidate_evaluations"]
+                            ),
+                            "valid": bool(candidate["valid"]),
+                        }
+                        for candidate in transition_candidates
+                    ]
+
+                next_item_index[product.row_index] += own_frontier_qty
+                frontier_loaded[product.row_index] += own_frontier_qty
+                summary["qty_loaded_in_own_frontier"] = int(own_frontier_qty)
+                summary["current_product_residual_strategy"] = (
+                    current_product_residual_strategy
+                )
+                summary["next_product_population_strategy"] = (
+                    next_product_population_strategy
+                )
+                summary["selected_residual_strategy"] = selected_residual_strategy
+                summary["selected_residual_orientation"] = (
+                    selected_residual_orientation
+                )
+                summary["selected_frontier_depth"] = float(frontier_depth)
+                summary["selected_frontier_volume_efficiency"] = float(
+                    selected_frontier_volume_efficiency
+                )
+                summary["selection_reason"] = selection_reason
+                phase_order.append(
+                    {
+                        "phase": "current_product_residual",
+                        "row_index": product.row_index,
+                        "product_name": product.name,
+                        "quantity_requested": int(residual_qty),
+                        "quantity_packed": int(own_frontier_qty),
+                        "x_start": float(frontier_start),
+                        "strategy": current_product_residual_strategy,
+                    }
+                )
+
+                if next_product is not None and own_frontier_qty == residual_qty:
                     next_item_index[next_product.row_index] += next_frontier_qty
                     frontier_loaded[next_product.row_index] += next_frontier_qty
                     summary["qty_of_next_product_loaded_in_frontier"] = int(
@@ -2507,9 +2886,9 @@ def _pack_container_front_to_back(
                             "quantity": int(next_frontier_qty),
                             "from_product_name": product.name,
                             "x_start": float(frontier_start),
+                            "strategy": "row_first",
                         }
                     )
-                    local_frontier.extend(next_placements)
 
                 frontier_end = frontier_start + frontier_depth
                 summary["frontier_start_x"] = float(frontier_start)
@@ -2526,7 +2905,24 @@ def _pack_container_front_to_back(
                         "current_product_residual_requested": int(residual_qty),
                         "current_product_residual_packed": int(own_frontier_qty),
                         "next_product_qty_packed": int(next_frontier_qty),
+                        "frontier_depth": float(frontier_depth),
                         "population_strategy": "row_first",
+                        "current_product_residual_strategy": (
+                            current_product_residual_strategy
+                        ),
+                        "next_product_population_strategy": (
+                            next_product_population_strategy
+                        ),
+                        "selected_residual_orientation": (
+                            selected_residual_orientation
+                        ),
+                        "selected_residual_strategy": selected_residual_strategy,
+                        "selected_frontier_depth": float(frontier_depth),
+                        "selected_frontier_volume_efficiency": float(
+                            selected_frontier_volume_efficiency
+                        ),
+                        "selection_reason": selection_reason,
+                        "residual_strategy_candidates": residual_strategy_candidates,
                         "support_surface_count": _frontier_support_surface_count(
                             local_frontier
                         ),
