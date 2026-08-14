@@ -57,6 +57,49 @@
       transportPrepareMaxQtyFields(root);
     }
 
+    function transportPackingMode(root) {
+      if (!root) return '';
+      const selected = root.querySelector(
+        'input[type="radio"][name="packing_mode"]:checked, ' +
+        'input[type="radio"][name^="packing_mode_"]:checked'
+      );
+      return selected ? selected.value : (root.dataset.transportPackingMode || '');
+    }
+
+    function transportSyncSequenceInputs(root) {
+      if (!root) return;
+      const isSpaceEvenly = transportPackingMode(root) === 'space_evenly';
+      root.querySelectorAll('[data-transport-sequence-input]').forEach(function(field) {
+        if (isSpaceEvenly) field.value = '1';
+        field.readOnly = isSpaceEvenly;
+        if (isSpaceEvenly) {
+          field.setAttribute('aria-readonly', 'true');
+          field.title = 'Space Evenly uses one common loading sequence.';
+        } else {
+          field.removeAttribute('aria-readonly');
+          if (field.title === 'Space Evenly uses one common loading sequence.') {
+            field.removeAttribute('title');
+          }
+        }
+      });
+    }
+
+    function transportBindPackingMode(root) {
+      if (!root) return;
+      root.querySelectorAll(
+        'input[type="radio"][name="packing_mode"], ' +
+        'input[type="radio"][name^="packing_mode_"]'
+      ).forEach(function(field) {
+        if (field.dataset.transportSequenceBound) return;
+        field.dataset.transportSequenceBound = '1';
+        field.addEventListener('change', function() {
+          root.dataset.transportPackingMode = field.value;
+          transportSyncSequenceInputs(root);
+        });
+      });
+      transportSyncSequenceInputs(root);
+    }
+
     function transportToggleInstructions(button) {
       const targetId = button ? button.dataset.transportInstructionsTarget : "";
       const body = targetId ? document.getElementById(targetId) : null;
@@ -77,6 +120,7 @@
       if (newRow) {
         newRow.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
         transportSyncMaxQtyRows(newRow);
+        transportSyncSequenceInputs(newRow.closest('[data-transport-tool-root]'));
       }
     }
     
@@ -225,6 +269,7 @@
       if (newRow) {
         newRow.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
         transportSyncMaxQtyRows(newRow);
+        transportSyncSequenceInputs(newRow.closest('[data-transport-tool-root]'));
       }
     }
     
@@ -348,11 +393,13 @@
       if (!root) return;
       root.querySelectorAll('#products-tbody input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
       transportSyncMaxQtyRows(root);
+      transportBindPackingMode(root);
       const form = root.closest('form');
       if (form && !form.dataset.transportMaxQtySubmitBound) {
         form.dataset.transportMaxQtySubmitBound = '1';
         form.addEventListener('submit', function() {
           transportPrepareMaxQtyFields(root);
+          transportSyncSequenceInputs(root);
         });
       }
       root.querySelectorAll('input[name="container_source"]').forEach(el => {
@@ -377,11 +424,13 @@
       const idx = root.dataset.transportPrefix;
       root.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
       transportSyncMaxQtyRows(root);
+      transportBindPackingMode(root);
       const form = root.closest('form');
       if (form && !form.dataset.transportMaxQtySubmitBound) {
         form.dataset.transportMaxQtySubmitBound = '1';
         form.addEventListener('submit', function() {
           transportPrepareMaxQtyFields(root);
+          transportSyncSequenceInputs(root);
         });
       }
       if (idx !== undefined && idx !== null && idx !== '') {

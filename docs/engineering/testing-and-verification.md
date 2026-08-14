@@ -92,6 +92,14 @@ Do not run a broad destructive migration or production command as a substitute f
 
 ## Transport Container engine regression contract
 
+The current active `engine.py` dispatch implements stabilized Space Evenly V1
+and Load Front-to-Back V1 through the existing compatibility values
+`maximum_utilization` and `maximum_utilization_floor_first`. Older fixture material may refer to the
+former Maximum, Accessible, or Strict Sequence implementations; those legacy
+paths are not imported by the current engine. Run focused checks for both
+active modes and treat failures isolated to legacy-only modes as stale
+compatibility expectations unless a task explicitly reactivates one.
+
 Before changing Transport Container packing behavior, run or establish a direct engine regression module (preferably `packagingapp/tests/test_transport_container_engine.py`). These tests are independent of Three.js/HTML and complement visualization tests.
 
 For each protected mode fixture, record a deterministic geometry signature containing at least `row_index`, `x`, `y`, `z`, `l`, `w`, and `h`, plus loaded counts by row. Assert the shared physical invariants (bounds, no positive-volume overlap, allowed orientations, support/stackability, and payload).

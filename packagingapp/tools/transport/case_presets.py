@@ -4,6 +4,62 @@ from copy import deepcopy
 
 
 TRANSPORT_CONTAINER_CASE_PRESETS = {
+    "mix_load_case_hight_cube": {
+        "label": "Mix Load High Cube Case",
+        "config": {
+            "container_source": "manual",
+            "container_l": 12032,
+            "container_w": 2352,
+            "container_h": 2395,
+            "max_weight": 26500,
+            "tare_weight": "",
+            "packing_mode": "maximum_utilization",
+        },
+        "rows": [
+            {
+                "name": "EUR palletized load",
+                "length": 1200,
+                "width": 800,
+                "height": 1100,
+                "qty": 20,
+                "max_qty": False,
+                "stackable": True,
+                "weight": 900,
+                "sequence": 1,
+                "r1": True,
+                "r2": False,
+                "r3": False,
+            },
+            {
+                "name": "Product 2",
+                "length": 500,
+                "width": 400,
+                "height": 700,
+                "qty": 100,
+                "max_qty": False,
+                "stackable": True,
+                "weight": 0,
+                "sequence": 1,
+                "r1": True,
+                "r2": False,
+                "r3": False,
+            },
+            {
+                "name": "Product 3",
+                "length": 500,
+                "width": 200,
+                "height": 700,
+                "qty": 100,
+                "max_qty": False,
+                "stackable": True,
+                "weight": 0,
+                "sequence": 1,
+                "r1": True,
+                "r2": False,
+                "r3": False,
+            },
+        ],
+    },
     "tops-max-load-high-cube-benchmark": {
         "label": "TOPS Max Load High Cube Benchmark",
         "config": {

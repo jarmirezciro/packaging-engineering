@@ -92,6 +92,11 @@ Prevention: include both multi-product tools in the initial consumer map; reuse 
 
 ## 15. Transport packing-mode semantics leak into another mode
 
+The specific Maximum, Accessible Sequence, and Strict Sequence examples below
+are historical compatibility traps. The current active engine dispatches Space
+Evenly V1 only; retain these notes for archived mode work, not as a claim that
+those solvers currently produce placements.
+
 Symptom: fixing a residual/compaction issue in one mode changes geometry in Maximum, Accessible Sequence, or Strict Sequence.
 
 Prevention: treat `docs/domain/transport-container-engine.md` as the algorithm contract; trace dispatch before editing; prefer mode-specific helpers for mode semantics; run direct engine geometry signatures for all unaffected modes after any shared-helper change.

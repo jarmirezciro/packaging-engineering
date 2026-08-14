@@ -92,6 +92,54 @@ class TransportVisualizationContractTests(SimpleTestCase):
         self.assertIn("floor_first_candidate_selected", analysis["result"])
         self.assertIn("floor_first_candidate_source", analysis["result"])
 
+    def test_floor_first_row_order_reaches_threejs_scene(self):
+        analysis = analyze_transport_capacity(
+            {
+                "container_source": "manual",
+                "packing_mode": "maximum_utilization_floor_first",
+                "container_l": 12039.0,
+                "container_w": 2362.0,
+                "container_h": 2692.0,
+                "max_weight": None,
+                "tare_weight": None,
+            },
+            [{
+                "name": "SKU302473",
+                "length": 457.2,
+                "width": 279.4,
+                "height": 317.5,
+                "qty": 11,
+                "max_qty": False,
+                "stackable": True,
+                "weight": 0.2427,
+                "sequence": 4,
+                "r1": True,
+                "r2": False,
+                "r3": False,
+            }],
+        )
+
+        self.assertTrue(analysis["ok"])
+        scene = serialize_transport_threejs_scene(
+            analysis["container"],
+            analysis["result"]["placements"],
+            analysis["summary"],
+        )
+        self.assertEqual(
+            [
+                (item["x"], item["y"], item["z"])
+                for item in scene["items"]
+            ],
+            [
+                (0.0, index * 279.4, 0.0)
+                for index in range(8)
+            ]
+            + [
+                (0.0, index * 279.4, 317.5)
+                for index in range(3)
+            ],
+        )
+
     def test_three_approved_camera_presets_and_loading_default(self):
         root = Path(settings.BASE_DIR)
         partial = (
@@ -263,6 +311,46 @@ class TransportVisualizationSurfaceTests(TestCase):
             [375, 405, 288, 160],
         )
         self.assertContains(response, "TOPS Max Load High Cube Benchmark loaded")
+
+    def test_public_calculator_loads_mix_load_high_cube_case_preset(self):
+        case_url = (
+            f"{reverse('transport_container_calculator')}"
+            "?case=mix_load_case_hight_cube"
+        )
+        with self.settings(MEDIA_ROOT=self.media_root):
+            response = self.client.get(case_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["is_case_example"])
+        self.assertEqual(
+            response.context["case_preset"]["label"],
+            "Mix Load High Cube Case",
+        )
+        self.assertEqual(response.context["form"]["packing_mode"].value(), "maximum_utilization")
+        self.assertEqual(response.context["form"]["container_l"].value(), 12032)
+        self.assertEqual(response.context["form"]["container_w"].value(), 2352)
+        self.assertEqual(response.context["form"]["container_h"].value(), 2395)
+        self.assertEqual(response.context["form"]["max_weight"].value(), 26500)
+        self.assertEqual(
+            [row["name"] for row in response.context["product_rows"]],
+            ["EUR palletized load", "Product 2", "Product 3"],
+        )
+        self.assertEqual(
+            [row["qty"] for row in response.context["product_rows"]],
+            [20, 100, 100],
+        )
+        self.assertEqual(
+            [
+                (row["length"], row["width"], row["height"])
+                for row in response.context["product_rows"]
+            ],
+            [(1200, 800, 1100), (500, 400, 700), (500, 200, 700)],
+        )
+        self.assertEqual(
+            [row["qty_packed"] for row in response.context["result"]["summary"]["product_rows"]],
+            [20, 100, 100],
+        )
+        self.assertContains(response, "Mix Load High Cube Case loaded")
 
     def test_standalone_space_evenly_serializes_diagnostics(self):
         data = dict(self.analysis_data)

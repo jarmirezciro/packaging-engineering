@@ -1,367 +1,664 @@
-# KolliPack Transport Container Engine — Codex Context
+# KolliPack Transport Container Engine — Space Evenly and Load Front-to-Back V1
 
-## Purpose
-This document is durable context for Codex work on the Transport Container engine. It summarizes the accepted behavior and constraints that have emerged from iterative debugging and design work. Read this before changing `packagingapp/utils/container_tool/engine.py` or transport packing modes.
+## Status and authority
 
-## Current authoritative code
-- Engine: `packagingapp/utils/container_tool/engine.py`
-- Transport service/orchestration: `packagingapp/tools/transport/service.py`
-- Form mode choices: `packagingapp/forms.py` (`ContainerToolForm`)
-- Standalone view: `packagingapp/views/container_tool.py`
-- Transport templates: `packagingapp/templates/container_tool/`
-- Three.js viewer: `static/js/transport_container_threejs_viewer.js`
-- Transport visualization tests: `packagingapp/tests/test_transport_visualization.py`
+This is the technical deep dive for the current Transport Container calculation
+engine and the checked-out repository baseline (August 2026). The authoritative
+implementation is:
 
-Do not use a stored line count or historical copy as evidence of the current implementation. Inspect the checked-out engine and direct tests for exact call graphs and signatures.
+`packagingapp/utils/container_tool/engine.py`
 
-## Authority and status
+The active engine contains two isolated deterministic modes: **Space Evenly
+V1** and **Load Front-to-Back V1**. Space Evenly remains the stabilized
+baseline. Load Front-to-Back is exposed through the existing compatibility
+values `maximum_utilization` and `maximum_utilization_floor_first`; its internal strategy is
+`front_to_back_blocks`. The transport service, forms, views, templates,
+serializers, and tests are supporting consumers and must be checked against
+the engine when behavior changes.
 
-- Sections **Current modes and accepted semantics** and **Global physical invariants** are durable behavioral contracts for the established modes.
-- **Space Evenly mode** documents the implemented homogeneous-block contract.
-- **Maximum Utilization Floor First** documents the isolated floor-priority variant of Maximum Utilization.
-- `docs/domain/transport-selection-logic.md` owns tool/service/consumer contracts and intentionally does not duplicate algorithm details.
-- Handoff/task files may be more specific about one implementation session, but they must not override this document.
+`packagingapp/utils/container_tool/engine_legacy.py` is retained historical code.
+It is not the current algorithm specification and is not imported by the active
+engine. A requested mode other than Space Evenly or the compatibility
+Front-to-Back values returns a graceful unsupported result with no placements.
 
-## Coordinate convention
-- `x = 0`: closed/back wall of the transport container.
-- `x = container length`: doors.
-- `y`: container width.
-- `z = 0`: floor.
-- Backward compaction means decreasing `x`.
-- Forward/door-side compaction means increasing `x`.
+## Load Front-to-Back V1
 
-## Global physical invariants
-Every packing mode must preserve:
-1. No positive-volume overlap.
-2. Every placement inside container L/W/H.
-3. Allowed rotations only (`r1`, `r2`, `r3`).
-4. Payload limit.
-5. Stackability: non-stackable cargo must not support cargo above it.
-6. Full-base support for elevated placements unless a future explicit rule changes this.
-7. Deterministic results for identical inputs.
-8. Quantities and product identity (`row_index`) preserved.
-
-## Current modes and accepted semantics
-
-### 1. Maximum Utilization (`maximum_utilization`)
-Purpose: maximize loaded cargo without an operational accessibility frontier.
-
-Accepted semantics:
-- Product sequence controls processing order only.
-- Later products may use valid floor, side, top, and deep residual geometry.
-- No Sequence Loading transition frontier.
-- No Strict Sequence full-width frontier.
-- Maximum-specific residual merging removes computational boundaries between physically adjacent residual cuboids.
-- Maximum may use a physical-anchor candidate for bounded requests.
-- Maximum must not call the middle/strict sequence compaction or frontier logic.
-
-Known regression case:
-- EUR palletized load: 1200 × 800 × 1100, qty 20, stackable.
-- Product 2: 500 × 400 × 700, qty 100, stackable.
-- The long floor-side residual beside repeated EUR pallet rows must behave as a continuous physical corridor; artificial 1200 mm residual cells must not create repeating 200 mm gaps.
-
-### 2. Maximum Utilization Floor First (`maximum_utilization_floor_first`)
-Purpose: provide a directly comparable Maximum Utilization variant that prefers
-lower floor layers before upper residual spaces.
-
-Accepted semantics:
-- Uses the same allowed rotations, support, stackability, payload, bounds,
-  and deterministic residual rules as the other Maximum paths.
-- For each product row, it first selects one homogeneous integer-grid block
-  from the current real free spaces. The candidate family reuses Space
-  Evenly's pure transverse geometry (`ny × nz`) and orientation math, but the
-  Floor First orchestrator selects the candidate by physical `width × height`
-  coverage and back-to-front placement order.
-- The selected block is subtracted from the real free-space geometry. Any
-  remaining units of that product are then packed beside/above that block and
-  into other available side spaces using `x` strip, then upward `z` layer,
-  then width `y` row order. Residuals are not moved to a single final door
-  zone.
-- At each non-final fragmented main-block boundary, Floor First keeps the
-  existing continuation as an incumbent and evaluates a bounded two-product
-  reflow. It tests up to three suffix windows of the current product, the main
-  orientation plus one alternate orientation, and four residual traversals:
-  row-first top-left/right and column-first bottom-to-top/top-to-bottom. For
-  each candidate it previews the next product's first supported block so the
-  score describes the shared frontier. Candidates are ranked by quantity,
-  frontier X-step reduction, transverse coverage, usable void/discontinuity,
-  and resulting X footprint. Exact ties keep the incumbent. This is local
-  per product row, not global orientation backtracking or a Cartesian search;
-  all placements still require gravity and support.
-- When that boundary search selects a non-default traversal for a reflowed
-  suffix, the selected traversal is passed once to the immediately following
-  product's residual continuation. This keeps the next large product's
-  homogeneous continuation coherent with the shared frontier; later product
-  boundaries may select a new policy independently.
-- It has no operational sequence frontier and no strict or accessible sequence
-  compaction.
-- It does not call Space Evenly's main-block orchestration or door-side
-  residual pass. Space Evenly remains an independent mode.
-- The existing `maximum_utilization` path keeps its original best-fit scoring.
-  It is used only as a capacity guardrail: a floor-first candidate wins when
-  capacity is tied, so this mode does not silently reproduce Maximum geometry.
-
-The floor-first policy is a layout preference, not a global-utilization proof.
-It may produce a different geometry while preserving the same feasible quantity
-and physical invariants.
-
-Floor First continuation search remains bounded at three homogeneous
-continuation candidates for the main orientation plus three for one alternate
-orientation per product boundary. The local reflow adds at most
-`3 × 2 × 4 = 24` suffix/traversal candidates at a fragmented boundary and
-previews only a bounded next-product window; it never branches future product
-rows. On the reported 12039 x 2362 x 2692 mm / 1228-unit case, the P2/P1
-frontier evaluates 24 candidates, rotates the three-unit P2 suffix to reduce
-the frontier X step, and all 1228 units remain loaded.
-
-### 3. Sequence Loading / Accessible Sequence (`accessible_sequence_loading`)
-Purpose: operational sequence loading while allowing controlled use of door-accessible residuals in the previous transition band.
-
-Accepted semantics:
-- Back-to-front progression.
-- Horizontal floor/layer planning.
-- Later rows may enter only supported, door-visible residuals in the previous sequence transition band plus the forward floor region.
-- Deep inaccessible pockets remain closed.
-- Hierarchical backward compaction is allowed here.
-- Forward side-gap compaction is allowed here and runs after backward compaction so the backward pass does not undo intentional forward joining.
-- This mode is allowed to reuse selected side residuals; that is a defining difference from Strict Sequence.
-
-Regression family used during development:
-- EUR palletized load cases with quantities 21, 23, 25, 27, 29 were repeatedly used as coordinate/regression guards.
-
-### 4. Strict Sequence Loading (`sequence_loading` legacy engine value; UI label “Strict sequence loading”)
-Purpose: strict operational zones separated by full-width frontiers.
-
-Accepted semantics:
-- After each product row, create a full-width frontier at that row’s `zone_end`.
-- The frontier is **per product row**, not per distinct numeric sequence value. Two rows with the same sequence value remain two strict zones; sequence determines processing order, not row coalescing.
-- The next row starts at or in front of that frontier across the full width.
-- Do not reuse side residuals behind the frontier.
-- Do not reuse top residuals behind the frontier.
-- Do not reuse deep residuals behind the frontier.
-- Forward side-gap compaction is not part of Strict mode because there should be no accepted side-gap placements from the preceding row.
-
-Critical regression case:
-- EUR palletized load: 1200 × 800 × 1100, qty 20, stackable, sequence 1.
-- Product 2: 500 × 200 × 700, qty 100, stackable, sequence 1.
-- In Strict Sequence, Product 2 must have zero placements beside Product 1. Its minimum x must be >= Product 1 full-width frontier.
-
-### 5. Space Evenly (`space_evenly`)
-Purpose: create a fast, explainable load plan with one complete homogeneous main
-block per product followed by one greedy mixed leftover pass at the doors.
-
-Accepted semantics:
-- Space Evenly has an independent dispatch and construction path.
-- Sequence controls product-row processing priority only; it creates no
-  operational frontier or transition band.
-- Each product has at most one homogeneous integer-grid main block using one
-  allowed orientation.
-- Main blocks are contiguous along `x` from the back wall and do not interleave
-  or use another product's side/top gaps.
-- Main-block selection is sequential and deterministic. It chooses at most one
-  candidate for each product after reserving a cheap lower-bound length for
-  later rows; it does not build a beam or Cartesian product.
-- Residual units are packed only at `x >= residual_zone_start`, where
-  `residual_zone_start` is the end of the final main block.
-- All main blocks are completed before any leftovers are calculated.
-- The leftover phase calls the existing greedy helper exactly once on a local
-  full-width/full-height sub-container from `residual_zone_start` to the doors.
-- Space Evenly does not perform artificial-ceiling or effective-height search;
-  `space_evenly_effective_height` reports the actual container height for
-  compatibility with existing consumers.
-- Homogeneous blocks and residual units are materialized as ordinary
-  `Placement` objects.
-- Standard summary, Three.js, report, standalone, and Packaging Flow consumers
-  continue to use ordinary placements.
-
-## Important architecture lessons from previous iterations
-1. Do not infer behavior from mode names; trace the exact call graph.
-2. Residual-space partitions are computational, not physical. Maximum Utilization must not let artificial split planes reject a physically feasible placement.
-3. Connected-component count is not sufficient to judge layout coherence; a connected arrangement may still contain visually fragmented orientation parcels.
-4. Compaction must never substitute for correct space-generation semantics. Example: Strict Sequence should prevent side residual placement in the first place rather than trying to compact it afterward.
-5. Never fix one mode by editing shared helpers unless the effect on the other modes is explicitly tested.
-6. Prefer mode-specific wrappers/helpers when behavior differs.
-
-## Direct engine regression baseline
-
-The dedicated baseline is:
-
-`packagingapp/tests/test_transport_container_engine.py`
-
-It calls `pack_container()` directly and is independent of Three.js, HTML,
-reports, and Packaging Flow. Reusable assertions cover bounds, allowed
-orientations, positive-volume overlap, full-base support, stackability,
-quantity accounting, payload, and determinism.
-
-Canonical fixture settings used by the baseline:
-
-- Internal transport dimensions: 12032 × 2352 × 2395 mm (the current
-  repository SEO example transport unit).
-- Maximum payload: 26500 kg.
-- Unless stated otherwise: sequence 1, stackable, R1 enabled, R2/R3 disabled.
-  R1 permits the two current floor rotations.
-- EUR palletized load: 1200 × 800 × 1100 mm, 900 kg each.
-
-Accepted observable regression results:
-
-- **Maximum residual continuity:** 20 EUR loads plus 100 units of
-  500 × 400 × 700 mm all pack; Maximum exposes no sequence zones/frontier and
-  the protected Product 2 floor run contains no artificial periodic gap.
-- **Strict per-row frontier:** with Product 2 changed to 500 × 200 × 700 mm,
-  both rows still use numeric sequence 1, but the second row begins at the
-  first row's full-width frontier (`x = 4800 mm` in this fixture).
-- **Accessible Sequence:** the same 500 × 200 × 700 mm fixture uses supported
-  transition residuals behind the Strict frontier and records both backward
-  and forward compaction. It must not fall back to Strict for this case.
-- **Accessible quantity family:** EUR quantities 21, 23, 25, 27, and 29,
-  followed by 100 units of 500 × 400 × 700 mm, all reproduce accessible
-  transition-residual use without moving behind the documented transition
-  band. The harness deliberately protects geometry/invariants instead of
-  inventing historical coordinates that were not fully documented.
-
-Run it with:
-
-```powershell
-python manage.py test packagingapp.tests.test_transport_container_engine
-```
-
-An optional non-asserting timing helper is available at
-`packagingapp/tests/benchmark_transport_container_engine.py`:
-
-```powershell
-python -m packagingapp.tests.benchmark_transport_container_engine
-python -m packagingapp.tests.benchmark_transport_container_engine --space-only
-python -m packagingapp.tests.benchmark_transport_container_engine --all-modes
-```
-
-## Engine evolution direction
-The preferred long-term direction is a structured construction engine rather than pure item-by-item greedy packing:
-1. Generate homogeneous cuboid blocks from products/orientations.
-2. Place large useful blocks into physical free space.
-3. Use smaller blocks and/or physical-anchor greedy logic for residual quantities.
-4. Run safe mode-specific compaction/regularization.
-5. Validate support, stackability, overlap, bounds, payload.
-
-Do not attempt a wholesale refactor and a new algorithm in the same change unless explicitly requested. Preserve current production behavior behind existing mode dispatch.
-
-## Space Evenly implementation
-Mode name: `space_evenly`.
-
-High-level intent:
-- Keep every product together in one regular main cuboid where possible.
-- Arrange main blocks sequentially from the back wall toward the doors.
-- Put leftover units from all products in one mixed door-side residual zone.
-- Prefer regular, lower main blocks over fragmented high-utilization mosaics.
-- This mode is independent of Strict and Accessible Sequence frontiers.
-- Sequence controls processing priority only unless a future task explicitly changes that rule.
-
-### Space Evenly objective hierarchy
-1. Maximize the complete cuboid's transverse `ny × nz` utilization.
-2. Within that transverse choice, maximize complete quantity/volume.
-3. Reserve enough length for later product rows.
-4. Preserve sequence priority, payload, rotations, support, stackability,
-   bounds, collision rules, quantity identity, and deterministic output.
-
-### Target quantities
-- Product rows retain the existing sequence-priority ordering.
-- The analytic target is bounded by requested quantity, payload, remaining
-  container volume, and the product's best single-product orientation grid.
-- This is not a preliminary complete packing run.
-- If the bounded architecture cannot realize all target quantities, the best
-  retained valid state is returned and unplaced quantities are reported.
-
-### Main-block candidate generation
-- A candidate is one homogeneous cuboid grid `nx × ny × nz` for one product
-  and one orientation returned by `allowed_orientations(...)`.
-- Width/height counts are sampled around `1`, maximum, maximum minus one,
-  one-half maximum, and three-quarters maximum.
-- `nx` is derived analytically from target quantity and a small set of
-  quantity/length fractions; there is no complete `nx` loop.
-- Non-stackable products use `nz = 1`.
-- Candidates are deduplicated, ranked by transverse utilization before complete
-  quantity, and capped at:
+Load Front-to-Back reuses the Space Evenly normalizer, product ordering,
+R1/R2/R3 orientation families, Product Block candidate generation and ranking,
+block materialization, payload checks, and placement structures. Its distinct
+orchestration is:
 
 ```text
-SPACE_EVENLY_CANDIDATES_PER_PRODUCT = 12
+complete Product Block
+→ current-product residual in one local row-first frontier
+→ immediate next-product fill in unused frontier capacity
+→ close frontier
+→ next product's complete Product Block
 ```
 
-### Main-block selection
-- Products are processed in the existing sequence-priority order.
-- For each row, candidates that exceed the remaining length or the cheap
-  later-product volume reservation are rejected.
-- The largest remaining complete cuboid is selected once, then the x frontier
-  is advanced contiguously.
+The V1 frontier is bounded to the current product's transition slice. It is
+populated Y → Z → X, accepts only full-support upper placements, and is never
+reopened by later products. There is no global residual-at-the-end phase, no
+free-space tree, no compaction, and no legacy solver import. All products are
+forced to sequence `1` and use the same deterministic size ordering as Space
+Evenly.
 
-### Main-block placement
-- Selected blocks are placed contiguously from `x = 0`.
-- Blocks use the deterministic `y = 0` lateral convention.
-- Every product has at most one main block.
-- Main blocks never use another product's side/top/deep residual geometry.
+## What Space Evenly is
 
-### Residual fill
-- `residual_zone_start` is the maximum main-block `x_end`.
-- Only target leftovers enter the local greedy pass; payload remaining after
-  the main blocks is transferred to that sub-container.
-- Local coordinates start at `x = 0` and are translated by
-  `residual_zone_start`, so no leftover can return behind the frontier.
-- The existing greedy helper validates bounds, collision, support, stackability,
-  rotations, payload, and quantity identity. Maximum Utilization's own call
-  path and result are unchanged.
+Space Evenly is a deterministic, explainable, block-based heuristic for
+rectangular transport loads. It is intended to create a structured candidate
+layout for several rectangular load-unit types, particularly when quantities
+are large enough to form repeated blocks. It is not a mathematical optimizer
+and does not claim global optimality.
 
-### Diagnostics and current limitations
-JSON-safe result metadata includes main block summaries/count/units,
-`main_blocks_end_x`, residual-zone start and residual counts,
-effective/actual/theoretical height, target counts/volume/units, retained block
-candidate count, and the one greedy residual evaluation count.
+Its defining vocabulary is:
 
-This is a deterministic bounded heuristic, not a proof of global utilization.
-The one-main-block-per-product rule deliberately rejects interleaving, multiple
-main blocks for one product, and use of side/top gaps behind the residual
-frontier. A physically feasible irregular mosaic can therefore load more units
-than Space Evenly. The engine reports unplaced quantities rather than expanding
-into an exhaustive fallback search.
+- structured candidate;
+- deterministic;
+- block based;
+- support aware;
+- width conscious;
+- explainable.
 
-Indicative local timings on the canonical 12032 × 2352 × 2395 mm fixture
-(August 2026; diagnostic only, no CI threshold):
+The concise definition is:
 
-- 1 product / 100 units: 0.006 s; 12 candidates; one greedy pass.
-- 2 products / 120 units: 0.011 s; 24 candidates; one greedy pass.
-- 3 products / 170 units: 0.020 s; 36 candidates; one greedy pass.
-- 4 products / 200 units: 0.030 s; 48 candidates; one greedy pass; all 200
-  units loaded.
-- Reported 12039 × 2362 × 2692 mm case / 1228 units: approximately 0.13 s;
-  48 candidates; 1180 main-block units and 48 leftovers sent to the greedy
-  pass; all 1228 units loaded.
+> **Space Evenly is a deterministic two-phase transport-loading heuristic that first converts large product quantities into YZ-optimized regular blocks and then packs residual quantities using width-optimized, support-aware rows and surfaces, following a Y → Z → X filling philosophy.**
 
-Wall-clock timings vary by machine. Candidate counts are exposed for durable
-bounded-search diagnostics.
+## Coordinate system and loading philosophy
 
-## Performance principles
-- Avoid millimetre scanning.
-- Avoid exhaustive permutations of all items.
-- Bound candidate generation at 12 complete cuboids per product row.
-- Keep Space Evenly to N sequential selections plus one residual greedy pass.
-- Keep automatic max-quantity behavior in mind: transport service may call `pack_container()` repeatedly during binary search.
-- Benchmark representative 1-product, 2-product, and 3-product cases.
+The engine uses the transport unit's internal usable dimensions:
 
-## Mode isolation rule
-Space Evenly preserves these isolation rules:
-- Existing Maximum Utilization coordinates/quantities must remain unchanged for regression fixtures.
-- Maximum Utilization Floor First remains an isolated comparison path and must not change the existing Maximum Utilization path.
-- Existing Accessible Sequence coordinates/quantities must remain unchanged for regression fixtures.
-- Existing Strict Sequence coordinates/quantities must remain unchanged for regression fixtures.
-- Do not repurpose existing mode names.
-- Add an explicit dispatch branch rather than changing existing mode semantics.
+```text
+x = transport-unit length (back wall toward the doors)
+y = transport-unit width
+z = transport-unit height (floor upward)
+```
 
-Future second iteration only: compare deterministic left-to-right and
-right-to-left lateral construction. No lateral-direction search is part of the
-current mode.
+The construction philosophy is:
 
-## Definition of done for algorithm changes
-1. Focused direct engine tests added.
-2. Existing relevant Django tests pass.
-3. New algorithm has deterministic output.
-4. No overlap, bounds, support, stackability, or payload violations.
-5. Representative benchmark recorded before/after.
-6. Diff reviewed specifically for cross-mode changes.
-7. User-facing mode text accurately describes behavior; do not claim equivalence to proprietary TOPS internals.
+```text
+Y → Z → X
+```
+
+1. Fill or optimize the current width row.
+2. Use the support surfaces generated by that row for the next vertical pass.
+3. Advance the longitudinal frontier when the current residual band cannot
+   accept useful cargo.
+
+This is a construction order, not arbitrary traversal of individual items. It
+does not mean that every placement is globally searched in Y, then Z, then X.
+
+## Physical invariants
+
+The active construction must preserve these result-level invariants:
+
+1. positive-volume placements do not overlap;
+2. every placement is within container length, width, and height;
+3. only enabled orthogonal rotations are used;
+4. a positive maximum payload is not exceeded;
+5. a non-stackable load unit does not support another unit;
+6. elevated units have a full rectangular base on an accepted support surface;
+7. identical normalized inputs produce deterministic results;
+8. requested quantities and `row_index` product identity remain traceable.
+
+These are geometry and operational rules. The engine does not model cargo
+securing, structural strength, friction, or legal transport compliance.
+
+## Inputs and orientation families
+
+Products are normalized with dimensions, quantity, unit weight, stackability,
+row identity, and enabled rotation families. Container dimensions are normalized
+as `L`, `W`, and `H`, with optional `max_weight` and `tare_weight`.
+
+The application uses the R1/R2/R3 terminology already shown in the form. Each
+enabled family contributes axis-aligned permutations in stable order:
+
+| Family | Generated `(length, width, height)` permutations |
+|---|---|
+| R1 | `(L, W, H)`, `(W, L, H)` |
+| R2 | `(L, H, W)`, `(H, L, W)` |
+| R3 | `(W, H, L)`, `(H, W, L)` |
+
+Duplicate tuples are removed. These flags are hard constraints: a disabled
+family cannot appear in a placement. No diagonal or arbitrary-angle placement
+is generated.
+
+## Space Evenly sequence semantics and product order
+
+Space Evenly deliberately has one common loading group:
+
+```text
+all products are normalized to sequence = 1
+```
+
+The service sets each Space Evenly row to sequence `1` before validation, the
+template renders the field as read-only in that mode, and the engine enforces
+the same rule again before normalization. A stale posted sequence value cannot
+change Space Evenly allocation.
+
+The engine still retains a sequence key internally because the shared result
+contract supports other historical mode values. For the active Space Evenly and
+Load Front-to-Back paths, all rows therefore share the same sequence and the
+effective deterministic product order is:
+
+1. larger valid footprint among enabled orientations that fit the container;
+2. larger unit volume;
+3. larger longest dimension;
+4. original input order.
+
+This is automatic ordering, not a user loading sequence. It primarily determines
+the order of Phase 1 Product Blocks and supplies stable tie-break context in
+residual selection.
+
+## Two-phase architecture
+
+```text
+SPACE EVENLY V1
+      |
+      +-- PHASE 1 — REGULAR PRODUCT BLOCKS
+      |
+      +-- complete frontier
+      |
+      +-- PHASE 2 — SUPPORT-AWARE RESIDUAL GREEDY
+```
+
+The global ordering is important:
+
+```text
+ALL PRODUCTS — complete regular blocks first
+then
+ALL PRODUCT RESIDUALS — one common Space Evenly residual group
+```
+
+The engine does not load a product's residual immediately after that product's
+regular block. Residual quantities are collected for every product after Phase
+1, then Phase 2 starts at the complete-block frontier.
+
+## Phase 1 — Product Blocks
+
+### Product Block definition
+
+> **Product Block:** a regular cuboidal loading module for one SKU, constructed
+> by optimizing its transverse Y × Z geometry and repeating that module along X.
+
+A Product Block:
+
+- contains one SKU;
+- uses one orientation or at most two enabled orientations of that SKU;
+- is regular and explainable;
+- has a flat longitudinal frontier;
+- may contain mixed orientation lanes when their geometry can be synchronized.
+
+Mixed orientation is not inherently undesirable. The block remains a regular
+module as long as its lanes share compatible height and a common X depth.
+
+### Transverse pattern and capacity
+
+The **transverse pattern** is the arrangement in the container's Y × Z plane
+before the module is repeated along X. For one orientation `(d, w, h)`:
+
+```text
+ny = floor(container_width  / w)
+nz = floor(container_height / h)
+```
+
+For a non-stackable product the regular block caps `nz` at `1`.
+
+```text
+occupied_width  = ny × w
+occupied_height = nz × h
+
+YZ utilization =
+    occupied_width × occupied_height
+    ---------------------------------
+    container_width × container_height
+```
+
+The transverse capacity is `ny × nz`. A module's `module_capacity` also
+includes X repetitions when a synchronized mixed block needs more than one
+copy of an orientation along its common depth.
+
+Example transverse sketch:
+
+```text
+z ↑
+A A A
+A A A
+A A A  → y
+```
+
+### Mixed orientation and synchronized depth
+
+The candidate generator tests pairs of enabled orientations from the same SKU.
+The pair is eligible only when:
+
+- both orientations have compatible heights;
+- both fit the transverse container geometry;
+- their X depths can share an exact integer common depth.
+
+For orientation depths `dA` and `dB`, the engine finds integer repetitions:
+
+```text
+rA × dA = rB × dB
+```
+
+The resulting common value is the **synchronized depth**. Lane groups then end
+on one flat X frontier instead of leaving one orientation group shorter than
+the other.
+
+```text
+AAAA | BBB
+AAAA | BBB
+```
+
+The pair's lane counts and repetition counts determine its occupied width,
+transverse capacity, module capacity, and common depth. Non-stackable products
+still use only one vertical layer (`nz <= 1`) in a mixed block.
+
+### Quantity-independent candidate geometry
+
+Candidate geometry is generated from product/container geometry and the current
+remaining length. It is not designed around the requested quantity. Quantity
+controls whether a candidate is eligible:
+
+```text
+module_capacity <= payload-feasible quantity
+module_depth    <= remaining container length
+```
+
+This separation keeps the geometry structurally consistent across quantity
+scenarios while allowing a small request to defer to residual handling.
+
+### Candidate ranking
+
+After invalid candidates are removed, the staged ranking is:
+
+1. maximize YZ utilization;
+2. retain candidates within the YZ utilization equivalence tolerance;
+3. maximize transverse capacity;
+4. minimize synchronized/module X depth;
+5. prefer one orientation when geometrically equivalent;
+6. apply the stable orientation/lane/repetition tie-break.
+
+The code constant is:
+
+```text
+YZ_UTILIZATION_EQ_TOL = 0.0025
+```
+
+This is an **absolute normalized-utilization fraction**, equal to 0.25
+percentage points. It is a ranking-equivalence tolerance, not a physical-fit
+tolerance.
+
+### Complete repetition and residual definition
+
+For a selected candidate:
+
+```text
+complete_blocks = min(
+    floor(payload_feasible_quantity / module_capacity),
+    floor(remaining_length / module_depth)
+)
+```
+
+All complete modules are materialized contiguously from the current X frontier.
+Phase 1 does not greedily fill partial module gaps. The deferred quantity is:
+
+```text
+residual_qty = requested_qty - regular_qty
+```
+
+Residuals for all products are collected before Phase 2. If payload prevents a
+positive-weight unit from being loaded, it remains unplaced even when geometric
+space is still visible.
+
+## Phase 2 — support-aware residual greedy
+
+### Residual X Band
+
+> **Residual X Band:** one longitudinal residual loading section beginning at
+> the current frontier and using the selected foundation orientation's X
+> dimension as its band depth.
+
+Each band starts with a floor foundation row at `z = 0`, filling the available
+width first. The foundation orientation's X dimension defines the band depth.
+The band is not a generic free-space tree and is not a search for arbitrary
+side/front/top cuboids.
+
+### Foundation selection
+
+Foundation candidates are evaluated against:
+
+- remaining product quantity;
+- enabled orientation;
+- available X length;
+- container width and height;
+- payload availability;
+- the support surface created by the foundation row;
+- local support potential after the row is removed.
+
+Foundation **SKU selection** is support-aware before orientation/width
+optimization. The engine first compares each SKU's best local support potential,
+then uses deterministic product order and orientation/width criteria to choose
+the foundation candidate. It is not simply “choose the row that fills the most
+floor width.”
+
+### Support Potential
+
+> **Support Potential:** the local count of remaining product types for which at
+> least one enabled orientation fits a candidate support surface, subject to
+> stackability and container height.
+
+The measure is intentionally local. It is not recursive global optimization, a
+graph solver, compressive-strength analysis, or a model of material mechanics.
+
+### SupportSurface
+
+> **SupportSurface:** a rectangular coplanar top region created by one
+> contiguous homogeneous run of load units and used as the parent region for
+> potential upper rows.
+
+The runtime record contains:
+
+```text
+surface index
+x, y, top z
+length, width
+product / row identity
+orientation index
+source placement count
+stackable
+```
+
+The surface `z` is its top elevation. A surface belongs to one SKU, one
+orientation, one top plane, and one contiguous run. Different SKUs or
+orientations remain separate surfaces; arbitrary unions with gaps are not
+represented as one support surface.
+
+Several adjacent lower units can form one continuous rectangular support region
+for a child row. A child therefore does not need to fit on one individual lower
+unit when the combined surface is continuous:
+
+```text
+       BBBBBBB
+┌──────┬──────┬──────┐
+│  A   │  A   │  A   │
+└──────┴──────┴──────┘
+```
+
+Seams between contiguous supporters are acceptable. Unsupported gaps are not
+silently bridged, and the engine does not calculate a partial-support
+percentage.
+
+### Stackability and surface compatibility
+
+If `support_surface.product.stackable == False`, the surface cannot receive an
+upper row. Stackability is a Boolean geometric/operational rule, not a
+structural load model. The engine does not calculate compression strength,
+maximum top load, pallet bending, crushing, or material mechanics.
+
+An upper orientation must satisfy the equivalent of:
+
+```text
+surface.stackable == True
+upper_x <= surface.length
+upper_y <= surface.width
+surface.top_z + upper_height <= container_height
+```
+
+Quantity and payload feasibility are checked at the same decision point.
+
+### Width-optimized upper rows
+
+For an upper row, available width is the parent SupportSurface width. The
+foundation uses the full container width. Width utilization is:
+
+```text
+width utilization = occupied row width / available support width
+```
+
+The residual row planner constructs max-fill single-orientation plans and a
+bounded set of two-orientation plans for the **same selected SKU**:
+
+```text
+n1 × w1 + n2 × w2 <= available_width
+```
+
+This is a small one-dimensional width search, not generic bin packing. The
+ranking is:
+
+1. maximum width utilization;
+2. maximum row quantity;
+3. fewer orientation runs when equivalent;
+4. greater support potential;
+5. smaller maximum X depth when equivalent;
+6. stable orientation/count tie-break.
+
+The code constant is:
+
+```text
+RESIDUAL_WIDTH_UTILIZATION_EQ_TOL = 0.001
+```
+
+This is an absolute ranking-equivalence fraction (0.1 percentage points), not
+a physical tolerance.
+
+### Current-product and pattern continuity
+
+**Current-product continuity** means that once a residual SKU is being loaded,
+the engine prefers to continue that SKU while it remains feasible. This is a
+residual-row preference and is separate from the Phase 1 product order.
+
+**Pattern continuity** applies when the same SKU continues on top of its own
+SupportSurface. The engine first attempts to repeat the parent surface's
+orientation and run pattern, including a partial final row, before invoking the
+general width optimizer:
+
+```text
+same SKU continues on its own surface?
+        |
+        +-- parent orientation feasible -> repeat it
+        |
+        +-- otherwise ------------------> general optimizer
+```
+
+The intended effect is a stable vertical pattern:
+
+```text
+AAAAA
+AAAAA
+AAA
+```
+
+rather than an unnecessary rotation of the same SKU in the terminal row. A
+terminal row selected by the general optimizer may be preferred when its new
+surface leaves local support potential for another remaining SKU, but feasible
+same-SKU parent-pattern continuation takes precedence.
+
+### Breadth-first residual passes
+
+SupportSurfaces are processed in passes. Within each pass they are ordered by
+Y, then X, then surface index. Children produced by that pass form the next
+active pass:
+
+```text
+PASS 1 — foundation surfaces across Y
+PASS 2 — child surfaces across Y
+PASS 3 — next child surfaces across Y
+```
+
+This is breadth-first. It prevents one support column from being built to the
+ceiling before neighboring Y regions receive their opportunity to continue.
+
+### Frontier progression and intentional simplifications
+
+When a residual band ends:
+
+```text
+frontier = band_x + foundation_orientation_x
+```
+
+The next band starts at that new longitudinal frontier. If the foundation does
+not fill the full container width, Space Evenly V1 does **not** launch a generic
+search for another SKU in the unused floor strip. It uses the established
+foundation surface upward and then advances X.
+
+The active residual loop retains sequence-group scaffolding for the shared
+result contract, but Space Evenly has only the common sequence `1`; it does not
+create user-controlled sequence zones.
+
+### Collision avoidance philosophy
+
+Space Evenly V1 avoids most runtime collision search by constructing geometry
+through block and parent-surface invariants:
+
+- Phase 1 uses known regular block coordinates.
+- Phase 2 keeps children inside compatible, non-overlapping parent surfaces.
+- Bounds, support, stackability, payload, and overlap are result invariants
+  validated by the engine regression harness and consumer checks.
+
+Collision helpers may exist elsewhere in the application, but all-pairs free
+space splitting is not the active Space Evenly placement strategy.
+
+## Payload behavior
+
+When a positive maximum payload is configured, the engine tracks loaded cargo
+weight and bounds additional positive-weight units by:
+
+```text
+remaining_payload = max_payload - loaded_weight
+```
+
+For a positive-weight SKU, the payload-feasible quantity is limited by the
+remaining payload divided by unit weight. With no positive payload limit, or
+with zero unit weight, geometry and quantity determine the available count.
+Geometry can remain available after payload capacity is exhausted; the result
+then reports unplaced units and the payload reason.
+
+The transport summary separately reports cargo weight, optional tare, gross
+weight (`tare + cargo` when tare is supplied), and payload utilization.
+
+## Determinism and bounded work
+
+Identical normalized inputs should produce the same product order, Product
+Blocks, residual bands, SupportSurfaces, and placements. Stable orientation
+order, row identity, input order, and explicit tie-break keys make results
+reproducible for tests, engineering review, PDF/report output, and scenario
+comparison.
+
+The search is bounded by geometry and quantity feasibility. It does not perform
+a beam search, global combinatorial search, arbitrary lateral-direction search,
+or a generic item permutation search. Diagnostics expose candidate counts so
+performance changes can be reviewed without treating timing as a correctness
+threshold.
+
+## Technical diagnostics
+
+The active result keeps JSON-safe `space_evenly_*` metadata. The most useful
+fields are:
+
+| Diagnostic | Meaning |
+|---|---|
+| `space_evenly_product_order` | normalized product order and common sequence |
+| `space_evenly_product_blocks` | per-product requested, regular, residual, and selected-block summaries |
+| `space_evenly_main_blocks` | materialized complete Product Block summaries |
+| `space_evenly_main_blocks_end_x` | complete-block frontier |
+| `space_evenly_residual_bands` | residual foundations, upper rows, surfaces, and quantities |
+| `space_evenly_support_surface_count` | total surfaces created in residual bands |
+| `space_evenly_support_checks` | surface/orientation compatibility checks |
+| `space_evenly_support_relationship_count` | compatible support relationships found |
+| `space_evenly_residual_units` | all residual units sent to Phase 2 |
+| `space_evenly_residual_packed_units` | residual units placed |
+| `space_evenly_block_candidates_generated` | generated Phase 1 candidates |
+| `space_evenly_block_candidates_evaluated` | Phase 1 candidates evaluated |
+| `space_evenly_residual_candidates_evaluated` | Phase 2 candidates evaluated |
+| `space_evenly_x_used` | final occupied longitudinal frontier |
+
+The result also retains compatibility aliases such as
+`space_evenly_residual_miniblocks`, target counts, packed volume, actual height,
+and zero beam-state counts. These aliases are output compatibility metadata;
+they do not imply a legacy mini-block or beam algorithm is active.
+
+## Intended operating profile
+
+The architecture is particularly suited to several rectangular load-unit types
+with moderate or relatively large quantities. Complete Product Blocks handle a
+large share of the request, leaving the bounded residual phase to resolve
+leftovers. Small quantities are supported, but they tend to produce fewer
+complete blocks and delegate a larger share of the load to the heuristic
+residual phase. The result remains a candidate layout, not a proof of the best
+possible packing.
+
+## Limitations
+
+Space Evenly V1 does not prove or calculate:
+
+- global mathematical optimum;
+- cargo securing, lashing, or dunnage design;
+- structural compression strength or crushing limits;
+- axle loads or center-of-gravity compliance;
+- forklift accessibility or an exact loading path through doors;
+- friction, dynamic stability, or route vibration;
+- regulatory or dangerous-goods compliance;
+- refrigeration airflow or thermal constraints;
+- irregular, deformable, or non-rectangular geometry;
+- diagonal or arbitrary-angle placement.
+
+Internal dimensions must be usable loading dimensions. Door aperture, handling
+clearance, practical loading/unloading order, and legal transport checks remain
+engineering responsibilities outside this geometric candidate solver.
+
+## Validation recommendations
+
+Direct engine regression should check, at minimum:
+
+- deterministic repeated geometry;
+- bounds and enabled orientations;
+- positive-volume non-overlap;
+- full-base support for elevated units;
+- non-stackable support rejection;
+- quantity accounting and unplaced reasons;
+- payload-limited cases;
+- sequence forcing to one for Space Evenly;
+- regular-before-residual phase order;
+- synchronized mixed-block flat frontiers;
+- combined contiguous support surfaces;
+- parent-pattern continuation;
+- breadth-first residual pass order;
+- frontier advancement without floor side-gap filler;
+- JSON-safe diagnostics and standalone/Packaging Flow parity.
+
+The engine is the source of truth for any discrepancy. Historical handoffs and
+older mode descriptions must be treated as context, not as evidence against
+the active implementation.
+
+## Historical mode note
+
+Maximum Utilization, Maximum Utilization Floor First, Sequence Loading, and
+Strict Sequence Loading remain recognizable UI/configuration values and may be
+referenced by older regression material. Their former algorithm descriptions
+are historical compatibility context, not active behavior in the current
+`engine.py`. The former generic sequence-loading algorithms remain historical
+compatibility context and are not imported by the current engine. The
+`maximum_utilization` and `maximum_utilization_floor_first` values now route to
+Load Front-to-Back V1; other historical values return an explicit
+unsupported-mode result.
+
+## Glossary
+
+| Term | Definition |
+|---|---|
+| Space Evenly | The stabilized structured transport-loading heuristic. |
+| Load Front-to-Back | A block-and-local-frontier heuristic exposed through `maximum_utilization` and `maximum_utilization_floor_first`. |
+| Product Block | A regular one-SKU module repeated longitudinally. |
+| Transverse Pattern | The Y × Z arrangement defining a Product Block. |
+| Module Capacity | Units in one complete longitudinal Product Block module. |
+| Transverse Capacity | Units represented in the Y × Z cross-section before X repetitions. |
+| Synchronized Depth | Common X depth satisfying `rA × dA = rB × dB` for mixed lanes. |
+| Residual Quantity | Requested units remaining after complete regular blocks. |
+| Residual X Band | One longitudinal section used by the residual support-aware phase. |
+| SupportSurface | A rectangular top region from a contiguous homogeneous run that can support upper cargo. |
+| Support Potential | Remaining product types locally compatible with a candidate SupportSurface. |
+| Width Utilization | Fraction of available Y width occupied by a residual row. |
+| Pattern Continuity | Preference for repeating an established parent orientation for a continuing SKU. |
+| Frontier | Current X coordinate after the completed regular or residual region. |

@@ -424,6 +424,8 @@ def run_transport_analysis(container, products, media_root=None):
 def _prepare_transport_analysis(cfg, raw_rows, selected_material=None):
     """Validate and normalize authoritative transport calculation inputs."""
     safe_rows = sanitize_transport_rows_for_session(raw_rows or default_product_rows())
+    if str(cfg.get("packing_mode") or "") == "space_evenly":
+        safe_rows = [{**row, "sequence": 1} for row in safe_rows]
     products, row_errors = validate_transport_rows(safe_rows)
     container, container_errors = build_container_from_config(cfg, selected_material)
 
@@ -479,6 +481,7 @@ def analyze_transport_capacity(cfg, raw_rows, selected_material=None):
                 key: value
                 for key, value in pack_result.items()
                 if key.startswith("space_evenly_")
+                or key.startswith("front_to_back_")
                 or key.startswith("floor_first_")
             },
         },

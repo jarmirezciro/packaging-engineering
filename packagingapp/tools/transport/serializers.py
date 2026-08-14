@@ -183,6 +183,7 @@ def serialize_transport_result(result, threejs_scene=None):
         key: value
         for key, value in result.items()
         if key.startswith("space_evenly_")
+        or key.startswith("front_to_back_")
         or key.startswith("floor_first_")
     })
     return serialized

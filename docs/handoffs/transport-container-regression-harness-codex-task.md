@@ -1,8 +1,17 @@
-# Codex Task — Transport Container baseline regression harness
+# Historical handoff — Transport Container baseline regression harness
+
+> This handoff describes an earlier multi-mode regression baseline. It is kept
+> for historical context and must not be read as proof that the legacy modes
+> are active in the current `packagingapp/utils/container_tool/engine.py`.
+> The current active solver is Space Evenly V1; see
+> `docs/domain/transport-container-engine.md` for the current contract.
 
 ## Goal
 
-Create durable direct engine regression coverage for the current accepted Transport Container behavior **without changing any packing algorithm or customer-visible behavior**.
+Create durable direct engine regression coverage for the then-current accepted
+Transport Container behavior **without changing any packing algorithm or
+customer-visible behavior**. This historical brief predates the active
+Space Evenly V1-only dispatch.
 
 ## Required reading
 

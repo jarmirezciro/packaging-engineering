@@ -1,4 +1,11 @@
-# Transport Container — Space Evenly V3 Handoff
+# Historical handoff — Transport Container Space Evenly V3 (superseded)
+
+> This execution handoff is retained for historical context. It is **not** the
+> current algorithm contract. The active implementation is Space Evenly V1 as
+> documented in `docs/domain/transport-container-engine.md`. In particular,
+> the older one-pass full-width door-side residual description below predates
+> the current support-surface residual bands, width planning, and pattern
+> continuity.
 
 This handoff supersedes the earlier artificial-ceiling Space Evenly brief.
 The authoritative contract is `docs/domain/transport-container-engine.md`.

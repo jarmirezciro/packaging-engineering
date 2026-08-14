@@ -367,6 +367,90 @@ class MaximumUtilizationFloorFirstTests(
         )
         self.assertEqual(result["unplaced"], [])
 
+    def test_floor_first_keeps_small_quantity_on_floor_before_height(self):
+        container = {
+            "L": 12039.0,
+            "W": 2362.0,
+            "H": 2692.0,
+            "max_weight": None,
+            "packing_mode": "maximum_utilization_floor_first",
+        }
+        products = [product("SKU302473", 457.2, 279.4, 317.5, 7)]
+
+        result = pack_container(container, products)
+
+        self.assert_transport_invariants(result, container, products)
+        self.assertEqual(result["unplaced"], [])
+        self.assertEqual(len(result["placements"]), 7)
+        self.assertTrue(
+            all(
+                placement.z == 0.0
+                for placement in result["placements"]
+            )
+        )
+        self.assertEqual(
+            [placement.y for placement in result["placements"]],
+            [index * 279.4 for index in range(7)],
+        )
+        block = result["floor_first_main_blocks"][0]
+        self.assertEqual(block["nz"], 1)
+        self.assertEqual(block["ny"], 7)
+
+    def test_floor_first_completes_transverse_row_before_advancing_x(self):
+        container = {
+            "L": 12039.0,
+            "W": 2362.0,
+            "H": 2692.0,
+            "max_weight": None,
+            "packing_mode": "maximum_utilization_floor_first",
+        }
+
+        for qty in (10, 11, 13, 14):
+            with self.subTest(qty=qty):
+                products = [
+                    product("SKU302473", 457.2, 279.4, 317.5, qty)
+                ]
+                result = pack_container(
+                    container,
+                    products,
+                )
+                self.assert_transport_invariants(result, container, products)
+                self.assertEqual(result["unplaced"], [])
+                placements = result["placements"]
+                self.assertEqual(len(placements), qty)
+                first_row = placements[:8]
+                self.assertTrue(
+                    all(placement.x == 0.0 for placement in first_row)
+                )
+                self.assertTrue(
+                    all(placement.z == 0.0 for placement in first_row)
+                )
+                self.assertEqual(
+                    [placement.y for placement in first_row],
+                    [index * 279.4 for index in range(8)],
+                )
+                self.assertTrue(
+                    all(
+                        placement.x == 0.0
+                        for placement in placements
+                    )
+                )
+                if qty > 8:
+                    remainder = placements[8:]
+                    self.assertTrue(
+                        all(
+                            placement.z == 317.5
+                            for placement in remainder
+                        )
+                    )
+                    self.assertEqual(
+                        [placement.y for placement in remainder],
+                        [
+                            index * 279.4
+                            for index in range(qty - 8)
+                        ],
+                    )
+
     def test_floor_first_reported_case_is_distinct_and_complete(self):
         container = {
             "L": 12039.0,
@@ -419,6 +503,69 @@ class MaximumUtilizationFloorFirstTests(
             self.geometry_signature(maximum),
         )
 
+    def test_floor_first_evaluates_every_non_final_product_frontier(self):
+        container = {
+            "L": 12039.0,
+            "W": 2362.0,
+            "H": 2692.0,
+            "max_weight": None,
+            "packing_mode": "maximum_utilization_floor_first",
+        }
+        products = [
+            product("SKU302473", 457.2, 279.4, 317.5, 375, weight=0.2427, sequence=1),
+            product("SKU503739", 431.8, 318.77, 317.5, 405, weight=0.907, sequence=2),
+            product("Case Pack 12", 558.8, 377.444, 317.5, 288, weight=0.907, sequence=3),
+            product("Case Pack", 558.8, 355.6, 381.0, 160, weight=2.268, sequence=4),
+        ]
+
+        result = pack_container(container, products)
+
+        self.assert_transport_invariants(result, container, products)
+        self.assertEqual(result["unplaced"], [])
+        self.assertEqual(
+            Counter(placement.row_index for placement in result["placements"]),
+            {0: 375, 1: 405, 2: 288, 3: 160},
+        )
+        frontiers = result["floor_first_frontier_evaluations"]
+        self.assertEqual(
+            [
+                (frontier["row_index"], frontier["next_row_index"])
+                for frontier in frontiers
+            ],
+            [(0, 1), (1, 2), (2, 3)],
+        )
+        self.assertTrue(
+            all(frontier["candidates_evaluated"] > 0 for frontier in frontiers)
+        )
+        self.assertEqual(
+            result["floor_first_frontiers_evaluated"],
+            len(products) - 1,
+        )
+        self.assertEqual(
+            result["floor_first_frontier_traversals_evaluated"],
+            sum(
+                frontier["candidates_evaluated"]
+                for frontier in frontiers
+            ),
+        )
+        p2_continuation = next(
+            continuation
+            for continuation in result["floor_first_continuations"]
+            if continuation["row_index"] == 1
+        )
+        self.assertEqual(p2_continuation["residual_greedy_qty"], 1)
+        self.assertGreater(
+            frontiers[1]["candidates_evaluated"],
+            p2_continuation["residual_greedy_qty"],
+        )
+        self.assertEqual(frontiers[2]["boundary_kind"], "clean_main_block")
+
+        repeated = pack_container(container, products)
+        self.assertEqual(
+            self.geometry_signature(result),
+            self.geometry_signature(repeated),
+        )
+
     def test_floor_first_continuation_prefers_main_orientation_at_frontier(self):
         container = {
             "L": 12039.0,
@@ -443,8 +590,9 @@ class MaximumUtilizationFloorFirstTests(
         )
         self.assertEqual(
             result["floor_first_frontier_traversals_evaluated"],
-            24,
+            40,
         )
+        self.assertEqual(result["floor_first_frontiers_evaluated"], 3)
 
         p4_block = next(
             block
@@ -462,8 +610,9 @@ class MaximumUtilizationFloorFirstTests(
         )
         self.assertAlmostEqual(p4_block["x_start"], 3352.8)
         self.assertAlmostEqual(p4_block["x_end"], 5130.8)
-        self.assertFalse(p4_continuation["frontier_search_triggered"])
-        self.assertEqual(p4_continuation["traversals_evaluated"], 0)
+        self.assertTrue(p4_continuation["frontier_search_triggered"])
+        self.assertEqual(p4_continuation["traversals_evaluated"], 8)
+        self.assertEqual(p4_continuation["selected_reflow_tail_qty"], 0)
         self.assertGreaterEqual(p4_continuation["plans_evaluated"], 2)
         self.assertEqual(p4_continuation["unplaced_qty"], 0)
         self.assertEqual(
@@ -573,9 +722,9 @@ class MaximumUtilizationFloorFirstTests(
             p2_continuation["incumbent_frontier_metrics"]["x_spread"],
         )
 
-        # The selected P2 frontier traversal is inherited by P1's residual
-        # continuation. This keeps the large P1 block regular instead of
-        # silently falling back to the generic column-oriented fill.
+        # The selected P2 frontier traversal is local to the P2/P1 boundary.
+        # P1's ordinary continuation returns to the default bottom-up row
+        # traversal.
         p1_continuation = next(
             continuation
             for continuation in result["floor_first_continuations"]
@@ -583,12 +732,14 @@ class MaximumUtilizationFloorFirstTests(
         )
         self.assertEqual(
             p1_continuation["residual_traversal_policy"],
-            "row_first_top_left",
+            "row_first_bottom_up",
         )
         self.assertEqual(
             p1_continuation["selected_traversal"],
-            "row_first_top_left",
+            "row_first_bottom_up",
         )
+        self.assertEqual(p1_continuation["continuation_block_qty"], 240)
+        self.assertEqual(p1_continuation["residual_greedy_qty"], 103)
         p1_residual_start = (
             next(
                 block
@@ -610,6 +761,27 @@ class MaximumUtilizationFloorFirstTests(
                 == (279.4, 457.2, 317.5)
                 for placement in p1_residual
             )
+        )
+        p1_residual_by_x = {}
+        for placement in p1_residual:
+            p1_residual_by_x.setdefault(round(placement.x, 6), []).append(
+                placement
+            )
+        self.assertEqual(
+            [len(p1_residual_by_x[x]) for x in sorted(p1_residual_by_x)],
+            [40, 40, 23],
+        )
+        final_x = max(p1_residual_by_x)
+        final_plane_layers = {}
+        for placement in p1_residual_by_x[final_x]:
+            final_plane_layers.setdefault(round(placement.z, 6), 0)
+            final_plane_layers[round(placement.z, 6)] += 1
+        self.assertEqual(
+            [
+                final_plane_layers[z]
+                for z in sorted(final_plane_layers)
+            ],
+            [5, 5, 5, 5, 3],
         )
 
 

@@ -27,7 +27,8 @@
      class="container-tool-form"
      data-transport-tool-root
      data-transport-prefix="{{ prefix|stringformat:'s' }}"
-     data-transport-mode="{{ mode|default:'standalone' }}">
+     data-transport-mode="{{ mode|default:'standalone' }}"
+     data-transport-packing-mode="{% if is_workflow %}{{ step.config.packing_mode|default:'maximum_utilization' }}{% else %}{{ form.packing_mode.value|default:'maximum_utilization' }}{% endif %}">
   <input type="hidden" data-transport-auto-hide-product-catalogue value="{% if auto_hide_product_catalogue %}1{% else %}0{% endif %}">
   {% with prefix_text=prefix|stringformat:"s" %}
   {% with threejs_scene_id="transportThreeJsScene_"|add:prefix_text threejs_viewer_id="transportThreeJsViewer_"|add:prefix_text %}
