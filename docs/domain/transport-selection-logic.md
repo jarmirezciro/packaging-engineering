@@ -22,13 +22,13 @@ The active source is:
 
 `packagingapp/utils/container_tool/engine.py`
 
-The current active calculation is **Space Evenly V1**. The form and persisted
-workflow configuration still contain compatibility labels for Maximum
-Utilization, Maximum Utilization Floor First, Sequence Loading, and Strict
-Sequence Loading. Those values are not evidence that their historical solvers
-are active: the current engine returns a graceful unsupported-mode result for a
-requested mode other than Space Evenly. Historical implementations remain
-separate and are not imported by the active engine.
+The active engine provides **Space Evenly V1** and **Load Front-to-Back with
+DGFE**. Load Front-to-Back is routed through the persisted compatibility values
+`maximum_utilization` and `maximum_utilization_floor_first`; both use the same
+current `front_to_back_blocks` strategy. Sequence Loading and Strict Sequence
+Loading remain unsupported historical values and return a graceful unsupported
+result. Historical implementations remain separate and are not imported by the
+active engine.
 
 Packaging Flow is an orchestrator. It passes prefix-safe, JSON-safe transport
 configuration and rows to the same transport service; it does not implement a
@@ -105,6 +105,28 @@ separate algorithmic alternatives.
 
 The layout is a candidate engineering arrangement. It is not a cargo-securing
 plan and should not be read as proof of globally optimal utilization.
+
+## How Load Front-to-Back behaves for users
+
+Load Front-to-Back keeps the shared product ordering and Product Block
+mathematics, then closes one bounded Pi/Pi+1 transition at a time. Each current
+residual orientation evaluates Bottom-Up and deferred Top-Down Row/Column
+strategies. The next product retains the established all-orientation evaluation
+and always populates Bottom-Up Row First. Every residual base preserves a Native
+outcome ending at Pi's actual placement-derived X footprint and a separate DGFE
+outcome ending after the first clean Pi+1 X row. After maximizing Pi quantity,
+selection minimizes Pi's own X footprint before considering local fill value.
+DGFE may consume additional X only when its marginal extra-prism utilization
+beats Pi+1's shared normal Product Block utilization; a value tie prefers the
+compact Native outcome. A valid DGFE outcome may remain eligible when no regular
+block exists or when Native cannot physically settle.
+
+Top-Down residuals are committed only after vertical-only gravity settlement,
+full union support, bounds, overlap, stackability, and payload validation.
+
+The resulting stepped local frontier is a deterministic candidate geometry,
+not a loading-path, cargo-securing, or global-optimality proof. Detailed DGFE
+semantics and ranking are maintained in `transport-container-engine.md`.
 
 ## Max qty preprocessing
 
@@ -235,6 +257,11 @@ Consumer and engine checks should cover:
 - multiple rows with stable identity and deterministic order;
 - sequence forcing to one in Space Evenly;
 - complete-block-before-residual behavior;
+- four residual strategies and Native/DGFE family outcomes per current-product
+  orientation;
+- Pi residual X-footprint compactness, marginal DGFE extension value, and the
+  shared next-product Product Block benchmark;
+- bounded clean-row envelopes and vertical-only deferred settlement;
 - support, stackability, and non-overlap invariants;
 - standalone/Packaging Flow parity;
 - Three.js views and PDF using the same placements;

@@ -93,7 +93,7 @@ Do not run a broad destructive migration or production command as a substitute f
 ## Transport Container engine regression contract
 
 The current active `engine.py` dispatch implements stabilized Space Evenly V1
-and Load Front-to-Back V1 through the existing compatibility values
+and Load Front-to-Back with DGFE through the existing compatibility values
 `maximum_utilization` and `maximum_utilization_floor_first`. Older fixture material may refer to the
 former Maximum, Accessible, or Strict Sequence implementations; those legacy
 paths are not imported by the current engine. Run focused checks for both
@@ -110,5 +110,18 @@ For a change scoped to one mode:
 - unaffected established modes must keep their accepted count/signature fixtures unless the task explicitly approves a semantic change;
 - a shared-helper change is incomplete until every unaffected established mode has been checked;
 - visual appearance alone is never sufficient evidence of a packing-engine fix.
+
+Load Front-to-Back regression must additionally cover four residual strategies
+per enabled current orientation and both Native/DGFE family outcomes, arbitrary
+residual quantities, placement-derived Pi X footprints, first-clean-row
+envelope closure, all-orientation incoming-product evaluation, vertical-only
+deferred settlement, collision-free paths, coplanar union support,
+non-stackable rejection, quantity carry-forward, and JSON-safe candidate
+diagnostics. Preserve the compact Native fixture for P4 residual 20 → P2
+quantity 10 and the DGFE fixture for P2 residual 3 → P1 quantity 114. Assert
+that Pi compactness precedes local efficiency, DGFE marginal extra-X value is
+compared with the shared Pi+1 Product Block utilization, equal value prefers
+Native, no-regular-block fallback is deterministic, and a valid DGFE outcome
+may survive an invalid Native settlement.
 
 Use the canonical fixture definitions and mode semantics in `docs/domain/transport-container-engine.md`; do not duplicate the complete fixture specification here.

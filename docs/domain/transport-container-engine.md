@@ -1,4 +1,4 @@
-# KolliPack Transport Container Engine — Space Evenly and Load Front-to-Back V1
+# KolliPack Transport Container Engine — Space Evenly and Load Front-to-Back DGFE
 
 ## Status and authority
 
@@ -9,7 +9,7 @@ implementation is:
 `packagingapp/utils/container_tool/engine.py`
 
 The active engine contains two isolated deterministic modes: **Space Evenly
-V1** and **Load Front-to-Back V1**. Space Evenly remains the stabilized
+V1** and **Load Front-to-Back with DGFE**. Space Evenly remains the stabilized
 baseline. Load Front-to-Back is exposed through the existing compatibility
 values `maximum_utilization` and `maximum_utilization_floor_first`; its internal strategy is
 `front_to_back_blocks`. The transport service, forms, views, templates,
@@ -21,7 +21,7 @@ It is not the current algorithm specification and is not imported by the active
 engine. A requested mode other than Space Evenly or the compatibility
 Front-to-Back values returns a graceful unsupported result with no placements.
 
-## Load Front-to-Back V1
+## Load Front-to-Back with DGFE
 
 Load Front-to-Back reuses the Space Evenly normalizer, product ordering,
 R1/R2/R3 orientation families, Product Block candidate generation and ranking,
@@ -30,30 +30,81 @@ orchestration is:
 
 ```text
 complete Product Block
-→ current-product residual orientation × traversal candidates
-→ row-first next-product evaluation for each candidate
+→ current-product orientation × four residual base candidates
+→ derive each candidate's actual Pi residual X footprint
+→ preserve Native and DGFE Extended family outcomes
+→ all-orientation next-product evaluation inside the Native footprint
+→ bounded Row-First next-product population
+→ deferred-gravity settlement where applicable
+→ final physical validation and extension-value comparison
 → select the bounded transition winner
 → close frontier
 → next product's complete Product Block
 ```
 
-The V1 frontier is bounded to the current product's transition slice. It is
-populated Y → Z → X for Row First and Z → Y → X for Column First. When a next
-product exists, every enabled current-product orientation is paired with both
-traversals. Each candidate derives its own minimum required X depth from its
-orientation and residual quantity, then uses the existing all-orientation
-next-product evaluation and Row-First population logic. A candidate must first
-protect current-product residual quantity; among equal quantities, frontier
-volume efficiency is maximized, Row First wins an effective efficiency tie, and
-remaining ties use next quantity, smaller depth, and stable orientation order.
-The last product keeps Row-First residual behavior without orientation ×
-traversal optimization.
+When a next product exists, every enabled current-product orientation is paired
+with exactly four strategies: deferred Top-Down Row First, deferred Top-Down
+Column First, Bottom-Up Row First, and Bottom-Up Column First. Residual
+construction is quantity-agnostic and uses one orientation per candidate.
+Top-Down candidates reserve real three-dimensional cuboids from the ceiling;
+the reserved cuboids are collision obstacles, not temporary supports.
 
-Every candidate accepts only full-support upper placements and the winning
-frontier is never reopened by later products. There is no global
-residual-at-the-end phase, no free-space tree, no compaction, and no legacy
-solver import. All products are forced to sequence `1` and use the same
-deterministic size ordering as Space Evenly.
+Each orientation/strategy base preserves two isolated family outcomes. The
+**Native Frontier Candidate** ends at the actual Pi residual X footprint:
+
+```text
+D_pi = max(Pi placement x + Pi placement length) - frontier_start_x
+```
+
+This is measured from materialized candidate geometry, so residuals spanning
+multiple X slices are handled without assuming that one orientation length is
+the complete footprint. The **DGFE Extended Candidate** keeps the established
+bounded envelope: every Pi+1 X row intersecting Pi's projection plus the first
+fully clean re-synchronization row. The extension never mutates or erases its
+paired Native result.
+
+The established all-orientation next-product evaluator remains authoritative.
+It evaluates the exact residual frontier and selects the incoming orientation
+using the existing quantity, width-utilization, preferred-orientation, and
+stable tie rules. The selected next product then populates Bottom-Up Row First
+through every valid local position. Native population is bounded by `D_pi`;
+DGFE population uses the intersecting-plus-first-clean-row envelope. A partial
+row does not terminate a later clean row.
+
+After next-product population, a deferred residual may move only in negative Z.
+X, Y, and orientation remain fixed. Settlement processes lower reserved units
+first, requires a collision-free vertical path, and accepts complete base
+coverage from the union of coplanar stackable supports. The virtual state is
+never scored or committed; bounds, overlap, support, stackability, and payload
+are validated on the final settled state.
+
+For a valid Native/Extended pair, extension value is measured only over its
+additional X prism:
+
+```text
+D_extra = D_extended - D_native
+V_extra = V_extended - V_native
+marginal_efficiency = V_extra / (D_extra × container_width × container_height)
+```
+
+The benchmark is the transverse utilization of the normal Pi+1 Product Block
+selected by the shared generator and selector for the quantity, payload, and
+length remaining after Native. DGFE remains eligible only when its marginal
+efficiency exceeds that benchmark by tolerance. An effective tie prefers
+Native. If no regular block is feasible, a valid extension that adds volume
+remains eligible. If Native cannot reach a valid settled physical state but its
+paired DGFE outcome can, the valid DGFE outcome remains eligible.
+
+Candidate ranking applies validity, maximum Pi residual quantity, minimum
+actual Pi residual X footprint, paired Native-versus-extension eligibility,
+local frontier efficiency, useful Pi+1 quantity, and smaller total envelope
+depth in that order. Effective ties prefer Row First, Bottom-Up, and stable
+orientation order. The last product retains its established Bottom-Up Row-First
+residual behavior without look-ahead. A committed frontier is never reopened by
+later products. There is no global residual-at-the-end phase, free-space tree,
+lateral gravity, compaction, or legacy solver import. All products remain
+forced to sequence `1` and use the same deterministic size ordering as Space
+Evenly.
 
 ## What Space Evenly is
 
@@ -585,11 +636,17 @@ fields are:
 | `space_evenly_block_candidates_evaluated` | Phase 1 candidates evaluated |
 | `space_evenly_residual_candidates_evaluated` | Phase 2 candidates evaluated |
 | `space_evenly_x_used` | final occupied longitudinal frontier |
-| `front_to_back_frontiers` | bounded transition diagnostics, including both residual strategies and the selected winner |
+| `front_to_back_frontiers` | bounded transition diagnostics, all orientation/strategy/family outcomes, final physical state, and the selected winner |
 | `front_to_back_product_blocks` | per-product block, residual, and carry-forward summaries |
 | `front_to_back_frontier_candidates_evaluated` | next-product orientation evaluations across the isolated transition candidates |
-| `residual_strategy_candidates` | current orientation, traversal, candidate depth, packed volumes, efficiency, and validity for each bounded transition candidate |
+| `residual_strategy_candidates` | Native and DGFE Extended outcomes with current orientation, gravity mode, traversal, virtual/settled coordinates, next orientation/quantity, support, validity, value metrics, and compact phase diagnostics |
 | `selected_residual_orientation` | current-product orientation selected for the committed frontier |
+| `pi_residual_x_footprint` | actual Pi placement footprint from the local frontier start, independent of total envelope depth |
+| `candidate_family` / `selected_candidate_family` | whether an outcome is the compact `native` baseline or `dgfe_extended` envelope |
+| `native_frontier_depth`, `extended_frontier_depth`, `extra_extension_depth` | paired envelope depths and the additional X consumed by DGFE |
+| `native_next_product_qty`, `extended_next_product_qty` | Pi+1 quantities in the paired family outcomes |
+| `dgfe_extra_packed_volume`, `dgfe_marginal_efficiency` | volume gained by DGFE and its utilization of only the additional X prism |
+| `next_product_regular_block_efficiency`, `extension_value_delta` | shared Product Block benchmark and DGFE marginal advantage/disadvantage |
 | `selected_frontier_volume_efficiency` | packed current-plus-next frontier volume divided by the candidate frontier prism volume |
 
 The result also retains compatibility aliases such as
@@ -644,8 +701,14 @@ Direct engine regression should check, at minimum:
 - parent-pattern continuation;
 - breadth-first residual pass order;
 - frontier advancement without floor side-gap filler;
-- Front-to-Back orientation × traversal candidate depth and efficiency;
-- current-residual priority, Row-First efficiency ties, and carry-forward quantity;
+- Front-to-Back orientation × traversal base candidates and both family outcomes;
+- four residual strategies per current orientation and quantity-agnostic residuals;
+- actual Pi X-footprint compactness before local frontier efficiency;
+- Native preservation, bounded DGFE extension, marginal extra-X efficiency, and
+  the shared Pi+1 regular Product Block benchmark;
+- deferred vertical-only settlement, collision-free paths, and union support;
+- partial intersecting rows followed by the first clean re-synchronization row;
+- current-residual priority, effective Row-First ties, and carry-forward quantity;
 - JSON-safe diagnostics and standalone/Packaging Flow parity.
 
 The engine is the source of truth for any discrepancy. Historical handoffs and
@@ -661,7 +724,7 @@ are historical compatibility context, not active behavior in the current
 `engine.py`. The former generic sequence-loading algorithms remain historical
 compatibility context and are not imported by the current engine. The
 `maximum_utilization` and `maximum_utilization_floor_first` values now route to
-Load Front-to-Back V1; other historical values return an explicit
+Load Front-to-Back with DGFE; other historical values return an explicit
 unsupported-mode result.
 
 ## Glossary
@@ -670,6 +733,8 @@ unsupported-mode result.
 |---|---|
 | Space Evenly | The stabilized structured transport-loading heuristic. |
 | Load Front-to-Back | A block-and-local-frontier heuristic exposed through `maximum_utilization` and `maximum_utilization_floor_first`. |
+| Deferred-Gravity Frontier Envelope (DGFE) | A bounded Front-to-Back candidate construction that temporarily reserves a top-down residual, fills the next product around it, and restores vertical gravity before validation. |
+| Stepped Frontier Envelope (SFE) | The physically valid local boundary produced by residual construction, next-product population, and any deferred settlement. |
 | Product Block | A regular one-SKU module repeated longitudinally. |
 | Transverse Pattern | The Y × Z arrangement defining a Product Block. |
 | Module Capacity | Units in one complete longitudinal Product Block module. |

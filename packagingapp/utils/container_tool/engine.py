@@ -20,6 +20,13 @@ SPACE_EVENLY_MODE = "space_evenly"
 MAXIMUM_UTILIZATION_MODE = "maximum_utilization"
 FRONT_TO_BACK_MODE = "maximum_utilization_floor_first"
 FRONT_TO_BACK_STRATEGY = "front_to_back_blocks"
+DGFE_RESIDUAL_STRATEGIES = (
+    "top_down_column_first",
+    "top_down_row_first",
+    "bottom_up_column_first",
+    "bottom_up_row_first",
+)
+DGFE_POSITION_DIAGNOSTIC_LIMIT = 64
 UNSUPPORTED_MODE_MESSAGE = (
     "Only Space Evenly and Load Front-to-Back are currently available."
 )
@@ -2057,6 +2064,334 @@ def _frontier_grid_placements(
     return local, loaded_weight, item_offset
 
 
+def _dgfe_strategy_parts(strategy: str) -> Tuple[str, str]:
+    """Return the gravity mode and residual traversal for one DGFE strategy."""
+    mapping = {
+        "top_down_column_first": ("deferred_top_down", "column_first"),
+        "top_down_row_first": ("deferred_top_down", "row_first"),
+        "bottom_up_column_first": ("bottom_up", "column_first"),
+        "bottom_up_row_first": ("bottom_up", "row_first"),
+    }
+    try:
+        return mapping[strategy]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported DGFE residual strategy: {strategy}") from exc
+
+
+def _frontier_residual_candidate_placements(
+    product: NormalizedProduct,
+    quantity: int,
+    x_start: float,
+    x_depth: float,
+    orientation: Tuple[float, float, float],
+    container: Dict,
+    first_item_index: int,
+    loaded_weight: float,
+    strategy: str,
+) -> Tuple[List[Placement], float, int]:
+    """Construct one quantity-agnostic DGFE residual reservation/layout."""
+    gravity_mode, traversal = _dgfe_strategy_parts(strategy)
+    if gravity_mode == "bottom_up":
+        trial: List[Placement] = []
+        return _frontier_grid_placements(
+            product,
+            quantity,
+            x_start,
+            x_depth,
+            orientation,
+            container,
+            trial,
+            first_item_index,
+            loaded_weight,
+            traversal=traversal,
+        )
+
+    length, width, height = orientation
+    x_count = _fit_count(x_depth, length)
+    y_count = _fit_count(container["W"], width)
+    z_count = _fit_count(container["H"], height)
+    if not product.stackable:
+        z_count = min(z_count, 1)
+    if min(x_count, y_count, z_count, quantity) <= 0:
+        return [], loaded_weight, 0
+
+    payload_quantity = _payload_units_available(
+        container,
+        loaded_weight,
+        product.weight,
+        quantity,
+    )
+    top_down_z = [
+        float(container["H"] - (level + 1) * height)
+        for level in range(z_count)
+    ]
+    if traversal == "row_first":
+        indices = (
+            (x_index, z, y_index)
+            for x_index in range(x_count)
+            for z in top_down_z
+            for y_index in range(y_count)
+        )
+    else:
+        indices = (
+            (x_index, z, y_index)
+            for x_index in range(x_count)
+            for y_index in range(y_count)
+            for z in top_down_z
+        )
+
+    reserved: List[Placement] = []
+    for x_index, z, y_index in indices:
+        if len(reserved) >= payload_quantity:
+            break
+        reserved.append(
+            Placement(
+                product_name=product.name,
+                item_index=first_item_index + len(reserved),
+                row_index=product.row_index,
+                sequence=product.sequence,
+                weight=product.weight,
+                stackable=product.stackable,
+                x=x_start + x_index * length,
+                y=y_index * width,
+                z=z,
+                l=length,
+                w=width,
+                h=height,
+            )
+        )
+    return (
+        reserved,
+        loaded_weight + len(reserved) * product.weight,
+        len(reserved),
+    )
+
+
+def _frontier_collision_only(placements: List[Placement]) -> List[Placement]:
+    """Copy virtual residuals as obstacles that cannot support incoming cargo."""
+    return [
+        Placement(
+            product_name=placement.product_name,
+            item_index=placement.item_index,
+            row_index=placement.row_index,
+            sequence=placement.sequence,
+            weight=placement.weight,
+            stackable=False,
+            x=placement.x,
+            y=placement.y,
+            z=placement.z,
+            l=placement.l,
+            w=placement.w,
+            h=placement.h,
+        )
+        for placement in placements
+    ]
+
+
+def _dgfe_envelope_dimensions(
+    x_start: float,
+    residual_placements: List[Placement],
+    next_length: float,
+    remaining_length: float,
+) -> Tuple[float, int, Optional[int]]:
+    """Include all Pi-intersecting X rows and the first clean Pi+1 row."""
+    if not residual_placements or next_length <= 0 or remaining_length <= 0:
+        return 0.0, 0, None
+    residual_x_end = max(
+        placement.x + placement.l for placement in residual_placements
+    )
+    residual_depth = max(residual_x_end - x_start, 0.0)
+    intersecting_rows = max(
+        1,
+        int(math.ceil(max(residual_depth - TOLERANCE, 0.0) / next_length)),
+    )
+    rows_available = _fit_count(remaining_length, next_length)
+    rows_evaluated = min(rows_available, intersecting_rows + 1)
+    first_clean_row_index = (
+        intersecting_rows
+        if rows_available >= intersecting_rows + 1
+        else None
+    )
+    return (
+        float(rows_evaluated * next_length),
+        int(rows_evaluated),
+        first_clean_row_index,
+    )
+
+
+def _placement_with_z(placement: Placement, z: float) -> Placement:
+    return Placement(
+        product_name=placement.product_name,
+        item_index=placement.item_index,
+        row_index=placement.row_index,
+        sequence=placement.sequence,
+        weight=placement.weight,
+        stackable=placement.stackable,
+        x=placement.x,
+        y=placement.y,
+        z=float(z),
+        l=placement.l,
+        w=placement.w,
+        h=placement.h,
+    )
+
+
+def _frontier_vertical_path_is_clear(
+    reserved: Placement,
+    settled_z: float,
+    obstacles: List[Placement],
+) -> bool:
+    """Validate the swept cuboid for a vertical-only deferred-gravity drop."""
+    for obstacle in obstacles:
+        xy_overlap = (
+            min(reserved.x + reserved.l, obstacle.x + obstacle.l)
+            > max(reserved.x, obstacle.x) + TOLERANCE
+            and min(reserved.y + reserved.w, obstacle.y + obstacle.w)
+            > max(reserved.y, obstacle.y) + TOLERANCE
+        )
+        swept_z_overlap = (
+            min(reserved.z + reserved.h, obstacle.z + obstacle.h)
+            > max(settled_z, obstacle.z) + TOLERANCE
+        )
+        if xy_overlap and swept_z_overlap:
+            return False
+    return True
+
+
+def _settle_deferred_frontier_residuals(
+    reserved: List[Placement],
+    fixed_placements: List[Placement],
+    container: Dict,
+) -> Tuple[List[Placement], List[float], Optional[str]]:
+    """Settle virtual Pi cuboids vertically onto full union support."""
+    settled_by_item: Dict[int, Placement] = {}
+    drops_by_item: Dict[int, float] = {}
+    settlement_order = sorted(
+        reserved,
+        key=lambda placement: (
+            placement.z,
+            placement.x,
+            placement.y,
+            placement.item_index,
+        ),
+    )
+    for virtual in settlement_order:
+        obstacles = list(fixed_placements) + list(settled_by_item.values())
+        support_planes = {0.0}
+        support_planes.update(
+            float(obstacle.z + obstacle.h)
+            for obstacle in obstacles
+            if obstacle.stackable
+            and obstacle.z + obstacle.h <= virtual.z + TOLERANCE
+        )
+        selected = None
+        for support_z in sorted(support_planes, reverse=True):
+            candidate = _placement_with_z(virtual, support_z)
+            if candidate.z < -TOLERANCE:
+                continue
+            if candidate.z + candidate.h > container["H"] + TOLERANCE:
+                continue
+            if any(
+                _frontier_rectangles_overlap(candidate, obstacle)
+                for obstacle in obstacles
+            ):
+                continue
+            if not _frontier_supports_full_base(candidate, obstacles):
+                continue
+            if not _frontier_vertical_path_is_clear(
+                virtual,
+                support_z,
+                obstacles,
+            ):
+                continue
+            selected = candidate
+            break
+        if selected is None:
+            return [], [], "no_vertical_union_supported_settlement"
+        settled_by_item[virtual.item_index] = selected
+        drops_by_item[virtual.item_index] = float(virtual.z - selected.z)
+
+    settled = [
+        settled_by_item[placement.item_index]
+        for placement in sorted(reserved, key=lambda item: item.item_index)
+    ]
+    drops = [
+        drops_by_item[placement.item_index]
+        for placement in sorted(reserved, key=lambda item: item.item_index)
+    ]
+    return settled, drops, None
+
+
+def _validate_frontier_geometry(
+    placements: List[Placement],
+    container: Dict,
+) -> Tuple[bool, Optional[str]]:
+    """Validate final local bounds, collisions, and union support."""
+    for placement in placements:
+        if (
+            placement.x < -TOLERANCE
+            or placement.y < -TOLERANCE
+            or placement.z < -TOLERANCE
+            or placement.x + placement.l > container["L"] + TOLERANCE
+            or placement.y + placement.w > container["W"] + TOLERANCE
+            or placement.z + placement.h > container["H"] + TOLERANCE
+        ):
+            return False, "placement_out_of_bounds"
+    for first_index, first in enumerate(placements):
+        if any(
+            _frontier_rectangles_overlap(first, second)
+            for second in placements[first_index + 1 :]
+        ):
+            return False, "positive_volume_overlap"
+    for placement in placements:
+        if placement.z > TOLERANCE and not _frontier_supports_full_base(
+            placement,
+            placements,
+        ):
+            return False, "unsupported_elevated_placement"
+    return True, None
+
+
+def _diagnostic_positions(placements: List[Placement]) -> List[List[float]]:
+    return [
+        [float(placement.x), float(placement.y), float(placement.z)]
+        for placement in placements[:DGFE_POSITION_DIAGNOSTIC_LIMIT]
+    ]
+
+
+def _dgfe_x_row_diagnostics(
+    placements: List[Placement],
+    x_start: float,
+    orientation: Optional[Tuple[float, float, float]],
+    x_rows_evaluated: int,
+    first_clean_x_row_index: Optional[int],
+) -> List[Dict]:
+    if orientation is None or x_rows_evaluated <= 0:
+        return []
+    length = orientation[0]
+    rows = []
+    for row_index in range(x_rows_evaluated):
+        row_x = x_start + row_index * length
+        rows.append(
+            {
+                "row_index": int(row_index),
+                "x_start": float(row_x),
+                "x_end": float(row_x + length),
+                "quantity": int(
+                    sum(
+                        1
+                        for placement in placements
+                        if abs(placement.x - row_x) <= TOLERANCE
+                    )
+                ),
+                "clean_resynchronization_row": bool(
+                    first_clean_x_row_index == row_index
+                ),
+            }
+        )
+    return rows
+
+
 def _frontier_required_depth(
     product: NormalizedProduct,
     quantity: int,
@@ -2137,7 +2472,10 @@ def _frontier_fill_next_product(
         ]
         z_values = {0.0}
         for support in local:
-            if support.stackable and support.z + support.h <= container["H"] + TOLERANCE:
+            if (
+                support.stackable
+                and support.z + support.h <= container["H"] + TOLERANCE
+            ):
                 z_values.add(float(support.z + support.h))
         y_values = {0.0}
         for existing in local:
@@ -2193,6 +2531,113 @@ def _frontier_fill_next_product(
                 break
         if not inserted:
             break
+    return placed, loaded_weight, len(placed), evaluated
+
+
+def _populate_dgfe_next_product_envelope(
+    product: NormalizedProduct,
+    quantity: int,
+    x_start: float,
+    x_depth: float,
+    orientation: Tuple[float, float, float],
+    container: Dict,
+    placements: List[Placement],
+    first_item_index: int,
+    loaded_weight: float,
+) -> Tuple[List[Placement], float, int, int]:
+    """Populate every deterministic Row-First position in a DGFE envelope."""
+    length, width, height = orientation
+    if (
+        length > x_depth + TOLERANCE
+        or width > container["W"] + TOLERANCE
+        or height > container["H"] + TOLERANCE
+        or quantity <= 0
+    ):
+        return [], loaded_weight, 0, 0
+
+    local = [
+        placement
+        for placement in placements
+        if placement.x >= x_start - TOLERANCE
+        and placement.x + placement.l <= x_start + x_depth + TOLERANCE
+    ]
+    placed: List[Placement] = []
+    evaluated = 0
+    payload_quantity = _payload_units_available(
+        container,
+        loaded_weight,
+        product.weight,
+        quantity,
+    )
+    if payload_quantity <= 0:
+        return placed, loaded_weight, 0, evaluated
+
+    x_values = [
+        x_start + index * length
+        for index in range(_fit_count(x_depth, length))
+    ]
+    y_seeds = {0.0}
+    y_seeds.update(float(existing.y + existing.w) for existing in local)
+    y_values = set()
+    for seed in y_seeds:
+        offset = 0
+        while seed + offset * width + width <= container["W"] + TOLERANCE:
+            y_values.add(float(seed + offset * width))
+            offset += 1
+
+    z_seeds = {0.0}
+    z_seeds.update(
+        float(support.z + support.h)
+        for support in local
+        if support.stackable
+        and support.z + support.h <= container["H"] + TOLERANCE
+    )
+    z_values = set()
+    for seed in z_seeds:
+        level = 0
+        while seed + level * height + height <= container["H"] + TOLERANCE:
+            z_values.add(float(seed + level * height))
+            level += 1
+
+    for x in sorted(set(round(value, 9) for value in x_values)):
+        for z in sorted(set(round(value, 9) for value in z_values)):
+            for y in sorted(set(round(value, 9) for value in y_values)):
+                if len(placed) >= payload_quantity:
+                    return placed, loaded_weight, len(placed), evaluated
+                evaluated += 1
+                candidate = Placement(
+                    product_name=product.name,
+                    item_index=first_item_index + len(placed),
+                    row_index=product.row_index,
+                    sequence=product.sequence,
+                    weight=product.weight,
+                    stackable=product.stackable,
+                    x=x,
+                    y=y,
+                    z=z,
+                    l=length,
+                    w=width,
+                    h=height,
+                )
+                if (
+                    candidate.x < x_start - TOLERANCE
+                    or candidate.x + candidate.l
+                    > x_start + x_depth + TOLERANCE
+                    or candidate.y + candidate.w
+                    > container["W"] + TOLERANCE
+                    or candidate.z + candidate.h
+                    > container["H"] + TOLERANCE
+                    or any(
+                        _frontier_rectangles_overlap(candidate, existing)
+                        for existing in local
+                    )
+                    or not _frontier_supports_full_base(candidate, local)
+                ):
+                    continue
+                local.append(candidate)
+                placements.append(candidate)
+                placed.append(candidate)
+                loaded_weight += product.weight
     return placed, loaded_weight, len(placed), evaluated
 
 
@@ -2301,9 +2746,13 @@ def _evaluate_frontier_transition_candidate(
     preferred_next_orientation: Optional[Tuple[float, float, float]] = None,
     current_orientation_index: int = 0,
     remaining_length: Optional[float] = None,
+    candidate_family: str = "dgfe_extended",
 ) -> Dict:
-    """Evaluate one isolated current-residual/next-product transition."""
-    candidate_depth, _ = _frontier_required_depth(
+    """Evaluate one Native or DGFE-extended residual transition candidate."""
+    if candidate_family not in {"native", "dgfe_extended"}:
+        raise ValueError(f"Unsupported frontier candidate family: {candidate_family}")
+    gravity_mode, residual_traversal = _dgfe_strategy_parts(strategy)
+    residual_depth, _ = _frontier_required_depth(
         current_product,
         current_residual_qty,
         current_orientation,
@@ -2311,31 +2760,59 @@ def _evaluate_frontier_transition_candidate(
         loaded_weight,
         x_depth if remaining_length is None else remaining_length,
     )
-    trial_placements = list(placements)
-    current_placements, loaded_after_current, current_qty = (
-        _frontier_grid_placements(
-            current_product,
-            current_residual_qty,
-            x_start,
-            candidate_depth,
-            current_orientation,
-            container,
-            trial_placements,
-            current_first_item_index,
-            loaded_weight,
-            traversal=strategy,
-        )
+    (
+        virtual_or_bottom_up,
+        loaded_after_current,
+        current_reserved_qty,
+    ) = _frontier_residual_candidate_placements(
+        current_product,
+        current_residual_qty,
+        x_start,
+        residual_depth,
+        current_orientation,
+        container,
+        current_first_item_index,
+        loaded_weight,
+        strategy,
     )
+    virtual_positions = (
+        _diagnostic_positions(virtual_or_bottom_up)
+        if gravity_mode == "deferred_top_down"
+        else []
+    )
+    pi_residual_x_footprint = (
+        max(
+            placement.x + placement.l
+            for placement in virtual_or_bottom_up
+        )
+        - x_start
+        if virtual_or_bottom_up
+        else 0.0
+    )
+    current_obstacles = (
+        _frontier_collision_only(virtual_or_bottom_up)
+        if gravity_mode == "deferred_top_down"
+        else list(virtual_or_bottom_up)
+    )
+    trial_placements = list(placements) + current_obstacles
 
     next_placements: List[Placement] = []
     next_selected_orientation = None
+    next_selected_orientation_index = None
     next_orientation_candidates: List[Dict] = []
     next_valid_orientation_count = 0
     next_qty = 0
     loaded_after = loaded_after_current
     candidate_evaluations = 0
+    envelope_depth = (
+        pi_residual_x_footprint
+        if candidate_family == "native"
+        else residual_depth
+    )
+    x_rows_evaluated = 0
+    first_clean_x_row_index = None
 
-    if current_qty == current_residual_qty:
+    if current_reserved_qty == current_residual_qty:
         (
             next_selected_orientation,
             next_orientation_candidates,
@@ -2344,7 +2821,7 @@ def _evaluate_frontier_transition_candidate(
             next_product,
             next_remaining_qty,
             x_start,
-            candidate_depth,
+            pi_residual_x_footprint,
             container,
             trial_placements,
             next_first_item_index,
@@ -2357,47 +2834,182 @@ def _evaluate_frontier_transition_candidate(
             if candidate["fits_frontier"]
         )
         if next_selected_orientation is not None:
-            next_placements, loaded_after, next_qty, _ = _frontier_fill_next_product(
+            next_selected_orientation_index = next(
+                candidate["orientation_index"]
+                for candidate in next_orientation_candidates
+                if tuple(candidate["orientation"]) == next_selected_orientation
+            )
+            if candidate_family == "native":
+                envelope_depth = pi_residual_x_footprint
+                x_rows_evaluated = _fit_count(
+                    envelope_depth,
+                    next_selected_orientation[0],
+                )
+                first_clean_x_row_index = None
+            else:
+                envelope_depth, x_rows_evaluated, first_clean_x_row_index = (
+                    _dgfe_envelope_dimensions(
+                        x_start,
+                        virtual_or_bottom_up,
+                        next_selected_orientation[0],
+                        x_depth if remaining_length is None else remaining_length,
+                    )
+                )
+            population_trial = list(placements) + current_obstacles
+            (
+                next_placements,
+                loaded_after,
+                next_qty,
+                population_evaluations,
+            ) = (
+                _frontier_fill_next_product
+                if candidate_family == "native"
+                else _populate_dgfe_next_product_envelope
+            )(
                 next_product,
                 next_remaining_qty,
                 x_start,
-                candidate_depth,
+                envelope_depth,
                 next_selected_orientation,
                 container,
-                trial_placements,
+                population_trial,
                 next_first_item_index,
                 loaded_after_current,
             )
+            candidate_evaluations += population_evaluations
 
-    current_packed_volume = current_qty * current_product.unit_volume
-    next_packed_volume = next_qty * next_product.unit_volume
+    gravity_applied = gravity_mode == "deferred_top_down"
+    gravity_drop_distances: List[float] = []
+    invalid_reason = None
+    if gravity_applied:
+        (
+            current_placements,
+            gravity_drop_distances,
+            invalid_reason,
+        ) = _settle_deferred_frontier_residuals(
+            virtual_or_bottom_up,
+            next_placements,
+            container,
+        )
+    else:
+        current_placements = virtual_or_bottom_up
+
+    final_local = current_placements + next_placements
+    support_valid = False
+    if invalid_reason is None:
+        support_valid, invalid_reason = _validate_frontier_geometry(
+            final_local,
+            container,
+        )
+    if current_reserved_qty <= 0:
+        support_valid = False
+        invalid_reason = "current_residual_does_not_fit"
+    current_final_qty = len(current_placements) if support_valid else 0
+    valid = bool(support_valid and current_final_qty == current_reserved_qty)
+    committed_placements = final_local if valid else []
+    if not valid:
+        loaded_after = loaded_weight
+
+    current_packed_volume = current_final_qty * current_product.unit_volume
+    next_packed_volume = next_qty * next_product.unit_volume if valid else 0.0
     total_packed_volume = current_packed_volume + next_packed_volume
     frontier_prism_volume = (
-        candidate_depth * container["W"] * container["H"]
+        envelope_depth * container["W"] * container["H"]
     )
     frontier_volume_efficiency = (
         total_packed_volume / frontier_prism_volume
         if frontier_prism_volume > TOLERANCE
         else 0.0
     )
+    phase_diagnostics = [
+        (
+            "candidate_residual_reserved"
+            if gravity_mode == "deferred_top_down"
+            else "candidate_residual_bottom_up"
+        )
+    ]
+    if current_reserved_qty == current_residual_qty:
+        phase_diagnostics.extend(
+            [
+                "next_product_all_orientation_evaluation",
+                "next_product_row_first_population",
+            ]
+        )
+    if gravity_applied:
+        phase_diagnostics.append("gravity_settlement")
+    phase_diagnostics.extend(["physical_validation", "candidate_scoring"])
 
     return {
+        "candidate_family": candidate_family,
         "strategy": strategy,
         "current_product_orientation": [
             float(value) for value in current_orientation
         ],
         "current_product_orientation_index": int(current_orientation_index),
-        "placements": current_placements + next_placements,
+        "gravity_mode": gravity_mode,
+        "residual_traversal": residual_traversal,
+        "placements": committed_placements,
         "current_product_placements": current_placements,
         "next_product_placements": next_placements,
-        "current_product_qty_packed": int(current_qty),
-        "frontier_depth": float(candidate_depth),
+        "current_product_qty_reserved_or_placed": int(current_reserved_qty),
+        "current_product_qty_packed": int(current_final_qty),
+        "pi_residual_x_footprint": float(pi_residual_x_footprint),
+        "residual_frontier_depth": float(residual_depth),
+        "frontier_depth": float(envelope_depth),
         "frontier_x_start": float(x_start),
-        "frontier_x_end": float(x_start + candidate_depth),
-        "next_product_qty_packed": int(next_qty),
+        "frontier_x_end": float(x_start + envelope_depth),
+        "envelope_x_start": float(x_start),
+        "envelope_x_end": float(x_start + envelope_depth),
+        "envelope_depth": float(envelope_depth),
+        "x_rows_evaluated": int(x_rows_evaluated),
+        "first_clean_x_row_index": first_clean_x_row_index,
+        "next_product_qty_packed": int(next_qty if valid else 0),
         "next_product_selected_orientation": next_selected_orientation,
+        "next_product_selected_orientation_index": next_selected_orientation_index,
         "next_product_orientation_candidates": next_orientation_candidates,
         "next_product_valid_orientation_count": int(next_valid_orientation_count),
+        "next_product_width_used": float(
+            _fit_count(container["W"], next_selected_orientation[1])
+            * next_selected_orientation[1]
+            if next_selected_orientation is not None
+            else 0.0
+        ),
+        "next_product_width_utilization": float(
+            (
+                _fit_count(container["W"], next_selected_orientation[1])
+                * next_selected_orientation[1]
+                / container["W"]
+            )
+            if next_selected_orientation is not None
+            and container["W"] > TOLERANCE
+            else 0.0
+        ),
+        "next_product_x_rows": _dgfe_x_row_diagnostics(
+            next_placements,
+            x_start,
+            next_selected_orientation,
+            x_rows_evaluated,
+            first_clean_x_row_index,
+        ),
+        "virtual_residual_positions": virtual_positions,
+        "settled_residual_positions": _diagnostic_positions(current_placements),
+        "residual_positions_truncated": bool(
+            len(virtual_or_bottom_up) > DGFE_POSITION_DIAGNOSTIC_LIMIT
+        ),
+        "gravity_applied": bool(gravity_applied),
+        "gravity_drop_distances": [
+            float(distance) for distance in gravity_drop_distances
+        ],
+        "support_valid": bool(support_valid),
+        "support_plane_count": int(
+            len(
+                {
+                    round(placement.z, 9)
+                    for placement in current_placements
+                    if placement.z > TOLERANCE
+                }
+            )
+        ),
         "current_product_packed_volume": float(current_packed_volume),
         "next_product_packed_volume": float(next_packed_volume),
         "total_frontier_packed_volume": float(total_packed_volume),
@@ -2405,20 +3017,231 @@ def _evaluate_frontier_transition_candidate(
         "frontier_volume_efficiency": float(frontier_volume_efficiency),
         "loaded_weight_after": float(loaded_after),
         "candidate_evaluations": int(candidate_evaluations),
-        "valid": bool(current_qty == current_residual_qty),
+        "valid": valid,
+        "invalid_reason": invalid_reason,
+        "phase_diagnostics": phase_diagnostics,
     }
+
+
+def _frontier_regular_block_efficiency(
+    product: NormalizedProduct,
+    quantity: int,
+    container: Dict,
+    remaining_length: float,
+    loaded_weight: float,
+) -> Tuple[Optional[float], Optional[Dict]]:
+    """Return the best normal Product Block alternative after a Native frontier."""
+    if quantity <= 0 or remaining_length <= TOLERANCE:
+        return None, None
+
+    feasible_qty = _payload_units_available(
+        container,
+        loaded_weight,
+        product.weight,
+        quantity,
+    )
+    candidates, _ = build_product_block_candidates(
+        product,
+        container,
+        remaining_length,
+    )
+    selected = choose_product_block(
+        candidates,
+        feasible_qty,
+        remaining_length,
+    )
+    if selected is None:
+        return None, None
+    return float(selected.transverse_utilization), _candidate_metadata(selected)
+
+
+def _evaluate_frontier_transition_candidate_pair(
+    current_product: NormalizedProduct,
+    current_residual_qty: int,
+    next_product: NormalizedProduct,
+    next_remaining_qty: int,
+    strategy: str,
+    x_start: float,
+    x_depth: float,
+    current_orientation: Tuple[float, float, float],
+    container: Dict,
+    placements: List[Placement],
+    current_first_item_index: int,
+    next_first_item_index: int,
+    loaded_weight: float,
+    preferred_next_orientation: Optional[Tuple[float, float, float]] = None,
+    current_orientation_index: int = 0,
+    remaining_length: Optional[float] = None,
+) -> Tuple[Dict, Dict]:
+    """Preserve Native and DGFE-extended outcomes for one base candidate.
+
+    The extended family is eligible only when Native is physically invalid or
+    the volume gained per extra X prism beats the next product's normal block
+    transverse utilization. This keeps extension value local and bounded.
+    """
+    evaluation_arguments = (
+        current_product,
+        current_residual_qty,
+        next_product,
+        next_remaining_qty,
+        strategy,
+        x_start,
+        x_depth,
+        current_orientation,
+        container,
+        placements,
+        current_first_item_index,
+        next_first_item_index,
+        loaded_weight,
+        preferred_next_orientation,
+    )
+    evaluation_keywords = {
+        "current_orientation_index": current_orientation_index,
+        "remaining_length": remaining_length,
+    }
+    native = _evaluate_frontier_transition_candidate(
+        *evaluation_arguments,
+        **evaluation_keywords,
+        candidate_family="native",
+    )
+    extended = _evaluate_frontier_transition_candidate(
+        *evaluation_arguments,
+        **evaluation_keywords,
+        candidate_family="dgfe_extended",
+    )
+
+    native_depth = float(native["frontier_depth"])
+    extended_depth = float(extended["frontier_depth"])
+    extra_depth = max(extended_depth - native_depth, 0.0)
+    native_next_qty = int(native["next_product_qty_packed"])
+    extended_next_qty = int(extended["next_product_qty_packed"])
+    pair_is_valid = bool(native["valid"] and extended["valid"])
+    extra_volume = (
+        max(
+            float(extended["total_frontier_packed_volume"])
+            - float(native["total_frontier_packed_volume"]),
+            0.0,
+        )
+        if pair_is_valid
+        else 0.0
+    )
+    extra_prism_volume = extra_depth * container["W"] * container["H"]
+    marginal_efficiency = (
+        extra_volume / extra_prism_volume
+        if pair_is_valid and extra_prism_volume > TOLERANCE
+        else None
+    )
+
+    regular_block_efficiency = None
+    regular_block = None
+    if native["valid"]:
+        remaining_after_native = max(
+            (
+                x_depth if remaining_length is None else remaining_length
+            )
+            - native_depth,
+            0.0,
+        )
+        regular_block_efficiency, regular_block = (
+            _frontier_regular_block_efficiency(
+                next_product,
+                max(next_remaining_qty - native_next_qty, 0),
+                container,
+                remaining_after_native,
+                native["loaded_weight_after"],
+            )
+        )
+
+    extension_value_delta = (
+        marginal_efficiency - regular_block_efficiency
+        if marginal_efficiency is not None
+        and regular_block_efficiency is not None
+        else None
+    )
+    if not extended["valid"]:
+        extension_justified = False
+        extension_decision_reason = "extended_invalid"
+    elif not native["valid"]:
+        extension_justified = True
+        extension_decision_reason = "native_invalid"
+    elif extra_depth <= TOLERANCE:
+        extension_justified = False
+        extension_decision_reason = "no_meaningful_extension"
+    elif extra_volume <= TOLERANCE or extended_next_qty <= native_next_qty:
+        extension_justified = False
+        extension_decision_reason = "no_additional_packed_volume"
+    elif regular_block_efficiency is None:
+        extension_justified = True
+        extension_decision_reason = "no_regular_block_alternative"
+    elif extension_value_delta is not None and (
+        extension_value_delta > FRONTIER_EFFICIENCY_TOLERANCE
+    ):
+        extension_justified = True
+        extension_decision_reason = "marginal_efficiency_exceeds_regular_block"
+    elif extension_value_delta is not None and (
+        abs(extension_value_delta) <= FRONTIER_EFFICIENCY_TOLERANCE
+    ):
+        extension_justified = False
+        extension_decision_reason = "native_preferred_equal_extension_value"
+    else:
+        extension_justified = False
+        extension_decision_reason = (
+            "native_preferred_regular_block_more_efficient"
+        )
+
+    shared_diagnostics = {
+        "native_frontier_depth": native_depth,
+        "extended_frontier_depth": extended_depth,
+        "extra_extension_depth": float(extra_depth),
+        "native_next_product_qty": native_next_qty,
+        "extended_next_product_qty": extended_next_qty,
+        "dgfe_extra_packed_volume": float(extra_volume),
+        "dgfe_marginal_efficiency": (
+            float(marginal_efficiency)
+            if marginal_efficiency is not None
+            else None
+        ),
+        "next_product_regular_block_efficiency": (
+            float(regular_block_efficiency)
+            if regular_block_efficiency is not None
+            else None
+        ),
+        "next_product_regular_block": regular_block,
+        "extension_value_delta": (
+            float(extension_value_delta)
+            if extension_value_delta is not None
+            else None
+        ),
+        "extension_justified": bool(extension_justified),
+        "extension_decision_reason": extension_decision_reason,
+    }
+    native.update(
+        {
+            **shared_diagnostics,
+            "family_eligible": bool(native["valid"] and not extension_justified),
+        }
+    )
+    extended.update(
+        {
+            **shared_diagnostics,
+            "family_eligible": bool(extended["valid"] and extension_justified),
+        }
+    )
+    return native, extended
 
 
 def _select_frontier_transition_candidate(
     candidates: List[Dict],
 ) -> Tuple[Dict, str]:
-    """Select by current quantity, then efficient deterministic frontier use."""
+    """Select a physical transition candidate with the stable Pi-first ranking."""
+    valid_candidates = [candidate for candidate in candidates if candidate.get("valid")]
+    ranking_candidates = valid_candidates or candidates
     maximum_current_qty = max(
-        candidate["current_product_qty_packed"] for candidate in candidates
+        candidate["current_product_qty_packed"] for candidate in ranking_candidates
     )
     current_shortlist = [
         candidate
-        for candidate in candidates
+        for candidate in ranking_candidates
         if candidate["current_product_qty_packed"] == maximum_current_qty
     ]
     positive_depth_shortlist = [
@@ -2432,55 +3255,114 @@ def _select_frontier_transition_candidate(
         winner = current_shortlist[0]
         return winner, "current_product_quantity"
 
-    maximum_efficiency = max(
-        candidate["frontier_volume_efficiency"]
+    minimum_pi_footprint = min(
+        candidate.get(
+            "pi_residual_x_footprint",
+            candidate.get("frontier_depth", 0.0),
+        )
         for candidate in current_shortlist
+    )
+    footprint_shortlist = [
+        candidate
+        for candidate in current_shortlist
+        if abs(
+            candidate.get(
+                "pi_residual_x_footprint",
+                candidate.get("frontier_depth", 0.0),
+            )
+            - minimum_pi_footprint
+        )
+        <= TOLERANCE
+    ]
+    footprint_decided = len(footprint_shortlist) < len(current_shortlist)
+    if len(footprint_shortlist) == 1:
+        return footprint_shortlist[0], "smaller_pi_residual_x_footprint"
+
+    eligible_family_shortlist = [
+        candidate
+        for candidate in footprint_shortlist
+        if candidate.get("family_eligible", True)
+    ]
+    family_shortlist = eligible_family_shortlist or footprint_shortlist
+    if len(family_shortlist) == 1:
+        winner = family_shortlist[0]
+        if footprint_decided:
+            return winner, "smaller_pi_residual_x_footprint"
+        return winner, winner.get(
+            "extension_decision_reason",
+            "candidate_family_value",
+        )
+
+    maximum_efficiency = max(
+        candidate.get("frontier_volume_efficiency", 0.0)
+        for candidate in family_shortlist
     )
     efficiency_shortlist = [
         candidate
-        for candidate in current_shortlist
-        if maximum_efficiency - candidate["frontier_volume_efficiency"]
+        for candidate in family_shortlist
+        if maximum_efficiency - candidate.get("frontier_volume_efficiency", 0.0)
         <= FRONTIER_EFFICIENCY_TOLERANCE
     ]
-    row_first_shortlist = [
-        candidate
-        for candidate in efficiency_shortlist
-        if candidate["strategy"] == "row_first"
-    ]
-    row_first_tie = bool(row_first_shortlist) and any(
-        candidate["strategy"] == "column_first"
-        for candidate in efficiency_shortlist
-    )
-    ranking_pool = row_first_shortlist or efficiency_shortlist
     maximum_next_qty = max(
-        candidate["next_product_qty_packed"] for candidate in ranking_pool
+        candidate["next_product_qty_packed"] for candidate in efficiency_shortlist
     )
     next_qty_shortlist = [
         candidate
-        for candidate in ranking_pool
+        for candidate in efficiency_shortlist
         if candidate["next_product_qty_packed"] == maximum_next_qty
     ]
-    minimum_depth = min(candidate["frontier_depth"] for candidate in next_qty_shortlist)
+    minimum_depth = min(
+        candidate.get("frontier_depth", 0.0)
+        for candidate in next_qty_shortlist
+    )
     depth_shortlist = [
         candidate
         for candidate in next_qty_shortlist
-        if abs(candidate["frontier_depth"] - minimum_depth) <= TOLERANCE
+        if abs(candidate.get("frontier_depth", 0.0) - minimum_depth) <= TOLERANCE
     ]
+    row_first_shortlist = [
+        candidate
+        for candidate in depth_shortlist
+        if candidate.get("residual_traversal", candidate.get("strategy"))
+        in {"row_first", "top_down_row_first", "bottom_up_row_first"}
+    ]
+    row_first_tie = bool(row_first_shortlist) and len(row_first_shortlist) < len(
+        depth_shortlist
+    )
+    traversal_shortlist = row_first_shortlist or depth_shortlist
+    bottom_up_shortlist = [
+        candidate
+        for candidate in traversal_shortlist
+        if candidate.get("gravity_mode", "bottom_up") == "bottom_up"
+    ]
+    bottom_up_tie = bool(bottom_up_shortlist) and len(bottom_up_shortlist) < len(
+        traversal_shortlist
+    )
+    gravity_shortlist = bottom_up_shortlist or traversal_shortlist
     winner = min(
-        depth_shortlist,
-        key=lambda candidate: candidate["current_product_orientation_index"],
+        gravity_shortlist,
+        key=lambda candidate: candidate.get("current_product_orientation_index", 0),
     )
 
+    if footprint_decided:
+        return winner, "smaller_pi_residual_x_footprint"
     if maximum_efficiency - min(
-        candidate["frontier_volume_efficiency"] for candidate in current_shortlist
+        candidate.get("frontier_volume_efficiency", 0.0)
+        for candidate in family_shortlist
     ) > FRONTIER_EFFICIENCY_TOLERANCE:
         return winner, "better_frontier_efficiency"
+    if len(
+        {candidate["next_product_qty_packed"] for candidate in efficiency_shortlist}
+    ) > 1:
+        return winner, "more_next_product_units"
+    if len(
+        {candidate.get("frontier_depth", 0.0) for candidate in next_qty_shortlist}
+    ) > 1:
+        return winner, "smaller_frontier_depth"
     if row_first_tie:
         return winner, "tie_prefer_row_first"
-    if len({candidate["next_product_qty_packed"] for candidate in ranking_pool}) > 1:
-        return winner, "more_next_product_units"
-    if len({candidate["frontier_depth"] for candidate in next_qty_shortlist}) > 1:
-        return winner, "smaller_frontier_depth"
+    if bottom_up_tie:
+        return winner, "tie_prefer_bottom_up"
     return winner, "stable_orientation_tiebreak"
 
 
@@ -2628,8 +3510,23 @@ def _pack_container_front_to_back(
             "next_product_population_strategy": None,
             "selected_residual_strategy": None,
             "selected_residual_orientation": None,
+            "selected_candidate_family": None,
+            "selected_gravity_mode": None,
+            "selected_residual_traversal": None,
+            "pi_residual_x_footprint": None,
             "selected_frontier_depth": None,
             "selected_frontier_volume_efficiency": None,
+            "native_frontier_depth": None,
+            "extended_frontier_depth": None,
+            "extra_extension_depth": None,
+            "native_next_product_qty": None,
+            "extended_next_product_qty": None,
+            "dgfe_extra_packed_volume": None,
+            "dgfe_marginal_efficiency": None,
+            "next_product_regular_block_efficiency": None,
+            "extension_value_delta": None,
+            "extension_justified": None,
+            "extension_decision_reason": None,
             "selection_reason": None,
             "block": _candidate_metadata(selected) if selected else None,
         }
@@ -2663,12 +3560,31 @@ def _pack_container_front_to_back(
                 local_frontier: List[Placement] = []
                 own_frontier_qty = 0
                 selected_residual_strategy = "row_first"
+                selected_gravity_mode = "bottom_up"
+                selected_residual_traversal = "row_first"
                 selection_reason = "no_next_product"
                 current_product_residual_strategy = "row_first"
                 next_product_population_strategy = None
                 residual_strategy_candidates: List[Dict] = []
+                transition_base_candidate_count = 0
                 selected_residual_orientation = None
+                selected_candidate_family = None
+                selected_pi_residual_x_footprint = None
                 selected_frontier_volume_efficiency = 0.0
+                selected_value_diagnostics = {
+                    "native_frontier_depth": None,
+                    "extended_frontier_depth": None,
+                    "extra_extension_depth": None,
+                    "native_next_product_qty": None,
+                    "extended_next_product_qty": None,
+                    "dgfe_extra_packed_volume": None,
+                    "dgfe_marginal_efficiency": None,
+                    "next_product_regular_block_efficiency": None,
+                    "next_product_regular_block": None,
+                    "extension_value_delta": None,
+                    "extension_justified": None,
+                    "extension_decision_reason": None,
+                }
 
                 if next_product is None:
                     local_frontier, loaded_weight, own_frontier_qty = (
@@ -2723,8 +3639,16 @@ def _pack_container_front_to_back(
                         if preferred_block is not None:
                             preferred_next_orientation = preferred_block.orientations[0]
 
+                    transition_base_candidate_count = (
+                        len(product.orientations) * len(DGFE_RESIDUAL_STRATEGIES)
+                    )
                     transition_candidates = [
-                        _evaluate_frontier_transition_candidate(
+                        family_candidate
+                        for orientation_index, orientation in enumerate(
+                            product.orientations
+                        )
+                        for strategy in DGFE_RESIDUAL_STRATEGIES
+                        for family_candidate in _evaluate_frontier_transition_candidate_pair(
                             product,
                             residual_qty,
                             next_product,
@@ -2742,16 +3666,16 @@ def _pack_container_front_to_back(
                             current_orientation_index=orientation_index,
                             remaining_length=available_length,
                         )
-                        for orientation_index, orientation in enumerate(
-                            product.orientations
-                        )
-                        for strategy in ("row_first", "column_first")
                     ]
                     winner, selection_reason = _select_frontier_transition_candidate(
                         transition_candidates
                     )
                     selected_residual_strategy = winner["strategy"]
-                    current_product_residual_strategy = winner["strategy"]
+                    selected_gravity_mode = winner["gravity_mode"]
+                    selected_residual_traversal = winner["residual_traversal"]
+                    current_product_residual_strategy = winner[
+                        "residual_traversal"
+                    ]
                     next_product_population_strategy = "row_first"
                     local_frontier = winner["placements"]
                     own_frontier_qty = winner["current_product_qty_packed"]
@@ -2760,9 +3684,17 @@ def _pack_container_front_to_back(
                     selected_residual_orientation = winner[
                         "current_product_orientation"
                     ]
+                    selected_candidate_family = winner["candidate_family"]
+                    selected_pi_residual_x_footprint = winner[
+                        "pi_residual_x_footprint"
+                    ]
                     selected_frontier_volume_efficiency = winner[
                         "frontier_volume_efficiency"
                     ]
+                    selected_value_diagnostics = {
+                        key: winner[key]
+                        for key in selected_value_diagnostics
+                    }
                     loaded_weight = winner["loaded_weight_after"]
                     placements.extend(winner["placements"])
                     next_product_selected_orientation = winner[
@@ -2783,25 +3715,101 @@ def _pack_container_front_to_back(
                     )
                     residual_strategy_candidates = [
                         {
+                            "current_product": product.name,
+                            "next_product": next_product.name,
                             "current_product_orientation": candidate[
                                 "current_product_orientation"
                             ],
                             "current_product_orientation_index": int(
                                 candidate["current_product_orientation_index"]
                             ),
+                            "candidate_family": candidate["candidate_family"],
+                            "family_eligible": bool(
+                                candidate["family_eligible"]
+                            ),
                             "strategy": candidate["strategy"],
+                            "gravity_mode": candidate["gravity_mode"],
+                            "residual_traversal": candidate[
+                                "residual_traversal"
+                            ],
                             "current_product_residual_requested": int(
                                 residual_qty
                             ),
+                            "residual_requested": int(residual_qty),
+                            "current_product_residual_reserved_or_placed": int(
+                                candidate[
+                                    "current_product_qty_reserved_or_placed"
+                                ]
+                            ),
                             "current_product_residual_packed": int(
+                                candidate["current_product_qty_packed"]
+                            ),
+                            "residual_final_packed": int(
                                 candidate["current_product_qty_packed"]
                             ),
                             "next_product_qty_packed": int(
                                 candidate["next_product_qty_packed"]
                             ),
                             "frontier_depth": float(candidate["frontier_depth"]),
+                            "pi_residual_x_footprint": float(
+                                candidate["pi_residual_x_footprint"]
+                            ),
+                            "native_frontier_depth": float(
+                                candidate["native_frontier_depth"]
+                            ),
+                            "extended_frontier_depth": float(
+                                candidate["extended_frontier_depth"]
+                            ),
+                            "extra_extension_depth": float(
+                                candidate["extra_extension_depth"]
+                            ),
+                            "native_next_product_qty": int(
+                                candidate["native_next_product_qty"]
+                            ),
+                            "extended_next_product_qty": int(
+                                candidate["extended_next_product_qty"]
+                            ),
+                            "dgfe_extra_packed_volume": float(
+                                candidate["dgfe_extra_packed_volume"]
+                            ),
+                            "dgfe_marginal_efficiency": candidate[
+                                "dgfe_marginal_efficiency"
+                            ],
+                            "next_product_regular_block_efficiency": candidate[
+                                "next_product_regular_block_efficiency"
+                            ],
+                            "next_product_regular_block": candidate[
+                                "next_product_regular_block"
+                            ],
+                            "extension_value_delta": candidate[
+                                "extension_value_delta"
+                            ],
+                            "extension_justified": bool(
+                                candidate["extension_justified"]
+                            ),
+                            "extension_decision_reason": candidate[
+                                "extension_decision_reason"
+                            ],
                             "frontier_x_start": float(candidate["frontier_x_start"]),
                             "frontier_x_end": float(candidate["frontier_x_end"]),
+                            "residual_frontier_depth": float(
+                                candidate["residual_frontier_depth"]
+                            ),
+                            "envelope_x_start": float(
+                                candidate["envelope_x_start"]
+                            ),
+                            "envelope_x_end": float(
+                                candidate["envelope_x_end"]
+                            ),
+                            "envelope_depth": float(
+                                candidate["envelope_depth"]
+                            ),
+                            "x_rows_evaluated": int(
+                                candidate["x_rows_evaluated"]
+                            ),
+                            "first_clean_x_row_index": candidate[
+                                "first_clean_x_row_index"
+                            ],
                             "next_product_selected_orientation": (
                                 [
                                     float(value)
@@ -2813,12 +3821,61 @@ def _pack_container_front_to_back(
                                 is not None
                                 else None
                             ),
+                            "next_product_orientation": (
+                                [
+                                    float(value)
+                                    for value in candidate[
+                                        "next_product_selected_orientation"
+                                    ]
+                                ]
+                                if candidate[
+                                    "next_product_selected_orientation"
+                                ] is not None
+                                else None
+                            ),
                             "next_product_valid_orientation_count": int(
                                 candidate["next_product_valid_orientation_count"]
                             ),
+                            "next_product_selected_orientation_index": candidate[
+                                "next_product_selected_orientation_index"
+                            ],
+                            "next_product_orientation_index": candidate[
+                                "next_product_selected_orientation_index"
+                            ],
+                            "next_product_qty_in_envelope": int(
+                                candidate["next_product_qty_packed"]
+                            ),
+                            "next_product_width_used": float(
+                                candidate["next_product_width_used"]
+                            ),
+                            "next_product_width_utilization": float(
+                                candidate["next_product_width_utilization"]
+                            ),
+                            "next_product_x_rows": candidate[
+                                "next_product_x_rows"
+                            ],
                             "next_product_orientation_candidates": candidate[
                                 "next_product_orientation_candidates"
                             ],
+                            "virtual_residual_positions": candidate[
+                                "virtual_residual_positions"
+                            ],
+                            "settled_residual_positions": candidate[
+                                "settled_residual_positions"
+                            ],
+                            "residual_positions_truncated": bool(
+                                candidate["residual_positions_truncated"]
+                            ),
+                            "gravity_applied": bool(
+                                candidate["gravity_applied"]
+                            ),
+                            "gravity_drop_distances": candidate[
+                                "gravity_drop_distances"
+                            ],
+                            "support_valid": bool(candidate["support_valid"]),
+                            "support_plane_count": int(
+                                candidate["support_plane_count"]
+                            ),
                             "current_product_packed_volume": float(
                                 candidate["current_product_packed_volume"]
                             ),
@@ -2826,6 +3883,9 @@ def _pack_container_front_to_back(
                                 candidate["next_product_packed_volume"]
                             ),
                             "total_frontier_packed_volume": float(
+                                candidate["total_frontier_packed_volume"]
+                            ),
+                            "frontier_packed_volume": float(
                                 candidate["total_frontier_packed_volume"]
                             ),
                             "frontier_prism_volume": float(
@@ -2838,6 +3898,10 @@ def _pack_container_front_to_back(
                                 candidate["candidate_evaluations"]
                             ),
                             "valid": bool(candidate["valid"]),
+                            "invalid_reason": candidate["invalid_reason"],
+                            "phase_diagnostics": candidate[
+                                "phase_diagnostics"
+                            ],
                         }
                         for candidate in transition_candidates
                     ]
@@ -2855,10 +3919,21 @@ def _pack_container_front_to_back(
                 summary["selected_residual_orientation"] = (
                     selected_residual_orientation
                 )
+                summary["selected_candidate_family"] = selected_candidate_family
+                summary["selected_gravity_mode"] = selected_gravity_mode
+                summary["selected_residual_traversal"] = (
+                    selected_residual_traversal
+                )
+                summary["pi_residual_x_footprint"] = (
+                    float(selected_pi_residual_x_footprint)
+                    if selected_pi_residual_x_footprint is not None
+                    else None
+                )
                 summary["selected_frontier_depth"] = float(frontier_depth)
                 summary["selected_frontier_volume_efficiency"] = float(
                     selected_frontier_volume_efficiency
                 )
+                summary.update(selected_value_diagnostics)
                 summary["selection_reason"] = selection_reason
                 phase_order.append(
                     {
@@ -2903,8 +3978,11 @@ def _pack_container_front_to_back(
                         "x_start": float(frontier_start),
                         "x_end": float(frontier_end),
                         "current_product_residual_requested": int(residual_qty),
+                        "residual_requested": int(residual_qty),
                         "current_product_residual_packed": int(own_frontier_qty),
+                        "residual_final_packed": int(own_frontier_qty),
                         "next_product_qty_packed": int(next_frontier_qty),
+                        "next_product_qty_in_envelope": int(next_frontier_qty),
                         "frontier_depth": float(frontier_depth),
                         "population_strategy": "row_first",
                         "current_product_residual_strategy": (
@@ -2916,12 +3994,49 @@ def _pack_container_front_to_back(
                         "selected_residual_orientation": (
                             selected_residual_orientation
                         ),
+                        "selected_current_orientation": (
+                            selected_residual_orientation
+                        ),
                         "selected_residual_strategy": selected_residual_strategy,
+                        "selected_candidate_family": selected_candidate_family,
+                        "candidate_count": len(residual_strategy_candidates),
+                        "base_candidate_count": int(
+                            transition_base_candidate_count
+                        ),
+                        "selected_gravity_mode": selected_gravity_mode,
+                        "selected_residual_traversal": (
+                            selected_residual_traversal
+                        ),
                         "selected_frontier_depth": float(frontier_depth),
+                        "pi_residual_x_footprint": (
+                            float(selected_pi_residual_x_footprint)
+                            if selected_pi_residual_x_footprint is not None
+                            else None
+                        ),
+                        "envelope_depth": float(frontier_depth),
                         "selected_frontier_volume_efficiency": float(
                             selected_frontier_volume_efficiency
                         ),
+                        "frontier_efficiency": float(
+                            selected_frontier_volume_efficiency
+                        ),
+                        **selected_value_diagnostics,
                         "selection_reason": selection_reason,
+                        "first_clean_x_row_index": (
+                            winner["first_clean_x_row_index"]
+                            if next_product is not None
+                            else None
+                        ),
+                        "gravity_applied": bool(
+                            winner["gravity_applied"]
+                            if next_product is not None
+                            else False
+                        ),
+                        "support_valid": bool(
+                            winner["support_valid"]
+                            if next_product is not None
+                            else True
+                        ),
                         "residual_strategy_candidates": residual_strategy_candidates,
                         "support_surface_count": _frontier_support_surface_count(
                             local_frontier
@@ -2942,6 +4057,42 @@ def _pack_container_front_to_back(
                             ]
                             if next_product_selected_orientation is not None
                             else None
+                        ),
+                        "selected_next_product_orientation": (
+                            [
+                                float(value)
+                                for value in next_product_selected_orientation
+                            ]
+                            if next_product_selected_orientation is not None
+                            else None
+                        ),
+                        "phase_diagnostics": (
+                            ["product_block"]
+                            + (
+                                [
+                                    "residual_candidates_generated",
+                                    "next_product_all_orientation_evaluation",
+                                    "next_product_row_first_population",
+                                ]
+                                if next_product is not None
+                                else ["candidate_residual_bottom_up"]
+                            )
+                            + (
+                                ["gravity_settlement"]
+                                if next_product is not None
+                                and winner["gravity_applied"]
+                                else []
+                            )
+                            + (
+                                [
+                                    "physical_validation",
+                                    "candidate_scoring",
+                                    "candidate_selected",
+                                ]
+                                if next_product is not None
+                                else []
+                            )
+                            + ["frontier_closed"]
                         ),
                         "closed": True,
                     }
