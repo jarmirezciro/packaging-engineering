@@ -92,8 +92,9 @@ Do not run a broad destructive migration or production command as a substitute f
 
 ## Transport Container engine regression contract
 
-The current active `engine.py` dispatch implements stabilized Space Evenly V1
-and Load Front-to-Back with DGFE through the existing compatibility values
+The current active `engine.py` dispatch implements Space Evenly with unchanged
+V1 Product Blocks and Residual Frontier Closure V2, plus Load Front-to-Back
+with DGFE through the existing compatibility values
 `maximum_utilization` and `maximum_utilization_floor_first`. Older fixture material may refer to the
 former Maximum, Accessible, or Strict Sequence implementations; those legacy
 paths are not imported by the current engine. Run focused checks for both
@@ -110,6 +111,14 @@ For a change scoped to one mode:
 - unaffected established modes must keep their accepted count/signature fixtures unless the task explicitly approves a semantic change;
 - a shared-helper change is incomplete until every unaffected established mode has been checked;
 - visual appearance alone is never sufficient evidence of a packing-engine fix.
+
+Space Evenly residual regression must preserve the exact Phase 1 Product Block
+signature and cover ordered anchor selection, quantities 1/2/3 and a larger
+arbitrary residual, whole-frontier population, contiguous union support,
+unsupported gaps, non-stackable lower and upper placements, payload limits,
+restricted rotations, no-residual and X-exhausted cases, both Bottom-Up and
+deferred candidates, Native preference on an extension-efficiency tie,
+deterministic placements, and JSON-safe diagnostics.
 
 Load Front-to-Back regression must additionally cover four residual strategies
 per enabled current orientation and both Native/DGFE family outcomes, arbitrary

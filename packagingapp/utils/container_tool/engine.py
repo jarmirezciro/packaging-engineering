@@ -26,6 +26,10 @@ DGFE_RESIDUAL_STRATEGIES = (
     "bottom_up_column_first",
     "bottom_up_row_first",
 )
+SPACE_EVENLY_RESIDUAL_STRATEGIES = (
+    "bottom_up_row_first",
+    "top_down_row_first",
+)
 DGFE_POSITION_DIAGNOSTIC_LIMIT = 64
 UNSUPPORTED_MODE_MESSAGE = (
     "Only Space Evenly and Load Front-to-Back are currently available."
@@ -3395,6 +3399,1052 @@ def _frontier_support_surface_count(placements: List[Placement]) -> int:
     return surface_count
 
 
+def _select_space_evenly_residual_anchor(
+    ordered_products: List[NormalizedProduct],
+    remaining: Dict[int, int],
+    container: Dict,
+    loaded_weight: float,
+    available_length: float,
+) -> Optional[NormalizedProduct]:
+    """Return the first feasible residual product in established product order."""
+    for product in ordered_products:
+        quantity = remaining.get(product.row_index, 0)
+        if quantity <= 0:
+            continue
+        if _payload_units_available(
+            container,
+            loaded_weight,
+            product.weight,
+            quantity,
+        ) <= 0:
+            continue
+        if any(
+            orientation[0] <= available_length + TOLERANCE
+            and orientation[1] <= container["W"] + TOLERANCE
+            and orientation[2] <= container["H"] + TOLERANCE
+            for orientation in product.orientations
+        ):
+            return product
+    return None
+
+
+def _space_evenly_secondary_orientation_candidates(
+    product: NormalizedProduct,
+    quantity: int,
+    x_start: float,
+    x_depth: float,
+    container: Dict,
+    local_placements: List[Placement],
+    first_item_index: int,
+    loaded_weight: float,
+    preferred_orientation: Optional[Tuple[float, float, float]],
+) -> Tuple[Optional[Dict], List[Dict]]:
+    """Evaluate every enabled orientation without mutating the frontier state."""
+    candidates: List[Dict] = []
+    prism_volume = x_depth * container["W"] * container["H"]
+    for orientation_index, orientation in enumerate(product.orientations):
+        trial = list(local_placements)
+        placed, loaded_after, packed, evaluated = _frontier_fill_next_product(
+            product,
+            quantity,
+            x_start,
+            x_depth,
+            orientation,
+            container,
+            trial,
+            first_item_index,
+            loaded_weight,
+        )
+        row_capacity = _fit_count(container["W"], orientation[1])
+        width_utilization = (
+            min(packed, row_capacity) * orientation[1] / container["W"]
+            if container["W"] > TOLERANCE
+            else 0.0
+        )
+        local_volume_utilization = (
+            packed * product.unit_volume / prism_volume
+            if prism_volume > TOLERANCE
+            else 0.0
+        )
+        preferred = bool(
+            preferred_orientation is not None
+            and all(
+                abs(value - preferred_value) <= TOLERANCE
+                for value, preferred_value in zip(
+                    orientation,
+                    preferred_orientation,
+                )
+            )
+        )
+        candidates.append(
+            {
+                "orientation_index": int(orientation_index),
+                "orientation": [float(value) for value in orientation],
+                "quantity_packed": int(packed),
+                "width_utilization": float(width_utilization),
+                "local_volume_utilization": float(local_volume_utilization),
+                "additional_x_requirement": float(orientation[0]),
+                "preferred_orientation": preferred,
+                "local_placement_evaluations": int(evaluated),
+                "placements": placed,
+                "loaded_weight_after": float(loaded_after),
+            }
+        )
+
+    if not candidates:
+        return None, []
+    winner = max(
+        candidates,
+        key=lambda candidate: (
+            candidate["quantity_packed"],
+            candidate["width_utilization"],
+            candidate["local_volume_utilization"],
+            -candidate["additional_x_requirement"],
+            int(candidate["preferred_orientation"]),
+            -candidate["orientation_index"],
+        ),
+    )
+    if winner["quantity_packed"] <= 0:
+        winner = None
+    return winner, candidates
+
+
+def _populate_space_evenly_frontier_pool(
+    ordered_products: List[NormalizedProduct],
+    anchor: NormalizedProduct,
+    remaining: Dict[int, int],
+    x_start: float,
+    x_depth: float,
+    container: Dict,
+    base_placements: List[Placement],
+    next_item_index: Dict[int, int],
+    loaded_weight: float,
+    preferred_orientations: Dict[int, Tuple[float, float, float]],
+) -> Tuple[List[Placement], float, Dict[int, int], List[Dict], int]:
+    """Populate other residual SKUs across one complete bounded frontier."""
+    local = list(base_placements)
+    packed_by_product: Dict[int, int] = {}
+    orientation_diagnostics: List[Dict] = []
+    local_evaluations = 0
+
+    for product in ordered_products:
+        if product.row_index == anchor.row_index:
+            continue
+        quantity = remaining.get(product.row_index, 0)
+        if quantity <= 0:
+            continue
+        winner, candidates = _space_evenly_secondary_orientation_candidates(
+            product,
+            quantity,
+            x_start,
+            x_depth,
+            container,
+            local,
+            next_item_index[product.row_index],
+            loaded_weight,
+            preferred_orientations.get(product.row_index),
+        )
+        local_evaluations += sum(
+            candidate["local_placement_evaluations"]
+            for candidate in candidates
+        )
+        orientation_diagnostics.append(
+            {
+                "row_index": int(product.row_index),
+                "product_name": product.name,
+                "selected_orientation_index": (
+                    int(winner["orientation_index"])
+                    if winner is not None
+                    else None
+                ),
+                "selected_orientation": (
+                    list(winner["orientation"])
+                    if winner is not None
+                    else None
+                ),
+                "quantity_packed": (
+                    int(winner["quantity_packed"])
+                    if winner is not None
+                    else 0
+                ),
+                "orientation_candidates": [
+                    {
+                        key: value
+                        for key, value in candidate.items()
+                        if key not in {"placements", "loaded_weight_after"}
+                    }
+                    for candidate in candidates
+                ],
+            }
+        )
+        if winner is None:
+            continue
+        selected_placements = list(winner["placements"])
+        local.extend(selected_placements)
+        loaded_weight = float(winner["loaded_weight_after"])
+        packed_by_product[product.row_index] = len(selected_placements)
+
+    return (
+        local[len(base_placements) :],
+        loaded_weight,
+        packed_by_product,
+        orientation_diagnostics,
+        local_evaluations,
+    )
+
+
+def _evaluate_space_evenly_anchor_candidate(
+    anchor: NormalizedProduct,
+    anchor_quantity: int,
+    anchor_orientation: Tuple[float, float, float],
+    anchor_orientation_index: int,
+    strategy: str,
+    candidate_family: str,
+    x_start: float,
+    anchor_depth: float,
+    committed_depth: float,
+    container: Dict,
+    ordered_products: List[NormalizedProduct],
+    remaining: Dict[int, int],
+    next_item_index: Dict[int, int],
+    loaded_weight: float,
+    preferred_orientations: Dict[int, Tuple[float, float, float]],
+) -> Dict:
+    """Build, populate, settle, and validate one Space Evenly frontier trial."""
+    gravity_mode, residual_traversal = _dgfe_strategy_parts(strategy)
+    reserved_or_bottom_up, loaded_after_anchor, reserved_qty = (
+        _frontier_residual_candidate_placements(
+            anchor,
+            anchor_quantity,
+            x_start,
+            anchor_depth,
+            anchor_orientation,
+            container,
+            next_item_index[anchor.row_index],
+            loaded_weight,
+            strategy,
+        )
+    )
+    pi_x_footprint = (
+        max(placement.x + placement.l for placement in reserved_or_bottom_up)
+        - x_start
+        if reserved_or_bottom_up
+        else 0.0
+    )
+    effective_depth = (
+        pi_x_footprint
+        if candidate_family == "native"
+        else max(committed_depth, pi_x_footprint)
+    )
+    anchor_obstacles = (
+        _frontier_collision_only(reserved_or_bottom_up)
+        if gravity_mode == "deferred_top_down"
+        else list(reserved_or_bottom_up)
+    )
+    remaining_after_anchor = dict(remaining)
+    remaining_after_anchor[anchor.row_index] = max(
+        remaining_after_anchor.get(anchor.row_index, 0) - reserved_qty,
+        0,
+    )
+    (
+        secondary_placements,
+        loaded_after,
+        secondary_counts,
+        secondary_orientation_diagnostics,
+        local_evaluations,
+    ) = _populate_space_evenly_frontier_pool(
+        ordered_products,
+        anchor,
+        remaining_after_anchor,
+        x_start,
+        effective_depth,
+        container,
+        anchor_obstacles,
+        next_item_index,
+        loaded_after_anchor,
+        preferred_orientations,
+    )
+
+    invalid_reason = None
+    gravity_drop_distances: List[float] = []
+    if gravity_mode == "deferred_top_down":
+        anchor_placements, gravity_drop_distances, invalid_reason = (
+            _settle_deferred_frontier_residuals(
+                reserved_or_bottom_up,
+                secondary_placements,
+                container,
+            )
+        )
+    else:
+        anchor_placements = reserved_or_bottom_up
+
+    final_local = anchor_placements + secondary_placements
+    valid = False
+    if invalid_reason is None:
+        valid, invalid_reason = _validate_frontier_geometry(
+            final_local,
+            container,
+        )
+    if reserved_qty <= 0:
+        valid = False
+        invalid_reason = "anchor_does_not_fit"
+
+    anchor_packed = len(anchor_placements) if valid else 0
+    if not valid:
+        final_local = []
+        secondary_counts = {}
+        loaded_after = loaded_weight
+    packed_by_product = {
+        anchor.row_index: int(anchor_packed),
+        **{
+            row_index: int(quantity)
+            for row_index, quantity in secondary_counts.items()
+        },
+    }
+    packed_volume = sum(
+        placement.l * placement.w * placement.h
+        for placement in final_local
+    )
+    frontier_prism_volume = effective_depth * container["W"] * container["H"]
+    frontier_efficiency = (
+        packed_volume / frontier_prism_volume
+        if frontier_prism_volume > TOLERANCE
+        else 0.0
+    )
+    other_volume = packed_volume - anchor_packed * anchor.unit_volume
+    remaining_after = {
+        row_index: max(remaining.get(row_index, 0) - packed, 0)
+        for row_index, packed in packed_by_product.items()
+    }
+    for product in ordered_products:
+        remaining_after.setdefault(
+            product.row_index,
+            int(remaining.get(product.row_index, 0)),
+        )
+    support_planes = {0.0}
+    support_planes.update(
+        float(placement.z + placement.h)
+        for placement in final_local
+        if placement.stackable
+    )
+    support_relationships = sum(
+        1 for placement in final_local if placement.z > TOLERANCE
+    )
+    return {
+        "candidate_family": candidate_family,
+        "strategy": strategy,
+        "gravity_mode": gravity_mode,
+        "residual_traversal": residual_traversal,
+        "anchor_orientation": [float(value) for value in anchor_orientation],
+        "anchor_orientation_index": int(anchor_orientation_index),
+        "anchor_qty_requested": int(anchor_quantity),
+        "anchor_qty_reserved_or_placed": int(reserved_qty),
+        "anchor_qty_packed": int(anchor_packed),
+        "anchor_pi_x_footprint": float(pi_x_footprint),
+        "native_depth": float(pi_x_footprint),
+        "committed_depth": float(effective_depth),
+        "x_start": float(x_start),
+        "x_end": float(x_start + effective_depth),
+        "placements": final_local,
+        "anchor_placements": anchor_placements,
+        "products_quantities_packed": packed_by_product,
+        "other_products_packed": [
+            {
+                "row_index": int(product.row_index),
+                "product_name": product.name,
+                "quantity": int(packed_by_product.get(product.row_index, 0)),
+            }
+            for product in ordered_products
+            if product.row_index != anchor.row_index
+            and packed_by_product.get(product.row_index, 0) > 0
+        ],
+        "other_products_quantity_packed": int(sum(secondary_counts.values())),
+        "other_products_packed_volume": float(other_volume),
+        "frontier_packed_volume": float(packed_volume),
+        "frontier_prism_volume": float(frontier_prism_volume),
+        "frontier_volume_efficiency": float(frontier_efficiency),
+        "support_plane_count": int(len(support_planes)),
+        "support_surface_count": int(
+            _frontier_support_surface_count(final_local)
+        ),
+        "support_relationship_count": int(support_relationships),
+        "secondary_orientation_diagnostics": secondary_orientation_diagnostics,
+        "local_placement_evaluations": int(local_evaluations),
+        "candidate_evaluations": int(
+            1
+            + local_evaluations
+            + sum(
+                len(item["orientation_candidates"])
+                for item in secondary_orientation_diagnostics
+            )
+        ),
+        "gravity_applied": bool(gravity_mode == "deferred_top_down"),
+        "gravity_drop_distances": [
+            float(distance) for distance in gravity_drop_distances
+        ],
+        "physical_validation": {
+            "valid": bool(valid),
+            "invalid_reason": invalid_reason,
+            "bounds": bool(valid),
+            "overlap": bool(valid),
+            "full_base_union_support": bool(valid),
+        },
+        "valid": bool(valid),
+        "invalid_reason": invalid_reason,
+        "loaded_weight_after": float(loaded_after),
+        "remaining_after": remaining_after,
+        "extension_evaluated": candidate_family == "extended",
+        "extension_justified": False,
+        "extension_marginal_efficiency": None,
+        "next_clean_frontier_efficiency": None,
+        "extension_decision_reason": "native_candidate",
+        "family_eligible": candidate_family == "native" and bool(valid),
+    }
+
+
+def _space_evenly_clean_frontier_efficiency(
+    product: NormalizedProduct,
+    quantity: int,
+    container: Dict,
+    remaining_length: float,
+    loaded_weight: float,
+    ordered_products: List[NormalizedProduct],
+    remaining: Dict[int, int],
+    next_item_index: Dict[int, int],
+    preferred_orientations: Dict[int, Tuple[float, float, float]],
+) -> Tuple[Optional[float], int, int]:
+    """Estimate Pj cleanly using the same whole-pool native frontier physics."""
+    candidates: List[Dict] = []
+    for orientation_index, orientation in enumerate(product.orientations):
+        if (
+            orientation[0] > remaining_length + TOLERANCE
+            or orientation[1] > container["W"] + TOLERANCE
+            or orientation[2] > container["H"] + TOLERANCE
+        ):
+            continue
+        required_depth, _ = _frontier_required_depth(
+            product,
+            quantity,
+            orientation,
+            container,
+            loaded_weight,
+            remaining_length,
+        )
+        for strategy in SPACE_EVENLY_RESIDUAL_STRATEGIES:
+            candidates.append(
+                _evaluate_space_evenly_anchor_candidate(
+                    product,
+                    quantity,
+                    orientation,
+                    orientation_index,
+                    strategy,
+                    "native",
+                    0.0,
+                    required_depth,
+                    required_depth,
+                    container,
+                    ordered_products,
+                    remaining,
+                    next_item_index,
+                    loaded_weight,
+                    preferred_orientations,
+                )
+            )
+    if not candidates:
+        return None, 0, 0
+    winner, _ = _select_space_evenly_residual_candidate(candidates)
+    return (
+        (
+            float(winner["frontier_volume_efficiency"])
+            if winner is not None
+            else None
+        ),
+        int(sum(candidate["candidate_evaluations"] for candidate in candidates)),
+        int(
+            sum(
+                candidate["local_placement_evaluations"]
+                for candidate in candidates
+            )
+        ),
+    )
+
+
+def _apply_space_evenly_extension_value(
+    native: Dict,
+    extended: Dict,
+    next_clean_efficiency: Optional[float],
+    container: Dict,
+) -> None:
+    extra_depth = max(
+        extended["committed_depth"] - native["committed_depth"],
+        0.0,
+    )
+    extra_volume = max(
+        extended["frontier_packed_volume"] - native["frontier_packed_volume"],
+        0.0,
+    )
+    extra_prism = extra_depth * container["W"] * container["H"]
+    marginal_efficiency = (
+        extra_volume / extra_prism
+        if extra_prism > TOLERANCE
+        else None
+    )
+    if not extended["valid"]:
+        justified = False
+        reason = "extended_invalid"
+    elif not native["valid"]:
+        justified = True
+        reason = "native_invalid"
+    elif extra_depth <= TOLERANCE:
+        justified = False
+        reason = "no_meaningful_extension"
+    elif extra_volume <= TOLERANCE:
+        justified = False
+        reason = "no_additional_packed_volume"
+    elif next_clean_efficiency is None:
+        justified = True
+        reason = "no_clean_next_frontier_alternative"
+    elif (
+        marginal_efficiency is not None
+        and marginal_efficiency
+        > next_clean_efficiency + FRONTIER_EFFICIENCY_TOLERANCE
+    ):
+        justified = True
+        reason = "marginal_efficiency_exceeds_clean_frontier"
+    elif (
+        marginal_efficiency is not None
+        and abs(marginal_efficiency - next_clean_efficiency)
+        <= FRONTIER_EFFICIENCY_TOLERANCE
+    ):
+        justified = False
+        reason = "native_preferred_equal_extension_value"
+    else:
+        justified = False
+        reason = "native_preferred_clean_frontier_more_efficient"
+
+    extended.update(
+        {
+            "extension_evaluated": True,
+            "extension_justified": bool(justified),
+            "extension_depth": float(extra_depth),
+            "extension_extra_packed_volume": float(extra_volume),
+            "extension_marginal_efficiency": (
+                float(marginal_efficiency)
+                if marginal_efficiency is not None
+                else None
+            ),
+            "next_clean_frontier_efficiency": (
+                float(next_clean_efficiency)
+                if next_clean_efficiency is not None
+                else None
+            ),
+            "extension_decision_reason": reason,
+            "family_eligible": bool(justified and extended["valid"]),
+        }
+    )
+
+
+def _select_space_evenly_residual_candidate(
+    candidates: List[Dict],
+) -> Tuple[Optional[Dict], str]:
+    """Apply the approved Pi-first Residual Frontier Closure ranking."""
+    shortlist = [
+        candidate
+        for candidate in candidates
+        if candidate["valid"] and candidate.get("family_eligible", True)
+    ]
+    if not shortlist:
+        shortlist = [candidate for candidate in candidates if candidate["valid"]]
+    if not shortlist:
+        return None, "no_physically_valid_candidate"
+
+    stages = (
+        (
+            "maximum_anchor_quantity",
+            max,
+            lambda candidate: candidate["anchor_qty_packed"],
+            TOLERANCE,
+        ),
+        (
+            "minimum_anchor_pi_x_footprint",
+            min,
+            lambda candidate: candidate["anchor_pi_x_footprint"],
+            TOLERANCE,
+        ),
+        (
+            "maximum_frontier_volume_efficiency",
+            max,
+            lambda candidate: candidate["frontier_volume_efficiency"],
+            FRONTIER_EFFICIENCY_TOLERANCE,
+        ),
+        (
+            "maximum_other_products_volume",
+            max,
+            lambda candidate: candidate["other_products_packed_volume"],
+            TOLERANCE,
+        ),
+        (
+            "maximum_other_products_quantity",
+            max,
+            lambda candidate: candidate["other_products_quantity_packed"],
+            TOLERANCE,
+        ),
+        (
+            "minimum_committed_frontier_depth",
+            min,
+            lambda candidate: candidate["committed_depth"],
+            TOLERANCE,
+        ),
+    )
+    selection_reason = "stable_orientation_tiebreak"
+    for reason, selector, value, tolerance in stages:
+        best = selector(value(candidate) for candidate in shortlist)
+        filtered = [
+            candidate
+            for candidate in shortlist
+            if abs(value(candidate) - best) <= tolerance
+        ]
+        if len(filtered) < len(shortlist):
+            selection_reason = reason
+        shortlist = filtered
+        if len(shortlist) == 1:
+            return shortlist[0], selection_reason
+
+    row_first = [
+        candidate
+        for candidate in shortlist
+        if candidate["residual_traversal"] == "row_first"
+    ]
+    if row_first and len(row_first) < len(shortlist):
+        shortlist = row_first
+        selection_reason = "tie_prefer_row_first"
+    bottom_up = [
+        candidate
+        for candidate in shortlist
+        if candidate["gravity_mode"] == "bottom_up"
+    ]
+    if bottom_up and len(bottom_up) < len(shortlist):
+        shortlist = bottom_up
+        selection_reason = "tie_prefer_bottom_up"
+    winner = min(
+        shortlist,
+        key=lambda candidate: (
+            candidate["anchor_orientation_index"],
+            0 if candidate["candidate_family"] == "native" else 1,
+            round(candidate["committed_depth"], 9),
+        ),
+    )
+    return winner, selection_reason
+
+
+def pack_space_evenly_residual_frontiers(
+    container: Dict,
+    ordered_products: List[NormalizedProduct],
+    residual_quantities: Dict[int, int],
+    placements: List[Placement],
+    residual_loaded: Dict[int, int],
+    next_item_index: Dict[int, int],
+    loaded_weight: float,
+    frontier: float,
+    preferred_orientations: Dict[int, Tuple[float, float, float]],
+) -> Tuple[float, float, List[Dict], int, int, int]:
+    """Close deterministic whole-volume Space Evenly residual frontiers."""
+    remaining = dict(residual_quantities)
+    frontiers: List[Dict] = []
+    total_candidate_evaluations = 0
+    total_local_evaluations = 0
+    total_support_relationships = 0
+
+    while any(remaining.get(product.row_index, 0) > 0 for product in ordered_products):
+        available_length = max(container["L"] - frontier, 0.0)
+        if available_length <= TOLERANCE:
+            break
+        anchor = _select_space_evenly_residual_anchor(
+            ordered_products,
+            remaining,
+            container,
+            loaded_weight,
+            available_length,
+        )
+        if anchor is None:
+            break
+        anchor_quantity = int(remaining.get(anchor.row_index, 0))
+        before = {
+            str(product.row_index): int(remaining.get(product.row_index, 0))
+            for product in ordered_products
+        }
+        candidates: List[Dict] = []
+        for orientation_index, orientation in enumerate(anchor.orientations):
+            if (
+                orientation[0] > available_length + TOLERANCE
+                or orientation[1] > container["W"] + TOLERANCE
+                or orientation[2] > container["H"] + TOLERANCE
+            ):
+                continue
+            anchor_depth, _ = _frontier_required_depth(
+                anchor,
+                anchor_quantity,
+                orientation,
+                container,
+                loaded_weight,
+                available_length,
+            )
+            if anchor_depth <= TOLERANCE:
+                continue
+            for strategy in SPACE_EVENLY_RESIDUAL_STRATEGIES:
+                native = _evaluate_space_evenly_anchor_candidate(
+                    anchor,
+                    anchor_quantity,
+                    orientation,
+                    orientation_index,
+                    strategy,
+                    "native",
+                    frontier,
+                    anchor_depth,
+                    anchor_depth,
+                    container,
+                    ordered_products,
+                    remaining,
+                    next_item_index,
+                    loaded_weight,
+                    preferred_orientations,
+                )
+                candidates.append(native)
+                justified_extension_found = False
+                paired_extensions: List[Dict] = []
+                next_product = next(
+                    (
+                        product
+                        for product in ordered_products
+                        if product.row_index != anchor.row_index
+                        and native["remaining_after"].get(product.row_index, 0) > 0
+                        and _payload_units_available(
+                            container,
+                            native["loaded_weight_after"],
+                            product.weight,
+                            native["remaining_after"].get(product.row_index, 0),
+                        )
+                        > 0
+                    ),
+                    None,
+                )
+                if next_product is None:
+                    continue
+                extension_depths = set()
+                for next_orientation in next_product.orientations:
+                    extended_depth, _, _ = _dgfe_envelope_dimensions(
+                        frontier,
+                        native["anchor_placements"],
+                        next_orientation[0],
+                        available_length,
+                    )
+                    if (
+                        extended_depth > native["committed_depth"] + TOLERANCE
+                        and extended_depth <= available_length + TOLERANCE
+                    ):
+                        extension_depths.add(round(extended_depth, 9))
+                if not extension_depths:
+                    continue
+                (
+                    clean_efficiency,
+                    clean_candidate_evaluations,
+                    clean_local_evaluations,
+                ) = _space_evenly_clean_frontier_efficiency(
+                    next_product,
+                    native["remaining_after"][next_product.row_index],
+                    container,
+                    max(available_length - native["committed_depth"], 0.0),
+                    native["loaded_weight_after"],
+                    ordered_products,
+                    native["remaining_after"],
+                    next_item_index,
+                    preferred_orientations,
+                )
+                native["candidate_evaluations"] += clean_candidate_evaluations
+                native["local_placement_evaluations"] += clean_local_evaluations
+                native["clean_frontier_candidate_evaluations"] = int(
+                    clean_candidate_evaluations
+                )
+                native["clean_frontier_local_placement_evaluations"] = int(
+                    clean_local_evaluations
+                )
+                for extended_depth in sorted(extension_depths):
+                    extended = _evaluate_space_evenly_anchor_candidate(
+                        anchor,
+                        anchor_quantity,
+                        orientation,
+                        orientation_index,
+                        strategy,
+                        "extended",
+                        frontier,
+                        anchor_depth,
+                        float(extended_depth),
+                        container,
+                        ordered_products,
+                        remaining,
+                        next_item_index,
+                        loaded_weight,
+                        preferred_orientations,
+                    )
+                    _apply_space_evenly_extension_value(
+                        native,
+                        extended,
+                        clean_efficiency,
+                        container,
+                    )
+                    justified_extension_found = (
+                        justified_extension_found
+                        or bool(extended["extension_justified"])
+                    )
+                    paired_extensions.append(extended)
+                    candidates.append(extended)
+                if paired_extensions:
+                    extension_diagnostic = max(
+                        paired_extensions,
+                        key=lambda candidate: (
+                            int(candidate["extension_justified"]),
+                            candidate["extension_marginal_efficiency"]
+                            if candidate["extension_marginal_efficiency"]
+                            is not None
+                            else -1.0,
+                            candidate["extension_extra_packed_volume"],
+                            -candidate["committed_depth"],
+                        ),
+                    )
+                    native.update(
+                        {
+                            "extension_evaluated": True,
+                            "extension_justified": bool(
+                                extension_diagnostic["extension_justified"]
+                            ),
+                            "extension_marginal_efficiency": (
+                                extension_diagnostic[
+                                    "extension_marginal_efficiency"
+                                ]
+                            ),
+                            "next_clean_frontier_efficiency": (
+                                extension_diagnostic[
+                                    "next_clean_frontier_efficiency"
+                                ]
+                            ),
+                            "extension_decision_reason": (
+                                extension_diagnostic[
+                                    "extension_decision_reason"
+                                ]
+                            ),
+                        }
+                    )
+                if justified_extension_found:
+                    native["family_eligible"] = False
+
+        winner, selection_reason = _select_space_evenly_residual_candidate(
+            candidates
+        )
+        if winner is None or winner["anchor_qty_packed"] <= 0:
+            break
+
+        placements.extend(winner["placements"])
+        for row_index, quantity in winner["products_quantities_packed"].items():
+            residual_loaded[row_index] += quantity
+            remaining[row_index] = max(remaining.get(row_index, 0) - quantity, 0)
+            next_item_index[row_index] += quantity
+        loaded_weight = float(winner["loaded_weight_after"])
+        frontier_start = frontier
+        frontier = frontier_start + winner["committed_depth"]
+        after = {
+            str(product.row_index): int(remaining.get(product.row_index, 0))
+            for product in ordered_products
+        }
+        total_candidate_evaluations += sum(
+            candidate["candidate_evaluations"] for candidate in candidates
+        )
+        total_local_evaluations += sum(
+            candidate["local_placement_evaluations"] for candidate in candidates
+        )
+        total_support_relationships += winner["support_relationship_count"]
+        anchor_floor = [
+            placement
+            for placement in winner["anchor_placements"]
+            if placement.z <= TOLERANCE
+            and abs(placement.x - frontier_start) <= TOLERANCE
+        ]
+        anchor_floor_width = sum(placement.w for placement in anchor_floor)
+        maximum_z = max(
+            (placement.z + placement.h for placement in winner["placements"]),
+            default=0.0,
+        )
+        diagnostic_candidates = [
+            {
+                key: value
+                for key, value in candidate.items()
+                if key
+                not in {
+                    "placements",
+                    "anchor_placements",
+                    "remaining_after",
+                    "loaded_weight_after",
+                }
+            }
+            for candidate in candidates
+        ]
+        frontier_metadata = {
+            "pattern": "space_evenly_residual_frontier_closure",
+            "sequence": 1,
+            "frontier_index": len(frontiers),
+            "band_index": len(frontiers),
+            "sequence_band_index": len(frontiers),
+            "anchor_product": anchor.name,
+            "anchor_row_index": int(anchor.row_index),
+            "x_start": float(frontier_start),
+            "x_end": float(frontier),
+            "native_depth": float(winner["native_depth"]),
+            "committed_depth": float(winner["committed_depth"]),
+            "anchor_qty_requested": int(anchor_quantity),
+            "anchor_qty_packed": int(winner["anchor_qty_packed"]),
+            "anchor_orientation": list(winner["anchor_orientation"]),
+            "anchor_pi_x_footprint": float(
+                winner["anchor_pi_x_footprint"]
+            ),
+            "candidate_family": winner["candidate_family"],
+            "gravity_mode": winner["gravity_mode"],
+            "residual_traversal": winner["residual_traversal"],
+            "frontier_volume_efficiency": float(
+                winner["frontier_volume_efficiency"]
+            ),
+            "frontier_packed_volume": float(
+                winner["frontier_packed_volume"]
+            ),
+            "frontier_prism_volume": float(
+                winner["frontier_prism_volume"]
+            ),
+            "other_products_packed": winner["other_products_packed"],
+            "products_quantities_packed": {
+                str(row_index): int(quantity)
+                for row_index, quantity in winner[
+                    "products_quantities_packed"
+                ].items()
+            },
+            "support_plane_count": int(winner["support_plane_count"]),
+            "support_surface_count": int(winner["support_surface_count"]),
+            "candidate_count": len(candidates),
+            "candidate_evaluations": int(
+                sum(
+                    candidate["candidate_evaluations"]
+                    for candidate in candidates
+                )
+            ),
+            "local_placement_evaluations": int(
+                sum(
+                    candidate["local_placement_evaluations"]
+                    for candidate in candidates
+                )
+            ),
+            "extension_evaluated": any(
+                candidate["candidate_family"] == "extended"
+                for candidate in candidates
+            ),
+            "extension_justified": bool(winner["extension_justified"]),
+            "extension_marginal_efficiency": winner[
+                "extension_marginal_efficiency"
+            ],
+            "next_clean_frontier_efficiency": winner[
+                "next_clean_frontier_efficiency"
+            ],
+            "extension_decision_reason": winner[
+                "extension_decision_reason"
+            ],
+            "selection_reason": selection_reason,
+            "physical_validation": winner["physical_validation"],
+            "secondary_orientation_diagnostics": winner[
+                "secondary_orientation_diagnostics"
+            ],
+            "residual_frontier_candidates": diagnostic_candidates,
+            "residual_quantities_before": before,
+            "residual_quantities_after": after,
+            "maximum_z": float(maximum_z),
+            "support_relationship_count": int(
+                winner["support_relationship_count"]
+            ),
+            # Compatibility aliases consumed by established result surfaces.
+            "foundation_product": anchor.name,
+            "foundation_row_index": int(anchor.row_index),
+            "foundation_orientation": list(winner["anchor_orientation"]),
+            "foundation_quantity": int(winner["anchor_qty_packed"]),
+            "foundation_available_width": float(container["W"]),
+            "foundation_occupied_width": float(anchor_floor_width),
+            "foundation_width_utilization": float(
+                anchor_floor_width / container["W"]
+                if container["W"] > TOLERANCE
+                else 0.0
+            ),
+            "foundation_orientation_count": 1,
+            "foundation_orientation_runs": [
+                {
+                    "orientation_index": int(
+                        winner["anchor_orientation_index"]
+                    ),
+                    "orientation": list(winner["anchor_orientation"]),
+                    "quantity": int(len(anchor_floor)),
+                    "occupied_width": float(anchor_floor_width),
+                }
+            ],
+            "foundation_support_potential": 0,
+            "upper_rows": [],
+            "products_added_above": [
+                {
+                    "row_index": int(product.row_index),
+                    "product_name": product.name,
+                    "quantity": int(
+                        sum(
+                            1
+                            for placement in winner["placements"]
+                            if placement.row_index == product.row_index
+                            and placement.z > TOLERANCE
+                        )
+                    ),
+                }
+                for product in ordered_products
+                if any(
+                    placement.row_index == product.row_index
+                    and placement.z > TOLERANCE
+                    for placement in winner["placements"]
+                )
+            ],
+            "vertical_passes": max(winner["support_plane_count"] - 1, 0),
+            "quantities_by_product": {
+                str(row_index): int(quantity)
+                for row_index, quantity in winner[
+                    "products_quantities_packed"
+                ].items()
+            },
+            "row_index": int(anchor.row_index),
+            "product_name": anchor.name,
+            "orientation": list(winner["anchor_orientation"]),
+            "nx": max(
+                _fit_count(
+                    winner["anchor_pi_x_footprint"],
+                    winner["anchor_orientation"][0],
+                ),
+                1,
+            ),
+            "ny": len(anchor_floor),
+            "nz": max(winner["support_plane_count"], 1),
+            "qty": int(sum(winner["products_quantities_packed"].values())),
+            "width": float(anchor_floor_width),
+            "height": float(maximum_z),
+        }
+        frontiers.append(frontier_metadata)
+
+    return (
+        frontier,
+        loaded_weight,
+        frontiers,
+        int(total_candidate_evaluations),
+        int(total_local_evaluations),
+        int(total_support_relationships),
+    )
+
+
 def _pack_container_front_to_back(
     container: Dict,
     products: List[Dict],
@@ -4250,6 +5300,7 @@ def pack_container(
     residual_loaded = {product.row_index: 0 for product in ordered_products}
     residual_quantities = {product.row_index: product.qty for product in ordered_products}
     next_item_index = {product.row_index: 0 for product in ordered_products}
+    preferred_orientations: Dict[int, Tuple[float, float, float]] = {}
 
     frontier = 0.0
     loaded_weight = 0.0
@@ -4281,6 +5332,7 @@ def pack_container(
         complete_blocks = 0
 
         if selected is not None:
+            preferred_orientations[product.row_index] = selected.orientations[0]
             complete_blocks = min(
                 payload_qty // selected.module_capacity,
                 _fit_count(available_length, selected.depth),
@@ -4346,7 +5398,7 @@ def pack_container(
         residual_candidates_evaluated,
         support_checks,
         support_relationships,
-    ) = pack_residuals_support_greedy(
+    ) = pack_space_evenly_residual_frontiers(
         normalized_container,
         ordered_products,
         residual_quantities,
@@ -4355,6 +5407,7 @@ def pack_container(
         next_item_index,
         loaded_weight,
         frontier,
+        preferred_orientations,
     )
     for band in residual_miniblocks:
         phase_order.append(
@@ -4402,8 +5455,8 @@ def pack_container(
         if remaining_length > TOLERANCE
         else []
     )
-    # Compatibility diagnostics describe the quantities the bounded V1
-    # construction actually established as its feasible target.
+    # Compatibility diagnostics describe the quantities the bounded
+    # two-phase construction actually established as its feasible target.
     target_counts = dict(loaded_by_row)
     target_volume = sum(
         loaded_by_row[product.row_index] * product.unit_volume
@@ -4443,10 +5496,13 @@ def pack_container(
         "space_evenly_residual_miniblocks": residual_miniblocks,
         "space_evenly_residual_bands": residual_miniblocks,
         "space_evenly_residual_band_count": len(residual_miniblocks),
+        "space_evenly_residual_frontiers": residual_miniblocks,
+        "space_evenly_residual_frontier_count": len(residual_miniblocks),
         "space_evenly_support_surface_count": sum(
             band["support_surface_count"] for band in residual_miniblocks
         ),
         "space_evenly_support_checks": support_checks,
+        "space_evenly_residual_local_placement_evaluations": support_checks,
         "space_evenly_support_relationship_count": support_relationships,
         "space_evenly_residual_units": int(total_residual_requested),
         "space_evenly_residual_packed_units": int(total_residual_packed),

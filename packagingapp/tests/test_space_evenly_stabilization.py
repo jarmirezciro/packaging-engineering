@@ -594,35 +594,44 @@ class SpaceEvenlyStabilizationTests(SimpleTestCase):
         self.assertEqual(len(result["placements"]), 1228)
         self.assertEqual(result["unplaced"], [])
         self.assertEqual(result["space_evenly_residual_packed_units"], 48)
-        p1_terminal_runs = [
-            run
-            for band in result["space_evenly_residual_bands"]
-            for row in band["upper_rows"]
-            for run in row["runs"]
-            if run["product_name"] == "SKU302473"
-            and run["terminal_product_row"]
-        ]
-        self.assertEqual(len(p1_terminal_runs), 1)
+        frontiers = result["space_evenly_residual_frontiers"]
+        self.assertEqual(result["space_evenly_residual_bands"], frontiers)
+        self.assertEqual(len(frontiers), 2)
         self.assertEqual(
-            p1_terminal_runs[0]["orientation"],
-            [279.4, 457.2, 317.5],
+            [frontier["anchor_row_index"] for frontier in frontiers],
+            [3, 1],
         )
-        self.assertTrue(p1_terminal_runs[0]["pattern_continuation"])
-        self.assertEqual(p1_terminal_runs[0]["continued_orientation_index"], 1)
-        self.assertEqual(p1_terminal_runs[0]["continuation_quantity"], 1)
-        self.assertFalse(p1_terminal_runs[0]["preserves_next_support"])
-        p2_door_residual = [
+        self.assertTrue(
+            all(
+                frontier["physical_validation"]["valid"]
+                for frontier in frontiers
+            )
+        )
+        self.assertTrue(frontiers[0]["extension_evaluated"])
+        self.assertFalse(frontiers[0]["extension_justified"])
+        self.assertGreater(
+            frontiers[0]["next_clean_frontier_efficiency"],
+            frontiers[0]["extension_marginal_efficiency"],
+        )
+        self.assertLessEqual(
+            max(placement.x + placement.l for placement in result["placements"]),
+            11621.77 + TOLERANCE,
+        )
+        p2_residual = [
             placement
             for placement in result["placements"]
-            if placement.row_index == 1 and placement.item_index >= 402
+            if placement.row_index == 1 and placement.item_index >= 392
         ]
-        self.assertEqual(len(p2_door_residual), 3)
-        self.assertEqual({placement.z for placement in p2_door_residual}, {0.0})
+        self.assertEqual(len(p2_residual), 13)
         self.assertEqual(
-            [placement.y for placement in p2_door_residual],
-            [863.6, 1295.4, 1727.2],
+            sum(placement.z > TOLERANCE for placement in p2_residual),
+            10,
         )
-        self.assertEqual(result["space_evenly_support_surface_count"], 48)
+        self.assertEqual(
+            sum(placement.z <= TOLERANCE for placement in p2_residual),
+            3,
+        )
+        self.assertEqual(result["space_evenly_support_surface_count"], 13)
         self.assert_physical_invariants(result, container, products)
 
     def test_service_ignores_invalid_stale_sequence_for_space_evenly(self):

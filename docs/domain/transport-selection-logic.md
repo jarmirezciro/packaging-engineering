@@ -22,8 +22,8 @@ The active source is:
 
 `packagingapp/utils/container_tool/engine.py`
 
-The active engine provides **Space Evenly V1** and **Load Front-to-Back with
-DGFE**. Load Front-to-Back is routed through the persisted compatibility values
+The active engine provides **Space Evenly with V1 Product Blocks and Residual
+Frontier Closure V2** and **Load Front-to-Back with DGFE**. Load Front-to-Back is routed through the persisted compatibility values
 `maximum_utilization` and `maximum_utilization_floor_first`; both use the same
 current `front_to_back_blocks` strategy. Sequence Loading and Strict Sequence
 Loading remain unsupported historical values and return a graceful unsupported
@@ -92,12 +92,17 @@ Space Evenly puts all product rows into one common loading group. In this mode:
 - the sequence input is rendered read-only and stale posted values are ignored;
 - products receive a deterministic size-based order;
 - large quantities are first turned into regular Product Blocks;
-- quantities that cannot complete another block are deferred to a support-aware
-  residual phase;
+- quantities that cannot complete another block are deferred to a bounded
+  residual-frontier phase;
 - mixed products may be stacked only when dimensions, enabled rotations, full
   support, height, stackability, quantity, and payload permit it;
-- the residual phase fills width rows, then uses resulting support surfaces for
-  higher passes before advancing longitudinally;
+- the first feasible product in the same deterministic order anchors each
+  residual frontier;
+- the residual phase fills the complete bounded frontier using floor and valid
+  union-supported top planes before advancing longitudinally;
+- Bottom-Up and deferred Top-Down Row-First trials are physically validated,
+  and extra X is used only when its marginal efficiency beats a clean next
+  residual frontier;
 - one deterministic placement is returned for the normalized inputs.
 
 The camera controls and report views inspect that same placement. They are not
