@@ -68,16 +68,17 @@
 
     function transportSyncSequenceInputs(root) {
       if (!root) return;
-      const isSpaceEvenly = transportPackingMode(root) === 'space_evenly';
+      const mode = transportPackingMode(root);
+      const sequenceLocked = mode === 'space_evenly' || mode === 'front_to_back';
       root.querySelectorAll('[data-transport-sequence-input]').forEach(function(field) {
-        if (isSpaceEvenly) field.value = '1';
-        field.readOnly = isSpaceEvenly;
-        if (isSpaceEvenly) {
+        if (sequenceLocked) field.value = '1';
+        field.readOnly = sequenceLocked;
+        if (sequenceLocked) {
           field.setAttribute('aria-readonly', 'true');
-          field.title = 'Space Evenly uses one common loading sequence.';
+          field.title = 'The approved baseline mode uses one common loading sequence.';
         } else {
           field.removeAttribute('aria-readonly');
-          if (field.title === 'Space Evenly uses one common loading sequence.') {
+          if (field.title === 'The approved baseline mode uses one common loading sequence.') {
             field.removeAttribute('title');
           }
         }

@@ -91,9 +91,8 @@ links use the `?case=<slug>` query parameter. The current TOPS high-cube
 benchmark is available at
 `/free-container-loading-calculator/?case=tops-max-load-high-cube-benchmark`;
 it loads the manual 12039 × 2362 × 2692 mm fixture, four requested load-unit
-rows, and retains the historical `maximum_utilization_floor_first` configuration
-value for fixture compatibility. The current active engine calculates Space
-Evenly V1 only; the compatibility value is not an active floor-first solver.
+rows, and uses the canonical `front_to_back` configuration. Historical
+Front-to-Back identifiers remain accepted as input compatibility aliases.
 The mixed-load high-cube case is available at
 `/free-container-loading-calculator/?case=mix_load_case_hight_cube` and loads
 the 12032 × 2352 × 2395 mm container with the EUR pallet, 500 × 400 × 700 mm,

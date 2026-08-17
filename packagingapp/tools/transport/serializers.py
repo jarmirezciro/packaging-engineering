@@ -1,3 +1,10 @@
+from .modes import (
+    DEFAULT_TRANSPORT_PACKING_MODE,
+    normalize_transport_packing_mode,
+    transport_packing_mode_label,
+)
+
+
 def _json_safe_scalar(value):
     if isinstance(value, bool) or value is None:
         return value
@@ -136,8 +143,13 @@ def serialize_transport_threejs_scene(container, placements, summary):
 
 def serialize_transport_result(result, threejs_scene=None):
     summary = result.get("summary", {}) or {}
+    packing_mode = normalize_transport_packing_mode(
+        result.get("packing_mode"),
+        default=DEFAULT_TRANSPORT_PACKING_MODE,
+    )
     serialized = {
-        "packing_mode": str(result.get("packing_mode", "maximum_utilization") or "maximum_utilization"),
+        "packing_mode": packing_mode,
+        "packing_mode_label": transport_packing_mode_label(packing_mode),
         "strategy": str(result.get("strategy", "") or ""),
         "sequence_zones": list(result.get("sequence_zones") or []),
         "summary": {

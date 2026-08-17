@@ -14,16 +14,77 @@ from packagingapp.forms import ContainerToolForm
 
 
 class TransportVisualizationContractTests(SimpleTestCase):
-    def test_transport_form_exposes_all_five_packing_modes(self):
+    def test_transport_form_exposes_four_canonical_packing_modes(self):
         self.assertEqual(
             ContainerToolForm.PACKING_MODE_CHOICES,
             [
-                ("maximum_utilization", "Maximum utilization"),
-                ("maximum_utilization_floor_first", "Maximum utilization floor first"),
-                ("space_evenly", "Space evenly"),
-                ("accessible_sequence_loading", "Sequence loading"),
-                ("sequence_loading", "Strict sequence loading"),
+                ("space_evenly", "Space Evenly"),
+                ("front_to_back", "Load Front-to-Back"),
+                (
+                    "space_evenly_infill",
+                    "Space Evenly – Mixed Cargo Infill",
+                ),
+                (
+                    "front_to_back_infill",
+                    "Load Front-to-Back – Mixed Cargo Infill",
+                ),
             ],
+        )
+
+    def test_infill_service_preserves_explicit_sequence_groups(self):
+        analysis = analyze_transport_capacity(
+            {
+                "container_source": "manual",
+                "packing_mode": "space_evenly_infill",
+                "container_l": 12,
+                "container_w": 10,
+                "container_h": 5,
+                "max_weight": None,
+                "tare_weight": None,
+            },
+            [
+                {
+                    "name": "P1",
+                    "length": 4,
+                    "width": 6,
+                    "height": 5,
+                    "qty": 2,
+                    "max_qty": False,
+                    "stackable": True,
+                    "weight": 0,
+                    "sequence": 1,
+                    "r1": True,
+                    "r2": False,
+                    "r3": False,
+                },
+                {
+                    "name": "P2",
+                    "length": 2,
+                    "width": 2,
+                    "height": 5,
+                    "qty": 3,
+                    "max_qty": False,
+                    "stackable": True,
+                    "weight": 0,
+                    "sequence": 2,
+                    "r1": True,
+                    "r2": False,
+                    "r3": False,
+                },
+            ],
+        )
+
+        self.assertTrue(analysis["ok"], analysis["messages"])
+        self.assertEqual(
+            [row["sequence"] for row in analysis["safe_rows"]],
+            [1, 2],
+        )
+        self.assertEqual(
+            analysis["result"]["packing_mode"],
+            "space_evenly_infill",
+        )
+        self.assertTrue(
+            analysis["result"]["space_evenly_infill_sequence_restricted"]
         )
 
     def test_space_evenly_capacity_service_keeps_mode_and_auto_quantity(self):
@@ -57,7 +118,7 @@ class TransportVisualizationContractTests(SimpleTestCase):
         self.assertEqual(analysis["result"]["packing_mode"], "space_evenly")
         self.assertEqual(analysis["result"]["space_evenly_target_total_units"], 8)
 
-    def test_floor_first_capacity_service_keeps_mode_and_diagnostics(self):
+    def test_historical_front_to_back_alias_normalizes_and_keeps_diagnostics(self):
         analysis = analyze_transport_capacity(
             {
                 "container_source": "manual",
@@ -87,12 +148,12 @@ class TransportVisualizationContractTests(SimpleTestCase):
         self.assertEqual(analysis["safe_rows"][0]["qty"], 8)
         self.assertEqual(
             analysis["result"]["packing_mode"],
-            "maximum_utilization_floor_first",
+            "front_to_back",
         )
         self.assertIn("floor_first_candidate_selected", analysis["result"])
         self.assertIn("floor_first_candidate_source", analysis["result"])
 
-    def test_floor_first_row_order_reaches_threejs_scene(self):
+    def test_front_to_back_row_order_reaches_threejs_scene(self):
         analysis = analyze_transport_capacity(
             {
                 "container_source": "manual",
@@ -271,10 +332,15 @@ class TransportVisualizationSurfaceTests(TestCase):
         with self.settings(MEDIA_ROOT=self.media_root):
             response = self.client.get(reverse("transport_container_calculator"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'value="maximum_utilization_floor_first"', count=1)
-        self.assertContains(response, "Maximum utilization floor first")
+        self.assertContains(response, 'value="front_to_back"', count=1)
+        self.assertContains(response, "Load Front-to-Back")
         self.assertContains(response, 'value="space_evenly"', count=1)
-        self.assertContains(response, "Space evenly")
+        self.assertContains(response, "Space Evenly")
+        self.assertContains(response, 'value="space_evenly_infill"', count=1)
+        self.assertContains(response, 'value="front_to_back_infill"', count=1)
+        self.assertContains(response, "Space Evenly – Mixed Cargo Infill")
+        self.assertContains(response, "Load Front-to-Back – Mixed Cargo Infill")
+        self.assertNotContains(response, "Maximum utilization")
 
     def test_public_calculator_loads_tops_high_cube_case_preset(self):
         case_url = (
@@ -290,7 +356,7 @@ class TransportVisualizationSurfaceTests(TestCase):
             response.context["case_preset"]["label"],
             "TOPS Max Load High Cube Benchmark",
         )
-        self.assertEqual(response.context["form"]["packing_mode"].value(), "maximum_utilization_floor_first")
+        self.assertEqual(response.context["form"]["packing_mode"].value(), "front_to_back")
         self.assertEqual(response.context["form"]["container_l"].value(), 12039)
         self.assertEqual(response.context["form"]["container_w"].value(), 2362)
         self.assertEqual(response.context["form"]["container_h"].value(), 2692)
@@ -304,7 +370,7 @@ class TransportVisualizationSurfaceTests(TestCase):
         )
         self.assertEqual(
             [row["sequence"] for row in response.context["product_rows"]],
-            [4, 3, 1, 2],
+            [1, 1, 1, 1],
         )
         self.assertEqual(
             [row["qty_packed"] for row in response.context["result"]["summary"]["product_rows"]],
@@ -326,7 +392,7 @@ class TransportVisualizationSurfaceTests(TestCase):
             response.context["case_preset"]["label"],
             "Mix Load High Cube Case",
         )
-        self.assertEqual(response.context["form"]["packing_mode"].value(), "maximum_utilization")
+        self.assertEqual(response.context["form"]["packing_mode"].value(), "front_to_back")
         self.assertEqual(response.context["form"]["container_l"].value(), 12032)
         self.assertEqual(response.context["form"]["container_w"].value(), 2352)
         self.assertEqual(response.context["form"]["container_h"].value(), 2395)
@@ -363,7 +429,7 @@ class TransportVisualizationSurfaceTests(TestCase):
         self.assertEqual(result["packing_mode"], "space_evenly")
         self.assertEqual(result["strategy"], "space_evenly_blocks")
         self.assertIn("space_evenly_effective_height", result)
-        self.assertContains(response, "Packing mode: Space evenly")
+        self.assertContains(response, "Packing mode: Space Evenly")
         json.dumps(result)
 
     def test_workflow_viewer_ids_are_prefixed_and_unique(self):
@@ -393,7 +459,9 @@ class TransportVisualizationSurfaceTests(TestCase):
         self.assertContains(page, 'id="transportThreeJsScene_0"', count=1)
         self.assertEqual(page.content.count(b"data-transport-threejs-view="), 3)
         self.assertContains(page, "data-transport-product-legend")
-        self.assertContains(page, 'value="maximum_utilization_floor_first"')
+        self.assertContains(page, 'value="front_to_back"')
+        self.assertContains(page, 'value="space_evenly_infill"')
+        self.assertContains(page, 'value="front_to_back_infill"')
         workflow = self.client.session["full_packaging_mode_session"]
         self.assertEqual(
             workflow["steps"][0]["config"]["packing_mode"],
@@ -403,5 +471,5 @@ class TransportVisualizationSurfaceTests(TestCase):
             workflow["steps"][0]["result"]["packing_mode"],
             "space_evenly",
         )
-        self.assertContains(page, "Packing mode: Space evenly")
+        self.assertContains(page, "Packing mode: Space Evenly")
         json.dumps(workflow)

@@ -19,6 +19,12 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from .modes import (
+    DEFAULT_TRANSPORT_PACKING_MODE,
+    normalize_transport_packing_mode,
+    transport_packing_mode_label,
+)
+
 
 def _clean(value, default="-"):
     if value in (None, "", "None"):
@@ -361,18 +367,11 @@ def build_transport_container_pdf(export_payload):
     generated_at = export_payload.get("generated_at") or timezone.now().strftime("%Y-%m-%d %H:%M")
     unit = export_payload.get("transport_unit") or {}
     summary = export_payload.get("summary") or {}
-    packing_mode = str(export_payload.get("packing_mode") or "maximum_utilization")
-    packing_mode_labels = {
-        "maximum_utilization": "Maximum utilization",
-        "maximum_utilization_floor_first": "Maximum utilization floor first",
-        "space_evenly": "Space evenly",
-        "accessible_sequence_loading": "Sequence loading",
-        # ``sequence_loading`` is the legacy identifier of the unchanged
-        # strict engine and remains supported for saved sessions.
-        "sequence_loading": "Strict sequence loading",
-        "strict_sequence_loading": "Strict sequence loading",
-    }
-    packing_mode_label = packing_mode_labels.get(packing_mode, "Maximum utilization")
+    packing_mode = normalize_transport_packing_mode(
+        export_payload.get("packing_mode"),
+        default=DEFAULT_TRANSPORT_PACKING_MODE,
+    )
+    packing_mode_label = transport_packing_mode_label(packing_mode)
     snapshot_rel_paths = export_payload.get("threejs_snapshot_rel_paths") or {}
 
     story.append(Paragraph("Transport Container Analysis Report", _STYLES["TransportReportTitle"]))

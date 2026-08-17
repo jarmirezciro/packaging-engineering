@@ -170,7 +170,7 @@
             </td>
 
             <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}"></td>
-            <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{% if is_workflow and step.config.packing_mode == 'space_evenly' or not is_workflow and form.packing_mode.value == 'space_evenly' %}1{% else %}{{ row.sequence }}{% endif %}" data-transport-sequence-input{% if is_workflow and step.config.packing_mode == 'space_evenly' or not is_workflow and form.packing_mode.value == 'space_evenly' %} readonly aria-readonly="true"{% endif %}></td>
+            <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{% if is_workflow and step.transport_sequence_locked or not is_workflow and transport_sequence_locked %}1{% else %}{{ row.sequence }}{% endif %}" data-transport-sequence-input{% if is_workflow and step.transport_sequence_locked or not is_workflow and transport_sequence_locked %} readonly aria-readonly="true"{% endif %}></td>
 
             {% if is_first_step %}
             <td class="text-center">
@@ -278,7 +278,7 @@
     </td>
 
     <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0"></td>
-    <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1" data-transport-sequence-input{% if is_workflow and step.config.packing_mode == 'space_evenly' or not is_workflow and form.packing_mode.value == 'space_evenly' %} readonly aria-readonly="true"{% endif %}></td>
+    <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1" data-transport-sequence-input{% if is_workflow and step.transport_sequence_locked or not is_workflow and transport_sequence_locked %} readonly aria-readonly="true"{% endif %}></td>
     <td class="text-center">
       <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueForRowFromButton(this, {{ step_index }})" title="Fill this row from catalogue">
         <i class="bi bi-box-arrow-in-down"></i>
@@ -451,7 +451,7 @@
             </td>
 
             <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}"></td>
-            <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{% if form.packing_mode.value == 'space_evenly' %}1{% else %}{{ row.sequence }}{% endif %}" data-transport-sequence-input{% if form.packing_mode.value == 'space_evenly' %} readonly aria-readonly="true"{% endif %}></td>
+            <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{% if transport_sequence_locked %}1{% else %}{{ row.sequence }}{% endif %}" data-transport-sequence-input{% if transport_sequence_locked %} readonly aria-readonly="true"{% endif %}></td>
             <td class="text-center">
               <button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRow({{ forloop.counter0 }})" title="Fill this row from catalogue">
                 <i class="bi bi-box-arrow-in-down"></i>
@@ -555,7 +555,7 @@
     </td>
 
     <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0"></td>
-    <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1" data-transport-sequence-input{% if form.packing_mode.value == 'space_evenly' %} readonly aria-readonly="true"{% endif %}></td>
+    <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1" data-transport-sequence-input{% if transport_sequence_locked %} readonly aria-readonly="true"{% endif %}></td>
     <td class="text-center">
       <button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRowFromButton(this)" title="Fill this row from catalogue">
         <i class="bi bi-box-arrow-in-down"></i>

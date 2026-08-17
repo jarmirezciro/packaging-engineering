@@ -674,7 +674,8 @@ class SpaceEvenlyStabilizationTests(SimpleTestCase):
 
         self.assertEqual(product_template.count("data-transport-sequence-input"), 4)
         self.assertIn("field.value = '1'", scripts)
-        self.assertIn("field.readOnly = isSpaceEvenly", scripts)
+        self.assertIn("field.readOnly = sequenceLocked", scripts)
+        self.assertIn("mode === 'front_to_back'", scripts)
         self.assertGreaterEqual(
             scripts.count(
                 "transportSyncSequenceInputs(newRow.closest('[data-transport-tool-root]'))"
@@ -689,6 +690,7 @@ class SpaceEvenlyStabilizationTests(SimpleTestCase):
                 "is_workflow": False,
                 "is_first_step": True,
                 "form": ContainerToolForm(initial={"packing_mode": "space_evenly"}),
+                "transport_sequence_locked": True,
                 "product_rows": [product("A", 100, 100, 100, 1, sequence=99)],
                 "result": None,
                 "product_catalogues": [],

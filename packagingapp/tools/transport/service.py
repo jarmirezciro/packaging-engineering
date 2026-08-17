@@ -1,6 +1,11 @@
 from django.conf import settings
 
 from .state import default_product_rows
+from .modes import (
+    DEFAULT_TRANSPORT_PACKING_MODE,
+    normalize_transport_packing_mode,
+    transport_sequence_is_locked,
+)
 from .serializers import (
     sanitize_transport_rows_for_session,
     serialize_transport_result,
@@ -172,7 +177,10 @@ def build_container_from_config(cfg, selected_material=None):
         except Exception:
             tare_weight = None
 
-    packing_mode = str(cfg.get("packing_mode") or "maximum_utilization")
+    packing_mode = normalize_transport_packing_mode(
+        cfg.get("packing_mode"),
+        default=DEFAULT_TRANSPORT_PACKING_MODE,
+    )
 
     if (cfg.get("container_source") or "manual") == "catalogue":
         if not selected_material:
@@ -423,8 +431,13 @@ def run_transport_analysis(container, products, media_root=None):
 
 def _prepare_transport_analysis(cfg, raw_rows, selected_material=None):
     """Validate and normalize authoritative transport calculation inputs."""
+    cfg = dict(cfg or {})
+    cfg["packing_mode"] = normalize_transport_packing_mode(
+        cfg.get("packing_mode"),
+        default=DEFAULT_TRANSPORT_PACKING_MODE,
+    )
     safe_rows = sanitize_transport_rows_for_session(raw_rows or default_product_rows())
-    if str(cfg.get("packing_mode") or "") == "space_evenly":
+    if transport_sequence_is_locked(cfg["packing_mode"]):
         safe_rows = [{**row, "sequence": 1} for row in safe_rows]
     products, row_errors = validate_transport_rows(safe_rows)
     container, container_errors = build_container_from_config(cfg, selected_material)
@@ -475,7 +488,9 @@ def analyze_transport_capacity(cfg, raw_rows, selected_material=None):
             "summary": summary,
             "placements": pack_result.get("placements") or [],
             "unplaced": pack_result.get("unplaced") or [],
-            "packing_mode": pack_result.get("packing_mode", "maximum_utilization"),
+            "packing_mode": pack_result.get(
+                "packing_mode", DEFAULT_TRANSPORT_PACKING_MODE
+            ),
             "strategy": pack_result.get("strategy", ""),
             **{
                 key: value

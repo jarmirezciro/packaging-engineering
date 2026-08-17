@@ -8,18 +8,22 @@ implementation is:
 
 `packagingapp/utils/container_tool/engine.py`
 
-The active engine contains two isolated deterministic modes: **Space Evenly
-with V1 Product Blocks and Residual Frontier Closure V2** and **Load
-Front-to-Back with DGFE**. Load Front-to-Back is exposed through the existing compatibility
-values `maximum_utilization` and `maximum_utilization_floor_first`; its internal strategy is
-`front_to_back_blocks`. The transport service, forms, views, templates,
+The active engine contains four isolated deterministic modes: the approved
+baselines **Space Evenly with V1 Product Blocks and Residual Frontier Closure
+V2** and **Load Front-to-Back with DGFE**, plus their opt-in **Mixed Cargo
+Infill** variants. The canonical identifiers are `space_evenly`,
+`front_to_back`, `space_evenly_infill`, and `front_to_back_infill`.
+Load Front-to-Back retains `maximum_utilization`,
+`maximum_utilization_floor_first`, `front_to_back_blocks`, and
+`load_front_to_back` as input compatibility aliases only. Its baseline internal
+strategy remains `front_to_back_blocks`. The transport service, forms, views, templates,
 serializers, and tests are supporting consumers and must be checked against
 the engine when behavior changes.
 
 `packagingapp/utils/container_tool/engine_legacy.py` is retained historical code.
 It is not the current algorithm specification and is not imported by the active
-engine. A requested mode other than Space Evenly or the compatibility
-Front-to-Back values returns a graceful unsupported result with no placements.
+engine. A requested mode other than the four canonical modes or a recognized
+compatibility alias returns a graceful unsupported result with no placements.
 
 ## Load Front-to-Back with DGFE
 
@@ -105,6 +109,86 @@ later products. There is no global residual-at-the-end phase, free-space tree,
 lateral gravity, compaction, or legacy solver import. All products remain
 forced to sequence `1` and use the same deterministic size ordering as Space
 Evenly.
+
+## Mixed Cargo Infill variants
+
+The two infill variants preserve their parent macro orchestration and add one
+shared constructive closure over each bounded local product/frontier window.
+Space Evenly closes a current product's contiguous span after all of its
+approved complete blocks are committed, and then closes each committed
+Space-Evenly residual frontier in its own X window. Load Front-to-Back closes
+after the current product's complete blocks and its approved Native/DGFE
+transition are committed. Every window is fixed in X and is never reopened
+after the phase is closed. Residual-frontier candidate selection is completed
+before its optional side closure; side infill never changes the winning
+candidate, depth, or frontier score.
+
+Within that window, side residuals are derived from the actual committed
+placement geometry. X breakpoints come from the window edges and every
+intersecting placement's `x`/`x + l`; each X slab is complemented against the
+projected occupied Y intervals. The complements are floor-to-ceiling spaces:
+
+```text
+x = slab_start ... slab_end
+y = each free interval in 0 ... container width
+z = 0 ... container height
+```
+
+Only complete-face-compatible neighbours are merged. A Product Block boundary
+is therefore computational only: a physically continuous residual can span
+multiple blocks, and a partial filler leaves its unused X tail for the next
+local closure iteration. Z is intentionally ignored when projecting occupied
+XY footprints; this V1 closure solves lateral side spaces, not top cavities.
+Mixed Cargo Infill then runs a separate supported-top closure in the same fixed
+X window. It collects coplanar top planes from actual stackable placements,
+coordinate-compresses the support union and any cargo above that plane, and
+emits only roof-clear rectangles. Different support heights never merge;
+complete-face-compatible atomic cells may merge within one plane. Top fillers
+reuse the Product Block candidate generator and are physically validated
+against local committed placements, with bottom-up re-derivation after every
+committed block. The closure order is therefore side first, supported top
+second, then window close.
+
+Top closure may evaluate the current/anchor product when its remaining quantity
+is positive; it competes with the existing permitted later-product set under
+the same sequence, payload, orientation, support, overlap, and bounds rules.
+Side closure continues to exclude the current anchor product.
+
+The filler reuses the active Product Block candidate generator inside each
+derived space. It selects one product/candidate, commits whole modules and at
+most one deterministic partial final module, then re-derives the local envelope
+from the committed placements. There is no global free-space search and no
+historical window reopening.
+
+Candidate ranking is stable and local to the current residual:
+
+1. maximum actual packed volume;
+2. maximum Product Block transverse utilization in the residual;
+3. maximum quantity;
+4. minimum X depth required;
+5. largest valid footprint in the residual;
+6. larger unit volume and longest dimension;
+7. parent product order and Product Block stable orientation key.
+
+The parent block quantity is authoritative. Fillers use enabled R1/R2/R3
+orientations, the existing non-stackable vertical cap, and the shared payload
+arithmetic. Materialized filler blocks start on the floor; physical overlap is
+excluded by deriving the next residual envelope from all committed geometry.
+
+Only the infill variants retain input sequence values. One distinct sequence
+means unrestricted later-product cooperation. More than one distinct sequence
+activates protection: side infill is limited to later products in the current
+sequence group. Space Evenly closes residual frontiers one sequence group at a
+time. Front-to-Back retains its existing immediate Pi/Pi+1 transition, so any
+cross-group interaction is limited to the adjacent transition frontier. A
+later sequence group cannot fill an earlier closed side strip or leapfrog an
+intermediate group.
+
+The implementation performs no permutation, historical-gap scan, recursion,
+backtracking, beam search, or container cloning. Candidate work is bounded by
+committed side residuals × eligible products × geometry-derived Product Block
+candidates. Quantity affects the committed module count and final placement
+materialization, not the number of future packing branches.
 
 ## What Space Evenly is
 
@@ -485,6 +569,7 @@ fields are:
 | `front_to_back_frontiers` | bounded transition diagnostics, all orientation/strategy/family outcomes, final physical state, and the selected winner |
 | `front_to_back_product_blocks` | per-product block, residual, and carry-forward summaries |
 | `front_to_back_frontier_candidates_evaluated` | next-product orientation evaluations across the isolated transition candidates |
+| `space_evenly_infill_*` / `front_to_back_infill_*` | bounded side-residual counts, volume, units by product, block candidate counts, sequence status, and deterministic action records |
 | `residual_strategy_candidates` | Native and DGFE Extended outcomes with current orientation, gravity mode, traversal, virtual/settled coordinates, next orientation/quantity, support, validity, value metrics, and compact phase diagnostics |
 | `selected_residual_orientation` | current-product orientation selected for the committed frontier |
 | `pi_residual_x_footprint` | actual Pi placement footprint from the local frontier start, independent of total envelope depth |
@@ -564,9 +649,10 @@ the active implementation.
 
 ## Historical mode note
 
-Maximum Utilization, Maximum Utilization Floor First, Sequence Loading, and
-Strict Sequence Loading remain recognizable UI/configuration values and may be
-referenced by older regression material. Their former algorithm descriptions
+Maximum Utilization and Maximum Utilization Floor First remain recognizable
+input compatibility values and may be referenced by older regression material;
+they are not current user-facing labels. Sequence Loading and Strict Sequence
+Loading remain unsupported historical values. Their former algorithm descriptions
 are historical compatibility context, not active behavior in the current
 `engine.py`. The former generic sequence-loading algorithms remain historical
 compatibility context and are not imported by the current engine. The
@@ -579,7 +665,8 @@ unsupported-mode result.
 | Term | Definition |
 |---|---|
 | Space Evenly | The structured two-phase heuristic using V1 regular Product Blocks and Residual Frontier Closure V2. |
-| Load Front-to-Back | A block-and-local-frontier heuristic exposed through `maximum_utilization` and `maximum_utilization_floor_first`. |
+| Load Front-to-Back | The approved block-and-local-frontier DGFE heuristic, canonically `front_to_back`. |
+| Mixed Cargo Infill | An opt-in parent-mode extension that constructively fills only the current Product Block's bounded side strip with compatible later products. |
 | Deferred-Gravity Frontier Envelope (DGFE) | A bounded Front-to-Back candidate construction that temporarily reserves a top-down residual, fills the next product around it, and restores vertical gravity before validation. |
 | Stepped Frontier Envelope (SFE) | The physically valid local boundary produced by residual construction, next-product population, and any deferred settlement. |
 | Product Block | A regular one-SKU module repeated longitudinally. |

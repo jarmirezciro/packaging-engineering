@@ -43,7 +43,7 @@ _CASE_PRESETS = {
             "height": 2698,
             "max_weight": 26000,
             "tare_weight": "",
-            "packing_mode": "maximum_utilization",
+            "packing_mode": "front_to_back",
             "calculate_max_quantity": True,
         },
     },

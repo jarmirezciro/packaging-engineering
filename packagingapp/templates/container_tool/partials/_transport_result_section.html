@@ -65,7 +65,7 @@
       </div>
       <div class="tool-summary-strip mt-3">
         <div class="tool-summary-main"><strong>Transport unit usage details</strong></div>
-        <div class="tool-summary-meta">Packing mode: {% if result.packing_mode == "maximum_utilization_floor_first" %}Maximum utilization floor first{% elif result.packing_mode == "space_evenly" %}Space evenly{% elif result.packing_mode == "accessible_sequence_loading" %}Sequence loading{% elif result.packing_mode == "sequence_loading" or result.packing_mode == "strict_sequence_loading" %}Strict sequence loading{% else %}Maximum utilization{% endif %}</div>
+        <div class="tool-summary-meta">Packing mode: {{ result.packing_mode_label }}</div>
         <div class="tool-summary-meta">Loaded volume (m³): {{ result.summary.packed_volume_m3|floatformat:3 }}</div>
         <div class="tool-summary-meta">Transport unit volume (m³): {{ result.summary.container_volume_m3|floatformat:3 }}</div>
         <div class="tool-summary-meta">Loaded product weight (kg): {{ result.summary.loaded_weight|floatformat:2 }}</div>

@@ -83,6 +83,12 @@ from ..tools.transport.service import (
     read_product_rows_raw,
 )
 from ..tools.transport.state import default_product_rows
+from ..tools.transport.modes import (
+    DEFAULT_TRANSPORT_PACKING_MODE,
+    TRANSPORT_PACKING_MODE_OPTIONS,
+    normalize_transport_packing_mode,
+    transport_sequence_is_locked,
+)
 
 from ..tools.full_packaging.export import (
     build_full_packaging_pdf,
@@ -143,7 +149,22 @@ def _init_workflow_session(request):
 
 def _get_workflow(request):
     _init_workflow_session(request)
-    return request.session[_workflow_session_key(request)]
+    workflow = request.session[_workflow_session_key(request)]
+    changed = False
+    for step in workflow.get("steps", []):
+        if step.get("type") != "transport":
+            continue
+        config = step.setdefault("config", {})
+        canonical = normalize_transport_packing_mode(
+            config.get("packing_mode"),
+            default=DEFAULT_TRANSPORT_PACKING_MODE,
+        )
+        if config.get("packing_mode") != canonical:
+            config["packing_mode"] = canonical
+            changed = True
+    if changed:
+        request.session.modified = True
+    return workflow
 
 
 def _save_workflow(request, workflow):
@@ -235,7 +256,7 @@ def _new_transport_step():
         "auto_hide_product_catalogue": False,
         "config": {
             "container_source": "manual",
-            "packing_mode": "maximum_utilization",
+            "packing_mode": DEFAULT_TRANSPORT_PACKING_MODE,
             "catalogue_id": "",
             "container_id": "",
             "container_l": 12032,
@@ -1845,9 +1866,12 @@ def _process_transport_step(step, steps, idx, post):
     step["auto_hide_product_catalogue"] = False
 
     cfg["container_source"] = post.get(f"container_source_{idx}", cfg.get("container_source", "manual"))
-    cfg["packing_mode"] = post.get(
-        f"packing_mode_{idx}",
-        cfg.get("packing_mode", "maximum_utilization"),
+    cfg["packing_mode"] = normalize_transport_packing_mode(
+        post.get(
+            f"packing_mode_{idx}",
+            cfg.get("packing_mode", DEFAULT_TRANSPORT_PACKING_MODE),
+        ),
+        default=DEFAULT_TRANSPORT_PACKING_MODE,
     )
     cfg["catalogue_id"] = post.get(f"catalogue_id_{idx}", cfg.get("catalogue_id", ""))
     cfg["container_id"] = post.get(f"container_id_{idx}", cfg.get("container_id", ""))
@@ -2384,6 +2408,13 @@ def full_packaging_mode(request, case_slug=None):
                 cfg["selected_product_id"] = ""
 
         if step.get("type") == "transport":
+            cfg["packing_mode"] = normalize_transport_packing_mode(
+                cfg.get("packing_mode"),
+                default=DEFAULT_TRANSPORT_PACKING_MODE,
+            )
+            step["transport_sequence_locked"] = transport_sequence_is_locked(
+                cfg["packing_mode"]
+            )
             step["materials"] = PackagingMaterial.objects.filter(
                 catalogue_id=cfg.get("catalogue_id") or None
             ).select_related("catalogue").order_by("part_number") if cfg.get("catalogue_id") else PackagingMaterial.objects.none()
@@ -2483,6 +2514,7 @@ def full_packaging_mode(request, case_slug=None):
         "packaging_catalogues": packaging_catalogues,
         "case_preset": get_case_preset(case_slug) if case_slug else None,
         "full_packaging_export_url": _workflow_export_url(request),
+        "transport_packing_modes": TRANSPORT_PACKING_MODE_OPTIONS,
     })
 
 def _build_transport_workflow_payload(

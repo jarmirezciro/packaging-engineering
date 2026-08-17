@@ -92,13 +92,14 @@ Do not run a broad destructive migration or production command as a substitute f
 
 ## Transport Container engine regression contract
 
-The current active `engine.py` dispatch implements Space Evenly with unchanged
-V1 Product Blocks and Residual Frontier Closure V2, plus Load Front-to-Back
-with DGFE through the existing compatibility values
-`maximum_utilization` and `maximum_utilization_floor_first`. Older fixture material may refer to the
+The current active `engine.py` dispatch implements the unchanged Space Evenly
+and Load Front-to-Back baselines plus their opt-in Mixed Cargo Infill variants.
+Load Front-to-Back is canonicalized to `front_to_back`; the historical
+`maximum_utilization` values remain compatibility aliases. Older fixture material may refer to the
 former Maximum, Accessible, or Strict Sequence implementations; those legacy
 paths are not imported by the current engine. Run focused checks for both
-active modes and treat failures isolated to legacy-only modes as stale
+approved baselines and the affected infill variants; treat failures isolated
+to legacy-only modes as stale
 compatibility expectations unless a task explicitly reactivates one.
 
 Before changing Transport Container packing behavior, run or establish a direct engine regression module (preferably `packagingapp/tests/test_transport_container_engine.py`). These tests are independent of Three.js/HTML and complement visualization tests.
@@ -111,6 +112,22 @@ For a change scoped to one mode:
 - unaffected established modes must keep their accepted count/signature fixtures unless the task explicitly approves a semantic change;
 - a shared-helper change is incomplete until every unaffected established mode has been checked;
 - visual appearance alone is never sufficient evidence of a packing-engine fix.
+
+Mixed Cargo Infill regression must additionally assert that the parent anchor
+signature is unchanged, filler quantity carries forward, side residuals are
+derived from committed XY geometry, complete-face-compatible X/Y residuals
+merge without overlap, partial fillers preserve their unused X tails, and
+Front-to-Back sees residuals produced by the committed local frontier/DGFE
+geometry. Space Evenly Infill must close every committed residual frontier in
+its own X window, synchronize the same remaining/item-index/weight state, and
+then run the separate supported-top closure only above local, coplanar,
+stackable, roof-clear support unions. Top closure must re-derive after each
+block, preserve side/top accounting, validate union support and overlap, and
+report explicit no-fit reasons for supported residuals left unused. Sequence
+groups cannot leapfrog, payload remains authoritative, and diagnostics keep
+historical gap searches, backtracking, and beam states at zero. High-quantity
+fixtures must show candidate counts bounded by geometry rather than requested
+units.
 
 Space Evenly residual regression must preserve the exact Phase 1 Product Block
 signature and cover ordered anchor selection, quantities 1/2/3 and a larger

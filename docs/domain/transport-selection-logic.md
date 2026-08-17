@@ -22,10 +22,13 @@ The active source is:
 
 `packagingapp/utils/container_tool/engine.py`
 
-The active engine provides **Space Evenly with V1 Product Blocks and Residual
-Frontier Closure V2** and **Load Front-to-Back with DGFE**. Load Front-to-Back is routed through the persisted compatibility values
-`maximum_utilization` and `maximum_utilization_floor_first`; both use the same
-current `front_to_back_blocks` strategy. Sequence Loading and Strict Sequence
+The active engine provides the approved **Space Evenly** and **Load
+Front-to-Back** baselines plus opt-in **Space Evenly – Mixed Cargo Infill** and
+**Load Front-to-Back – Mixed Cargo Infill** variants. Their canonical values
+are `space_evenly`, `front_to_back`, `space_evenly_infill`, and
+`front_to_back_infill`. The persisted values `maximum_utilization` and
+`maximum_utilization_floor_first` remain compatibility aliases for the
+unchanged Load Front-to-Back baseline. Sequence Loading and Strict Sequence
 Loading remain unsupported historical values and return a graceful unsupported
 result. Historical implementations remain separate and are not imported by the
 active engine.
@@ -132,6 +135,27 @@ full union support, bounds, overlap, stackability, and payload validation.
 The resulting stepped local frontier is a deterministic candidate geometry,
 not a loading-path, cargo-securing, or global-optimality proof. Detailed DGFE
 semantics and ranking are maintained in `transport-container-engine.md`.
+
+## How Mixed Cargo Infill behaves for users
+
+Mixed Cargo Infill is never selected implicitly for an existing workflow. It
+keeps the selected parent strategy and opportunistically fills only the
+bounded local side envelope for the current product phase. After side closure,
+the mixed modes also evaluate a separate supported-top envelope above local,
+coplanar, stackable, roof-clear support unions. The envelope is
+derived from committed XY geometry, so continuous space can cross internal
+Product Block boundaries and a partial filler can leave an X tail for the next
+local iteration. Space Evenly Infill also applies the same closure after each
+committed residual frontier, using the frontier's own X window and the same
+remaining quantity state. It does not reopen older windows or run a general
+free-space optimizer. Top closure is bottom-up and re-derived after each
+committed Product Block; top units have separate accounting and diagnostics.
+The current product may compete in that supported-top closure when it still has
+remaining quantity; side closure retains its later-product-only eligibility.
+With all sequence values equal, later products may
+cooperate locally. With multiple explicit sequence groups, side cooperation
+stays within a group and different groups can meet only at the adjacent active
+transition frontier.
 
 ## Max qty preprocessing
 
@@ -270,7 +294,15 @@ Consumer and engine checks should cover:
 - support, stackability, and non-overlap invariants;
 - standalone/Packaging Flow parity;
 - Three.js views and PDF using the same placements;
-- JSON-safe session and result serialization.
+- JSON-safe session and result serialization;
+- canonical mode alias normalization and exact baseline geometry preservation;
+- deterministic bounded side infill from committed XY geometry, complete-face
+  residual merging, X-tail preservation, quantity carry-forward,
+  residual-local orientation ranking, sequence-group protection, and zero
+  historical search, backtracking, or beam states;
+- deterministic supported-top infill from local coplanar support unions,
+  roof-clear envelopes, bottom-up re-derivation, support/overlap validation,
+  separate top accounting, and explicit no-fit diagnostics.
 
 For algorithm detail, use the technical deep dive rather than copying heuristic
 rules into this contract document.

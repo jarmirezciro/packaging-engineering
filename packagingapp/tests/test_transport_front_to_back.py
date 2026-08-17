@@ -21,7 +21,7 @@ from packagingapp.utils.container_tool.engine import (
 )
 
 
-MODE = "maximum_utilization_floor_first"
+MODE = "front_to_back"
 
 
 def container(length, width, height, max_weight=None):
@@ -909,7 +909,8 @@ class LoadFrontToBackV1Tests(FrontToBackInvariantMixin, SimpleTestCase):
         )
         self.assertEqual(floor_first["strategy"], "front_to_back_blocks")
         self.assertEqual(maximum["strategy"], "front_to_back_blocks")
-        self.assertEqual(maximum["packing_mode"], "maximum_utilization")
+        self.assertEqual(maximum["packing_mode"], "front_to_back")
+        self.assertEqual(floor_first["packing_mode"], "front_to_back")
         self.assertEqual(
             [
                 (item.row_index, item.x, item.y, item.z)

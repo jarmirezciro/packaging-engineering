@@ -11,14 +11,19 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Dict, List, Optional, Tuple
 
+from packagingapp.tools.transport.modes import (
+    FRONT_TO_BACK_INFILL_MODE,
+    FRONT_TO_BACK_MODE,
+    SPACE_EVENLY_INFILL_MODE,
+    SPACE_EVENLY_MODE,
+    normalize_transport_packing_mode,
+)
+
 
 TOLERANCE = 1e-7
 FRONTIER_EFFICIENCY_TOLERANCE = 1e-9
 YZ_UTILIZATION_EQ_TOL = 0.0025
 RESIDUAL_WIDTH_UTILIZATION_EQ_TOL = 0.001
-SPACE_EVENLY_MODE = "space_evenly"
-MAXIMUM_UTILIZATION_MODE = "maximum_utilization"
-FRONT_TO_BACK_MODE = "maximum_utilization_floor_first"
 FRONT_TO_BACK_STRATEGY = "front_to_back_blocks"
 DGFE_RESIDUAL_STRATEGIES = (
     "top_down_column_first",
@@ -659,6 +664,48 @@ def _materialize_product_block(
                 h=orientation[2],
             )
         )
+    return placements
+
+
+def _materialize_product_block_in_space(
+    product: NormalizedProduct,
+    candidate: ProductBlockCandidate,
+    space: Space,
+    first_item_index: int,
+    quantity: int,
+) -> List[Placement]:
+    """Materialize a Product Block at XYZ offsets with stable item ordering."""
+    maximum_modules = _fit_count(space.L, candidate.depth)
+    maximum_quantity = maximum_modules * candidate.module_capacity
+    target_quantity = min(max(int(quantity), 0), maximum_quantity)
+    placements: List[Placement] = []
+
+    for module_index in range(maximum_modules):
+        if len(placements) >= target_quantity:
+            break
+        module = _materialize_product_block(
+            product,
+            candidate,
+            space.x + module_index * candidate.depth,
+            first_item_index + len(placements),
+        )
+        for placement in module[: target_quantity - len(placements)]:
+            placements.append(
+                Placement(
+                    product_name=placement.product_name,
+                    item_index=placement.item_index,
+                    row_index=placement.row_index,
+                    sequence=placement.sequence,
+                    weight=placement.weight,
+                    stackable=placement.stackable,
+                    x=placement.x,
+                    y=space.y + placement.y,
+                    z=space.z + placement.z,
+                    l=placement.l,
+                    w=placement.w,
+                    h=placement.h,
+                )
+            )
     return placements
 
 
@@ -1816,6 +1863,1450 @@ def _payload_units_available(
     return min(requested, _fit_count(remaining_weight, unit_weight))
 
 
+def _new_side_infill_stats(sequence_group_count: int) -> Dict:
+    return {
+        "side_residual_count": 0,
+        "side_residuals_evaluated": 0,
+        "side_residuals_filled": 0,
+        "side_residual_volume_available": 0.0,
+        "side_residual_volume_filled": 0.0,
+        "infill_units_total": 0,
+        "infill_volume_total": 0.0,
+        "infill_units_by_product": {},
+        "infill_block_count": 0,
+        "infill_block_candidates_generated": 0,
+        "infill_block_candidates_evaluated": 0,
+        "sequence_group_count": int(sequence_group_count),
+        "sequence_restricted": bool(sequence_group_count > 1),
+        "historical_gap_searches": 0,
+        "backtracking_count": 0,
+        "beam_states_evaluated": 0,
+        "side_residual_envelopes": [],
+        "residual_frontiers_closed": 0,
+        "post_frontier_side_residuals_derived": 0,
+        "post_frontier_side_residuals_filled": 0,
+        "post_frontier_units": 0,
+        "post_frontier_volume": 0.0,
+        "post_frontier_closures": [],
+        "residual_evaluation_reasons": [],
+        "actions": [],
+    }
+
+
+def _merge_side_infill_stats(target: Dict, addition: Dict) -> None:
+    for key in (
+        "side_residual_count",
+        "side_residuals_evaluated",
+        "side_residuals_filled",
+        "side_residual_volume_available",
+        "side_residual_volume_filled",
+        "infill_units_total",
+        "infill_volume_total",
+        "infill_block_count",
+        "infill_block_candidates_generated",
+        "infill_block_candidates_evaluated",
+        "residual_frontiers_closed",
+        "post_frontier_side_residuals_derived",
+        "post_frontier_side_residuals_filled",
+        "post_frontier_units",
+        "post_frontier_volume",
+    ):
+        target[key] += addition[key]
+    for row_index, quantity in addition["infill_units_by_product"].items():
+        target["infill_units_by_product"][row_index] = (
+            target["infill_units_by_product"].get(row_index, 0) + quantity
+        )
+    target["actions"].extend(addition["actions"])
+    target["side_residual_envelopes"].extend(
+        addition.get("side_residual_envelopes", [])
+    )
+    target["post_frontier_closures"].extend(
+        addition.get("post_frontier_closures", [])
+    )
+    target["residual_evaluation_reasons"].extend(
+        addition.get("residual_evaluation_reasons", [])
+    )
+
+
+def _side_infill_metadata(prefix: str, stats: Dict) -> Dict:
+    return {
+        f"{prefix}_{key}": value
+        for key, value in stats.items()
+    }
+
+
+def _deduplicate_sorted_coordinates(values: List[float]) -> List[float]:
+    """Return stable, tolerance-aware coordinates for a local geometry window."""
+    result: List[float] = []
+    for value in sorted(float(item) for item in values):
+        if not result or abs(value - result[-1]) > TOLERANCE:
+            result.append(value)
+    return result
+
+
+def _merge_local_side_residual_pair(
+    first: Space,
+    second: Space,
+) -> Optional[Space]:
+    """Merge only residuals that share a complete lateral face."""
+    if (
+        abs(first.y - second.y) <= TOLERANCE
+        and abs(first.z - second.z) <= TOLERANCE
+        and abs(first.W - second.W) <= TOLERANCE
+        and abs(first.H - second.H) <= TOLERANCE
+        and (
+            abs(first.x + first.L - second.x) <= TOLERANCE
+            or abs(second.x + second.L - first.x) <= TOLERANCE
+        )
+    ):
+        return Space(
+            min(first.x, second.x),
+            first.y,
+            first.z,
+            first.L + second.L,
+            first.W,
+            first.H,
+        )
+    if (
+        abs(first.x - second.x) <= TOLERANCE
+        and abs(first.z - second.z) <= TOLERANCE
+        and abs(first.L - second.L) <= TOLERANCE
+        and abs(first.H - second.H) <= TOLERANCE
+        and (
+            abs(first.y + first.W - second.y) <= TOLERANCE
+            or abs(second.y + second.W - first.y) <= TOLERANCE
+        )
+    ):
+        return Space(
+            first.x,
+            min(first.y, second.y),
+            first.z,
+            first.L,
+            first.W + second.W,
+            first.H,
+        )
+    return None
+
+
+def merge_local_side_residuals(spaces: List[Space]) -> List[Space]:
+    """Repeatedly merge complete-face-compatible floor-to-ceiling spaces."""
+    merged = [
+        space
+        for space in spaces
+        if space.L > TOLERANCE and space.W > TOLERANCE and space.H > TOLERANCE
+    ]
+    changed = True
+    while changed:
+        changed = False
+        merged.sort(
+            key=lambda space: (
+                round(space.x, 9),
+                round(space.y, 9),
+                round(space.L, 9),
+                round(space.W, 9),
+                round(space.H, 9),
+            )
+        )
+        for first_index, first in enumerate(merged):
+            for second_index in range(first_index + 1, len(merged)):
+                combined = _merge_local_side_residual_pair(
+                    first,
+                    merged[second_index],
+                )
+                if combined is None:
+                    continue
+                merged = [
+                    space
+                    for index, space in enumerate(merged)
+                    if index not in (first_index, second_index)
+                ]
+                merged.append(combined)
+                changed = True
+                break
+            if changed:
+                break
+
+    unique: List[Space] = []
+    seen = set()
+    for space in merged:
+        key = (
+            round(space.x, 9),
+            round(space.y, 9),
+            round(space.z, 9),
+            round(space.L, 9),
+            round(space.W, 9),
+            round(space.H, 9),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(space)
+    return sorted(
+        unique,
+        key=lambda space: (
+            round(space.x, 9),
+            -round(space.volume, 9),
+            round(space.y, 9),
+            -round(space.W, 9),
+            round(space.L, 9),
+            round(space.H, 9),
+        ),
+    )
+
+
+def derive_local_side_residuals(
+    placements: List[Placement],
+    container: Dict,
+    window_x_start: float,
+    window_x_end: float,
+) -> List[Space]:
+    """Derive full-height lateral residuals from committed XY geometry.
+
+    The window is deliberately local.  X breakpoints are generated from the
+    actual committed placement projections, each slab is complemented in Y,
+    and only complete-face-compatible residuals are merged.  Z is ignored for
+    occupancy by design: any cargo over an XY footprint removes that footprint
+    from the side-space envelope.
+    """
+    x_start = float(window_x_start)
+    x_end = float(window_x_end)
+    width = float(container.get("W", 0.0) or 0.0)
+    height = float(container.get("H", 0.0) or 0.0)
+    if x_end <= x_start + TOLERANCE or width <= TOLERANCE or height <= TOLERANCE:
+        return []
+
+    relevant: List[Placement] = []
+    breakpoints = [x_start, x_end]
+    for placement in placements:
+        placement_x_start = float(placement.x)
+        placement_x_end = placement_x_start + float(placement.l)
+        if (
+            placement_x_end <= x_start + TOLERANCE
+            or placement_x_start >= x_end - TOLERANCE
+        ):
+            continue
+        relevant.append(placement)
+        breakpoints.extend(
+            (
+                max(x_start, min(x_end, placement_x_start)),
+                max(x_start, min(x_end, placement_x_end)),
+            )
+        )
+
+    x_breakpoints = _deduplicate_sorted_coordinates(breakpoints)
+    residuals: List[Space] = []
+    for slab_start, slab_end in zip(x_breakpoints, x_breakpoints[1:]):
+        if slab_end <= slab_start + TOLERANCE:
+            continue
+        occupied_y: List[Tuple[float, float]] = []
+        for placement in relevant:
+            placement_x_start = float(placement.x)
+            placement_x_end = placement_x_start + float(placement.l)
+            if (
+                placement_x_end <= slab_start + TOLERANCE
+                or placement_x_start >= slab_end - TOLERANCE
+            ):
+                continue
+            y_start = max(0.0, min(width, float(placement.y)))
+            y_end = max(0.0, min(width, float(placement.y + placement.w)))
+            if y_end > y_start + TOLERANCE:
+                occupied_y.append((y_start, y_end))
+
+        occupied_y.sort(key=lambda interval: (interval[0], interval[1]))
+        merged_occupied: List[Tuple[float, float]] = []
+        for y_start, y_end in occupied_y:
+            if not merged_occupied or y_start > merged_occupied[-1][1] + TOLERANCE:
+                merged_occupied.append((y_start, y_end))
+            else:
+                merged_occupied[-1] = (
+                    merged_occupied[-1][0],
+                    max(merged_occupied[-1][1], y_end),
+                )
+
+        y_cursor = 0.0
+        for occupied_start, occupied_end in merged_occupied:
+            if occupied_start > y_cursor + TOLERANCE:
+                residuals.append(
+                    Space(
+                        slab_start,
+                        y_cursor,
+                        0.0,
+                        slab_end - slab_start,
+                        occupied_start - y_cursor,
+                        height,
+                    )
+                )
+            y_cursor = max(y_cursor, occupied_end)
+        if width > y_cursor + TOLERANCE:
+            residuals.append(
+                Space(
+                    slab_start,
+                    y_cursor,
+                    0.0,
+                    slab_end - slab_start,
+                    width - y_cursor,
+                    height,
+                )
+            )
+
+    return merge_local_side_residuals(residuals)
+
+
+def fill_side_residual_deterministically(
+    residual_space: Space,
+    anchor_product: NormalizedProduct,
+    ordered_products: List[NormalizedProduct],
+    remaining_quantities: Dict[int, int],
+    next_item_index: Dict[int, int],
+    container: Dict,
+    loaded_weight: float,
+    sequence_restricted: bool,
+    eligible_row_indices: Optional[set] = None,
+    reserved_payload_weight: float = 0.0,
+    committed_placements: Optional[List[Placement]] = None,
+    window_x_start: Optional[float] = None,
+    window_x_end: Optional[float] = None,
+) -> Tuple[List[Placement], float, Dict]:
+    """Constructively close one bounded local side envelope.
+
+    The closure is recomputed from actual committed XY projections after each
+    filler block.  This preserves X tails and removes computational Product
+    Block boundaries without reopening any geometry outside the fixed local
+    window.
+    """
+    sequence_group_count = len({product.sequence for product in ordered_products})
+    stats = _new_side_infill_stats(sequence_group_count)
+    local_x_start = (
+        float(residual_space.x)
+        if window_x_start is None
+        else float(window_x_start)
+    )
+    local_x_end = (
+        float(residual_space.x + residual_space.L)
+        if window_x_end is None
+        else float(window_x_end)
+    )
+    if local_x_end <= local_x_start + TOLERANCE:
+        return [], loaded_weight, stats
+    committed: List[Placement] = []
+    product_priority = {
+        product.row_index: index for index, product in enumerate(ordered_products)
+    }
+
+    def current_residuals() -> List[Space]:
+        if committed_placements is None:
+            return [residual_space]
+        return derive_local_side_residuals(
+            list(committed_placements) + committed,
+            container,
+            local_x_start,
+            local_x_end,
+        )
+
+    residuals = current_residuals()
+    stats["side_residual_count"] = len(residuals)
+    stats["side_residual_volume_available"] = float(
+        sum(space.volume for space in residuals)
+    )
+
+    def record_envelope(envelope: List[Space]) -> None:
+        stats["side_residual_envelopes"].append(
+            [
+                {
+                    "x": float(space.x),
+                    "y": float(space.y),
+                    "z": float(space.z),
+                    "L": float(space.L),
+                    "W": float(space.W),
+                    "H": float(space.H),
+                }
+                for space in envelope
+            ]
+        )
+
+    record_envelope(residuals)
+
+    while residuals:
+        active_space = min(
+            residuals,
+            key=lambda space: (
+                round(space.x, 9),
+                -round(space.volume, 9),
+                round(space.y, 9),
+                -round(space.W, 9),
+                round(space.L, 9),
+                round(space.H, 9),
+            ),
+        )
+        residuals.remove(active_space)
+        stats["side_residuals_evaluated"] += 1
+        bounded_container = {
+            "L": active_space.L,
+            "W": active_space.W,
+            "H": active_space.H,
+            "max_weight": container.get("max_weight"),
+            "tare_weight": container.get("tare_weight"),
+        }
+        ranked_candidates = []
+        eligible_product_names: List[str] = []
+        sequence_filtered = 0
+        payload_blocked = 0
+        generated_candidate_count = 0
+        fit_candidate_count = 0
+        width_capable = False
+        depth_capable = False
+
+        for product in ordered_products:
+            remaining_quantity = int(remaining_quantities.get(product.row_index, 0))
+            if product.row_index == anchor_product.row_index or remaining_quantity <= 0:
+                continue
+            if (
+                eligible_row_indices is not None
+                and product.row_index not in eligible_row_indices
+            ):
+                continue
+            if sequence_restricted and product.sequence != anchor_product.sequence:
+                if remaining_quantity > 0:
+                    sequence_filtered += 1
+                continue
+            eligible_product_names.append(product.name)
+            width_capable = width_capable or any(
+                orientation[1] <= active_space.W + TOLERANCE
+                and orientation[2] <= active_space.H + TOLERANCE
+                for orientation in product.orientations
+            )
+            depth_capable = depth_capable or any(
+                orientation[0] <= active_space.L + TOLERANCE
+                and orientation[2] <= active_space.H + TOLERANCE
+                for orientation in product.orientations
+            )
+            payload_quantity = _payload_units_available(
+                container,
+                loaded_weight + reserved_payload_weight,
+                product.weight,
+                remaining_quantity,
+            )
+            if payload_quantity <= 0:
+                payload_blocked += 1
+                continue
+
+            candidates, evaluated = build_product_block_candidates(
+                product,
+                bounded_container,
+                active_space.L,
+            )
+            generated_candidate_count += len(candidates)
+            stats["infill_block_candidates_generated"] += len(candidates)
+            stats["infill_block_candidates_evaluated"] += evaluated
+            residual_footprint = _largest_valid_footprint(
+                product,
+                bounded_container,
+            )
+            for candidate in candidates:
+                module_count = _fit_count(active_space.L, candidate.depth)
+                quantity = min(
+                    payload_quantity,
+                    module_count * candidate.module_capacity,
+                )
+                if quantity <= 0:
+                    continue
+                fit_candidate_count += 1
+                depth_required = (
+                    int(math.ceil(quantity / candidate.module_capacity))
+                    * candidate.depth
+                )
+                packed_volume = quantity * product.unit_volume
+                ranking_key = (
+                    -round(packed_volume, 9),
+                    -round(candidate.transverse_utilization, 12),
+                    -int(quantity),
+                    round(depth_required, 9),
+                    -round(residual_footprint, 9),
+                    -round(product.unit_volume, 9),
+                    -round(product.longest_dimension, 9),
+                    product_priority[product.row_index],
+                    _candidate_stable_key(candidate),
+                )
+                ranked_candidates.append(
+                    {
+                        "product": product,
+                        "candidate": candidate,
+                        "quantity": int(quantity),
+                        "depth_required": float(depth_required),
+                        "packed_volume": float(packed_volume),
+                        "residual_footprint": float(residual_footprint),
+                        "ranking_key": ranking_key,
+                    }
+                )
+
+        if not ranked_candidates:
+            if not eligible_product_names:
+                reason = (
+                    "sequence_restriction"
+                    if sequence_filtered
+                    else "no_remaining_quantity"
+                )
+            elif payload_blocked == len(eligible_product_names):
+                reason = "payload_exhausted"
+            elif not width_capable:
+                reason = "insufficient_width"
+            elif not depth_capable:
+                reason = "insufficient_x_depth"
+            elif fit_candidate_count == 0 and generated_candidate_count == 0:
+                reason = "no_enabled_orientation_fits"
+            else:
+                reason = "no_enabled_orientation_fits"
+            stats["residual_evaluation_reasons"].append(
+                {
+                    "x_start": float(active_space.x),
+                    "x_end": float(active_space.x + active_space.L),
+                    "y_start": float(active_space.y),
+                    "width": float(active_space.W),
+                    "reason": reason,
+                    "eligible_products": list(eligible_product_names),
+                }
+            )
+            # This residual is physically valid but may be too narrow for any
+            # eligible Product Block.  Continue through the remaining local
+            # envelope rather than letting one narrow slab hide another usable
+            # side region.
+            continue
+
+        winner = min(ranked_candidates, key=lambda item: item["ranking_key"])
+        filler = winner["product"]
+        candidate = winner["candidate"]
+        filler_placements = _materialize_product_block_in_space(
+            filler,
+            candidate,
+            active_space,
+            next_item_index[filler.row_index],
+            winner["quantity"],
+        )
+        if not filler_placements:
+            continue
+        used_width = max(
+            placement.y + placement.w - active_space.y
+            for placement in filler_placements
+        )
+        if used_width <= TOLERANCE:
+            continue
+
+        used_depth = max(
+            placement.x + placement.l - active_space.x
+            for placement in filler_placements
+        )
+
+        quantity = len(filler_placements)
+        committed.extend(filler_placements)
+        remaining_quantities[filler.row_index] = max(
+            remaining_quantities.get(filler.row_index, 0) - quantity,
+            0,
+        )
+        next_item_index[filler.row_index] += quantity
+        loaded_weight += quantity * filler.weight
+        filled_volume = quantity * filler.unit_volume
+        stats["infill_units_total"] += quantity
+        stats["infill_volume_total"] += filled_volume
+        stats["side_residual_volume_filled"] += filled_volume
+        stats["infill_block_count"] += 1
+        row_key = str(filler.row_index)
+        stats["infill_units_by_product"][row_key] = (
+            stats["infill_units_by_product"].get(row_key, 0) + quantity
+        )
+        stats["actions"].append(
+            {
+                "anchor_product": anchor_product.name,
+                "anchor_row_index": int(anchor_product.row_index),
+                "filler_product": filler.name,
+                "filler_row_index": int(filler.row_index),
+                "sequence": int(filler.sequence),
+                "residual_x_start": float(active_space.x),
+                "residual_x_end": float(active_space.x + active_space.L),
+                "residual_y_start": float(active_space.y),
+                "residual_y_end": float(active_space.y + active_space.W),
+                "residual_width": float(active_space.W),
+                "selected_orientations": [
+                    [float(value) for value in orientation]
+                    for orientation in candidate.orientations
+                ],
+                "selected_block": {
+                    **_candidate_metadata(candidate),
+                    "y_start": float(active_space.y),
+                    "actual_depth_required": float(winner["depth_required"]),
+                    "actual_depth_committed": float(used_depth),
+                    "actual_width_committed": float(used_width),
+                },
+                "quantity": int(quantity),
+                "packed_volume": float(filled_volume),
+                "residual_local_footprint": float(
+                    winner["residual_footprint"]
+                ),
+                "selection_reason": (
+                    "packed_volume_then_transverse_utilization_then_quantity_"
+                    "then_depth_then_residual_local_priority"
+                ),
+            }
+        )
+        residuals = (
+            current_residuals()
+            if committed_placements is not None
+            else []
+        )
+        if committed_placements is not None:
+            record_envelope(residuals)
+
+    stats["side_residuals_filled"] = int(bool(committed))
+    return committed, loaded_weight, stats
+
+
+def _new_top_infill_stats(sequence_group_count: int) -> Dict:
+    """Create diagnostics for the separate supported-top closure."""
+    return {
+        "top_residual_windows": [],
+        "top_support_planes_evaluated": 0,
+        "top_atomic_cells_evaluated": 0,
+        "top_residual_count": 0,
+        "top_residuals_evaluated": 0,
+        "top_residuals_filled": 0,
+        "top_residual_volume_available": 0.0,
+        "top_residual_volume_filled": 0.0,
+        "top_infill_units_total": 0,
+        "top_infill_volume_total": 0.0,
+        "top_infill_units_by_product": {},
+        "top_infill_block_count": 0,
+        "top_infill_block_candidates_generated": 0,
+        "top_infill_block_candidates_evaluated": 0,
+        "top_anchor_candidate_evaluations": 0,
+        "top_complete_face_merges": 0,
+        "top_support_checks": 0,
+        "top_candidates_rejected_support": 0,
+        "top_candidates_rejected_overlap": 0,
+        "top_residual_frontiers_closed": 0,
+        "top_frontier_closures": [],
+        "top_sequence_group_count": int(sequence_group_count),
+        "top_sequence_restricted": bool(sequence_group_count > 1),
+        "top_historical_gap_searches": 0,
+        "top_backtracking_count": 0,
+        "top_beam_states_evaluated": 0,
+        "top_product_permutation_searches": 0,
+        "top_global_free_space_searches": 0,
+        "historical_gap_searches": 0,
+        "backtracking_count": 0,
+        "beam_states_evaluated": 0,
+        "product_permutation_searches": 0,
+        "global_free_space_searches": 0,
+        "top_residual_evaluation_reasons": [],
+        "top_actions": [],
+    }
+
+
+def _merge_top_infill_stats(target: Dict, addition: Dict) -> None:
+    for key in (
+        "top_support_planes_evaluated",
+        "top_atomic_cells_evaluated",
+        "top_residual_count",
+        "top_residuals_evaluated",
+        "top_residuals_filled",
+        "top_residual_volume_available",
+        "top_residual_volume_filled",
+        "top_infill_units_total",
+        "top_infill_volume_total",
+        "top_infill_block_count",
+        "top_infill_block_candidates_generated",
+        "top_infill_block_candidates_evaluated",
+        "top_anchor_candidate_evaluations",
+        "top_complete_face_merges",
+        "top_support_checks",
+        "top_candidates_rejected_support",
+        "top_candidates_rejected_overlap",
+        "top_residual_frontiers_closed",
+        "historical_gap_searches",
+        "backtracking_count",
+        "beam_states_evaluated",
+        "product_permutation_searches",
+        "global_free_space_searches",
+    ):
+        target[key] += addition.get(key, 0)
+    for row_index, quantity in addition.get(
+        "top_infill_units_by_product", {}
+    ).items():
+        target["top_infill_units_by_product"][row_index] = (
+            target["top_infill_units_by_product"].get(row_index, 0)
+            + quantity
+        )
+    target["top_residual_windows"].extend(
+        addition.get("top_residual_windows", [])
+    )
+    target["top_residual_evaluation_reasons"].extend(
+        addition.get("top_residual_evaluation_reasons", [])
+    )
+    target["top_actions"].extend(addition.get("top_actions", []))
+    target["top_frontier_closures"].extend(
+        addition.get("top_frontier_closures", [])
+    )
+
+
+def _top_infill_metadata(prefix: str, stats: Dict) -> Dict:
+    metadata = {
+        f"{prefix}_{key}": value
+        for key, value in stats.items()
+    }
+    metadata[f"{prefix}_top_infill_actions"] = stats.get("top_actions", [])
+    metadata[f"{prefix}_top_infill_residual_evaluation_reasons"] = stats.get(
+        "top_residual_evaluation_reasons", []
+    )
+    return metadata
+
+
+def _merge_local_top_residual_pair(
+    first: Space,
+    second: Space,
+) -> Optional[Space]:
+    """Merge only complete-face-compatible spaces on one support plane."""
+    if (
+        abs(first.z - second.z) <= TOLERANCE
+        and abs(first.H - second.H) <= TOLERANCE
+        and abs(first.y - second.y) <= TOLERANCE
+        and abs(first.W - second.W) <= TOLERANCE
+        and (
+            abs(first.x + first.L - second.x) <= TOLERANCE
+            or abs(second.x + second.L - first.x) <= TOLERANCE
+        )
+    ):
+        return Space(
+            min(first.x, second.x),
+            first.y,
+            first.z,
+            first.L + second.L,
+            first.W,
+            first.H,
+        )
+    if (
+        abs(first.z - second.z) <= TOLERANCE
+        and abs(first.H - second.H) <= TOLERANCE
+        and abs(first.x - second.x) <= TOLERANCE
+        and abs(first.L - second.L) <= TOLERANCE
+        and (
+            abs(first.y + first.W - second.y) <= TOLERANCE
+            or abs(second.y + second.W - first.y) <= TOLERANCE
+        )
+    ):
+        return Space(
+            first.x,
+            min(first.y, second.y),
+            first.z,
+            first.L,
+            first.W + second.W,
+            first.H,
+        )
+    return None
+
+
+def _merge_local_top_residuals_detailed(
+    spaces: List[Space],
+) -> Tuple[List[Space], int]:
+    merged = [
+        space
+        for space in spaces
+        if space.L > TOLERANCE
+        and space.W > TOLERANCE
+        and space.H > TOLERANCE
+    ]
+    complete_face_merges = 0
+    changed = True
+    while changed:
+        changed = False
+        merged.sort(
+            key=lambda space: (
+                round(space.z, 9),
+                round(space.x, 9),
+                round(space.y, 9),
+                round(space.L, 9),
+                round(space.W, 9),
+                round(space.H, 9),
+            )
+        )
+        for first_index, first in enumerate(merged):
+            for second_index in range(first_index + 1, len(merged)):
+                combined = _merge_local_top_residual_pair(
+                    first,
+                    merged[second_index],
+                )
+                if combined is None:
+                    continue
+                merged = [
+                    space
+                    for index, space in enumerate(merged)
+                    if index not in (first_index, second_index)
+                ]
+                merged.append(combined)
+                complete_face_merges += 1
+                changed = True
+                break
+            if changed:
+                break
+
+    unique: List[Space] = []
+    seen = set()
+    for space in merged:
+        key = (
+            round(space.x, 9),
+            round(space.y, 9),
+            round(space.z, 9),
+            round(space.L, 9),
+            round(space.W, 9),
+            round(space.H, 9),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(space)
+    return (
+        sorted(
+            unique,
+            key=lambda space: (
+                round(space.z, 9),
+                round(space.x, 9),
+                -round(space.L * space.W, 9),
+                -round(space.volume, 9),
+                round(space.y, 9),
+                round(space.L, 9),
+                round(space.W, 9),
+                round(space.H, 9),
+            ),
+        ),
+        complete_face_merges,
+    )
+
+
+def merge_local_top_residuals(spaces: List[Space]) -> List[Space]:
+    """Merge complete faces without ever combining different support heights."""
+    merged, _ = _merge_local_top_residuals_detailed(spaces)
+    return merged
+
+
+def _top_rect_intersection(
+    placement: Placement,
+    window_x_start: float,
+    window_x_end: float,
+    container_width: float,
+) -> Optional[Tuple[float, float, float, float]]:
+    x_start = max(window_x_start, float(placement.x))
+    x_end = min(window_x_end, float(placement.x + placement.l))
+    y_start = max(0.0, min(container_width, float(placement.y)))
+    y_end = max(0.0, min(container_width, float(placement.y + placement.w)))
+    if x_end <= x_start + TOLERANCE or y_end <= y_start + TOLERANCE:
+        return None
+    return x_start, x_end, y_start, y_end
+
+
+def _derive_local_top_residuals_detailed(
+    placements: List[Placement],
+    container: Dict,
+    window_x_start: float,
+    window_x_end: float,
+) -> Tuple[List[Space], Dict[str, int]]:
+    """Derive roof-clear supported top spaces from committed geometry."""
+    x_start = float(window_x_start)
+    x_end = float(window_x_end)
+    width = float(container.get("W", 0.0) or 0.0)
+    height = float(container.get("H", 0.0) or 0.0)
+    if x_end <= x_start + TOLERANCE or width <= TOLERANCE or height <= TOLERANCE:
+        return [], {
+            "support_planes": 0,
+            "atomic_cells": 0,
+            "complete_face_merges": 0,
+        }
+
+    relevant = [
+        placement
+        for placement in placements
+        if _top_rect_intersection(placement, x_start, x_end, width)
+        is not None
+    ]
+    support_planes = _deduplicate_sorted_coordinates(
+        [
+            placement.z + placement.h
+            for placement in relevant
+            if placement.stackable
+            and height - (placement.z + placement.h) > TOLERANCE
+        ]
+    )
+    residuals: List[Space] = []
+    atomic_cells = 0
+    complete_face_merges = 0
+    for support_z in support_planes:
+        support_rectangles = []
+        blocker_rectangles = []
+        for placement in relevant:
+            rectangle = _top_rect_intersection(
+                placement,
+                x_start,
+                x_end,
+                width,
+            )
+            if rectangle is None:
+                continue
+            if (
+                placement.stackable
+                and abs(placement.z + placement.h - support_z) <= TOLERANCE
+            ):
+                support_rectangles.append(rectangle)
+            if (
+                placement.z < height - TOLERANCE
+                and placement.z + placement.h > support_z + TOLERANCE
+            ):
+                blocker_rectangles.append(rectangle)
+
+        if not support_rectangles:
+            continue
+        x_breakpoints = [x_start, x_end]
+        y_breakpoints = [0.0, width]
+        for rect_x_start, rect_x_end, rect_y_start, rect_y_end in (
+            support_rectangles + blocker_rectangles
+        ):
+            x_breakpoints.extend((rect_x_start, rect_x_end))
+            y_breakpoints.extend((rect_y_start, rect_y_end))
+        x_coordinates = _deduplicate_sorted_coordinates(x_breakpoints)
+        y_coordinates = _deduplicate_sorted_coordinates(y_breakpoints)
+        plane_spaces: List[Space] = []
+        for cell_x_start, cell_x_end in zip(
+            x_coordinates,
+            x_coordinates[1:],
+        ):
+            for cell_y_start, cell_y_end in zip(
+                y_coordinates,
+                y_coordinates[1:],
+            ):
+                if (
+                    cell_x_end <= cell_x_start + TOLERANCE
+                    or cell_y_end <= cell_y_start + TOLERANCE
+                ):
+                    continue
+                atomic_cells += 1
+                supported = any(
+                    cell_x_start >= rect_x_start - TOLERANCE
+                    and cell_x_end <= rect_x_end + TOLERANCE
+                    and cell_y_start >= rect_y_start - TOLERANCE
+                    and cell_y_end <= rect_y_end + TOLERANCE
+                    for rect_x_start, rect_x_end, rect_y_start, rect_y_end in (
+                        support_rectangles
+                    )
+                )
+                if not supported:
+                    continue
+                blocked = any(
+                    min(cell_x_end, rect_x_end)
+                    > max(cell_x_start, rect_x_start) + TOLERANCE
+                    and min(cell_y_end, rect_y_end)
+                    > max(cell_y_start, rect_y_start) + TOLERANCE
+                    for rect_x_start, rect_x_end, rect_y_start, rect_y_end in (
+                        blocker_rectangles
+                    )
+                )
+                if blocked:
+                    continue
+                plane_spaces.append(
+                    Space(
+                        cell_x_start,
+                        cell_y_start,
+                        support_z,
+                        cell_x_end - cell_x_start,
+                        cell_y_end - cell_y_start,
+                        height - support_z,
+                    )
+                )
+        merged_plane, plane_merges = _merge_local_top_residuals_detailed(
+            plane_spaces
+        )
+        residuals.extend(merged_plane)
+        complete_face_merges += plane_merges
+
+    return (
+        merge_local_top_residuals(residuals),
+        {
+            "support_planes": len(support_planes),
+            "atomic_cells": atomic_cells,
+            "complete_face_merges": complete_face_merges,
+        },
+    )
+
+
+def derive_local_top_residuals(
+    placements: List[Placement],
+    container: Dict,
+    window_x_start: float,
+    window_x_end: float,
+) -> List[Space]:
+    """Return deterministic, roof-clear residuals above coplanar support unions."""
+    residuals, _ = _derive_local_top_residuals_detailed(
+        placements,
+        container,
+        window_x_start,
+        window_x_end,
+    )
+    return residuals
+
+
+def _top_candidate_validation_reason(
+    placements: List[Placement],
+    context: List[Placement],
+    active_space: Space,
+    container: Dict,
+) -> Optional[str]:
+    local_context = list(context) + list(placements)
+    for placement in placements:
+        if (
+            placement.x < active_space.x - TOLERANCE
+            or placement.y < active_space.y - TOLERANCE
+            or placement.z < active_space.z - TOLERANCE
+            or placement.x + placement.l
+            > active_space.x + active_space.L + TOLERANCE
+            or placement.y + placement.w
+            > active_space.y + active_space.W + TOLERANCE
+            or placement.z + placement.h
+            > active_space.z + active_space.H + TOLERANCE
+            or placement.x < -TOLERANCE
+            or placement.y < -TOLERANCE
+            or placement.z < -TOLERANCE
+            or placement.x + placement.l > container["L"] + TOLERANCE
+            or placement.y + placement.w > container["W"] + TOLERANCE
+            or placement.z + placement.h > container["H"] + TOLERANCE
+        ):
+            return "placement_out_of_bounds"
+    for first_index, first in enumerate(placements):
+        if any(
+            _frontier_rectangles_overlap(first, second)
+            for second in placements[first_index + 1 :]
+        ):
+            return "overlap_validation_failed"
+        if any(
+            _frontier_rectangles_overlap(first, second)
+            for second in context
+        ):
+            return "overlap_validation_failed"
+    for placement in placements:
+        if placement.z > TOLERANCE:
+            if not _frontier_supports_full_base(placement, local_context):
+                return "support_validation_failed"
+    return None
+
+
+def fill_top_residual_deterministically(
+    residual_space: Space,
+    anchor_product: NormalizedProduct,
+    ordered_products: List[NormalizedProduct],
+    remaining_quantities: Dict[int, int],
+    next_item_index: Dict[int, int],
+    container: Dict,
+    loaded_weight: float,
+    sequence_restricted: bool,
+    eligible_row_indices: Optional[set] = None,
+    reserved_payload_weight: float = 0.0,
+    committed_placements: Optional[List[Placement]] = None,
+    window_x_start: Optional[float] = None,
+    window_x_end: Optional[float] = None,
+) -> Tuple[List[Placement], float, Dict]:
+    """Fill local supported-top spaces bottom-up using Product Blocks."""
+    stats = _new_top_infill_stats(
+        len({product.sequence for product in ordered_products})
+    )
+    local_x_start = (
+        float(residual_space.x)
+        if window_x_start is None
+        else float(window_x_start)
+    )
+    local_x_end = (
+        float(residual_space.x + residual_space.L)
+        if window_x_end is None
+        else float(window_x_end)
+    )
+    if local_x_end <= local_x_start + TOLERANCE:
+        return [], loaded_weight, stats
+    committed: List[Placement] = []
+    product_priority = {
+        product.row_index: index for index, product in enumerate(ordered_products)
+    }
+
+    def anchor_eligibility() -> Tuple[bool, Optional[str]]:
+        remaining_quantity = int(
+            remaining_quantities.get(anchor_product.row_index, 0)
+        )
+        if remaining_quantity <= 0:
+            return False, "no_remaining_quantity"
+        if (
+            eligible_row_indices is not None
+            and anchor_product.row_index not in eligible_row_indices
+        ):
+            return False, "not_in_eligible_rows"
+        return True, None
+
+    def current_residuals() -> Tuple[List[Space], Dict[str, int]]:
+        return _derive_local_top_residuals_detailed(
+            list(committed_placements or []) + committed,
+            container,
+            local_x_start,
+            local_x_end,
+        )
+
+    def record_envelope(
+        envelope: List[Space],
+        detail: Dict[str, int],
+    ) -> None:
+        anchor_is_eligible, anchor_eligibility_reason = anchor_eligibility()
+        anchor_remaining_quantity = int(
+            remaining_quantities.get(anchor_product.row_index, 0)
+        )
+        stats["top_support_planes_evaluated"] += int(
+            detail.get("support_planes", 0)
+        )
+        stats["top_atomic_cells_evaluated"] += int(
+            detail.get("atomic_cells", 0)
+        )
+        stats["top_complete_face_merges"] += int(
+            detail.get("complete_face_merges", 0)
+        )
+        stats["top_residual_count"] += len(envelope)
+        stats["top_residual_volume_available"] += float(
+            sum(space.volume for space in envelope)
+        )
+        stats["top_residual_windows"].append(
+            {
+                "x_start": float(local_x_start),
+                "x_end": float(local_x_end),
+                "anchor_product": anchor_product.name,
+                "anchor_row_index": int(anchor_product.row_index),
+                "anchor_remaining_quantity": anchor_remaining_quantity,
+                "anchor_eligible": anchor_is_eligible,
+                "anchor_eligibility_reason": anchor_eligibility_reason,
+                "support_planes": int(detail.get("support_planes", 0)),
+                "residuals": [
+                    {
+                        "x": float(space.x),
+                        "y": float(space.y),
+                        "z": float(space.z),
+                        "L": float(space.L),
+                        "W": float(space.W),
+                        "H": float(space.H),
+                        "anchor_product": anchor_product.name,
+                        "anchor_row_index": int(anchor_product.row_index),
+                        "anchor_remaining_quantity": anchor_remaining_quantity,
+                        "anchor_eligible": anchor_is_eligible,
+                        "anchor_eligibility_reason": anchor_eligibility_reason,
+                    }
+                    for space in envelope
+                ],
+            }
+        )
+
+    residuals, detail = current_residuals()
+    record_envelope(residuals, detail)
+    while residuals:
+        active_space = min(
+            residuals,
+            key=lambda space: (
+                round(space.z, 9),
+                round(space.x, 9),
+                -round(space.L * space.W, 9),
+                -round(space.volume, 9),
+                round(space.y, 9),
+                round(space.L, 9),
+                round(space.W, 9),
+                round(space.H, 9),
+            ),
+        )
+        residuals.remove(active_space)
+        stats["top_residuals_evaluated"] += 1
+        bounded_container = {
+            "L": active_space.L,
+            "W": active_space.W,
+            "H": active_space.H,
+            "max_weight": container.get("max_weight"),
+            "tare_weight": container.get("tare_weight"),
+        }
+        ranked_candidates = []
+        eligible_product_names: List[str] = []
+        sequence_filtered = 0
+        payload_blocked = 0
+        generated_candidate_count = 0
+        fit_candidate_count = 0
+        width_capable = False
+        depth_capable = False
+        height_capable = False
+        rejected_support = 0
+        rejected_overlap = 0
+        anchor_candidate_evaluated = False
+
+        context = [
+            placement
+            for placement in (committed_placements or [])
+            if placement.x + placement.l > local_x_start + TOLERANCE
+            and placement.x < local_x_end - TOLERANCE
+        ] + list(committed)
+        for product in ordered_products:
+            remaining_quantity = int(
+                remaining_quantities.get(product.row_index, 0)
+            )
+            if remaining_quantity <= 0:
+                continue
+            if (
+                eligible_row_indices is not None
+                and product.row_index not in eligible_row_indices
+            ):
+                continue
+            if sequence_restricted and product.sequence != anchor_product.sequence:
+                if remaining_quantity > 0:
+                    sequence_filtered += 1
+                continue
+            eligible_product_names.append(product.name)
+            width_capable = width_capable or any(
+                orientation[1] <= active_space.W + TOLERANCE
+                for orientation in product.orientations
+            )
+            depth_capable = depth_capable or any(
+                orientation[0] <= active_space.L + TOLERANCE
+                for orientation in product.orientations
+            )
+            height_capable = height_capable or any(
+                orientation[2] <= active_space.H + TOLERANCE
+                for orientation in product.orientations
+            )
+            payload_quantity = _payload_units_available(
+                container,
+                loaded_weight + reserved_payload_weight,
+                product.weight,
+                remaining_quantity,
+            )
+            if payload_quantity <= 0:
+                payload_blocked += 1
+                continue
+            if product.row_index == anchor_product.row_index:
+                anchor_candidate_evaluated = True
+            candidates, evaluated = build_product_block_candidates(
+                product,
+                bounded_container,
+                active_space.L,
+            )
+            generated_candidate_count += len(candidates)
+            stats["top_infill_block_candidates_generated"] += len(candidates)
+            stats["top_infill_block_candidates_evaluated"] += evaluated
+            residual_footprint = _largest_valid_footprint(
+                product,
+                bounded_container,
+            )
+            for candidate in candidates:
+                module_count = _fit_count(active_space.L, candidate.depth)
+                quantity = min(
+                    payload_quantity,
+                    module_count * candidate.module_capacity,
+                )
+                if quantity <= 0:
+                    continue
+                fit_candidate_count += 1
+                depth_required = (
+                    int(math.ceil(quantity / candidate.module_capacity))
+                    * candidate.depth
+                )
+                candidate_placements = _materialize_product_block_in_space(
+                    product,
+                    candidate,
+                    active_space,
+                    next_item_index[product.row_index],
+                    quantity,
+                )
+                validation_reason = _top_candidate_validation_reason(
+                    candidate_placements,
+                    context,
+                    active_space,
+                    container,
+                )
+                stats["top_support_checks"] += sum(
+                    1
+                    for placement in candidate_placements
+                    if placement.z > TOLERANCE
+                )
+                if validation_reason is not None:
+                    if validation_reason == "support_validation_failed":
+                        rejected_support += 1
+                    elif validation_reason == "overlap_validation_failed":
+                        rejected_overlap += 1
+                    continue
+                packed_volume = quantity * product.unit_volume
+                ranking_key = (
+                    -round(packed_volume, 9),
+                    -round(
+                        candidate.transverse_utilization,
+                        12,
+                    ),
+                    -int(quantity),
+                    round(depth_required, 9),
+                    -round(residual_footprint, 9),
+                    -round(product.unit_volume, 9),
+                    -round(product.longest_dimension, 9),
+                    product_priority[product.row_index],
+                    _candidate_stable_key(candidate),
+                )
+                ranked_candidates.append(
+                    {
+                        "product": product,
+                        "candidate": candidate,
+                        "quantity": int(quantity),
+                        "placements": candidate_placements,
+                        "depth_required": float(depth_required),
+                        "packed_volume": float(packed_volume),
+                        "residual_footprint": float(residual_footprint),
+                        "ranking_key": ranking_key,
+                    }
+                )
+
+        if anchor_candidate_evaluated:
+            stats["top_anchor_candidate_evaluations"] += 1
+
+        if not ranked_candidates:
+            stats["top_candidates_rejected_support"] += rejected_support
+            stats["top_candidates_rejected_overlap"] += rejected_overlap
+            if not eligible_product_names:
+                reason = (
+                    "sequence_restriction"
+                    if sequence_filtered
+                    else "no_remaining_eligible_product"
+                )
+            elif payload_blocked == len(eligible_product_names):
+                reason = "payload_exhausted"
+            elif not width_capable:
+                reason = "insufficient_width"
+            elif not depth_capable:
+                reason = "insufficient_x_depth"
+            elif not height_capable:
+                reason = "insufficient_residual_height"
+            elif rejected_support and not rejected_overlap:
+                reason = "support_validation_failed"
+            elif rejected_overlap:
+                reason = "overlap_validation_failed"
+            elif fit_candidate_count == 0 and generated_candidate_count == 0:
+                reason = "no_enabled_orientation_fits"
+            else:
+                reason = "no_enabled_orientation_fits"
+            stats["top_residual_evaluation_reasons"].append(
+                {
+                    "x_start": float(active_space.x),
+                    "x_end": float(active_space.x + active_space.L),
+                    "y_start": float(active_space.y),
+                    "y_end": float(active_space.y + active_space.W),
+                    "z": float(active_space.z),
+                    "support_z": float(active_space.z),
+                    "length": float(active_space.L),
+                    "width": float(active_space.W),
+                    "height": float(active_space.H),
+                    "reason": reason,
+                    "eligible_products": list(eligible_product_names),
+                    "anchor_product": anchor_product.name,
+                    "anchor_row_index": int(anchor_product.row_index),
+                    "anchor_remaining_quantity": int(
+                        remaining_quantities.get(anchor_product.row_index, 0)
+                    ),
+                    "anchor_eligible": anchor_eligibility()[0],
+                    "anchor_eligibility_reason": anchor_eligibility()[1],
+                    "anchor_candidate_evaluated": anchor_candidate_evaluated,
+                }
+            )
+            continue
+
+        winner = min(ranked_candidates, key=lambda item: item["ranking_key"])
+        filler = winner["product"]
+        filler_placements = winner["placements"]
+        quantity = len(filler_placements)
+        if quantity <= 0:
+            continue
+        anchor_remaining_before_commit = int(
+            remaining_quantities.get(anchor_product.row_index, 0)
+        )
+        anchor_eligible_before_commit = anchor_eligibility()[0]
+        used_depth = max(
+            placement.x + placement.l - active_space.x
+            for placement in filler_placements
+        )
+        used_width = max(
+            placement.y + placement.w - active_space.y
+            for placement in filler_placements
+        )
+        actual_top_z = max(
+            placement.z + placement.h for placement in filler_placements
+        )
+        committed.extend(filler_placements)
+        remaining_quantities[filler.row_index] = max(
+            remaining_quantities.get(filler.row_index, 0) - quantity,
+            0,
+        )
+        next_item_index[filler.row_index] += quantity
+        loaded_weight += quantity * filler.weight
+        filled_volume = quantity * filler.unit_volume
+        stats["top_residuals_filled"] += 1
+        stats["top_infill_units_total"] += quantity
+        stats["top_infill_volume_total"] += filled_volume
+        stats["top_residual_volume_filled"] += filled_volume
+        stats["top_infill_block_count"] += 1
+        row_key = str(filler.row_index)
+        stats["top_infill_units_by_product"][row_key] = (
+            stats["top_infill_units_by_product"].get(row_key, 0) + quantity
+        )
+        stats["top_actions"].append(
+            {
+                "anchor_product": anchor_product.name,
+                "anchor_row_index": int(anchor_product.row_index),
+                "anchor_remaining_quantity": anchor_remaining_before_commit,
+                "anchor_eligible": anchor_eligible_before_commit,
+                "anchor_candidate_evaluated": anchor_candidate_evaluated,
+                "filler_product": filler.name,
+                "filler_row_index": int(filler.row_index),
+                "sequence": int(filler.sequence),
+                "window_x_start": float(local_x_start),
+                "window_x_end": float(local_x_end),
+                "support_z": float(active_space.z),
+                "residual_x_start": float(active_space.x),
+                "residual_x_end": float(active_space.x + active_space.L),
+                "residual_y_start": float(active_space.y),
+                "residual_y_end": float(active_space.y + active_space.W),
+                "residual": {
+                    "x": float(active_space.x),
+                    "y": float(active_space.y),
+                    "z": float(active_space.z),
+                    "L": float(active_space.L),
+                    "W": float(active_space.W),
+                    "H": float(active_space.H),
+                },
+                "selected_orientations": [
+                    [float(value) for value in orientation]
+                    for orientation in winner["candidate"].orientations
+                ],
+                "selected_block": {
+                    **_candidate_metadata(winner["candidate"]),
+                    "x_start": float(active_space.x),
+                    "y_start": float(active_space.y),
+                    "z_start": float(active_space.z),
+                    "actual_depth_required": float(winner["depth_required"]),
+                    "actual_depth_committed": float(used_depth),
+                    "actual_width_committed": float(used_width),
+                    "actual_top_z": float(actual_top_z),
+                },
+                "quantity": int(quantity),
+                "packed_volume": float(filled_volume),
+                "actual_x_depth_used": float(used_depth),
+                "actual_width_used": float(used_width),
+                "actual_top_z": float(actual_top_z),
+                "support_validation": "full_union_supported",
+                "selection_reason": (
+                    "packed_volume_then_transverse_utilization_then_quantity_"
+                    "then_depth_then_residual_local_priority"
+                ),
+            }
+        )
+        residuals, detail = current_residuals()
+        record_envelope(residuals, detail)
+
+    return committed, loaded_weight, stats
+
+
 def _unplaced_item(product: NormalizedProduct, item_index: int, reason: str) -> Dict:
     return {
         "product_name": product.name,
@@ -1831,21 +3322,7 @@ def _unplaced_item(product: NormalizedProduct, item_index: int, reason: str) -> 
 
 
 def _normalize_packing_mode(mode: Optional[str]) -> str:
-    if mode is None or str(mode).strip() == "":
-        return SPACE_EVENLY_MODE
-    value = str(mode).strip().lower().replace("-", "_").replace(" ", "_")
-    if value in {"space_evenly", "evenly_spaced", "spread_evenly"}:
-        return SPACE_EVENLY_MODE
-    if value == MAXIMUM_UTILIZATION_MODE:
-        return MAXIMUM_UTILIZATION_MODE
-    if value in {
-        FRONT_TO_BACK_MODE,
-        "front_to_back",
-        "front_to_back_blocks",
-        "load_front_to_back",
-    }:
-        return FRONT_TO_BACK_MODE
-    return value
+    return normalize_transport_packing_mode(mode, default=SPACE_EVENLY_MODE)
 
 
 def _unsupported_mode_result(
@@ -4047,9 +5524,40 @@ def pack_space_evenly_residual_frontiers(
     loaded_weight: float,
     frontier: float,
     preferred_orientations: Dict[int, Tuple[float, float, float]],
+    enable_side_infill: bool = False,
+    infill_loaded: Optional[Dict[int, int]] = None,
+    infill_stats: Optional[Dict] = None,
+    enable_top_infill: bool = False,
+    side_infill_loaded: Optional[Dict[int, int]] = None,
+    top_infill_loaded: Optional[Dict[int, int]] = None,
+    top_infill_stats: Optional[Dict] = None,
 ) -> Tuple[float, float, List[Dict], int, int, int]:
-    """Close deterministic whole-volume Space Evenly residual frontiers."""
+    """Close deterministic whole-volume Space Evenly residual frontiers.
+
+    ``enable_side_infill`` and ``enable_top_infill`` are deliberately opt-in.
+    Approved baseline calls retain the original frontier-only behavior;
+    Mixed Cargo Infill uses the same local ``remaining`` state for post-commit
+    side then supported-top closures.
+    """
     remaining = dict(residual_quantities)
+    if enable_side_infill:
+        if infill_loaded is None:
+            infill_loaded = {}
+        if infill_stats is None:
+            infill_stats = _new_side_infill_stats(
+                len({product.sequence for product in ordered_products})
+            )
+        if side_infill_loaded is None:
+            side_infill_loaded = {}
+    if enable_top_infill:
+        if infill_loaded is None:
+            infill_loaded = {}
+        if top_infill_loaded is None:
+            top_infill_loaded = {}
+        if top_infill_stats is None:
+            top_infill_stats = _new_top_infill_stats(
+                len({product.sequence for product in ordered_products})
+            )
     frontiers: List[Dict] = []
     total_candidate_evaluations = 0
     total_local_evaluations = 0
@@ -4255,6 +5763,206 @@ def pack_space_evenly_residual_frontiers(
             str(product.row_index): int(remaining.get(product.row_index, 0))
             for product in ordered_products
         }
+        post_frontier_diagnostics = {
+            "residual_count_before_infill": 0,
+            "residual_count_after_infill": 0,
+            "units_added_by_product": {},
+            "infill_actions": [],
+            "residual_evaluation_reasons": [],
+        }
+        post_frontier_top_diagnostics = {
+            "top_residual_count_before_infill": 0,
+            "top_residual_count_after_infill": 0,
+            "top_units_added_by_product": {},
+            "top_infill_actions": [],
+            "top_residual_evaluation_reasons": [],
+        }
+        if enable_side_infill:
+            before_infill = dict(remaining)
+            side_space = Space(
+                frontier_start,
+                0.0,
+                0.0,
+                winner["committed_depth"],
+                container["W"],
+                container["H"],
+            )
+            eligible_row_indices = {
+                product.row_index
+                for product in ordered_products
+                if remaining.get(product.row_index, 0) > 0
+            }
+            side_placements, loaded_weight, side_stats = (
+                fill_side_residual_deterministically(
+                    side_space,
+                    anchor,
+                    ordered_products,
+                    remaining,
+                    next_item_index,
+                    container,
+                    loaded_weight,
+                    len({product.sequence for product in ordered_products}) > 1,
+                    eligible_row_indices=eligible_row_indices,
+                    committed_placements=placements,
+                    window_x_start=frontier_start,
+                    window_x_end=frontier,
+                )
+            )
+            placements.extend(side_placements)
+            units_added_by_product: Dict[str, int] = {}
+            for product in ordered_products:
+                quantity = int(
+                    before_infill.get(product.row_index, 0)
+                    - remaining.get(product.row_index, 0)
+                )
+                if quantity <= 0:
+                    continue
+                infill_loaded[product.row_index] = int(
+                    infill_loaded.get(product.row_index, 0) + quantity
+                )
+                if side_infill_loaded is not None:
+                    side_infill_loaded[product.row_index] = int(
+                        side_infill_loaded.get(product.row_index, 0) + quantity
+                    )
+                units_added_by_product[str(product.row_index)] = quantity
+            _merge_side_infill_stats(infill_stats, side_stats)
+            envelopes = side_stats.get("side_residual_envelopes", [])
+            initial_envelope = envelopes[0] if envelopes else []
+            final_envelope = envelopes[-1] if envelopes else []
+            post_frontier_diagnostics = {
+                "residual_count_before_infill": int(len(initial_envelope)),
+                "residual_count_after_infill": int(len(final_envelope)),
+                "units_added_by_product": units_added_by_product,
+                "infill_actions": list(side_stats.get("actions", [])),
+                "residual_evaluation_reasons": list(
+                    side_stats.get("residual_evaluation_reasons", [])
+                ),
+            }
+        if enable_top_infill:
+            before_top_infill = dict(remaining)
+            top_space = Space(
+                frontier_start,
+                0.0,
+                0.0,
+                winner["committed_depth"],
+                container["W"],
+                container["H"],
+            )
+            eligible_row_indices = {
+                product.row_index
+                for product in ordered_products
+                if remaining.get(product.row_index, 0) > 0
+            }
+            top_placements, loaded_weight, top_stats = (
+                fill_top_residual_deterministically(
+                    top_space,
+                    anchor,
+                    ordered_products,
+                    remaining,
+                    next_item_index,
+                    container,
+                    loaded_weight,
+                    len({product.sequence for product in ordered_products}) > 1,
+                    eligible_row_indices=eligible_row_indices,
+                    committed_placements=placements,
+                    window_x_start=frontier_start,
+                    window_x_end=frontier,
+                )
+            )
+            placements.extend(top_placements)
+            top_units_added_by_product: Dict[str, int] = {}
+            for product in ordered_products:
+                quantity = int(
+                    before_top_infill.get(product.row_index, 0)
+                    - remaining.get(product.row_index, 0)
+                )
+                if quantity <= 0:
+                    continue
+                infill_loaded[product.row_index] = int(
+                    infill_loaded.get(product.row_index, 0) + quantity
+                )
+                if top_infill_loaded is not None:
+                    top_infill_loaded[product.row_index] = int(
+                        top_infill_loaded.get(product.row_index, 0) + quantity
+                    )
+                top_units_added_by_product[str(product.row_index)] = quantity
+            _merge_top_infill_stats(top_infill_stats, top_stats)
+            top_envelopes = top_stats.get("top_residual_windows", [])
+            initial_top_envelope = (
+                top_envelopes[0].get("residuals", [])
+                if top_envelopes
+                else []
+            )
+            final_top_envelope = (
+                top_envelopes[-1].get("residuals", [])
+                if top_envelopes
+                else []
+            )
+            post_frontier_top_diagnostics = {
+                "top_residual_count_before_infill": int(
+                    len(initial_top_envelope)
+                ),
+                "top_residual_count_after_infill": int(
+                    len(final_top_envelope)
+                ),
+                "top_units_added_by_product": top_units_added_by_product,
+                "top_infill_actions": list(top_stats.get("top_actions", [])),
+                "top_residual_evaluation_reasons": list(
+                    top_stats.get("top_residual_evaluation_reasons", [])
+                ),
+                "top_residual_windows": list(top_envelopes),
+                "top_support_planes_evaluated": int(
+                    top_stats.get("top_support_planes_evaluated", 0)
+                ),
+            }
+            if top_infill_stats is not None:
+                top_infill_stats.setdefault("top_residual_frontiers_closed", 0)
+                top_infill_stats["top_residual_frontiers_closed"] += 1
+                top_infill_stats.setdefault("top_frontier_closures", [])
+                top_infill_stats["top_frontier_closures"].append(
+                    {
+                        "frontier_index": int(len(frontiers)),
+                        "x_start": float(frontier_start),
+                        "x_end": float(frontier),
+                        "anchor_product": anchor.name,
+                        "anchor_row_index": int(anchor.row_index),
+                        **post_frontier_top_diagnostics,
+                    }
+                )
+            closure_record = {
+                "frontier_index": int(len(frontiers)),
+                "x_start": float(frontier_start),
+                "x_end": float(frontier),
+                "anchor_product": anchor.name,
+                "anchor_row_index": int(anchor.row_index),
+                **post_frontier_diagnostics,
+                **post_frontier_top_diagnostics,
+            }
+            infill_stats["residual_frontiers_closed"] += 1
+            infill_stats["post_frontier_side_residuals_derived"] += int(
+                len(initial_envelope)
+            )
+            infill_stats["post_frontier_side_residuals_filled"] += int(
+                len(side_stats.get("actions", []))
+            )
+            infill_stats["post_frontier_units"] += int(
+                side_stats.get("infill_units_total", 0)
+            )
+            infill_stats["post_frontier_volume"] += float(
+                side_stats.get("infill_volume_total", 0.0)
+            )
+            infill_stats["post_frontier_closures"].append(closure_record)
+            if enable_top_infill:
+                infill_stats.setdefault("top_frontier_closures", [])
+                infill_stats.setdefault("top_residual_frontiers_closed", 0)
+        after_side_infill = {
+            str(product.row_index): int(remaining.get(product.row_index, 0))
+            for product in ordered_products
+        }
+        after_top_infill = {
+            str(product.row_index): int(remaining.get(product.row_index, 0))
+            for product in ordered_products
+        }
         total_candidate_evaluations += sum(
             candidate["candidate_evaluations"] for candidate in candidates
         )
@@ -4361,6 +6069,16 @@ def pack_space_evenly_residual_frontiers(
             "residual_frontier_candidates": diagnostic_candidates,
             "residual_quantities_before": before,
             "residual_quantities_after": after,
+            **(
+                {
+                    "residual_quantities_after_side_infill": after_side_infill,
+                    "residual_quantities_after_top_infill": after_top_infill,
+                    **post_frontier_diagnostics,
+                    **post_frontier_top_diagnostics,
+                }
+                if enable_side_infill
+                else {}
+            ),
             "maximum_z": float(maximum_z),
             "support_relationship_count": int(
                 winner["support_relationship_count"]
@@ -4452,13 +6170,18 @@ def _pack_container_front_to_back(
 ) -> Dict:
     """Load complete blocks, then close each bounded local transition frontier."""
     normalized_container = _normalize_container(container)
+    enable_infill = requested_mode == FRONT_TO_BACK_INFILL_MODE
     normalized_products = normalize_products(
-        [
+        products
+        if enable_infill
+        else [
             {**dict(product or {}), "sequence": 1}
             for product in products or []
         ]
     )
     ordered_products = sort_products(normalized_products, normalized_container)
+    sequence_groups = sorted({product.sequence for product in ordered_products})
+    sequence_restricted = len(sequence_groups) > 1
 
     placements: List[Placement] = []
     main_blocks: List[Dict] = []
@@ -4467,16 +6190,29 @@ def _pack_container_front_to_back(
     phase_order: List[Dict] = []
     regular_loaded = {product.row_index: 0 for product in ordered_products}
     frontier_loaded = {product.row_index: 0 for product in ordered_products}
+    infill_loaded = {product.row_index: 0 for product in ordered_products}
+    side_infill_loaded = {product.row_index: 0 for product in ordered_products}
+    top_infill_loaded = {product.row_index: 0 for product in ordered_products}
+    remaining_quantities = {
+        product.row_index: product.qty for product in ordered_products
+    }
     next_item_index = {product.row_index: 0 for product in ordered_products}
     frontier_x = 0.0
     loaded_weight = 0.0
     block_candidates_generated = 0
     block_candidates_evaluated = 0
     frontier_candidates_evaluated = 0
+    infill_stats = _new_side_infill_stats(len(sequence_groups))
+    top_infill_stats = _new_top_infill_stats(len(sequence_groups))
 
     for product_index, product in enumerate(ordered_products):
         prior_frontier_qty = frontier_loaded[product.row_index]
-        entering_qty = max(product.qty - prior_frontier_qty, 0)
+        prior_infill_qty = infill_loaded[product.row_index]
+        entering_qty = (
+            int(remaining_quantities[product.row_index])
+            if enable_infill
+            else max(product.qty - prior_frontier_qty, 0)
+        )
         product_x_start = frontier_x
         available_length = max(normalized_container["L"] - frontier_x, 0.0)
         payload_qty = _payload_units_available(
@@ -4515,6 +6251,10 @@ def _pack_container_front_to_back(
                 placed_qty = len(block_placements)
                 next_item_index[product.row_index] += placed_qty
                 regular_loaded[product.row_index] += placed_qty
+                remaining_quantities[product.row_index] = max(
+                    remaining_quantities[product.row_index] - placed_qty,
+                    0,
+                )
                 loaded_weight += placed_qty * product.weight
                 frontier_x = block_x_start + selected.depth
                 block_metadata = {
@@ -4537,7 +6277,6 @@ def _pack_container_front_to_back(
                         "x_end": float(frontier_x),
                     }
                 )
-
         regular_qty = regular_loaded[product.row_index]
         residual_qty = max(entering_qty - regular_qty, 0)
         summary = {
@@ -4546,6 +6285,11 @@ def _pack_container_front_to_back(
             "requested_qty": int(product.qty),
             "qty_entering_product_phase": int(entering_qty),
             "qty_already_loaded_in_previous_frontier": int(prior_frontier_qty),
+            **(
+                {"qty_already_loaded_as_side_infill": int(prior_infill_qty)}
+                if enable_infill
+                else {}
+            ),
             "complete_blocks": int(complete_blocks),
             "regular_block_qty": int(regular_qty),
             "regular_qty": int(regular_qty),
@@ -4591,9 +6335,20 @@ def _pack_container_front_to_back(
                 normalized_container,
             )
             next_product = (
-                ordered_products[product_index + 1]
-                if product_index + 1 < len(ordered_products)
-                else None
+                next(
+                    (
+                        candidate
+                        for candidate in ordered_products[product_index + 1 :]
+                        if remaining_quantities.get(candidate.row_index, 0) > 0
+                    ),
+                    None,
+                )
+                if enable_infill
+                else (
+                    ordered_products[product_index + 1]
+                    if product_index + 1 < len(ordered_products)
+                    else None
+                )
             )
 
             if current_orientation is not None:
@@ -4664,9 +6419,14 @@ def _pack_container_front_to_back(
                         else 0.0
                     )
                 else:
-                    next_remaining = max(
-                        next_product.qty - frontier_loaded[next_product.row_index],
-                        0,
+                    next_remaining = (
+                        int(remaining_quantities[next_product.row_index])
+                        if enable_infill
+                        else max(
+                            next_product.qty
+                            - frontier_loaded[next_product.row_index],
+                            0,
+                        )
                     )
                     preferred_next_orientation = None
                     if next_remaining > 0:
@@ -4958,6 +6718,12 @@ def _pack_container_front_to_back(
 
                 next_item_index[product.row_index] += own_frontier_qty
                 frontier_loaded[product.row_index] += own_frontier_qty
+                if enable_infill:
+                    remaining_quantities[product.row_index] = max(
+                        remaining_quantities[product.row_index]
+                        - own_frontier_qty,
+                        0,
+                    )
                 summary["qty_loaded_in_own_frontier"] = int(own_frontier_qty)
                 summary["current_product_residual_strategy"] = (
                     current_product_residual_strategy
@@ -5000,6 +6766,12 @@ def _pack_container_front_to_back(
                 if next_product is not None and own_frontier_qty == residual_qty:
                     next_item_index[next_product.row_index] += next_frontier_qty
                     frontier_loaded[next_product.row_index] += next_frontier_qty
+                    if enable_infill:
+                        remaining_quantities[next_product.row_index] = max(
+                            remaining_quantities[next_product.row_index]
+                            - next_frontier_qty,
+                            0,
+                        )
                     summary["qty_of_next_product_loaded_in_frontier"] = int(
                         next_frontier_qty
                     )
@@ -5149,12 +6921,119 @@ def _pack_container_front_to_back(
                 )
                 frontier_x = frontier_end
 
+        if (
+            enable_infill
+            and frontier_x > product_x_start + TOLERANCE
+        ):
+            # Front-to-Back closes side space only after the complete current
+            # product phase and its Native/DGFE frontier have been committed.
+            # This lets the envelope see stepped local geometry from both
+            # products without reopening an earlier frontier.
+            side_space = Space(
+                product_x_start,
+                0.0,
+                0.0,
+                frontier_x - product_x_start,
+                normalized_container["W"],
+                normalized_container["H"],
+            )
+            before_infill = dict(remaining_quantities)
+            side_placements, loaded_weight, side_stats = (
+                fill_side_residual_deterministically(
+                    side_space,
+                    product,
+                    ordered_products,
+                    remaining_quantities,
+                    next_item_index,
+                    normalized_container,
+                    loaded_weight,
+                    sequence_restricted,
+                    eligible_row_indices={
+                        candidate.row_index
+                        for candidate in ordered_products[product_index + 1 :]
+                    },
+                    committed_placements=placements,
+                    window_x_start=product_x_start,
+                    window_x_end=frontier_x,
+                )
+            )
+            placements.extend(side_placements)
+            for row_index, before_quantity in before_infill.items():
+                quantity = before_quantity - remaining_quantities[row_index]
+                if quantity > 0:
+                    infill_loaded[row_index] += quantity
+                    side_infill_loaded[row_index] += quantity
+            _merge_side_infill_stats(infill_stats, side_stats)
+            for action in side_stats["actions"]:
+                phase_order.append(
+                    {
+                        "phase": "side_infill",
+                        "row_index": action["filler_row_index"],
+                        "product_name": action["filler_product"],
+                        "quantity": action["quantity"],
+                        "from_product_name": product.name,
+                        "x_start": action["residual_x_start"],
+                        "x_end": action["residual_x_end"],
+                    }
+                )
+            top_eligible_row_indices = {
+                candidate.row_index
+                for candidate in ordered_products[product_index + 1 :]
+            }
+            if remaining_quantities.get(product.row_index, 0) > 0:
+                top_eligible_row_indices.add(product.row_index)
+            before_top_infill = dict(remaining_quantities)
+            top_placements, loaded_weight, top_stats = (
+                fill_top_residual_deterministically(
+                    side_space,
+                    product,
+                    ordered_products,
+                    remaining_quantities,
+                    next_item_index,
+                    normalized_container,
+                    loaded_weight,
+                    sequence_restricted,
+                    eligible_row_indices=top_eligible_row_indices,
+                    committed_placements=placements,
+                    window_x_start=product_x_start,
+                    window_x_end=frontier_x,
+                )
+            )
+            placements.extend(top_placements)
+            for row_index, before_quantity in before_top_infill.items():
+                quantity = before_quantity - remaining_quantities[row_index]
+                if quantity > 0:
+                    infill_loaded[row_index] += quantity
+                    top_infill_loaded[row_index] += quantity
+            _merge_top_infill_stats(top_infill_stats, top_stats)
+            for action in top_stats["top_actions"]:
+                phase_order.append(
+                    {
+                        "phase": "top_infill",
+                        "row_index": action["filler_row_index"],
+                        "product_name": action["filler_product"],
+                        "quantity": action["quantity"],
+                        "from_product_name": product.name,
+                        "x_start": action["residual"]["x"],
+                        "x_end": action["residual"]["x"]
+                        + action["residual"]["L"],
+                    }
+                )
+            if enable_infill:
+                summary["qty_already_loaded_as_side_infill"] = int(
+                    side_infill_loaded[product.row_index]
+                )
+                summary["qty_already_loaded_as_top_infill"] = int(
+                    top_infill_loaded[product.row_index]
+                )
+
         product_summaries.append(summary)
 
     loaded_by_row = {
         product.row_index: int(
             regular_loaded[product.row_index]
             + frontier_loaded[product.row_index]
+            + infill_loaded[product.row_index]
         )
         for product in ordered_products
     }
@@ -5204,7 +7083,11 @@ def _pack_container_front_to_back(
         "unplaced": unplaced,
         "spaces": spaces,
         "loaded_weight": float(sum(placement.weight for placement in placements)),
-        "strategy": FRONT_TO_BACK_STRATEGY,
+        "strategy": (
+            "front_to_back_blocks_infill"
+            if enable_infill
+            else FRONT_TO_BACK_STRATEGY
+        ),
         "packing_mode": requested_mode,
         "sequence_zones": [],
         "main_blocks": main_blocks,
@@ -5217,7 +7100,7 @@ def _pack_container_front_to_back(
             - sum(regular_loaded.values())
         ),
         "leftover_units_packed": int(
-            sum(frontier_loaded.values())
+            sum(frontier_loaded.values()) + sum(infill_loaded.values())
         ),
         "front_to_back_product_order": product_order_metadata,
         "front_to_back_product_blocks": product_summaries,
@@ -5241,6 +7124,31 @@ def _pack_container_front_to_back(
         "front_to_back_total_unplaced_units": int(total_unplaced),
         "front_to_back_x_used": float(x_used),
         "front_to_back_clean_frontier_x": float(frontier_x),
+        **(
+            _side_infill_metadata(FRONT_TO_BACK_INFILL_MODE, infill_stats)
+            if enable_infill
+            else {}
+        ),
+        **(
+            _top_infill_metadata(FRONT_TO_BACK_INFILL_MODE, top_infill_stats)
+            if enable_infill
+            else {}
+        ),
+        **(
+            {
+                f"{FRONT_TO_BACK_INFILL_MODE}_side_infill_units_total": int(
+                    sum(side_infill_loaded.values())
+                ),
+                f"{FRONT_TO_BACK_INFILL_MODE}_top_infill_units_total": int(
+                    sum(top_infill_loaded.values())
+                ),
+                f"{FRONT_TO_BACK_INFILL_MODE}_mixed_infill_units_total": int(
+                    sum(infill_loaded.values())
+                ),
+            }
+            if enable_infill
+            else {}
+        ),
         # Compatibility aliases for existing result consumers.  They expose
         # the new local-frontier diagnostics without invoking legacy packing.
         "floor_first_candidate_selected": bool(main_blocks),
@@ -5252,7 +7160,9 @@ def _pack_container_front_to_back(
             sum(product.qty for product in ordered_products)
             - sum(regular_loaded.values())
         ),
-        "floor_first_residual_packed_units": int(sum(frontier_loaded.values())),
+        "floor_first_residual_packed_units": int(
+            sum(frontier_loaded.values()) + sum(infill_loaded.values())
+        ),
         "floor_first_residual_unplaced_units": int(total_unplaced),
     }
 
@@ -5270,27 +7180,29 @@ def pack_container(
     normalized_input_products = products
     if requested_mode in {
         SPACE_EVENLY_MODE,
-        MAXIMUM_UTILIZATION_MODE,
         FRONT_TO_BACK_MODE,
     }:
         normalized_input_products = [
             {**dict(product or {}), "sequence": 1} for product in products or []
         ]
     normalized_products = normalize_products(normalized_input_products)
-    if requested_mode in {MAXIMUM_UTILIZATION_MODE, FRONT_TO_BACK_MODE}:
+    if requested_mode in {FRONT_TO_BACK_MODE, FRONT_TO_BACK_INFILL_MODE}:
         return _pack_container_front_to_back(
             normalized_container,
             normalized_input_products,
             requested_mode,
         )
-    if requested_mode != SPACE_EVENLY_MODE:
+    if requested_mode not in {SPACE_EVENLY_MODE, SPACE_EVENLY_INFILL_MODE}:
         return _unsupported_mode_result(
             normalized_container,
             normalized_products,
             requested_mode,
         )
 
+    enable_infill = requested_mode == SPACE_EVENLY_INFILL_MODE
     ordered_products = sort_products(normalized_products, normalized_container)
+    sequence_groups = sorted({product.sequence for product in ordered_products})
+    sequence_restricted = len(sequence_groups) > 1
     placements: List[Placement] = []
     main_blocks: List[Dict] = []
     product_blocks: List[Dict] = []
@@ -5298,7 +7210,13 @@ def pack_container(
     phase_order: List[Dict] = []
     regular_loaded = {product.row_index: 0 for product in ordered_products}
     residual_loaded = {product.row_index: 0 for product in ordered_products}
+    infill_loaded = {product.row_index: 0 for product in ordered_products}
+    side_infill_loaded = {product.row_index: 0 for product in ordered_products}
+    top_infill_loaded = {product.row_index: 0 for product in ordered_products}
     residual_quantities = {product.row_index: product.qty for product in ordered_products}
+    remaining_quantities = {
+        product.row_index: product.qty for product in ordered_products
+    }
     next_item_index = {product.row_index: 0 for product in ordered_products}
     preferred_orientations: Dict[int, Tuple[float, float, float]] = {}
 
@@ -5306,15 +7224,18 @@ def pack_container(
     loaded_weight = 0.0
     generated_candidates = 0
     evaluated_candidates = 0
+    infill_stats = _new_side_infill_stats(len(sequence_groups))
+    top_infill_stats = _new_top_infill_stats(len(sequence_groups))
 
     # Phase 1: every complete Product Block, in universal product order.
-    for product in ordered_products:
+    for product_index, product in enumerate(ordered_products):
+        entering_qty = int(remaining_quantities[product.row_index])
         available_length = max(normalized_container["L"] - frontier, 0.0)
         payload_qty = _payload_units_available(
             normalized_container,
             loaded_weight,
             product.weight,
-            product.qty,
+            entering_qty,
         )
         candidates, evaluated = build_product_block_candidates(
             product,
@@ -5349,6 +7270,10 @@ def pack_container(
                 placed_qty = len(block_placements)
                 next_item_index[product.row_index] += placed_qty
                 regular_loaded[product.row_index] += placed_qty
+                remaining_quantities[product.row_index] = max(
+                    remaining_quantities[product.row_index] - placed_qty,
+                    0,
+                )
                 loaded_weight += placed_qty * product.weight
                 frontier = block_x_start + selected.depth
 
@@ -5372,13 +7297,124 @@ def pack_container(
                         "x_end": float(frontier),
                     }
                 )
+            if (
+                enable_infill
+                and complete_blocks > 0
+                and frontier > product_x_start + TOLERANCE
+            ):
+                # Close all complete blocks from this product as one local
+                # window.  The approved block placements remain untouched;
+                # only the side envelope is derived after they are committed.
+                side_space = Space(
+                    product_x_start,
+                    0.0,
+                    0.0,
+                    frontier - product_x_start,
+                    normalized_container["W"],
+                    normalized_container["H"],
+                )
+                before_infill = dict(remaining_quantities)
+                side_placements, loaded_weight, side_stats = (
+                    fill_side_residual_deterministically(
+                        side_space,
+                        product,
+                        ordered_products,
+                        remaining_quantities,
+                        next_item_index,
+                        normalized_container,
+                        loaded_weight,
+                        sequence_restricted,
+                        eligible_row_indices={
+                            candidate.row_index
+                            for candidate in ordered_products[product_index + 1 :]
+                        },
+                        committed_placements=placements,
+                        window_x_start=product_x_start,
+                        window_x_end=frontier,
+                    )
+                )
+                placements.extend(side_placements)
+                for row_index, before_quantity in before_infill.items():
+                    quantity = before_quantity - remaining_quantities[row_index]
+                    if quantity > 0:
+                        infill_loaded[row_index] += quantity
+                        side_infill_loaded[row_index] += quantity
+                _merge_side_infill_stats(infill_stats, side_stats)
+                for action in side_stats["actions"]:
+                    phase_order.append(
+                        {
+                            "phase": "side_infill",
+                            "row_index": action["filler_row_index"],
+                            "product_name": action["filler_product"],
+                            "quantity": action["quantity"],
+                            "from_product_name": product.name,
+                            "x_start": action["residual_x_start"],
+                            "x_end": action["residual_x_end"],
+                        }
+                    )
+                top_eligible_row_indices = {
+                    candidate.row_index
+                    for candidate in ordered_products[product_index + 1 :]
+                }
+                if remaining_quantities.get(product.row_index, 0) > 0:
+                    top_eligible_row_indices.add(product.row_index)
+                before_top_infill = dict(remaining_quantities)
+                top_placements, loaded_weight, top_stats = (
+                    fill_top_residual_deterministically(
+                        side_space,
+                        product,
+                        ordered_products,
+                        remaining_quantities,
+                        next_item_index,
+                        normalized_container,
+                        loaded_weight,
+                        sequence_restricted,
+                        eligible_row_indices=top_eligible_row_indices,
+                        committed_placements=placements,
+                        window_x_start=product_x_start,
+                        window_x_end=frontier,
+                    )
+                )
+                placements.extend(top_placements)
+                for row_index, before_quantity in before_top_infill.items():
+                    quantity = before_quantity - remaining_quantities[row_index]
+                    if quantity > 0:
+                        infill_loaded[row_index] += quantity
+                        top_infill_loaded[row_index] += quantity
+                _merge_top_infill_stats(top_infill_stats, top_stats)
+                for action in top_stats["top_actions"]:
+                    phase_order.append(
+                        {
+                            "phase": "top_infill",
+                            "row_index": action["filler_row_index"],
+                            "product_name": action["filler_product"],
+                            "quantity": action["quantity"],
+                            "from_product_name": product.name,
+                            "x_start": action["residual"]["x"],
+                            "x_end": action["residual"]["x"]
+                            + action["residual"]["L"],
+                        }
+                    )
 
-        residual_qty = product.qty - regular_loaded[product.row_index]
+        residual_qty = int(remaining_quantities[product.row_index])
         residual_quantities[product.row_index] = residual_qty
         product_summary = {
             "row_index": product.row_index,
             "product_name": product.name,
             "requested_qty": product.qty,
+            **(
+                {
+                    "qty_entering_product_phase": entering_qty,
+                    "qty_already_loaded_as_side_infill": int(
+                        side_infill_loaded[product.row_index]
+                    ),
+                    "qty_already_loaded_as_top_infill": int(
+                        top_infill_loaded[product.row_index]
+                    ),
+                }
+                if enable_infill
+                else {}
+            ),
             "complete_blocks": complete_blocks,
             "regular_qty": regular_loaded[product.row_index],
             "residual_qty": residual_qty,
@@ -5391,24 +7427,82 @@ def pack_container(
     complete_frontier = frontier
     complete_placement_count = len(placements)
     total_residual_requested = sum(residual_quantities.values())
-    (
-        frontier,
-        loaded_weight,
-        residual_miniblocks,
-        residual_candidates_evaluated,
-        support_checks,
-        support_relationships,
-    ) = pack_space_evenly_residual_frontiers(
-        normalized_container,
-        ordered_products,
-        residual_quantities,
-        placements,
-        residual_loaded,
-        next_item_index,
-        loaded_weight,
-        frontier,
-        preferred_orientations,
-    )
+    if enable_infill and sequence_restricted:
+        residual_miniblocks = []
+        residual_candidates_evaluated = 0
+        support_checks = 0
+        support_relationships = 0
+        for sequence in sequence_groups:
+            group_products = [
+                product
+                for product in ordered_products
+                if product.sequence == sequence
+            ]
+            group_quantities = {
+                product.row_index: residual_quantities[product.row_index]
+                for product in group_products
+            }
+            (
+                frontier,
+                loaded_weight,
+                group_frontiers,
+                group_candidate_evaluations,
+                group_support_checks,
+                group_support_relationships,
+            ) = pack_space_evenly_residual_frontiers(
+                normalized_container,
+                group_products,
+                group_quantities,
+                placements,
+                residual_loaded,
+                next_item_index,
+                loaded_weight,
+                frontier,
+                preferred_orientations,
+                enable_side_infill=enable_infill,
+                infill_loaded=infill_loaded,
+                infill_stats=infill_stats,
+                enable_top_infill=enable_infill,
+                side_infill_loaded=side_infill_loaded,
+                top_infill_loaded=top_infill_loaded,
+                top_infill_stats=top_infill_stats,
+            )
+            frontier_offset = len(residual_miniblocks)
+            for local_index, band in enumerate(group_frontiers):
+                band["sequence"] = int(sequence)
+                band["frontier_index"] = frontier_offset + local_index
+                band["band_index"] = frontier_offset + local_index
+                band["sequence_band_index"] = local_index
+            residual_miniblocks.extend(group_frontiers)
+            residual_candidates_evaluated += group_candidate_evaluations
+            support_checks += group_support_checks
+            support_relationships += group_support_relationships
+    else:
+        (
+            frontier,
+            loaded_weight,
+            residual_miniblocks,
+            residual_candidates_evaluated,
+            support_checks,
+            support_relationships,
+        ) = pack_space_evenly_residual_frontiers(
+            normalized_container,
+            ordered_products,
+            residual_quantities,
+            placements,
+            residual_loaded,
+            next_item_index,
+            loaded_weight,
+            frontier,
+            preferred_orientations,
+            enable_side_infill=enable_infill,
+            infill_loaded=infill_loaded,
+            infill_stats=infill_stats,
+            enable_top_infill=enable_infill,
+            side_infill_loaded=side_infill_loaded,
+            top_infill_loaded=top_infill_loaded,
+            top_infill_stats=top_infill_stats,
+        )
     for band in residual_miniblocks:
         phase_order.append(
             {
@@ -5421,10 +7515,37 @@ def pack_container(
                 "x_end": band["x_end"],
             }
         )
+        for action in band.get("infill_actions", []):
+            phase_order.append(
+                {
+                    "phase": "side_infill",
+                    "row_index": action["filler_row_index"],
+                    "product_name": action["filler_product"],
+                    "quantity": action["quantity"],
+                    "from_product_name": band["anchor_product"],
+                    "x_start": action["residual_x_start"],
+                    "x_end": action["residual_x_end"],
+                }
+            )
+        for action in band.get("top_infill_actions", []):
+            phase_order.append(
+                {
+                    "phase": "top_infill",
+                    "row_index": action["filler_row_index"],
+                    "product_name": action["filler_product"],
+                    "quantity": action["quantity"],
+                    "from_product_name": band["anchor_product"],
+                    "x_start": action["residual"]["x"],
+                    "x_end": action["residual"]["x"]
+                    + action["residual"]["L"],
+                }
+            )
 
     loaded_by_row = {
         product.row_index: (
-            regular_loaded[product.row_index] + residual_loaded[product.row_index]
+            regular_loaded[product.row_index]
+            + residual_loaded[product.row_index]
+            + infill_loaded[product.row_index]
         )
         for product in ordered_products
     }
@@ -5469,14 +7590,20 @@ def pack_container(
         "unplaced": unplaced,
         "spaces": spaces,
         "loaded_weight": float(sum(placement.weight for placement in placements)),
-        "strategy": "space_evenly_blocks",
-        "packing_mode": SPACE_EVENLY_MODE,
+        "strategy": (
+            "space_evenly_blocks_infill"
+            if enable_infill
+            else "space_evenly_blocks"
+        ),
+        "packing_mode": requested_mode,
         "sequence_zones": [],
         "main_blocks": main_blocks,
         "main_block_units": int(sum(regular_loaded.values())),
         "main_blocks_end_x": float(complete_frontier),
         "leftover_units_requested": int(total_residual_requested),
-        "leftover_units_packed": int(total_residual_packed),
+        "leftover_units_packed": int(
+            total_residual_packed + sum(infill_loaded.values())
+        ),
         "space_evenly_product_order": [
             {
                 "row_index": product.row_index,
@@ -5538,6 +7665,31 @@ def pack_container(
         ),
         "space_evenly_target_packed_volume": float(packed_volume),
         "space_evenly_x_used": float(frontier),
+        **(
+            _side_infill_metadata(SPACE_EVENLY_INFILL_MODE, infill_stats)
+            if enable_infill
+            else {}
+        ),
+        **(
+            _top_infill_metadata(SPACE_EVENLY_INFILL_MODE, top_infill_stats)
+            if enable_infill
+            else {}
+        ),
+        **(
+            {
+                f"{SPACE_EVENLY_INFILL_MODE}_side_infill_units_total": int(
+                    sum(side_infill_loaded.values())
+                ),
+                f"{SPACE_EVENLY_INFILL_MODE}_top_infill_units_total": int(
+                    sum(top_infill_loaded.values())
+                ),
+                f"{SPACE_EVENLY_INFILL_MODE}_mixed_infill_units_total": int(
+                    sum(infill_loaded.values())
+                ),
+            }
+            if enable_infill
+            else {}
+        ),
     }
     return result
 

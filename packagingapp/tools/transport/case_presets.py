@@ -13,7 +13,7 @@ TRANSPORT_CONTAINER_CASE_PRESETS = {
             "container_h": 2395,
             "max_weight": 26500,
             "tare_weight": "",
-            "packing_mode": "maximum_utilization",
+            "packing_mode": "front_to_back",
         },
         "rows": [
             {
@@ -69,7 +69,7 @@ TRANSPORT_CONTAINER_CASE_PRESETS = {
             "container_h": 2692,
             "max_weight": "",
             "tare_weight": "",
-            "packing_mode": "maximum_utilization_floor_first",
+            "packing_mode": "front_to_back",
         },
         "rows": [
             {

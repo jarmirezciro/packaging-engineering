@@ -15,6 +15,12 @@ from ..tools.transport.serializers import sanitize_transport_rows_for_session
 from ..tools.transport.service import analyze_transport_config, read_product_rows_raw
 from ..tools.transport.state import default_product_rows
 from ..tools.transport.case_presets import get_transport_container_case_preset
+from ..tools.transport.modes import (
+    DEFAULT_TRANSPORT_PACKING_MODE,
+    TRANSPORT_PACKING_MODE_OPTIONS,
+    normalize_transport_packing_mode,
+    transport_sequence_is_locked,
+)
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 
 
@@ -25,7 +31,7 @@ SEO_TRANSPORT_EXAMPLE_CONFIG = {
     "container_h": 2395,
     "max_weight": 26500,
     "tare_weight": 3750,
-    "packing_mode": "maximum_utilization",
+    "packing_mode": DEFAULT_TRANSPORT_PACKING_MODE,
 }
 
 SEO_TRANSPORT_EXAMPLE_ROWS = [
@@ -112,7 +118,10 @@ def _build_transport_export_payload(*, cfg, analysis, selected_material=None):
         "product_legend": list(
             (analysis.get("threejs_scene") or {}).get("products") or []
         ),
-        "packing_mode": str(result.get("packing_mode", "maximum_utilization") or "maximum_utilization"),
+        "packing_mode": normalize_transport_packing_mode(
+            result.get("packing_mode"),
+            default=DEFAULT_TRANSPORT_PACKING_MODE,
+        ),
         "image_rel_path": result.get("image_rel_path") or "",
         "image_rel_paths": image_rel_paths,
     }
@@ -145,6 +154,10 @@ def _build_transport_page_context(
     prefixed workflow adapter.
     """
     initial_config = dict(initial_config or {})
+    initial_config["packing_mode"] = normalize_transport_packing_mode(
+        initial_config.get("packing_mode"),
+        default=DEFAULT_TRANSPORT_PACKING_MODE,
+    )
     packaging_catalogues = visible_packaging_catalogues(request.user).order_by("name")
     product_catalogues = visible_product_catalogues(request.user).order_by("name")
 
@@ -267,7 +280,9 @@ def _build_transport_page_context(
     else:
         initial_data = {
             "container_source": current_container_source,
-            "packing_mode": initial_config.get("packing_mode", "maximum_utilization"),
+            "packing_mode": initial_config.get(
+                "packing_mode", DEFAULT_TRANSPORT_PACKING_MODE
+            ),
             "catalogue_id": raw_catalogue_id,
             "container_id": raw_container_id,
             "container_l": initial_config.get("container_l", ""),
@@ -301,7 +316,9 @@ def _build_transport_page_context(
 
         cfg = {
             "container_source": current_container_source,
-            "packing_mode": form.cleaned_data.get("packing_mode") or "maximum_utilization",
+            "packing_mode": form.cleaned_data.get(
+                "packing_mode"
+            ) or DEFAULT_TRANSPORT_PACKING_MODE,
             "container_l": form.cleaned_data.get("container_l"),
             "container_w": form.cleaned_data.get("container_w"),
             "container_h": form.cleaned_data.get("container_h"),
@@ -350,7 +367,9 @@ def _build_transport_page_context(
         form = ContainerToolForm(
             initial={
                 "container_source": current_container_source,
-                "packing_mode": form.cleaned_data.get("packing_mode") or "maximum_utilization",
+                "packing_mode": form.cleaned_data.get(
+                    "packing_mode"
+                ) or DEFAULT_TRANSPORT_PACKING_MODE,
                 "catalogue_id": raw_catalogue_id,
                 "container_id": raw_container_id,
                 "container_l": container_l_value,
@@ -374,7 +393,15 @@ def _build_transport_page_context(
             form = ContainerToolForm(
                 initial={
                     "container_source": current_container_source,
-                    "packing_mode": request.POST.get("packing_mode", "maximum_utilization") if request.method == "POST" else initial_config.get("packing_mode", "maximum_utilization"),
+                    "packing_mode": normalize_transport_packing_mode(
+                        request.POST.get(
+                            "packing_mode", DEFAULT_TRANSPORT_PACKING_MODE
+                        )
+                        if request.method == "POST"
+                        else initial_config.get(
+                            "packing_mode", DEFAULT_TRANSPORT_PACKING_MODE
+                        )
+                    ),
                     "catalogue_id": raw_catalogue_id,
                     "container_id": raw_container_id,
                     "container_l": selected_material.part_length,
@@ -393,7 +420,11 @@ def _build_transport_page_context(
     if request.method == "GET" and run_initial_analysis:
         cfg = {
             "container_source": current_container_source,
-            "packing_mode": form["packing_mode"].value() if "packing_mode" in form.fields else "maximum_utilization",
+            "packing_mode": (
+                form["packing_mode"].value()
+                if "packing_mode" in form.fields
+                else DEFAULT_TRANSPORT_PACKING_MODE
+            ),
             "container_l": form["container_l"].value() if "container_l" in form.fields else "",
             "container_w": form["container_w"].value() if "container_w" in form.fields else "",
             "container_h": form["container_h"].value() if "container_h" in form.fields else "",
@@ -467,6 +498,12 @@ def _build_transport_page_context(
         "product_items": product_items,
         "selected_row_index": raw_selected_row_index,
         "auto_hide_product_catalogue": auto_hide_product_catalogue,
+        "transport_packing_modes": TRANSPORT_PACKING_MODE_OPTIONS,
+        "transport_sequence_locked": transport_sequence_is_locked(
+            form["packing_mode"].value()
+            if "packing_mode" in form.fields
+            else DEFAULT_TRANSPORT_PACKING_MODE
+        ),
     }
 
     return context
