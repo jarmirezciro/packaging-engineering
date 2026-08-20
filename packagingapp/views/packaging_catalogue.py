@@ -327,6 +327,7 @@ def download_excel_template(request, pk):
         "external_length",
         "external_width",
         "external_height",
+        "box_thickness_mm",
         "part_weight",
     ])
     ws.append([
@@ -341,6 +342,7 @@ def download_excel_template(request, pk):
         310,
         210,
         160,
+        4,
         1.250,
     ])
 
@@ -354,10 +356,12 @@ def download_excel_template(request, pk):
     info["B4"] = "external_length, external_width, external_height in mm"
     info["A5"] = "Weight"
     info["B5"] = "part_weight in kg"
-    info["A6"] = "Allowed packaging_type"
-    info["B6"] = "BOX, PALLET, CRATE, BAG, CONTAINER, TRAILER"
-    info["A7"] = "Catalogue"
-    info["B7"] = catalogue.name
+    info["A6"] = "Box thickness"
+    info["B6"] = "box_thickness_mm in mm; optional"
+    info["A7"] = "Allowed packaging_type"
+    info["B7"] = "BOX, PALLET, CRATE, BAG, CONTAINER, TRAILER"
+    info["A8"] = "Catalogue"
+    info["B8"] = catalogue.name
 
     output = BytesIO()
     wb.save(output)
@@ -434,6 +438,7 @@ def export_catalogue_excel(request, pk):
         "external_length",
         "external_width",
         "external_height",
+        "box_thickness_mm",
         "part_weight",
         "part_volume",
         "drawing",
@@ -453,6 +458,7 @@ def export_catalogue_excel(request, pk):
             float(m.external_length) if m.external_length is not None else None,
             float(m.external_width) if m.external_width is not None else None,
             float(m.external_height) if m.external_height is not None else None,
+            float(m.box_thickness_mm) if m.box_thickness_mm is not None else None,
             float(m.part_weight) if m.part_weight is not None else None,
             float(m.part_volume) if m.part_volume is not None else None,
             m.drawing.url if m.drawing else "",

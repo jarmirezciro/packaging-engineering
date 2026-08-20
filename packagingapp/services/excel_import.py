@@ -16,6 +16,8 @@ REQUIRED_COLUMNS = [
     "part_weight",
 ]
 
+OPTIONAL_COLUMNS = ["box_thickness_mm"]
+
 PACKAGING_TYPE_MAP = {
     "box": "BOX",
     "pallet": "PALLET",
@@ -40,6 +42,12 @@ def _normalize_part_number(value):
         s = s[:-2]
     return s
 
+
+def _optional_number(row, column):
+    if column not in row.index or pd.isna(row[column]):
+        return None
+    return row[column]
+
 def import_packaging_excel(excel_file, catalogue):
     df = pd.read_excel(excel_file)
     df.columns = _clean_header(df.columns)
@@ -47,6 +55,9 @@ def import_packaging_excel(excel_file, catalogue):
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"Missing columns in Excel: {missing}. Found: {list(df.columns)}")
+    for column in OPTIONAL_COLUMNS:
+        if column not in df.columns:
+            df[column] = None
 
     created_count = 0
     updated_count = 0
@@ -76,6 +87,7 @@ def import_packaging_excel(excel_file, catalogue):
                 "external_length": row["external_length"],
                 "external_width": row["external_width"],
                 "external_height": row["external_height"],
+                "box_thickness_mm": _optional_number(row, "box_thickness_mm"),
                 "part_weight": row["part_weight"],
             }
         )

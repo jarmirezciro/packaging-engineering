@@ -79,7 +79,7 @@
             </div>
 
             <div class="catalogue-dimension-block catalogue-dimension-block--muted">
-                <div class="catalogue-mini-title">External size and tare</div>
+                <div class="catalogue-mini-title">External size, thickness and tare</div>
                 <div class="catalogue-dimension-grid catalogue-dimension-grid--four">
                     <div class="catalogue-field">
                         <label for="{{ form.external_length.id_for_label }}">External length</label>
@@ -95,6 +95,11 @@
                         <label for="{{ form.external_height.id_for_label }}">External height</label>
                         <div class="catalogue-input-with-unit">{{ form.external_height }}<span>mm</span></div>
                         {% if form.external_height.errors %}<div class="catalogue-field-error">{{ form.external_height.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="catalogue-field">
+                        <label for="{{ form.box_thickness_mm.id_for_label }}">Box thickness</label>
+                        <div class="catalogue-input-with-unit">{{ form.box_thickness_mm }}<span>mm</span></div>
+                        {% if form.box_thickness_mm.errors %}<div class="catalogue-field-error">{{ form.box_thickness_mm.errors|join:", " }}</div>{% endif %}
                     </div>
                     <div class="catalogue-field">
                         <label for="{{ form.part_weight.id_for_label }}">Weight</label>

@@ -36,21 +36,25 @@
         </div>
       </div>
 
-      {% if not is_workflow %}
       <div class="tool-field-group mt-3">
         <label class="form-label">Packing mode</label>
         <div class="tool-radio-group">
+          {% if is_workflow %}
+          {% for option in transport_packing_modes %}
+          <label class="tool-radio-option"><input type="radio" name="packing_mode_{{ step_index }}" value="{{ option.value }}"{% if step.config.packing_mode == option.value %} checked{% endif %}><span>{{ option.label }}</span></label>
+          {% endfor %}
+          {% else %}
           {% for radio in form.packing_mode %}
           <label class="tool-radio-option">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>
           {% endfor %}
+          {% endif %}
         </div>
         <div class="form-text">
-          <div><strong>Maximum utilization:</strong> respects loading sequence and uses every geometrically valid side, top, deep, and inter-product residual.</div>
-          <div><strong>Sequence loading:</strong> loads back-to-front in horizontal layers and may fill supported, door-accessible residuals between loading zones.</div>
-          <div><strong>Strict sequence loading:</strong> preserves the controlled operational frontier and excludes deep residuals behind earlier loading zones.</div>
+          {% for option in transport_packing_modes %}
+          <div><strong>{{ option.label }}:</strong> {{ option.help }}</div>
+          {% endfor %}
         </div>
       </div>
-      {% endif %}
 
       <div id="{% if is_workflow %}fpTransportManualContainerFields_{{ step_index }}{% else %}manualContainerFields{% endif %}">
         <div class="container-tool-fields-3">

@@ -48,6 +48,10 @@ A normal business article usually needs three to six figures.
 
 Keep relevant approved images. When several screenshots communicate one comparison, combine them into one compact figure rather than displaying each as a large image.
 
+For reusable multi-tool layouts—setup collages, render matrices, result-table matrices, and
+scope-limited setup flows—follow `comparative-figure-workflow.md`. The layout should follow the
+approved editorial question, not the order in which screenshots happen to appear in a folder.
+
 ## Screenshot treatment
 
 - Preserve raw screenshots as evidence.
@@ -58,6 +62,9 @@ Keep relevant approved images. When several screenshots communicate one comparis
 - Use clear figure labels when comparing alternatives.
 - Optimize final figures to WebP.
 - Retain source images when useful.
+
+Treat raw screenshots as evidence sources. Treat the integrated figure as an editorial explanation:
+crop, align, label, and caption it without changing the underlying result.
 
 ## Thumbnail workflow
 

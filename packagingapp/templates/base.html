@@ -16,17 +16,37 @@
     <!-- Shared App Theme -->
     <link rel="stylesheet" href="{% static 'css/app_theme.css' %}?v=kollilabs-design-results-20260722">
 
+    <script>
+        (function () {
+            try {
+                if (
+                    window.matchMedia("(min-width: 992px)").matches &&
+                    window.localStorage.getItem("kollipackSidebarCollapsed") === "true"
+                ) {
+                    document.documentElement.classList.add("app-sidebar-collapsed");
+                }
+            } catch (error) {
+                // The application shell remains usable when storage is unavailable.
+            }
+        }());
+    </script>
+
     {% block extra_css %}{% endblock %}
 
     <style>
         .app-shell {
+            --app-sidebar-width: 280px;
+            --app-sidebar-collapsed-width: 64px;
             display: flex;
             min-height: 100vh;
             background: var(--app-bg);
         }
 
         .app-sidebar {
-            width: 280px;
+            width: var(--app-sidebar-width);
+            flex: 0 0 var(--app-sidebar-width);
+            display: flex;
+            flex-direction: column;
             background: #ffffff;
             border-right: 1px solid var(--app-border);
             padding: 1rem 1rem 1.5rem 1rem;
@@ -35,6 +55,7 @@
             top: 0;
             height: 100vh;
             z-index: 1000;
+            transition: width 0.2s ease, flex-basis 0.2s ease, transform 0.2s ease;
         }
 
         .app-brand {
@@ -44,6 +65,11 @@
             padding: 0.5rem 0.5rem 1rem 0.5rem;
             margin-bottom: 0.5rem;
             border-bottom: 1px solid var(--app-border);
+        }
+
+        .app-brand-copy {
+            min-width: 0;
+            flex: 1;
         }
 
         .app-brand-icon {
@@ -74,10 +100,51 @@
             font-size: 0.82rem;
         }
 
+        .app-sidebar-toggle,
+        .app-sidebar-close,
+        .app-mobile-menu-button {
+            width: 40px;
+            height: 40px;
+            border: 0;
+            border-radius: 0.75rem;
+            background: transparent;
+            color: var(--app-text-muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .app-sidebar-toggle:hover,
+        .app-sidebar-close:hover,
+        .app-mobile-menu-button:hover {
+            background: var(--app-surface-soft);
+            color: var(--app-primary-dark);
+        }
+
+        .app-sidebar-toggle:focus-visible,
+        .app-sidebar-close:focus-visible,
+        .app-mobile-menu-button:focus-visible,
+        .app-nav-link:focus-visible {
+            outline: 3px solid rgba(16, 163, 127, 0.35);
+            outline-offset: 2px;
+        }
+
+        .app-sidebar-close,
+        .app-mobile-header,
+        .app-sidebar-backdrop {
+            display: none;
+        }
+
         .app-nav {
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
+        }
+
+        .app-nav-home {
+            margin-top: 0.5rem;
         }
 
         .app-nav-section {
@@ -92,6 +159,16 @@
             color: var(--app-text-muted);
             margin-bottom: 0.5rem;
             padding: 0 0.5rem;
+        }
+
+        .app-sidebar-footer {
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid var(--app-border);
+        }
+
+        .app-sidebar-footer .app-nav-section:first-child {
+            margin-top: 0;
         }
 
         .app-nav-link {
@@ -132,69 +209,255 @@
         }
 
         .app-content-wrap {
-            max-width: 1400px;
+            width: 100%;
+            min-width: 0;
         }
 
         .app-alerts {
             margin-bottom: 1rem;
         }
 
+        @media (min-width: 992px) {
+            .app-sidebar-collapsed .app-sidebar {
+                width: var(--app-sidebar-collapsed-width);
+                flex-basis: var(--app-sidebar-collapsed-width);
+                padding-right: 0.5rem;
+                padding-left: 0.5rem;
+            }
+
+            .app-sidebar-collapsed .app-brand {
+                justify-content: center;
+                padding-right: 0;
+                padding-left: 0;
+            }
+
+            .app-sidebar-collapsed .app-brand-icon,
+            .app-sidebar-collapsed .app-brand-copy,
+            .app-sidebar-collapsed .app-nav-section-title {
+                display: none;
+            }
+
+            .app-sidebar-collapsed .app-nav-link > span {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border: 0;
+            }
+
+            .app-sidebar-collapsed .app-nav-section {
+                margin-top: 0.75rem;
+            }
+
+            .app-sidebar-collapsed .app-nav-link {
+                justify-content: center;
+                gap: 0;
+                padding-right: 0.65rem;
+                padding-left: 0.65rem;
+            }
+
+            .app-sidebar-collapsed .app-nav-link i {
+                width: auto;
+                font-size: 1.1rem;
+            }
+        }
+
         @media (max-width: 991px) {
+            body.app-sidebar-drawer-open {
+                overflow: hidden;
+                padding-right: var(--app-drawer-scrollbar-gutter, 0px);
+            }
+
+            .app-mobile-header {
+                min-height: 64px;
+                padding: 0.65rem 1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                position: sticky;
+                top: 0;
+                z-index: 1020;
+                background: #ffffff;
+                border-bottom: 1px solid var(--app-border);
+            }
+
+            .app-mobile-title {
+                margin: 0;
+                color: var(--app-text);
+                font-size: 1rem;
+                font-weight: 700;
+            }
+
             .app-shell {
-                flex-direction: column;
+                display: block;
             }
 
             .app-sidebar {
-                position: relative;
-                width: 100%;
-                height: auto;
-                border-right: 0;
-                border-bottom: 1px solid var(--app-border);
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                width: min(var(--app-sidebar-width), calc(100vw - 3rem));
+                height: 100vh;
+                transform: translateX(-100%);
+                border-right: 1px solid var(--app-border);
+                z-index: 1040;
+                box-shadow: 0 1rem 3rem rgba(15, 23, 42, 0.2);
+            }
+
+            .app-sidebar-drawer-open .app-sidebar {
+                transform: translateX(0);
+            }
+
+            .app-sidebar-close {
+                display: inline-flex;
+            }
+
+            .app-sidebar-toggle {
+                display: none;
+            }
+
+            .app-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 1030;
+                background: rgba(15, 23, 42, 0.45);
+            }
+
+            .app-sidebar-drawer-open .app-sidebar-backdrop {
+                display: block;
             }
 
             .app-main {
                 padding: 1.25rem;
             }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            .app-sidebar {
+                transition: none;
+            }
+        }
     </style>
 </head>
 <body>
 
-<div class="app-shell">
+<header class="app-mobile-header">
+    <button type="button"
+            class="app-mobile-menu-button"
+            id="appMobileMenuButton"
+            aria-label="Open navigation"
+            aria-controls="appSidebar"
+            aria-expanded="false">
+        <i class="bi bi-list" aria-hidden="true"></i>
+    </button>
+    <p class="app-mobile-title">KolliPack</p>
+</header>
 
-    <aside class="app-sidebar">
+<div class="app-shell" id="appShell">
+
+    <aside class="app-sidebar" id="appSidebar" aria-label="Application navigation">
         <div class="app-brand">
             <div class="app-brand-icon">
-                <i class="bi bi-box-seam"></i>
+                <i class="bi bi-box-seam" aria-hidden="true"></i>
             </div>
-            <div>
+            <div class="app-brand-copy">
                 <p class="app-brand-title">KolliPack</p>
                 <small class="app-brand-subtitle">by KolliLabs</small>
             </div>
+            <button type="button"
+                    class="app-sidebar-toggle"
+                    id="appSidebarToggle"
+                    aria-label="Collapse navigation"
+                    aria-controls="appSidebar"
+                    aria-expanded="true"
+                    title="Collapse navigation">
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+            </button>
+            <button type="button"
+                    class="app-sidebar-close"
+                    id="appSidebarClose"
+                    aria-label="Close navigation"
+                    aria-controls="appSidebar">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
         </div>
 
-        <nav class="app-nav">
+        <nav class="app-nav" aria-label="KolliPack tools">
 
-            <div class="app-nav-section">
-                <div class="app-nav-section-title">Home</div>
+            <div class="app-nav-home">
                 <a href="{% url 'home' %}"
                    class="app-nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
-                    <i class="bi bi-house-door"></i>
+                    <i class="bi bi-house-door" aria-hidden="true"></i>
                     <span>Home</span>
                 </a>
             </div>
 
             <div class="app-nav-section">
-                <div class="app-nav-section-title">Company</div>
-                <a href="{% url 'about' %}"
-                   class="app-nav-link {% if request.path|slice:':7' == '/about/' %}active{% endif %}">
-                    <i class="bi bi-building"></i>
-                    <span>KolliLabs</span>
+                <div class="app-nav-section-title">Design</div>
+
+                <a href="{% url 'container_selection_mode1' %}"
+                   class="app-nav-link {% if request.path|slice:':27' == '/container-selection/mode1/' %}active{% endif %}">
+                    <i class="bi bi-box" aria-hidden="true"></i>
+                    <span>Container Selection Tool</span>
                 </a>
-                <a href="{% url 'blog_list' %}"
-                   class="app-nav-link {% if request.path|slice:':6' == '/blog/' %}active{% endif %}">
-                    <i class="bi bi-journal-text"></i>
-                    <span>Blog</span>
+
+                <a href="{% url 'bag_selection_mode1' %}"
+                   class="app-nav-link {% if request.path|slice:':15' == '/bag-selection/' %}active{% endif %}">
+                    <i class="bi bi-handbag" aria-hidden="true"></i>
+                    <span>Bag Selection Tool</span>
+                </a>
+
+                <a href="{% url 'corrugated_material_strength' %}"
+                   class="app-nav-link {% if request.resolver_match.url_name == 'corrugated_material_strength' %}active{% endif %}">
+                    <i class="bi bi-layers" aria-hidden="true"></i>
+                    <span>Corrugated Material &amp; Strength</span>
+                </a>
+            </div>
+
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Logistics</div>
+
+                <a href="{% url 'palletization_mode1' %}"
+                   class="app-nav-link {% if request.path|slice:':21' == '/palletization/mode1/' %}active{% endif %}">
+                    <i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>
+                    <span>Palletization Tool</span>
+                </a>
+
+                <a href="{% url 'container_tool' %}"
+                   class="app-nav-link {% if request.path|slice:':16' == '/container-tool/' %}active{% endif %}">
+                    <i class="bi bi-truck" aria-hidden="true"></i>
+                    <span>Transport Container Tool</span>
+                </a>
+            </div>
+
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Optimization</div>
+
+                <a href="{% url 'full_packaging_mode' %}"
+                   class="app-nav-link {% if request.path|slice:':16' == '/full-packaging/' %}active{% endif %}">
+                    <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                    <span>Packaging Flow</span>
+                </a>
+            </div>
+
+            <div class="app-nav-section">
+                <div class="app-nav-section-title">Batch Tools</div>
+
+                <a href="{% url 'multi_product_container_selection' %}"
+                   class="app-nav-link {% if request.path|slice:':25' == '/multi-product-container/' %}active{% endif %}">
+                    <i class="bi bi-boxes" aria-hidden="true"></i>
+                    <span>Multi-product Container Selection</span>
+                </a>
+
+                <a href="{% url 'multi_product_bag_selection' %}"
+                   class="app-nav-link {% if request.path|slice:':19' == '/multi-product-bag/' %}active{% endif %}">
+                    <i class="bi bi-handbag-fill" aria-hidden="true"></i>
+                    <span>Multi-product Bag Selection</span>
                 </a>
             </div>
 
@@ -203,100 +466,63 @@
 
                 <a href="{% url 'product_catalogues' %}"
                    class="app-nav-link {% if request.path|slice:':20' == '/product-catalogues/' %}active{% endif %}">
-                    <i class="bi bi-card-checklist"></i>
+                    <i class="bi bi-card-checklist" aria-hidden="true"></i>
                     <span>Product Catalogue</span>
                 </a>
 
                 <a href="{% url 'catalogue_list' %}"
                    class="app-nav-link {% if request.path|slice:':12' == '/catalogues/' %}active{% endif %}">
-                    <i class="bi bi-archive"></i>
+                    <i class="bi bi-archive" aria-hidden="true"></i>
                     <span>Packaging Catalogue</span>
                 </a>
             </div>
 
             <div class="app-nav-section">
-                <div class="app-nav-section-title">Selection Tools</div>
+                <div class="app-nav-section-title">Resources</div>
 
-                <a href="{% url 'container_selection_mode1' %}"
-                   class="app-nav-link {% if request.path|slice:':27' == '/container-selection/mode1/' %}active{% endif %}">
-                    <i class="bi bi-box"></i>
-                    <span>Container Selection Tool</span>
-                </a>
-
-                <a href="{% url 'bag_selection_mode1' %}"
-                   class="app-nav-link {% if request.path|slice:':15' == '/bag-selection/' %}active{% endif %}">
-                    <i class="bi bi-handbag"></i>
-                    <span>Bag Selection Tool</span>
-                </a>
-
-                <a href="{% url 'multi_product_container_selection' %}"
-                   class="app-nav-link {% if request.path|slice:':25' == '/multi-product-container/' %}active{% endif %}">
-                    <i class="bi bi-boxes"></i>
-                    <span>Container Multi Product</span>
-                </a>
-
-                <a href="{% url 'multi_product_bag_selection' %}"
-                   class="app-nav-link {% if request.path|slice:':19' == '/multi-product-bag/' %}active{% endif %}">
-                    <i class="bi bi-handbag-fill"></i>
-                    <span>Bag Multi Product</span>
+                <a href="{% url 'blog_list' %}"
+                   class="app-nav-link {% if request.path|slice:':6' == '/blog/' %}active{% endif %}">
+                    <i class="bi bi-journal-text" aria-hidden="true"></i>
+                    <span>Blog</span>
                 </a>
             </div>
 
-            <div class="app-nav-section">
-                <div class="app-nav-section-title">Advanced Tools</div>
+        </nav>
 
-                <a href="{% url 'palletization_mode1' %}"
-                   class="app-nav-link {% if request.path|slice:':21' == '/palletization/mode1/' %}active{% endif %}">
-                    <i class="bi bi-grid-3x3-gap"></i>
-                    <span>Palletization Tool</span>
-                </a>
+        <div class="app-sidebar-footer">
+            <a href="{% url 'company_home' %}"
+               class="app-nav-link"
+               target="_blank"
+               rel="noopener noreferrer">
+                <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                <span>KolliLabs website</span>
+            </a>
 
-                <a href="{% url 'corrugated_material_strength' %}"
-                   class="app-nav-link {% if request.resolver_match.url_name == 'corrugated_material_strength' %}active{% endif %}">
-                    <i class="bi bi-layers"></i>
-                    <span>Corrugated Material &amp; Strength</span>
-                </a>
-
-                <a href="{% url 'container_tool' %}"
-                   class="app-nav-link {% if request.path|slice:':16' == '/container-tool/' %}active{% endif %}">
-                    <i class="bi bi-truck"></i>
-                    <span>Transport Container Tool</span>
-                </a>
-            </div>
-
-            <div class="app-nav-section">
-                <div class="app-nav-section-title">Integrated Module</div>
-
-                <a href="{% url 'full_packaging_mode' %}"
-                   class="app-nav-link {% if request.path|slice:':16' == '/full-packaging/' %}active{% endif %}">
-                    <i class="bi bi-diagram-3"></i>
-                    <span>Full Packaging Module</span>
-                </a>
-            </div>
             <div class="app-nav-section">
                 <div class="app-nav-section-title">Account</div>
                 {% if user.is_authenticated %}
                 <div class="app-nav-link" style="background:#f8fafc; cursor:default;">
-                    <i class="bi bi-person-circle"></i>
+                    <i class="bi bi-person-circle" aria-hidden="true"></i>
                     <span>{{ user.username }}</span>
                 </div>
                 <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}
                     <button type="submit" class="app-nav-link w-100 border-0 bg-transparent text-start">
-                        <i class="bi bi-box-arrow-right"></i>
+                        <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                         <span>Sign out</span>
                     </button>
                 </form>
                 {% else %}
                 <a href="{% url 'login' %}?next={{ request.path|urlencode }}" class="app-nav-link">
-                    <i class="bi bi-box-arrow-in-right"></i>
+                    <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>
                     <span>Sign in</span>
                 </a>
                 {% endif %}
             </div>
-
-        </nav>
+        </div>
     </aside>
+
+    <div class="app-sidebar-backdrop" id="appSidebarBackdrop" aria-hidden="true"></div>
 
     <main class="app-main">
         <div class="app-content-wrap">
@@ -319,6 +545,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'js/app_sidebar.js' %}?v=kollipack-sidebar-20260808b"></script>
 <script src="{% static 'js/tool_scroll_preservation.js' %}?v=kollipack-design-scroll-20260722d"></script>
 {% block extra_js %}{% endblock %}
 </body>

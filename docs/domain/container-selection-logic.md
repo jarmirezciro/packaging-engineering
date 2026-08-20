@@ -75,11 +75,7 @@ A former render path used:
 - a second solve beginning from the complete container during rendering;
 - Three.js suppression of the recursive placements to avoid duplicate display;
 
-<<<<<<< HEAD
-The authoritative engine now uses:
-=======
 The authoritative Selection Mode engine now uses:
->>>>>>> pre-production
 
 - one root `MainBox` call and up to three Level 1 `MainBox` calls;
 - explicit placements carrying origin, orientation, level, and region type;
@@ -126,6 +122,27 @@ The exact semantic mapping of R1/R2/R3 must be read from current forms/engine an
 - the bounded residual-space decomposition is a heuristic and is not a proof of global 3D-bin-packing optimality;
 - calculation stops after each Level 1 `MainBox` result's direct residual fills;
 - the RSC flaps are visual only unless explicitly used in usable dimensions.
+
+## Internal and external carton dimensions
+
+Container Selection and Container Design always use usable **internal** carton
+dimensions for fit, capacity, orientation, candidate generation, and Design
+ranking. External dimensions are result metadata for physical logistics and do
+not change those calculations.
+
+The shared Container dimension resolver produces one complete external L/W/H
+triplet using this precedence:
+
+1. a complete, positive catalogue external-dimension triplet;
+2. internal length/width plus twice the actual box thickness, and internal
+   height plus four times the actual box thickness;
+3. the same axis-specific formula using the centralized 4 mm default
+   thickness.
+
+Incomplete catalogue external dimensions are never mixed with calculated
+axes. When the 4 mm default is required, the JSON-safe result contract marks
+the thickness as assumed so Detailed Analysis and downstream consumers can
+explain the estimate.
 
 ## Invariants
 

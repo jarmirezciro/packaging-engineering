@@ -16,6 +16,11 @@ from ..product_shape import (
 )
 
 from .serializers import sanitize_container_config_for_session
+from .dimensions import (
+    EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
+    EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
+    resolve_external_carton_dimensions,
+)
 
 
 # Packaging types that behave like rectangular/cuboid containers in this module.
@@ -232,6 +237,33 @@ def resolve_container_from_form(form, container_source, selected_material):
     return (float(bl), float(bw), float(bh))
 
 
+def resolve_container_dimension_contract(
+    form,
+    container,
+    container_source,
+    selected_material=None,
+):
+    """Return the shared JSON-safe internal/external carton dimension contract."""
+    if container is None:
+        return None
+
+    if container_source == "catalogue" and selected_material is not None:
+        return resolve_external_carton_dimensions(
+            *container,
+            external_length=getattr(selected_material, "external_length", None),
+            external_width=getattr(selected_material, "external_width", None),
+            external_height=getattr(selected_material, "external_height", None),
+            thickness_mm=getattr(selected_material, "box_thickness_mm", None),
+            thickness_source=EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
+        )
+
+    return resolve_external_carton_dimensions(
+        *container,
+        thickness_mm=form.cleaned_data.get("box_thickness_mm"),
+        thickness_source=EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
+    )
+
+
 def resolve_desired_qty(form, mode, product_source, selected_product):
     desired_qty = int(form.cleaned_data.get("desired_qty") or 1)
 
@@ -407,6 +439,12 @@ def build_container_analysis_report(
 
     product_weight = _resolve_product_weight(form, product_source, selected_product)
     container_source = form.cleaned_data.get("container_source") or "manual"
+    dimension_contract = resolve_container_dimension_contract(
+        form,
+        container,
+        container_source,
+        selected_material,
+    )
     container_tare = _resolve_container_tare(form, container_source, selected_material)
     payload_capacity = _resolve_payload_capacity(form, container_source, selected_material)
 
@@ -424,6 +462,7 @@ def build_container_analysis_report(
     remaining_capacity = max(max_quantity - requested_qty, 0)
 
     return {
+        **dimension_contract,
         "requested_qty": requested_qty,
         "max_quantity": max_quantity,
         "remaining_capacity": remaining_capacity,
@@ -466,7 +505,15 @@ def _add_container_design_metrics(candidate, form, product_source, selected_prod
     product_weight = _resolve_product_weight(form, product_source, selected_product)
     quantity = int(row["design_quantity"])
     net_weight = product_weight * quantity if product_weight is not None else None
+    dimension_contract = resolve_external_carton_dimensions(
+        row["container_length"],
+        row["container_width"],
+        row["container_height"],
+        thickness_mm=form.cleaned_data.get("box_thickness_mm"),
+        thickness_source=EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
+    )
     row.update({
+        **dimension_contract,
         "net_content_weight": _round_or_none(net_weight, 3),
         "net_content_weight_display": _format_weight(net_weight),
     })
@@ -733,4 +780,106 @@ def analyze_container_form(
         "top5": top5,
         "design_candidates": [],
         "selected_design_candidate_id": "",
+    }
+
+
+def analyze_container_capacity(
+    form,
+    config,
+    selected_product=None,
+    selected_material=None,
+):
+    """Calculate the workflow capacity payload inputs without presentation work."""
+    mode = form.cleaned_data.get("mode") or "single"
+    product_source = form.cleaned_data.get("product_source") or "manual"
+    container_source = form.cleaned_data.get("container_source") or "manual"
+    product, r1, r2, r3 = resolve_product_from_form(
+        form=form,
+        product_source=product_source,
+        selected_product=selected_product,
+    )
+    messages = []
+
+    if product is None or any(float(value) <= 0 for value in product):
+        messages.append("Enter product length, width, and height greater than zero in millimetres.")
+    if not any((r1, r2, r3)):
+        messages.append("Enable at least one permitted product orientation.")
+
+    desired_quantity = resolve_desired_qty(
+        form=form,
+        mode=mode,
+        product_source=product_source,
+        selected_product=selected_product,
+    )
+    if int(desired_quantity or 0) <= 0:
+        messages.append("Enter the desired quantity as a positive whole number.")
+    if messages:
+        return {"ok": False, "messages": messages, "mode": mode, "result": None}
+
+    if mode == "design":
+        design = build_container_design_candidates(
+            product,
+            int(desired_quantity),
+            r1,
+            r2,
+            r3,
+        )
+        candidates = [
+            _add_container_design_metrics(row, form, product_source, selected_product)
+            for row in design["candidates"]
+        ]
+        if not candidates:
+            return {
+                "ok": False,
+                "messages": ["No valid container design candidate could be generated for the permitted orientations."],
+                "mode": mode,
+                "result": None,
+            }
+        requested_id = str(form.cleaned_data.get("selected_design_candidate_id") or "")
+        selected = next(
+            (row for row in candidates if row["candidate_id"] == requested_id),
+            candidates[0],
+        )
+        return {
+            "ok": True,
+            "messages": [],
+            "mode": mode,
+            "result": selected,
+            "design_candidates": candidates,
+            "selected_design_candidate_id": selected["candidate_id"],
+        }
+
+    container = resolve_container_from_form(
+        form=form,
+        container_source=container_source,
+        selected_material=selected_material,
+    )
+    if container_source == "catalogue" and selected_material is None:
+        messages.append("Please select a packaging item from the catalogue table.")
+    elif container is None:
+        messages.append("Please enter all manual container dimensions (L/W/H).")
+    if mode == "optimal" and not config.get("catalogue_id"):
+        messages.append("Please select a packaging catalogue.")
+    if mode == "optimal" and selected_material is None:
+        messages.append("Please select one of the Top 5 containers.")
+    if messages:
+        return {"ok": False, "messages": messages, "mode": mode, "result": None}
+
+    max_quantity = compute_max_quantity_only(product, container, r1, r2, r3)
+    dimension_contract = resolve_container_dimension_contract(
+        form,
+        container,
+        container_source,
+        selected_material,
+    )
+    return {
+        "ok": True,
+        "messages": [],
+        "mode": mode,
+        "result": {
+            "container": container,
+            "max_quantity": int(max_quantity or 0),
+            "desired_quantity": int(desired_quantity or 1),
+            **dimension_contract,
+        },
     }

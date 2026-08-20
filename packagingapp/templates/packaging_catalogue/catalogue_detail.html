@@ -184,6 +184,7 @@
                             <th>Ext. L (mm)</th>
                             <th>Ext. W (mm)</th>
                             <th>Ext. H (mm)</th>
+                            <th>Box thickness (mm)</th>
                             <th>Weight (kg)</th>
                             <th>Volume</th>
                             <th>Drawing</th>
@@ -215,6 +216,7 @@
                             <td>{{ material.external_length|default:"—" }}</td>
                             <td>{{ material.external_width|default:"—" }}</td>
                             <td>{{ material.external_height|default:"—" }}</td>
+                            <td>{{ material.box_thickness_mm|default:"—" }}</td>
                             <td>{{ material.part_weight|default:"—" }}</td>
                             <td>{{ material.part_volume }}</td>
                             <td>
@@ -245,7 +247,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{% if can_manage_catalogue %}16{% else %}15{% endif %}" class="text-center text-muted">No materials found.</td>
+                            <td colspan="{% if can_manage_catalogue %}17{% else %}16{% endif %}" class="text-center text-muted">No materials found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

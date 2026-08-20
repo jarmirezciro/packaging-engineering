@@ -80,6 +80,19 @@
         </div>
         </div>
 
+        {% if current_mode == "design" or current_mode == "single" and current_container_source == "manual" %}
+            <div class="tool-field-group mt-3 mb-0">
+                <label class="form-label">Box thickness <span class="text-muted">(mm, optional)</span></label>
+                {% if mode == "workflow" %}
+                    <input type="number" step="any" min="0.0001" class="form-control" name="{{ container_ui.names.box_thickness_mm }}" value="{{ container_values.box_thickness_mm|default:'' }}">
+                {% else %}
+                    {{ form.box_thickness_mm }}
+                    {% if form.box_thickness_mm.errors %}<div class="text-danger small mt-1">{{ form.box_thickness_mm.errors|join:", " }}</div>{% endif %}
+                {% endif %}
+                <div class="app-form-note mt-1">Used only to calculate the carton's external dimensions. Blank uses the 4 mm default assumption.</div>
+            </div>
+        {% endif %}
+
         <div id="{{ container_ui.ids.design_packaging_fields }}">
             <div class="alert alert-light border small">Internal length, width, and height are calculated outputs in Design Mode.</div>
             <div class="app-form-actions tool-card-actions"><button type="button" class="btn btn-app-primary btn-sm" onclick="containerSelectionRunDesign('{{ container_ui.prefix }}')"><i class="bi bi-rulers me-2"></i>Generate Designs</button></div>

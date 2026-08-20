@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 from decimal import Decimal
 import uuid
@@ -106,6 +107,15 @@ class PackagingMaterial(models.Model):
     external_length = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     external_width = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     external_height = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+
+    # Optional finished carton/box wall thickness used to resolve external size.
+    box_thickness_mm = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(Decimal("0.001"))],
+    )
 
     # Weight (kg)
     part_weight = models.DecimalField(max_digits=12, decimal_places=3, blank=True, null=True)

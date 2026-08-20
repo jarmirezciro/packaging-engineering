@@ -24,6 +24,10 @@ from ..tools.container.service import (
 )
 from ..tools.container.state import default_container_config
 from ..tools.container.case_presets import get_container_selection_case_preset
+from ..tools.container.dimensions import (
+    EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
+    resolve_external_carton_dimensions,
+)
 from ..tools.selection_mode import normalize_selection_mode
 from ..tools.container.export import build_container_selection_pdf
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
@@ -90,6 +94,7 @@ def _read_raw_container_config(request, *, initial_config=None):
         "box_l": source.get("box_l", cfg["box_l"]),
         "box_w": source.get("box_w", cfg["box_w"]),
         "box_h": source.get("box_h", cfg["box_h"]),
+        "box_thickness_mm": source.get("box_thickness_mm", cfg["box_thickness_mm"]),
         "box_weight": source.get("box_weight", cfg["box_weight"]),
         "box_max_payload": source.get("box_max_payload", cfg["box_max_payload"]),
         "selected_design_candidate_id": source.get("selected_design_candidate_id", cfg["selected_design_candidate_id"]),
@@ -124,6 +129,7 @@ def _build_shared_container_ui_contract(prefix=""):
             "box_l": f"box_l{suffix}",
             "box_w": f"box_w{suffix}",
             "box_h": f"box_h{suffix}",
+            "box_thickness_mm": f"box_thickness_mm{suffix}",
             "box_weight": f"box_weight{suffix}",
             "box_max_payload": f"box_max_payload{suffix}",
             "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
@@ -256,6 +262,13 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
             "type": container_type or "—",
             "material": container_material or "—",
             "dimensions": _format_dims(container_l, container_w, container_h),
+            "external_dimensions": _format_dims(
+                analysis_report.get("external_length"),
+                analysis_report.get("external_width"),
+                analysis_report.get("external_height"),
+            ),
+            "box_thickness_mm": analysis_report.get("box_thickness_mm"),
+            "box_thickness_assumed": analysis_report.get("box_thickness_assumed", False),
             "tare": _format_optional_weight(container_tare),
             "payload_capacity": _format_optional_weight(payload_capacity),
         },
@@ -299,6 +312,16 @@ def _top5_export_rows(top5):
         if material is None:
             continue
 
+        dimensions = resolve_external_carton_dimensions(
+            material.part_length,
+            material.part_width,
+            material.part_height,
+            external_length=material.external_length,
+            external_width=material.external_width,
+            external_height=material.external_height,
+            thickness_mm=getattr(material, "box_thickness_mm", None),
+            thickness_source=EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
+        )
         rows.append({
             "rank": idx,
             "part_number": material.part_number,
@@ -307,6 +330,11 @@ def _top5_export_rows(top5):
             "brand": material.branding,
             "material": material.packaging_materials,
             "dimensions": _format_dims(material.part_length, material.part_width, material.part_height),
+            "external_dimensions": _format_dims(
+                dimensions["external_length"],
+                dimensions["external_width"],
+                dimensions["external_height"],
+            ),
             "weight": _format_optional_weight(getattr(material, "part_weight", None)),
             "volume": _format_part_volume(getattr(material, "part_volume", None)),
             "max_qty": row.get("max_qty"),
@@ -350,11 +378,26 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
 
     selected_candidate = None
     if selected_material is not None:
+        selected_dimensions = resolve_external_carton_dimensions(
+            selected_material.part_length,
+            selected_material.part_width,
+            selected_material.part_height,
+            external_length=selected_material.external_length,
+            external_width=selected_material.external_width,
+            external_height=selected_material.external_height,
+            thickness_mm=getattr(selected_material, "box_thickness_mm", None),
+            thickness_source=EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
+        )
         selected_candidate = {
             "part_number": selected_material.part_number,
             "description": selected_material.part_description,
             "type": selected_material.packaging_type,
             "dimensions": _format_dims(selected_material.part_length, selected_material.part_width, selected_material.part_height),
+            "external_dimensions": _format_dims(
+                selected_dimensions["external_length"],
+                selected_dimensions["external_width"],
+                selected_dimensions["external_height"],
+            ),
         }
 
     return {
@@ -411,6 +454,13 @@ def _build_design_export_payload(*, form, analysis, selected_product):
             "type": "Regular Slotted Container visualization",
             "material": "To be specified",
             "dimensions": _format_dims(selected["container_length"], selected["container_width"], selected["container_height"]),
+            "external_dimensions": _format_dims(
+                selected["external_length"],
+                selected["external_width"],
+                selected["external_height"],
+            ),
+            "box_thickness_mm": selected.get("box_thickness_mm"),
+            "box_thickness_assumed": selected.get("box_thickness_assumed", False),
         },
         "analysis_report": analysis_payload,
         "selected_candidate": selected,

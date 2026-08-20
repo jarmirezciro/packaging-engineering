@@ -1,12 +1,17 @@
 from django.conf import settings
 
 from .state import default_product_rows
+from .modes import (
+    DEFAULT_TRANSPORT_PACKING_MODE,
+    normalize_transport_packing_mode,
+    transport_sequence_is_locked,
+)
 from .serializers import (
     sanitize_transport_rows_for_session,
     serialize_transport_result,
     serialize_transport_threejs_scene,
 )
-from ...utils.container_tool.engine import pack_container, run_container_tool
+from ...utils.container_tool.engine import pack_container, run_container_tool, summarize
 
 
 def read_product_rows_raw(post_data):
@@ -172,7 +177,10 @@ def build_container_from_config(cfg, selected_material=None):
         except Exception:
             tare_weight = None
 
-    packing_mode = str(cfg.get("packing_mode") or "maximum_utilization")
+    packing_mode = normalize_transport_packing_mode(
+        cfg.get("packing_mode"),
+        default=DEFAULT_TRANSPORT_PACKING_MODE,
+    )
 
     if (cfg.get("container_source") or "manual") == "catalogue":
         if not selected_material:
@@ -421,13 +429,20 @@ def run_transport_analysis(container, products, media_root=None):
     }
 
 
-def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=None):
+def _prepare_transport_analysis(cfg, raw_rows, selected_material=None):
+    """Validate and normalize authoritative transport calculation inputs."""
+    cfg = dict(cfg or {})
+    cfg["packing_mode"] = normalize_transport_packing_mode(
+        cfg.get("packing_mode"),
+        default=DEFAULT_TRANSPORT_PACKING_MODE,
+    )
     safe_rows = sanitize_transport_rows_for_session(raw_rows or default_product_rows())
+    if transport_sequence_is_locked(cfg["packing_mode"]):
+        safe_rows = [{**row, "sequence": 1} for row in safe_rows]
     products, row_errors = validate_transport_rows(safe_rows)
     container, container_errors = build_container_from_config(cfg, selected_material)
 
     messages = list(row_errors) + list(container_errors)
-
     if messages:
         return {
             "ok": False,
@@ -435,16 +450,10 @@ def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=N
             "safe_rows": safe_rows,
             "products": products,
             "container": container,
-            "result": None,
-            "serialized_result": None,
-            "threejs_scene": None,
-            "image_url": None,
-            "image_urls": None,
         }
 
     products, auto_messages = _resolve_auto_max_quantities(container, products)
     safe_rows = sanitize_transport_rows_for_session(_rows_from_products(products))
-
     if any(int(product.get("qty", 0) or 0) <= 0 for product in products):
         return {
             "ok": False,
@@ -452,6 +461,58 @@ def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=N
             "safe_rows": safe_rows,
             "products": products,
             "container": container,
+        }
+
+    return {
+        "ok": True,
+        "messages": auto_messages,
+        "safe_rows": safe_rows,
+        "products": products,
+        "container": container,
+    }
+
+
+def analyze_transport_capacity(cfg, raw_rows, selected_material=None):
+    """Run transport packing without generating PNGs or Three.js presentation."""
+    prepared = _prepare_transport_analysis(cfg, raw_rows, selected_material)
+    if not prepared["ok"]:
+        return {**prepared, "result": None, "summary": None}
+
+    container = prepared["container"]
+    products = prepared["products"]
+    pack_result = pack_container(container, products)
+    summary = summarize(container, products, pack_result)
+    return {
+        **prepared,
+        "result": {
+            "summary": summary,
+            "placements": pack_result.get("placements") or [],
+            "unplaced": pack_result.get("unplaced") or [],
+            "packing_mode": pack_result.get(
+                "packing_mode", DEFAULT_TRANSPORT_PACKING_MODE
+            ),
+            "strategy": pack_result.get("strategy", ""),
+            **{
+                key: value
+                for key, value in pack_result.items()
+                if key.startswith("space_evenly_")
+                or key.startswith("front_to_back_")
+                or key.startswith("floor_first_")
+            },
+        },
+        "summary": summary,
+    }
+
+
+def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=None):
+    prepared = _prepare_transport_analysis(cfg, raw_rows, selected_material)
+    if not prepared["ok"]:
+        return {
+            "ok": False,
+            "messages": prepared["messages"],
+            "safe_rows": prepared["safe_rows"],
+            "products": prepared["products"],
+            "container": prepared["container"],
             "result": None,
             "serialized_result": None,
             "threejs_scene": None,
@@ -460,22 +521,22 @@ def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=N
         }
 
     analysis = run_transport_analysis(
-        container=container,
-        products=products,
+        container=prepared["container"],
+        products=prepared["products"],
         media_root=media_root,
     )
 
     serialized_result = analysis["serialized_result"]
     summary_rows = (serialized_result.get("summary") or {}).get("product_rows") or []
-    for row, product in zip(summary_rows, products):
+    for row, product in zip(summary_rows, prepared["products"]):
         row["max_qty"] = bool(product.get("max_qty", False))
 
     return {
         "ok": True,
-        "messages": auto_messages,
-        "safe_rows": safe_rows,
-        "products": products,
-        "container": container,
+        "messages": prepared["messages"],
+        "safe_rows": prepared["safe_rows"],
+        "products": prepared["products"],
+        "container": prepared["container"],
         "result": analysis["result"],
         "serialized_result": serialized_result,
         "threejs_scene": analysis["threejs_scene"],

@@ -160,6 +160,18 @@
                         <table class="table table-sm mb-0 align-middle">
                             <tbody>
                                 <tr>
+                                    <th scope="row" class="fw-normal text-muted">Internal dimensions</th>
+                                    <td class="text-end">{{ analysis_report.internal_length|floatformat:-3 }} × {{ analysis_report.internal_width|floatformat:-3 }} × {{ analysis_report.internal_height|floatformat:-3 }} mm</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">External dimensions</th>
+                                    <td class="text-end">{{ analysis_report.external_length|floatformat:-3 }} × {{ analysis_report.external_width|floatformat:-3 }} × {{ analysis_report.external_height|floatformat:-3 }} mm</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Box thickness</th>
+                                    <td class="text-end">{% if analysis_report.box_thickness_mm is not None %}{{ analysis_report.box_thickness_mm|floatformat:-3 }} mm{% else %}<span class="text-muted">Not available</span>{% endif %}</td>
+                                </tr>
+                                <tr>
                                     <th scope="row" class="fw-normal text-muted">Current quantity</th>
                                     <td class="text-end">{{ analysis_report.requested_qty }} pcs</td>
                                 </tr>
@@ -212,7 +224,9 @@
                             </tbody>
                         </table>
                     </div>
-                    {% include "shared/_product_unit_threejs_panel.html" with scene=product_unit_scene scene_id=container_ui.ids.product_unit_scene viewer_id=container_ui.ids.product_unit_viewer compact=True %}
+                    {% if analysis_report.box_thickness_assumed %}
+                        <div class="tool-summary-meta mt-2">External dimensions estimated using an assumed 4 mm box thickness because no thickness was provided.</div>
+                    {% endif %}
                     {% if not analysis_report.has_container_tare or not analysis_report.has_payload_capacity %}
                         <div class="tool-summary-meta mt-2">
                             {% if not analysis_report.has_container_tare %}Packaging tare is needed for total weight.{% endif %}

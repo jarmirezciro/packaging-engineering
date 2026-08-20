@@ -38,12 +38,20 @@ Detailed results and reports should include a base product/unit representation w
 - proportions approximately preserved;
 - clean neutral background.
 
-Container Selection and Bag Selection browser results use the shared
+Container Selection and Bag Selection product inputs use the shared
 `build_product_unit_scene()` contract and the dedicated
-`product_unit_threejs_viewer.js` component. The preview always uses the
-canonical product orientation: Three.js X is product length, Y is product
+`product_unit_threejs_viewer.js` component. Current form dimensions and product
+shape are the live browser-preview source; the JSON-safe server scene remains
+an initial/fallback contract for existing consumers. The preview always uses
+the canonical product orientation: Three.js X is product length, Y is product
 height, and Z is product width. Dimension guides and canvas-texture labels use
-the original bounding dimensions for every approved visualization-only shape.
+the current bounding dimensions for every approved visualization-only shape.
+
+The product-input preview updates its product group without recreating the
+renderer, camera, OrbitControls, lighting, or canvas. Container and Bag
+standalone pages, public calculators, and Packaging Flow steps consume the same
+panel and instance-scoped field-name binding. Normal and Design result panels
+contain only packing-result visualizations and do not duplicate the base unit.
 
 Container PDF exports temporarily retain the server-rendered Matplotlib base
 product PNG through `product_base_image_rel_path`. That compatibility image is
@@ -119,8 +127,6 @@ centered on the engine cuboid and receives the matching orthogonal orientation;
 the cuboid remains the sole calculation, collision, capacity, and metrics
 model. Other Transport consumers and inputs continue to render generic cuboids.
 
-<<<<<<< HEAD
-=======
 ### Bag Selection browser scene
 
 Bag Design, Single bag analysis, and the selected Optimal Bag result serialize
@@ -137,7 +143,6 @@ snapshot on the server, and embed it through the existing ReportLab builder.
 The selected table row therefore remains the source for both the browser scene
 and the PDF image.
 
->>>>>>> pre-production
 
 ## Graphics propagation rule
 

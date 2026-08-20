@@ -125,8 +125,6 @@ non-palletized Flow inputs retain generic load cuboids. The adapter validates
 the complete pallet-and-carton assembly against the calculated bounds and falls
 back to the cuboid if the source scene is incomplete or extends outside them.
 
-<<<<<<< HEAD
-=======
 ## Top quantity summary
 
 Packaging Flow presents a compact, always-visible quantity summary above the
@@ -142,7 +140,40 @@ inconsistent stage. Existing collapsed-step summaries remain unchanged. Desktop
 uses a compact horizontal chain; mobile uses a collapsed summary row that can be
 expanded into a stacked chain.
 
->>>>>>> pre-production
+## Design final-capacity ranking
+
+Container Selection and Bag Selection Design steps can optionally rank their
+existing alternatives by cumulative base-product units at the actual final
+Packaging Flow step. This is a Flow-only orchestration feature: it walks the
+ordered downstream `workflow["steps"]` slice and runs capacity-only service
+entry points on temporary step copies. Those entry points reuse each tool's
+authoritative numeric engine and shared workflow-payload builders, but skip PNG,
+Three.js, analysis-report, and other presentation work. Engine candidate
+generation, normal standalone ranking, and interactive rendering are unchanged.
+
+The source step stores JSON-safe `design_chain_optimization` metadata keyed by
+stable `candidate_id`. Canonical Design candidates remain in engine order; the
+Flow view builds a transient annotated display list. Structural changes and
+relevant source/downstream input changes clear stored optimization state, while
+selecting another candidate from the unchanged source table preserves it.
+Palletization POSTs compare normalized capacity inputs after inherited defaults
+are applied; UI-only advanced-panel changes and no-op refreshes preserve the
+ranking. Pallet row/pattern selection is treated as presentation-only, so users
+can explore layouts without losing optimization results. A changed pallet
+dimension, constraint, or material clears the stale ranking and tells the user
+to run the optimization again.
+
+### Container dimensions passed downstream
+
+Container Selection keeps internal dimensions in explicit `internal_*` result
+fields, while its generic workflow `length`, `width`, and `height` represent the
+resolved physical external carton size. Palletization therefore receives the
+outside carton dimensions. Normal selected Design candidates and temporary
+Packaging Chain Optimizer candidates use the same shared Container dimension
+resolver and payload builder, so both paths provide identical carton dimensions
+to downstream capacity evaluation. Missing thickness in an older workflow
+payload remains valid and resolves through the centralized 4 mm assumption.
+
 ## Future combined report
 
 A proposed Packaging Flow Report would use selected/effective results from each step and present:

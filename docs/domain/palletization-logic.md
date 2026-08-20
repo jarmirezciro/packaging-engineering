@@ -36,6 +36,12 @@ A valid layer must satisfy:
 - count equals number of placements;
 - equivalent symmetric/rotated duplicates are deduplicated unless operationally distinct.
 
+Before pattern generation, the engine rejects geometry that cannot produce a
+single carton placement. The carton height must not exceed the available cargo
+height, and either the entered length/width footprint or its orthogonal rotation
+must fit inside the effective pallet footprint including permitted overhang.
+Exact height and footprint equality remain feasible.
+
 ## Pattern families
 
 The project has discussed and implemented/refined these engineered pattern families:
@@ -81,6 +87,27 @@ A split/mosaic candidate divides the usable footprint into non-overlapping zones
 6. score symmetry/contour only after feasibility and count.
 
 Balanced filler symmetry may improve operational quality but must not falsely inflate count or create unsupported cartons.
+
+### Split Row implementation
+
+KolliPack's Split Row candidate divisions are evaluated arithmetically along
+both pallet axes: each possible number of rows or columns in the first
+orientation is combined with the integer row/column capacity of the remaining
+band. Only the winning division is materialized as `Placement2D` geometry. A
+genuine mixed split wins a capacity tie over an all-one-orientation Block
+fallback, so a side split such as 6x3 + 1x6 remains visible when feasible.
+
+Sparse Split Row rows or columns are balanced from their known band boundaries
+using deterministic opposite-edge coordinates anchored to the fixed main
+arrangement, not the outer pallet boundary. A six-carton compact filler is
+therefore placed 3 + 3 at the main arrangement's opposite edges. Generic
+free-position XÃ—Y searches and iterative filler reconstruction are not used on
+this path. Odd residual rows use a centered carton (1 + 1 + 1 for three, 2 +
+1 + 2 for five) with equal remaining space on both sides. If a candidate split
+on one axis would collide with the fixed main block, the engine falls through
+to the other known Split Row axis instead of aborting the symmetry pass. The
+shared collision validator remains as a final safety check after the complete
+layer is built.
 
 ## Pinwheel
 

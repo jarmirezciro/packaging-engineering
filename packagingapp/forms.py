@@ -6,6 +6,11 @@ from django.contrib.auth import get_user_model
 from .models import CorrugatedBoardConstruction, PackagingCatalogue, PackagingMaterial
 from .models import ProductCatalogue, Product
 from .tools.product_shape import PRODUCT_SHAPE_CHOICES
+from .tools.transport.modes import (
+    DEFAULT_TRANSPORT_PACKING_MODE,
+    TRANSPORT_PACKING_MODE_CHOICES,
+    normalize_transport_packing_mode,
+)
 from .tools.corrugated_material_strength.constants import (
     DISTRIBUTION_CHOICES,
     DISTRIBUTION_FACTORS,
@@ -97,6 +102,7 @@ class PackagingMaterialForm(forms.ModelForm):
             "external_length",
             "external_width",
             "external_height",
+            "box_thickness_mm",
             "part_weight",
             "drawing",
             "picture",
@@ -115,6 +121,7 @@ class PackagingMaterialForm(forms.ModelForm):
             "external_length",
             "external_width",
             "external_height",
+            "box_thickness_mm",
             "part_weight",
         ]:
             self.fields[field_name].widget.attrs.update({"class": "form-control"})
@@ -129,6 +136,7 @@ class PackagingMaterialForm(forms.ModelForm):
             "external_length",
             "external_width",
             "external_height",
+            "box_thickness_mm",
             "part_weight",
         ]:
             self.fields[field_name].widget.attrs.update({"step": "any", "placeholder": "0"})
@@ -276,6 +284,15 @@ class ContainerSelectionMode1Form(forms.Form):
         required=False,
         label="Height",
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+    )
+
+    box_thickness_mm = forms.FloatField(
+        min_value=0.0001,
+        required=False,
+        label="Box thickness",
+        widget=forms.NumberInput(
+            attrs={"class": "form-control", "step": "any", "min": "0.0001"}
+        ),
     )
 
     box_weight = forms.FloatField(
@@ -627,28 +644,36 @@ class PalletizationForm(forms.Form):
         return cleaned
 
 
+class TransportPackingModeChoiceField(forms.ChoiceField):
+    def to_python(self, value):
+        return normalize_transport_packing_mode(super().to_python(value))
+
+
 class ContainerToolForm(forms.Form):
     CONTAINER_SOURCE_CHOICES = [
         ("manual", "Manual"),
         ("catalogue", "From catalogue"),
     ]
-    PACKING_MODE_CHOICES = [
-        ("maximum_utilization", "Maximum utilization"),
-        ("accessible_sequence_loading", "Sequence loading"),
-        # Keep the legacy engine value for backward compatibility. Its
-        # user-facing name is now Strict sequence loading.
-        ("sequence_loading", "Strict sequence loading"),
-    ]
+    PACKING_MODE_CHOICES = list(TRANSPORT_PACKING_MODE_CHOICES)
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
 
-    packing_mode = forms.ChoiceField(
+    packing_mode = TransportPackingModeChoiceField(
         choices=PACKING_MODE_CHOICES,
-        initial="maximum_utilization",
+        initial=DEFAULT_TRANSPORT_PACKING_MODE,
         required=True,
         widget=forms.RadioSelect,
         label="Packing mode",
     )
+
+    def __init__(self, *args, **kwargs):
+        initial = dict(kwargs.get("initial") or {})
+        if "packing_mode" in initial:
+            initial["packing_mode"] = normalize_transport_packing_mode(
+                initial["packing_mode"]
+            )
+            kwargs["initial"] = initial
+        super().__init__(*args, **kwargs)
 
     container_source = forms.ChoiceField(
         choices=CONTAINER_SOURCE_CHOICES,

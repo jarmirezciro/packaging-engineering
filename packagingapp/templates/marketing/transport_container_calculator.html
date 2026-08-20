@@ -102,7 +102,12 @@
             <p>Start with usable internal transport-unit dimensions, then add the external dimensions, quantity, unit weight, loading sequence, and permitted rotations for each packaged load.</p>
         </div>
         <div class="transport-tool-shell">
-            {% if is_initial_example %}
+            {% if is_case_example and case_preset %}
+            <div class="transport-seo-banner" role="status">
+                <i class="bi bi-lightning-charge-fill fs-5" aria-hidden="true"></i>
+                <div><strong>{{ case_preset.label }} loaded - edit any value to calculate your own transport load.</strong><p>The case uses the supplied manual high-cube dimensions, four load-unit rows, and Load Front-to-Back. The visible result comes from the real KolliPack Transport engine.</p></div>
+            </div>
+            {% elif is_initial_example %}
             <div class="transport-seo-banner" role="status">
                 <i class="bi bi-lightning-charge-fill fs-5" aria-hidden="true"></i>
                 <div><strong>Live example loaded - edit any value to calculate your own transport load.</strong><p>{{ example_quantity }} palletized units at {{ example_load_dimensions }} and {{ example_load_weight }} each are evaluated in a {{ example_transport_dimensions }} internal envelope with {{ example_payload }} maximum payload. The visible result comes from the real KolliPack Transport engine.</p></div>

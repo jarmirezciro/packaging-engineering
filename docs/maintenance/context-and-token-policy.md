@@ -25,6 +25,7 @@ Typical examples:
 | Small Bag UI fix | `domain/bag-selection-logic.md`, relevant frontend section |
 | Container renderer refactor | `architecture/shared-tool-contract.md`, `domain/container-selection-logic.md`, `features/three-d-rendering-and-reports.md`, testing checklist |
 | Packaging Flow bug | `architecture/packaging-flow.md`, affected domain document, known regressions |
+| Transport engine/packing mode | `domain/transport-container-engine.md`, `engineering/testing-and-verification.md`; add `domain/transport-selection-logic.md` only when tool/service/UI consumers are in scope |
 | Company/About copy | company and product vision only |
 | Competitor analysis | `research/benchmarks.md` plus fresh external verification |
 
@@ -45,3 +46,7 @@ Add a rule to root `AGENTS.md` only when it affects most tasks or prevents a rep
 ## Optional future optimization: skills
 
 Repeated, specialized workflows can later become repository skills under `.agents/skills/`. Skills allow progressive disclosure: Codex can see a concise description first and load full instructions only when the skill is selected. Do this only after the workflow is stable; the current documentation remains the source reference.
+
+## Transport handoff files
+
+Files under `docs/handoffs/transport-container-*-codex-task.md` are session-specific execution briefs. Read one only when performing that task. They do not replace `docs/domain/transport-container-engine.md` and should not be loaded for unrelated Transport work.

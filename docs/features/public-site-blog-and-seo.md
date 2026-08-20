@@ -86,7 +86,17 @@ The Container Loading Calculator follows the same contract at
 Container form orchestration, service, engine, result partials, Three.js scene
 and viewer, public catalogue visibility rules, and snapshot-backed PDF export.
 Its demonstration transport unit and load row are injected only by the SEO
-view; standalone and Packaging Flow defaults are unchanged.
+view; standalone and Packaging Flow defaults are unchanged. Named public case
+links use the `?case=<slug>` query parameter. The current TOPS high-cube
+benchmark is available at
+`/free-container-loading-calculator/?case=tops-max-load-high-cube-benchmark`;
+it loads the manual 12039 × 2362 × 2692 mm fixture, four requested load-unit
+rows, and uses the canonical `front_to_back` configuration. Historical
+Front-to-Back identifiers remain accepted as input compatibility aliases.
+The mixed-load high-cube case is available at
+`/free-container-loading-calculator/?case=mix_load_case_hight_cube` and loads
+the 12032 × 2352 × 2395 mm container with the EUR pallet, 500 × 400 × 700 mm,
+and 500 × 200 × 700 mm rows.
 
 The Box Size Calculator follows the Container Selection shared contract at
 `/free-box-size-calculator/`. Its public demo uses manual product and box
