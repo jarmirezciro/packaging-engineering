@@ -6171,14 +6171,7 @@ def _pack_container_front_to_back(
     """Load complete blocks, then close each bounded local transition frontier."""
     normalized_container = _normalize_container(container)
     enable_infill = requested_mode == FRONT_TO_BACK_INFILL_MODE
-    normalized_products = normalize_products(
-        products
-        if enable_infill
-        else [
-            {**dict(product or {}), "sequence": 1}
-            for product in products or []
-        ]
-    )
+    normalized_products = normalize_products(products)
     ordered_products = sort_products(normalized_products, normalized_container)
     sequence_groups = sorted({product.sequence for product in ordered_products})
     sequence_restricted = len(sequence_groups) > 1
@@ -7177,10 +7170,12 @@ def pack_container(
     requested_mode = _normalize_packing_mode(
         mode if mode is not None else (container or {}).get("packing_mode")
     )
+    # Sequence is a mode boundary policy: Space Evenly is neutral; both
+    # Front-to-Back variants preserve the caller's sequence values.
     normalized_input_products = products
     if requested_mode in {
         SPACE_EVENLY_MODE,
-        FRONT_TO_BACK_MODE,
+        SPACE_EVENLY_INFILL_MODE,
     }:
         normalized_input_products = [
             {**dict(product or {}), "sequence": 1} for product in products or []

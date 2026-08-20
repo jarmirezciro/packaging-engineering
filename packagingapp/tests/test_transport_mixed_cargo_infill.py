@@ -314,22 +314,21 @@ class MixedCargoInfillTests(SimpleTestCase):
             product("P4", 2, 2, 5, 3, sequence=2),
             product("P5", 1, 1, 5, 20, sequence=3),
         ]
-        for mode in INFILL_MODES:
-            with self.subTest(mode=mode):
-                result = pack_container(container(mode), source)
-                actions = result[f"{mode}_actions"]
-                pairs = [
-                    (action["anchor_product"], action["filler_product"])
-                    for action in actions
-                ]
+        mode = FRONT_TO_BACK_INFILL_MODE
+        result = pack_container(container(mode), source)
+        actions = result[f"{mode}_actions"]
+        pairs = [
+            (action["anchor_product"], action["filler_product"])
+            for action in actions
+        ]
 
-                self.assertEqual(pairs, [("P1", "P2"), ("P3", "P4")])
-                self.assertEqual(result[f"{mode}_sequence_group_count"], 3)
-                self.assertTrue(result[f"{mode}_sequence_restricted"])
-                self.assertNotIn(4, Counter(
-                    item.row_index for item in result["placements"]
-                ))
-                self.assert_physical(result, container(mode))
+        self.assertEqual(pairs, [("P1", "P2"), ("P3", "P4")])
+        self.assertEqual(result[f"{mode}_sequence_group_count"], 3)
+        self.assertTrue(result[f"{mode}_sequence_restricted"])
+        self.assertNotIn(4, Counter(
+            item.row_index for item in result["placements"]
+        ))
+        self.assert_physical(result, container(mode))
 
     def test_stackability_rotation_and_payload_remain_authoritative(self):
         for mode in INFILL_MODES:

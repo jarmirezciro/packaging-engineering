@@ -878,26 +878,21 @@ class LoadFrontToBackV1Tests(FrontToBackInvariantMixin, SimpleTestCase):
         ordered = sort_products(normalize_products(source), container(10, 10, 10))
         self.assertEqual([item.row_index for item in ordered], [0, 1])
 
-    def test_same_sequence_order_matches_space_evenly_sorting(self):
+    def test_explicit_sequence_order_precedes_geometric_priority(self):
         source = [
             product("small", 1, 2, 2, 1, sequence=9),
             product("large", 2, 2, 2, 1, sequence=1),
             product("middle", 2, 1, 2, 1, sequence=2),
         ]
         selected_container = container(20, 10, 10)
-        expected = sort_products(
-            normalize_products(
-                [{**item, "sequence": 1} for item in source]
-            ),
-            selected_container,
-        )
         result = pack_container(selected_container, source)
         self.assertEqual(
             [item["row_index"] for item in result["front_to_back_product_order"]],
-            [item.row_index for item in expected],
+            [1, 2, 0],
         )
-        self.assertTrue(
-            all(item["sequence"] == 1 for item in result["front_to_back_product_order"])
+        self.assertEqual(
+            [item["sequence"] for item in result["front_to_back_product_order"]],
+            [1, 2, 9],
         )
 
     def test_both_existing_maximum_utilization_identifiers_route_to_v1(self):

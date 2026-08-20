@@ -31,7 +31,7 @@ class TransportVisualizationContractTests(SimpleTestCase):
             ],
         )
 
-    def test_infill_service_preserves_explicit_sequence_groups(self):
+    def test_space_evenly_infill_normalizes_engine_sequence(self):
         analysis = analyze_transport_capacity(
             {
                 "container_source": "manual",
@@ -83,7 +83,7 @@ class TransportVisualizationContractTests(SimpleTestCase):
             analysis["result"]["packing_mode"],
             "space_evenly_infill",
         )
-        self.assertTrue(
+        self.assertFalse(
             analysis["result"]["space_evenly_infill_sequence_restricted"]
         )
 

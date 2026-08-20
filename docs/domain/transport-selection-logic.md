@@ -152,10 +152,10 @@ free-space optimizer. Top closure is bottom-up and re-derived after each
 committed Product Block; top units have separate accounting and diagnostics.
 The current product may compete in that supported-top closure when it still has
 remaining quantity; side closure retains its later-product-only eligibility.
-With all sequence values equal, later products may
-cooperate locally. With multiple explicit sequence groups, side cooperation
-stays within a group and different groups can meet only at the adjacent active
-transition frontier.
+Space Evenly Infill normalizes sequence to one, so its geometry is sequence-
+agnostic. Front-to-Back Infill preserves explicit sequence groups: later
+products may cooperate locally only within the active group, and different
+groups can meet only at the adjacent active transition frontier.
 
 ## Max qty preprocessing
 

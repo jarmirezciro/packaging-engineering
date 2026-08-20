@@ -175,14 +175,13 @@ orientations, the existing non-stackable vertical cap, and the shared payload
 arithmetic. Materialized filler blocks start on the floor; physical overlap is
 excluded by deriving the next residual envelope from all committed geometry.
 
-Only the infill variants retain input sequence values. One distinct sequence
-means unrestricted later-product cooperation. More than one distinct sequence
-activates protection: side infill is limited to later products in the current
-sequence group. Space Evenly closes residual frontiers one sequence group at a
-time. Front-to-Back retains its existing immediate Pi/Pi+1 transition, so any
-cross-group interaction is limited to the adjacent transition frontier. A
-later sequence group cannot fill an earlier closed side strip or leapfrog an
-intermediate group.
+Space Evenly and Space Evenly Infill normalize every product to sequence `1`.
+Load Front-to-Back and Load Front-to-Back Infill preserve input sequence
+values. In the Front-to-Back infill variant, more than one distinct sequence
+activates protection: side/top infill is limited to the current sequence group,
+while different groups may interact only through the immediate Pi/Pi+1
+transition frontier. A later sequence group cannot fill an earlier closed
+window or leapfrog an intermediate group.
 
 The implementation performs no permutation, historical-gap scan, recursion,
 backtracking, beam search, or container cloning. Candidate work is bounded by
@@ -269,9 +268,10 @@ Duplicate tuples are removed. These flags are hard constraints: a disabled
 family cannot appear in a placement. No diagonal or arbitrary-angle placement
 is generated.
 
-## Space Evenly sequence semantics and product order
+## Sequence semantics and product order
 
-Space Evenly deliberately has one common loading group:
+Space Evenly deliberately has one common loading group, including its Mixed
+Cargo Infill variant:
 
 ```text
 all products are normalized to sequence = 1
@@ -283,9 +283,8 @@ the same rule again before normalization. A stale posted sequence value cannot
 change Space Evenly allocation.
 
 The engine still retains a sequence key internally because the shared result
-contract supports other historical mode values. For the active Space Evenly and
-Load Front-to-Back paths, all rows therefore share the same sequence and the
-effective deterministic product order is:
+contract supports other modes. Space Evenly therefore uses the effective
+deterministic product order:
 
 1. larger valid footprint among enabled orientations that fit the container;
 2. larger unit volume;
@@ -296,6 +295,12 @@ This is automatic ordering, not a user loading sequence. It determines the
 order of Phase 1 Product Blocks and is the primary residual-anchor priority in
 Phase 2. A lower-priority SKU may still fill valid capacity inside the active
 anchor frontier.
+
+Load Front-to-Back uses the same geometric priority after sequence: products
+are ordered by ascending input sequence, then larger valid footprint, unit
+volume, longest dimension, and original input order. Its Mixed Cargo Infill
+variant applies the existing same-sequence side/top eligibility rules within
+each bounded local window.
 
 ## Two-phase architecture
 

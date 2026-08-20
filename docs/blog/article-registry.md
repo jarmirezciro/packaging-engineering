@@ -4,8 +4,9 @@
 
 | Slug | Title | Status | Type | Primary keyword | Published | Updated | Related tools |
 |---|---|---|---|---|---|---|---|
-| tops-pro-case-size-optimization-kollipack-comparison | Can KolliPack Match TOPS Pro? The 8-Pack vs 16-Pack Case | draft | demo_case_study | KolliPack vs TOPS Pro | 2026-08-08 | 2026-08-08 | packaging-flow, palletization |
-| kollipack-vs-tops-pro-palletization-benchmark | One Pallet Case, Two Optimizers: Can KolliPack Match TOPS Pro? | draft | demo_case_study | TOPS Pro palletization comparison | 2026-08-04 | 2026-08-04 | palletization |
+| container-loading-benchmark-kollipack-br1-br7 | 700 Container-Loading Tests: An Honest Benchmark of KolliPack | draft | engineering_deep_dive | container loading benchmark | 2026-08-20 | 2026-08-20 | transport-container |
+| tops-pro-case-size-optimization-kollipack-comparison | Can KolliPack Match TOPS Pro? The 8-Pack vs 16-Pack Case | published | demo_case_study | KolliPack vs TOPS Pro | 2026-08-08 | 2026-08-08 | packaging-flow, palletization |
+| kollipack-vs-tops-pro-palletization-benchmark | One Pallet Case, Two Optimizers: Can KolliPack Match TOPS Pro? | published | demo_case_study | TOPS Pro palletization comparison | 2026-08-04 | 2026-08-04 | palletization |
 | rsc-material-optimization | Same Volume, Different Material: The Hidden Cost of Box Geometry | published | engineering_deep_dive | corrugated box material consumption | 2026-07-28 | 2026-07-30 | container-selection, palletization-calculator, packaging-flow |
 | how-many-products-fit-in-a-box-orientation-case-study | Same Box, 20% More Products: Why Orientation Matters | published | business_case | how many products fit in a box | 2026-07-28 | 2026-07-29 | container-selection |
 | think-beyond-the-box-packaging-flow-case-study | From 9,600 to 14,400: Why the First Box Was Not the Best Choice | published | business_case | how box design affects pallet capacity | 2026-07-27 | 2026-07-29 | packaging-flow |
