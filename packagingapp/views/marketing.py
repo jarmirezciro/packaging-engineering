@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from django.conf import settings
 from django.contrib import messages
@@ -13,6 +14,9 @@ from django.utils import timezone
 
 from packagingapp.forms import ContactForm
 from packagingapp.services.blog_repository import get_published_article, get_published_articles
+
+
+logger = logging.getLogger(__name__)
 
 AUTHOR_PROFILE = {
     "name": "Alejandro Ramírez",
@@ -156,6 +160,13 @@ def about(request):
                         "Thank you for your message. KolliLabs will get back to you as soon as possible.",
                     )
                 except Exception:
+                    logger.exception(
+                        "Contact form email delivery failed (recipient=%s, backend=%s, host=%s, port=%s)",
+                        recipient,
+                        getattr(settings, "EMAIL_BACKEND", ""),
+                        getattr(settings, "EMAIL_HOST", ""),
+                        getattr(settings, "EMAIL_PORT", ""),
+                    )
                     messages.warning(
                         request,
                         "Your message was validated, but email delivery is not configured correctly yet. "
