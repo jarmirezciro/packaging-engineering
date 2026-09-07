@@ -22,6 +22,7 @@ from ..tools.transport.modes import (
     transport_sequence_is_locked,
 )
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
+from ..entitlements import PDF_REPORTS, feature_required
 
 
 SEO_TRANSPORT_EXAMPLE_CONFIG = {
@@ -656,6 +657,7 @@ def transport_container_calculator(request):
     return render(request, "marketing/transport_container_calculator.html", context)
 
 
+@feature_required(PDF_REPORTS, "pdf")
 def container_tool_export_pdf(request):
     export_payload = request.session.get("transport_container_last_export")
 

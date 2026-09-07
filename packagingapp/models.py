@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 from decimal import Decimal
 import uuid
 
@@ -21,6 +22,37 @@ from .tools.corrugated_material_strength.flute_profiles import nominal_height_fo
 
 
 # Create your models here.
+
+
+class UserSubscription(models.Model):
+    class Plan(models.TextChoices):
+        FREE = "FREE", "Free"
+        PLUS = "PLUS", "Plus"
+        PREMIUM = "PREMIUM", "Premium"
+
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        INACTIVE = "INACTIVE", "Inactive"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="subscription",
+    )
+    plan = models.CharField(max_length=16, choices=Plan.choices, default=Plan.FREE)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
+    starts_at = models.DateTimeField(default=timezone.now)
+    current_period_end = models.DateTimeField(blank=True, null=True)
+    is_founder = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("user__username",)
+
+    def __str__(self):
+        return f"{self.user} - {self.get_plan_display()} ({self.get_status_display()})"
 
 ###
 # Packaging Catalogue Data Model

@@ -8,7 +8,7 @@ from .views import bag_selection
 from .views import palletization
 from .views import container_tool
 from .views.home import home
-from .views.marketing import about, blog_detail, blog_list
+from .views.marketing import about, blog_detail, blog_list, pricing
 from .views.corrugated_material_strength import (
     corrugated_material_strength,
     corrugated_material_strength_export_pdf,
@@ -34,6 +34,7 @@ urlpatterns = [
     # Public KolliLabs website
     path("", about, name="company_home"),
     path("about/", about, name="about"),
+    path("pricing/", pricing, name="pricing"),
     path("blog/", blog_list, name="blog_list"),
     # Canonical public SEO tool pages
     path(

@@ -57,6 +57,7 @@
 
                 {% if show_pdf_export and mode != "workflow" %}
                     <div class="app-form-actions tool-card-actions mt-3">
+                        {% if can_export_pdf %}
                         <input type="hidden" name="threejs_snapshot" value="">
                         <input type="hidden" name="threejs_view_label" value="">
                         <button type="submit"
@@ -67,6 +68,9 @@
                                 data-palletization-threejs-pdf-viewer="{{ pallet_ui.ids.threejs_viewer }}">
                             <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF with current 3D view
                         </button>
+                        {% else %}
+                            {% include "shared/_locked_paid_action.html" with label="PDF Report · Plus" feature="pdf" %}
+                        {% endif %}
                     </div>
                 {% endif %}
             {% endif %}

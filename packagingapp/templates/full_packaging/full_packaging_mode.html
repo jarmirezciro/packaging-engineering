@@ -102,9 +102,13 @@
 
   <div class="d-flex justify-content-end gap-2 flex-wrap">
     {% if steps %}
+      {% if can_export_pdf %}
       <a href="{{ full_packaging_export_url }}" class="btn btn-app-primary btn-sm">
         <i class="bi bi-filetype-pdf me-2"></i>Export PDF report
       </a>
+      {% else %}
+        {% include "shared/_locked_paid_action.html" with label="PDF Report · Plus" feature="pdf" button_class="btn btn-app-primary btn-sm" %}
+      {% endif %}
     {% endif %}
     <form method="post" style="margin:0;">
       {% csrf_token %}

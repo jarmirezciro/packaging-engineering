@@ -4,6 +4,7 @@
 
 - `/` — KolliLabs public/company page.
 - `/kollipack/` — KolliPack application entry/dashboard.
+- `/pricing/` — public Founding Pricing for Free, Plus, and Premium, including contextual paid-feature messages.
 - Public pages explain the company, product value, consultancy, education, and blog.
 - The application layout should not be casually redesigned when changing public routing.
 
@@ -120,3 +121,5 @@ Each calculator page should include:
 - no unsupported “best/optimal” claims.
 
 A shared tool change must be checked on its SEO page to avoid front-end or JavaScript drift.
+
+Public calculator results stay free. When a shared result partial includes a PDF action, anonymous and Free users see a locked Plus link before any Three.js snapshot work starts; Plus and Premium preserve the existing report path.

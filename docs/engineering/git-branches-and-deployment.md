@@ -52,6 +52,30 @@ These are development settings. Do not copy them into production configuration w
 
 Deployment steps may include migrations, static collection, environment variables, custom domains, and superuser creation. These are separate from code implementation.
 
+### Contact-form email delivery
+
+The public contact form sends to `CONTACT_EMAIL` (default:
+`jaramirezciro@gmail.com`). Set the following variables in the deployment
+environment to enable delivery through an SMTP provider; keep the username and
+password out of the repository:
+
+```text
+CONTACT_EMAIL=jaramirezciro@gmail.com
+DEFAULT_FROM_EMAIL=<verified sender address>
+EMAIL_HOST=<smtp host>
+EMAIL_PORT=587
+EMAIL_HOST_USER=<smtp username>
+EMAIL_HOST_PASSWORD=<smtp password or app password>
+EMAIL_USE_TLS=true
+EMAIL_USE_SSL=false
+EMAIL_TIMEOUT=20
+```
+
+For Gmail SMTP, use `smtp.gmail.com` on port `587` with TLS and an App Password
+for the sending account. `DEFAULT_FROM_EMAIL` should be an address that the
+provider permits that account to send from. A local development setup can use
+Django's console backend by setting `EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend`.
+
 Rules:
 
 - no production/Railway change during a normal coding task;

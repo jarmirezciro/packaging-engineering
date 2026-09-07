@@ -1,5 +1,6 @@
 from __future__ import annotations
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
+from packagingapp.entitlements import BATCH_EXCEL_EXPORT, feature_required
 
 from typing import Any, Dict, List
 
@@ -298,6 +299,7 @@ def multi_product_bag_draw(request: HttpRequest) -> JsonResponse:
     )
 
 
+@feature_required(BATCH_EXCEL_EXPORT, "batch_excel", json_response=True)
 @require_POST
 def multi_product_bag_export_excel(request: HttpRequest) -> HttpResponse:
     product_catalogue_id = request.POST.get("product_catalogue_id")

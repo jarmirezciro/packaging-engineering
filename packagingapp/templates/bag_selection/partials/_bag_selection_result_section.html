@@ -53,12 +53,16 @@
 
             {% if mode != "workflow" and analysis_report %}
                 <div class="app-form-actions tool-card-actions mt-3">
+                    {% if can_export_pdf %}
                     {% if current_mode == "single" %}
                         <input type="hidden" name="threejs_snapshot" value=""><input type="hidden" name="threejs_view_label" value="">
                         <button type="submit" name="single_export" value="1" class="btn btn-app-outline btn-sm" formaction="{% url 'bag_selection_export_pdf' %}" formmethod="post" data-container-threejs-pdf-button data-container-threejs-pdf-viewer="{{ bag_ui.ids.threejs_viewer }}"><i class="bi bi-file-earmark-pdf me-2"></i>Download PDF report</button>
                     {% elif current_mode == "optimal" %}
                         <input type="hidden" name="threejs_snapshot" value=""><input type="hidden" name="threejs_view_label" value="">
                         <button type="submit" name="optimal_export" value="1" class="btn btn-app-outline btn-sm" formaction="{% url 'bag_selection_export_optimal_pdf' %}" formmethod="post" data-container-threejs-pdf-button data-container-threejs-pdf-viewer="{{ bag_ui.ids.threejs_viewer }}"><i class="bi bi-file-earmark-pdf me-2"></i>Download PDF report</button>
+                    {% endif %}
+                    {% else %}
+                        {% include "shared/_locked_paid_action.html" with label="PDF Report · Plus" feature="pdf" %}
                     {% endif %}
                 </div>
             {% endif %}

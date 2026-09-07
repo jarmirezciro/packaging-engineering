@@ -2,11 +2,12 @@ import json
 from decimal import Decimal
 
 from django.test import TestCase
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from packagingapp.forms import CorrugatedMaterialStrengthForm
 from packagingapp.admin import CorrugatedECTReferenceGradeAdmin
-from packagingapp.models import CorrugatedBoardConstruction, CorrugatedECTReferenceGrade
+from packagingapp.models import CorrugatedBoardConstruction, CorrugatedECTReferenceGrade, UserSubscription
 from packagingapp.tools.corrugated_material_strength.contracts import build_shared_corrugated_material_ui_contract
 from packagingapp.tools.corrugated_material_strength.geometry import BoxGeometryInput, Fefco0201GeometryProvider
 from packagingapp.tools.corrugated_material_strength.service import calculate_corrugated_material_strength
@@ -336,6 +337,9 @@ class CorrugatedContractAndViewTests(TestCase):
         self.assertContains(response, "does not match the selected flute family")
 
     def test_manual_board_entry_and_pdf_export(self):
+        user = get_user_model().objects.create_user(username="corrugated-pdf-plus")
+        UserSubscription.objects.create(user=user, plan=UserSubscription.Plan.PLUS)
+        self.client.force_login(user)
         response = self.client.post(reverse("corrugated_material_strength"), {
             "action": "run_analysis", "box_length_mm": "400", "box_width_mm": "300", "box_height_mm": "200",
             "product_weight_g": "200", "quantity": "1000", "fefco_code": "0201", "joint_width_mm": "40",

@@ -65,6 +65,26 @@ ARTICLE_TYPES = {
 }
 
 
+PRICING_CONTEXT_MESSAGES = {
+    "catalogues": "Private Product and Packaging Catalogues are included in Plus and Premium.",
+    "pdf": "PDF reports are included in Plus and Premium.",
+    "batch_excel": "Excel result export for the Multi-product Box/Container and Bag batch tools is a Premium feature.",
+    "ai": "KolliPack AI is included in Plus and Premium.",
+}
+
+
+def pricing(request):
+    feature = (request.GET.get("feature") or "").strip().lower()
+    return render(
+        request,
+        "marketing/pricing.html",
+        {
+            "pricing_feature": feature if feature in PRICING_CONTEXT_MESSAGES else "",
+            "pricing_context_message": PRICING_CONTEXT_MESSAGES.get(feature, ""),
+        },
+    )
+
+
 def _prepare_blog_post(post: dict) -> dict:
     prepared = dict(post)
     article_type_key = prepared.get("article_type") or "practical_guide"

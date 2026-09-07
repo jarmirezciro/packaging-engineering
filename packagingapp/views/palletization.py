@@ -22,6 +22,7 @@ from ..tools.palletization.service import (
 from ..tools.palletization.state import default_palletization_config
 from ..tools.palletization.case_presets import get_palletization_case_preset
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
+from ..entitlements import PDF_REPORTS, feature_required
 
 
 def _as_bool(value):
@@ -557,6 +558,7 @@ def palletization_calculator(request):
     )
     return render(request, "marketing/palletization_calculator.html", context)
 
+@feature_required(PDF_REPORTS, "pdf")
 def palletization_export_pdf(request):
     export_payload = request.session.get("palletization_last_export")
 

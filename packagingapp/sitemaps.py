@@ -11,6 +11,7 @@ class PublicStaticSitemap(Sitemap):
 
     _pages = {
         "company_home": {"changefreq": "monthly", "priority": 1.0},
+        "pricing": {"changefreq": "monthly", "priority": 0.9},
         "blog_list": {"changefreq": "weekly", "priority": 0.8},
         "palletization_calculator": {"changefreq": "weekly", "priority": 0.95},
         "bag_selection_calculator": {"changefreq": "monthly", "priority": 0.9},

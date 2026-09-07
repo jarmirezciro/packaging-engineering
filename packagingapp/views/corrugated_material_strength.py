@@ -12,6 +12,7 @@ from ..tools.corrugated_material_strength.contracts import build_shared_corrugat
 from ..tools.corrugated_material_strength.serializers import json_safe, serialize_corrugated_inputs
 from ..tools.corrugated_material_strength.service import calculate_corrugated_material_strength
 from ..tools.corrugated_material_strength.export import build_corrugated_material_strength_pdf
+from ..entitlements import PDF_REPORTS, feature_required
 
 
 def _dimension(material, *names):
@@ -221,6 +222,7 @@ def corrugated_material_strength(request):
     })
 
 
+@feature_required(PDF_REPORTS, "pdf")
 def corrugated_material_strength_export_pdf(request):
     payload = request.session.get("corrugated_material_strength_last_analysis")
     if not payload or not payload.get("result"):

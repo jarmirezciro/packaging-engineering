@@ -7,6 +7,8 @@
 - Renderer draws them.
 - Report builder composes approved values and images.
 
+PDF report generation is a Plus/Premium entitlement. The server-side check must run before snapshot persistence or report generation, and Free/anonymous result partials must not attach snapshot-export JavaScript to the locked pricing link. Multi-product Container and Bag result-workbook exports are a separate Premium-only entitlement.
+
 A renderer must not invent extra placements or recompute a different count.
 
 ## Matplotlib server rendering

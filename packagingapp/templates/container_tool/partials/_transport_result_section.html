@@ -46,6 +46,7 @@
           <div class="app-section-subtitle mb-0">Loaded units, usage and occupied space.</div>
         </div>
         {% if result and not is_workflow %}
+        {% if can_export_pdf %}
         <button type="submit"
                 class="btn btn-app-outline btn-sm"
                 formaction="{% url 'container_tool_export_pdf' %}"
@@ -54,6 +55,9 @@
                 data-transport-threejs-pdf-viewer="{{ threejs_viewer_id }}">
           <i class="bi bi-file-earmark-pdf me-2"></i>PDF report
         </button>
+        {% else %}
+        {% include "shared/_locked_paid_action.html" with label="PDF Report · Plus" feature="pdf" %}
+        {% endif %}
         {% endif %}
       </div>
       {% if result %}

@@ -31,6 +31,7 @@ from ..tools.container.dimensions import (
 from ..tools.selection_mode import normalize_selection_mode
 from ..tools.container.export import build_container_selection_pdf
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
+from ..entitlements import PDF_REPORTS, feature_required
 
 
 SEO_CONTAINER_SELECTION_EXAMPLE_CONFIG = {
@@ -783,6 +784,7 @@ def container_selection_calculator(request):
     )
     return render(request, "marketing/container_selection_calculator.html", context)
 
+@feature_required(PDF_REPORTS, "pdf")
 def container_selection_export_pdf(request):
     if request.POST.get("design_export"):
         export_payload = request.session.get("container_selection_design_export")
@@ -809,6 +811,7 @@ def container_selection_export_pdf(request):
     return response
 
 
+@feature_required(PDF_REPORTS, "pdf")
 def container_selection_export_optimal_pdf(request):
     export_payload = request.session.get("container_selection_optimal_export")
 

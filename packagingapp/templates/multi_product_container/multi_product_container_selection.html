@@ -97,16 +97,16 @@
                 <div class="app-card-body">
                     <div class="app-section-title">Result</div>
                     <div class="app-section-subtitle">
-                        Run the analysis, export to Excel, and preview the arrangement for any selected option.
+                        Run the complete analysis and preview any selected arrangement. Excel result export is included with Premium.
                     </div>
 
                     <div class="app-form-actions mb-3">
                         <button id="runBtn" type="button" class="btn btn-app-primary">
                             <i class="bi bi-play-circle me-2"></i>Run Analysis
                         </button>
-                        <button id="exportBtn" type="button" class="btn btn-app-outline">
+                        {% if can_export_batch_excel %}<button id="exportBtn" type="button" class="btn btn-app-outline">
                             <i class="bi bi-file-earmark-excel me-2"></i>Export to Excel
-                        </button>
+                        </button>{% else %}{% include "shared/_locked_paid_action.html" with label="Export to Excel · Premium" feature="batch_excel" button_class="btn btn-app-outline" %}{% endif %}
                     </div>
 
                     <div id="status" class="app-form-note mb-3"></div>
@@ -745,7 +745,7 @@
         }
     });
 
-    exportBtn.addEventListener("click", async () => {
+    if (exportBtn) exportBtn.addEventListener("click", async () => {
         const productCatalogueId = productCatalogueSelect.value;
         const packagingCatalogueId = packagingCatalogueSelect.value;
 
@@ -766,6 +766,12 @@
                 headers: { "X-CSRFToken": csrfToken() },
                 body: form
             });
+
+            if (res.status === 403) {
+                const data = await res.json();
+                window.location.assign(data.pricing_url || "{% url 'pricing' %}?feature=batch_excel");
+                return;
+            }
 
             if (!res.ok) {
                 setStatus("Export failed.", true);

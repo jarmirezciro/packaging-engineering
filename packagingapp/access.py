@@ -1,19 +1,19 @@
-from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import Http404
 
+from .entitlements import PRIVATE_CATALOGUES, has_feature
 from .models import PackagingCatalogue, ProductCatalogue
 
 
-LOGIN_REQUIRED_MESSAGE = "Please sign in to create or manage private catalogues."
+LOGIN_REQUIRED_MESSAGE = "Private catalogue management is included in Plus and Premium."
 
 
 def user_can_manage_private_catalogues(user):
-    return bool(getattr(user, "is_authenticated", False))
+    return has_feature(user, PRIVATE_CATALOGUES)
 
 
 def can_manage_packaging_catalogue(user, catalogue):
-    if not getattr(user, "is_authenticated", False):
+    if not user_can_manage_private_catalogues(user):
         return False
     if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
         return True
@@ -21,7 +21,7 @@ def can_manage_packaging_catalogue(user, catalogue):
 
 
 def can_manage_product_catalogue(user, catalogue):
-    if not getattr(user, "is_authenticated", False):
+    if not user_can_manage_private_catalogues(user):
         return False
     if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
         return True
@@ -29,7 +29,10 @@ def can_manage_product_catalogue(user, catalogue):
 
 
 def user_can_administer_catalogues(user):
-    return bool(getattr(user, "is_authenticated", False) and getattr(user, "is_superuser", False))
+    return bool(
+        getattr(user, "is_authenticated", False)
+        and (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+    )
 
 
 def visible_packaging_catalogues(user):
@@ -53,7 +56,7 @@ def visible_product_catalogues(user):
 
 
 def manageable_packaging_catalogues(user):
-    if not getattr(user, "is_authenticated", False):
+    if not user_can_manage_private_catalogues(user):
         return PackagingCatalogue.objects.none()
     if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
         return PackagingCatalogue.objects.all().order_by("name")
@@ -61,7 +64,7 @@ def manageable_packaging_catalogues(user):
 
 
 def manageable_product_catalogues(user):
-    if not getattr(user, "is_authenticated", False):
+    if not user_can_manage_private_catalogues(user):
         return ProductCatalogue.objects.none()
     if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
         return ProductCatalogue.objects.all().order_by("name")

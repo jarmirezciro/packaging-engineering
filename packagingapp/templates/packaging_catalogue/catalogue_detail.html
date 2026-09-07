@@ -52,7 +52,6 @@
                     <i class="bi bi-image me-2"></i>Upload Pictures
                 </a>
 
-                {% endif %}
                 <a href="{% url 'export_catalogue_excel' catalogue.pk %}" class="btn btn-outline-light btn-sm">
                         <i class="bi bi-box-arrow-down me-2"></i>Export Catalogue
                 </a>
@@ -60,9 +59,19 @@
                 <a href="{% url 'download_excel_template' catalogue.pk %}" class="btn btn-outline-light btn-sm">
                     <i class="bi bi-download me-2"></i>Template
                 </a>
+                {% endif %}
             </div>
         </div>
     </div>
+
+    {% if is_read_only_private_catalogue %}
+    <div class="alert alert-info d-flex align-items-start gap-2">
+        <i class="bi bi-lock-fill mt-1" aria-hidden="true"></i>
+        <div><strong>This private catalogue is read-only on the Free plan.</strong> <a href="{% url 'pricing' %}?feature=catalogues" class="alert-link">Upgrade to Plus</a> to continue managing it.</div>
+    </div>
+    {% elif catalogue_storage %}
+    <div class="app-form-note mb-3"><i class="bi bi-image me-1"></i>Catalogue image storage: {{ catalogue_storage.usage_display }}. New images are optimized automatically.</div>
+    {% endif %}
 
     <div>
         <button class="btn btn-app-outline app-filter-toggle"

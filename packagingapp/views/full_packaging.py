@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ..models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
+from ..entitlements import PDF_REPORTS, feature_required
 from ..utils.box_selection.engine import run_mode1_and_render, compute_max_quantity_only
 from ..utils.bag_selection.engine import (
     SEALING_AREA,
@@ -2194,6 +2195,7 @@ def _prepare_design_chain_view_model(step, steps, idx):
 
 
 
+@feature_required(PDF_REPORTS, "pdf")
 def full_packaging_export_pdf(request, case_slug=None):
     workflow = _get_workflow(request)
     report_payload = build_workflow_report_payload(workflow)

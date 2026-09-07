@@ -7,7 +7,25 @@ from .models import (
     PackagingMaterial,
     ProductCatalogue,
     Product,
+    UserSubscription,
 )
+
+
+@admin.register(UserSubscription)
+class UserSubscriptionAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "plan",
+        "status",
+        "is_founder",
+        "starts_at",
+        "current_period_end",
+        "updated_at",
+    )
+    list_filter = ("plan", "status", "is_founder", "starts_at", "current_period_end")
+    search_fields = ("user__username", "user__email", "user__first_name", "user__last_name")
+    autocomplete_fields = ("user",)
+    readonly_fields = ("created_at", "updated_at")
 
 
 class PackagingMaterialInline(admin.TabularInline):

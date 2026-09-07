@@ -103,6 +103,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "packagingapp.context_processors.subscription_context",
             ],
         },
     },
@@ -254,5 +255,18 @@ TAILWIND_APP_NAME = "theme"
 # -----------------------------------------------------------------------------
 # Marketing/contact page settings
 # -----------------------------------------------------------------------------
-CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "")
+# Email transport is configured through deployment environment variables so
+# SMTP credentials never need to be committed to the repository.
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", default=False)
+EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", default=False)
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "20"))
+
+# Destination for messages submitted through the public contact form. Set the
+# CONTACT_EMAIL environment variable in a deployment to override this default.
+CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "jaramirezciro@gmail.com")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", CONTACT_EMAIL or "webmaster@localhost")

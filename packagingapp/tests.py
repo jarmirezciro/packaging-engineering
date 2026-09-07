@@ -9,7 +9,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import PackagingCatalogue, PackagingMaterial, Product, ProductCatalogue
+from .models import PackagingCatalogue, PackagingMaterial, Product, ProductCatalogue, UserSubscription
 
 
 class CatalogueAdministrationRightsTests(TestCase):
@@ -22,6 +22,8 @@ class CatalogueAdministrationRightsTests(TestCase):
             email="admin@example.com",
             password="password-123",
         )
+        UserSubscription.objects.create(user=self.user, plan=UserSubscription.Plan.PLUS)
+        UserSubscription.objects.create(user=self.other_user, plan=UserSubscription.Plan.PLUS)
 
     def test_regular_user_create_packaging_catalogue_is_forced_private(self):
         self.client.login(username="regular", password="password-123")
@@ -148,6 +150,7 @@ class PackagingMaterialPictureTests(TestCase):
     def setUp(self):
         User = get_user_model()
         self.user = User.objects.create_user(username="picture-user", password="password-123")
+        UserSubscription.objects.create(user=self.user, plan=UserSubscription.Plan.PLUS)
         self.catalogue = PackagingCatalogue.objects.create(
             name="Picture Test Packaging",
             owner=self.user,
@@ -190,6 +193,8 @@ class CatalogueRowDeletionTests(TestCase):
         User = get_user_model()
         self.owner = User.objects.create_user(username="row-owner", password="password-123")
         self.other_user = User.objects.create_user(username="row-other", password="password-123")
+        UserSubscription.objects.create(user=self.owner, plan=UserSubscription.Plan.PLUS)
+        UserSubscription.objects.create(user=self.other_user, plan=UserSubscription.Plan.PLUS)
 
         self.packaging_catalogue = PackagingCatalogue.objects.create(
             name="Row Delete Packaging",
@@ -267,6 +272,8 @@ class CatalogueRowEditingTests(TestCase):
         User = get_user_model()
         self.owner = User.objects.create_user(username="edit-owner", password="password-123")
         self.other_user = User.objects.create_user(username="edit-other", password="password-123")
+        UserSubscription.objects.create(user=self.owner, plan=UserSubscription.Plan.PLUS)
+        UserSubscription.objects.create(user=self.other_user, plan=UserSubscription.Plan.PLUS)
 
         self.packaging_catalogue = PackagingCatalogue.objects.create(
             name="Row Edit Packaging",
@@ -415,6 +422,10 @@ class PalletizationThreeJsAndPdfTests(TestCase):
     )
 
     def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="pallet-pdf-plus", password="password-123")
+        UserSubscription.objects.create(user=self.user, plan=UserSubscription.Plan.PLUS)
+        self.client.force_login(self.user)
         self.media_root = tempfile.mkdtemp(prefix="kollipack-pallet-threejs-test-")
         self.analysis_data = {
             "action": "run_analysis",
@@ -527,6 +538,10 @@ class TransportThreeJsAndPdfTests(TestCase):
     )
 
     def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="transport-pdf-plus", password="password-123")
+        UserSubscription.objects.create(user=self.user, plan=UserSubscription.Plan.PLUS)
+        self.client.force_login(self.user)
         self.media_root = tempfile.mkdtemp(prefix="kollipack-transport-threejs-test-")
         self.analysis_data = {
             "action": "run_analysis",

@@ -37,6 +37,11 @@ Verify current models before relying on this list.
 - UI permissions should be enforced server-side, not only hidden in templates.
 - Catalogue editing forms should reuse the app’s modern input style.
 - Do not expose private admin data on public SEO pages.
+- Public platform catalogues remain visible and usable by anonymous and Free users.
+- Private catalogue creation and management require Plus or Premium; ownership alone is not a commercial entitlement.
+- A downgraded Free owner retains read-only visibility and calculation-tool use of existing private catalogue data.
+- Catalogue cover and row images share one optimized storage quota across Product and Packaging Catalogues: 100 MiB for Plus and 1 GiB for Premium. Drawings do not count toward this quota.
+- The authoritative plan contract is `docs/product/pricing-and-entitlements.md` and the implementation belongs in `packagingapp/entitlements.py`, separate from ownership rules in `packagingapp/access.py`.
 
 ## First-party analytics direction
 

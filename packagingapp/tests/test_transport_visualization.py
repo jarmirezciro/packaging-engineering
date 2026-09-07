@@ -5,12 +5,14 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.test import TestCase, SimpleTestCase
 from django.urls import reverse
 
 from packagingapp.tools.transport.serializers import serialize_transport_threejs_scene
 from packagingapp.tools.transport.service import analyze_transport_capacity
 from packagingapp.forms import ContainerToolForm
+from packagingapp.models import UserSubscription
 
 
 class TransportVisualizationContractTests(SimpleTestCase):
@@ -285,6 +287,9 @@ class TransportVisualizationContractTests(SimpleTestCase):
 
 class TransportVisualizationSurfaceTests(TestCase):
     def setUp(self):
+        self.user = get_user_model().objects.create_user(username="transport-surface-plus")
+        UserSubscription.objects.create(user=self.user, plan=UserSubscription.Plan.PLUS)
+        self.client.force_login(self.user)
         self.media_root = tempfile.mkdtemp(prefix="kollipack-transport-view-test-")
         self.analysis_data = {
             "action": "run_analysis",

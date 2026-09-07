@@ -10,13 +10,13 @@ from django.core.paginator import Paginator
 from openpyxl import Workbook
 
 from packagingapp.access import (
-    LOGIN_REQUIRED_MESSAGE,
     can_manage_packaging_catalogue,
     get_manageable_packaging_catalogue_or_404,
     get_visible_packaging_catalogue_or_404,
     user_can_administer_catalogues,
     visible_packaging_catalogues,
 )
+from packagingapp.entitlements import PRIVATE_CATALOGUES, feature_required
 from packagingapp.forms import (
     PackagingCatalogueForm,
     PackagingMaterialForm,
@@ -28,11 +28,14 @@ from packagingapp.forms import (
 from packagingapp.services.excel_import import import_packaging_excel
 from packagingapp.services.drawing_import import import_drawings_zip
 from packagingapp.services.material_image_import import import_material_images_zip
+from packagingapp.services.catalogue_media import CatalogueMediaError, catalogue_storage_summary
 from packagingapp.models import PackagingMaterial
 
 
 def catalogue_list(request):
-    catalogues = visible_packaging_catalogues(request.user).order_by("is_public", "-created_at")
+    catalogues = list(visible_packaging_catalogues(request.user).order_by("is_public", "-created_at"))
+    for catalogue in catalogues:
+        catalogue.can_manage_by_user = can_manage_packaging_catalogue(request.user, catalogue)
     return render(
         request,
         "packaging_catalogue/catalogue_list.html",
@@ -43,6 +46,7 @@ def catalogue_list(request):
     )
 
 
+@feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 @login_required
 def create_catalogue(request):
     can_administer_catalogues = user_can_administer_catalogues(request.user)
@@ -51,6 +55,7 @@ def create_catalogue(request):
         form = PackagingCatalogueForm(
             request.POST,
             request.FILES,
+            user=request.user,
             allow_public_management=can_administer_catalogues,
         )
         if form.is_valid():
@@ -66,7 +71,7 @@ def create_catalogue(request):
             messages.success(request, "Packaging catalogue created successfully.")
             return redirect("catalogue_detail", pk=catalogue.pk)
     else:
-        form = PackagingCatalogueForm(allow_public_management=can_administer_catalogues)
+        form = PackagingCatalogueForm(user=request.user, allow_public_management=can_administer_catalogues)
 
     return render(
         request,
@@ -125,6 +130,7 @@ def catalogue_detail(request, pk):
     paginator = Paginator(materials, 25)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
+    can_manage = can_manage_packaging_catalogue(request.user, catalogue)
 
     return render(
         request,
@@ -133,11 +139,19 @@ def catalogue_detail(request, pk):
             "catalogue": catalogue,
             "form": form,
             "page_obj": page_obj,
-            "can_manage_catalogue": can_manage_packaging_catalogue(request.user, catalogue),
+            "can_manage_catalogue": can_manage,
+            "is_read_only_private_catalogue": bool(
+                not catalogue.is_public
+                and getattr(request.user, "is_authenticated", False)
+                and catalogue.owner_id == request.user.id
+                and not can_manage
+            ),
+            "catalogue_storage": catalogue_storage_summary(request.user) if can_manage else None,
         },
     )
 
 
+@feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 @login_required
 @require_POST
 def delete_catalogue(request, pk):
@@ -147,12 +161,13 @@ def delete_catalogue(request, pk):
     return redirect("catalogue_list")
 
 
+@feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 @login_required
 def add_material(request, pk):
     catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
 
     if request.method == "POST":
-        form = PackagingMaterialForm(request.POST, request.FILES)
+        form = PackagingMaterialForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             material = form.save(commit=False)
             material.catalogue = catalogue
@@ -160,7 +175,7 @@ def add_material(request, pk):
             messages.success(request, "Item added successfully.")
             return redirect("catalogue_detail", pk=catalogue.pk)
     else:
-        form = PackagingMaterialForm()
+        form = PackagingMaterialForm(user=request.user)
 
     return render(
         request,
@@ -169,19 +184,20 @@ def add_material(request, pk):
     )
 
 
+@feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 @login_required
 def edit_material(request, pk, material_id):
     catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
     material = get_object_or_404(PackagingMaterial, pk=material_id, catalogue=catalogue)
 
     if request.method == "POST":
-        form = PackagingMaterialForm(request.POST, request.FILES, instance=material)
+        form = PackagingMaterialForm(request.POST, request.FILES, instance=material, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, "Packaging material updated successfully.")
             return redirect("catalogue_detail", pk=catalogue.pk)
     else:
-        form = PackagingMaterialForm(instance=material)
+        form = PackagingMaterialForm(instance=material, user=request.user)
 
     return render(
         request,
@@ -190,6 +206,7 @@ def edit_material(request, pk, material_id):
     )
 
 
+@feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 @login_required
 @require_POST
 def delete_material(request, pk, material_id):
@@ -203,6 +220,7 @@ def delete_material(request, pk, material_id):
     return redirect("catalogue_detail", pk=catalogue.pk)
 
 
+@feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 @login_required
 def upload_excel(request, pk):
     catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
@@ -237,6 +255,7 @@ def upload_excel(request, pk):
     )
 
 
+@feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 @login_required
 def upload_drawings_for_catalogue(request, pk):
     catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
@@ -267,6 +286,7 @@ def upload_drawings_for_catalogue(request, pk):
     )
 
 
+@feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 @login_required
 def upload_material_images_for_catalogue(request, pk):
     catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
@@ -278,6 +298,7 @@ def upload_material_images_for_catalogue(request, pk):
                 imported, not_matched, skipped = import_material_images_zip(
                     request.FILES["zip_file"],
                     catalogue,
+                    acting_user=request.user,
                 )
                 return render(
                     request,
@@ -298,6 +319,12 @@ def upload_material_images_for_catalogue(request, pk):
                         "error": "Invalid ZIP file.",
                     },
                 )
+            except CatalogueMediaError as exc:
+                return render(
+                    request,
+                    "packaging_catalogue/upload_material_images.html",
+                    {"form": form, "catalogue": catalogue, "error": str(exc)},
+                )
     else:
         form = PackagingMaterialImagesZipUploadForm()
 
@@ -308,8 +335,9 @@ def upload_material_images_for_catalogue(request, pk):
     )
 
 
+@feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 def download_excel_template(request, pk):
-    catalogue = get_visible_packaging_catalogue_or_404(request.user, pk=pk)
+    catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
 
     wb = Workbook()
 
@@ -377,6 +405,7 @@ def download_excel_template(request, pk):
     return response
 
 
+@feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 @login_required
 def edit_catalogue(request, pk):
     catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
@@ -387,6 +416,7 @@ def edit_catalogue(request, pk):
             request.POST,
             request.FILES,
             instance=catalogue,
+            user=request.user,
             allow_public_management=can_administer_catalogues,
         )
         if form.is_valid():
@@ -404,6 +434,7 @@ def edit_catalogue(request, pk):
     else:
         form = PackagingCatalogueForm(
             instance=catalogue,
+            user=request.user,
             allow_public_management=can_administer_catalogues,
         )
 
@@ -418,8 +449,9 @@ def edit_catalogue(request, pk):
     )
 
 
+@feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 def export_catalogue_excel(request, pk):
-    catalogue = get_visible_packaging_catalogue_or_404(request.user, pk=pk)
+    catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
     materials = catalogue.materials.all().order_by("part_number")
 
     wb = Workbook()

@@ -24,6 +24,7 @@ from ..tools.selection_mode import normalize_selection_mode
 from ..tools.bag.export import build_bag_selection_pdf
 from ..utils.bag_selection.engine import SEALING_AREA, TOLERANCE
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
+from ..entitlements import PDF_REPORTS, feature_required
 
 
 SEO_BAG_SELECTION_EXAMPLE_CONFIG = {
@@ -624,6 +625,7 @@ def bag_selection_calculator(request):
     return render(request, "marketing/bag_selection_calculator.html", context)
 
 
+@feature_required(PDF_REPORTS, "pdf")
 def bag_selection_export_pdf(request):
     if request.POST.get("design_export"):
         export_payload = request.session.get("bag_selection_design_export")
@@ -659,6 +661,7 @@ def bag_selection_export_pdf(request):
     return response
 
 
+@feature_required(PDF_REPORTS, "pdf")
 def bag_selection_export_optimal_pdf(request):
     export_payload = request.session.get("bag_selection_optimal_export")
 

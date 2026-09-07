@@ -2,9 +2,11 @@ from decimal import Decimal
 
 from django import forms
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import UploadedFile
 
 from .models import CorrugatedBoardConstruction, PackagingCatalogue, PackagingMaterial
 from .models import ProductCatalogue, Product
+from .services.catalogue_media import CatalogueMediaError, prepare_catalogue_image
 from .tools.product_shape import PRODUCT_SHAPE_CHOICES
 from .tools.transport.modes import (
     DEFAULT_TRANSPORT_PACKING_MODE,
@@ -81,13 +83,44 @@ class CatalogueAdministrationFormMixin:
             owner_field.widget.attrs.update({"class": "form-select"})
 
 
-class PackagingCatalogueForm(CatalogueAdministrationFormMixin, forms.ModelForm):
+class CatalogueImageFormMixin:
+    image_field_name = None
+
+    def __init__(self, *args, user=None, **kwargs):
+        self.catalogue_image_user = user
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned = super().clean()
+        field_name = self.image_field_name
+        upload = cleaned.get(field_name) if field_name else None
+        if isinstance(upload, UploadedFile):
+            if self.catalogue_image_user is None:
+                self.add_error(field_name, "An authenticated catalogue owner is required for image uploads.")
+                return cleaned
+            replacing = getattr(self.instance, field_name, None) if getattr(self.instance, "pk", None) else None
+            try:
+                cleaned[field_name] = prepare_catalogue_image(
+                    upload,
+                    self.catalogue_image_user,
+                    replacing=replacing,
+                )
+            except CatalogueMediaError as exc:
+                self.add_error(field_name, str(exc))
+        return cleaned
+
+
+class PackagingCatalogueForm(CatalogueImageFormMixin, CatalogueAdministrationFormMixin, forms.ModelForm):
+    image_field_name = "picture"
+
     class Meta:
         model = PackagingCatalogue
         fields = ["name", "description", "picture", "is_public", "owner"]
 
 
-class PackagingMaterialForm(forms.ModelForm):
+class PackagingMaterialForm(CatalogueImageFormMixin, forms.ModelForm):
+    image_field_name = "picture"
+
     class Meta:
         model = PackagingMaterial
         fields = [
@@ -349,13 +382,17 @@ class ProductFilterForm(forms.Form):
     max_volume = forms.DecimalField(required=False, label="Max Volume")
 
 
-class ProductCatalogueForm(CatalogueAdministrationFormMixin, forms.ModelForm):
+class ProductCatalogueForm(CatalogueImageFormMixin, CatalogueAdministrationFormMixin, forms.ModelForm):
+    image_field_name = "picture"
+
     class Meta:
         model = ProductCatalogue
         fields = ["name", "description", "picture", "is_public", "owner"]
 
 
-class ProductForm(forms.ModelForm):
+class ProductForm(CatalogueImageFormMixin, forms.ModelForm):
+    image_field_name = "product_picture"
+
     class Meta:
         model = Product
         fields = [

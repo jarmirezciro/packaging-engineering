@@ -36,6 +36,7 @@ Labels used in domain documents:
 |---|---|
 | Any change | `../AGENTS.md`, this file |
 | Company/site copy | `product/company-context.md`, `product/product-vision.md` |
+| Pricing and entitlements | `product/pricing-and-entitlements.md` plus the affected feature document |
 | Architecture/refactor | `architecture/application-architecture.md`, `architecture/shared-tool-contract.md` |
 | Packaging Flow | `architecture/packaging-flow.md` |
 | Multi-product Bag/Container | `architecture/shared-tool-contract.md` plus the affected domain document |
