@@ -76,6 +76,12 @@ for the sending account. `DEFAULT_FROM_EMAIL` should be an address that the
 provider permits that account to send from. A local development setup can use
 Django's console backend by setting `EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend`.
 
+If the hosting provider blocks outbound SMTP, use Brevo's HTTPS API instead of
+SMTP. Set `EMAIL_TRANSPORT=brevo_api`, add `BREVO_API_KEY` using a Brevo API key
+(not an SMTP key), and keep `DEFAULT_FROM_EMAIL` set to a verified Brevo sender.
+The API endpoint defaults to `https://api.brevo.com/v3/smtp/email` and uses
+normal HTTPS traffic.
+
 Rules:
 
 - no production/Railway change during a normal coding task;

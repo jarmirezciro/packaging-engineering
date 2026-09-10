@@ -257,6 +257,7 @@ TAILWIND_APP_NAME = "theme"
 # -----------------------------------------------------------------------------
 # Email transport is configured through deployment environment variables so
 # SMTP credentials never need to be committed to the repository.
+EMAIL_TRANSPORT = os.environ.get("EMAIL_TRANSPORT", "smtp").strip().lower()
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "localhost")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "25"))
@@ -265,6 +266,12 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", default=False)
 EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", default=False)
 EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "20"))
+
+# Brevo's HTTPS API is useful on hosts that block outbound SMTP connections.
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
+BREVO_API_URL = os.environ.get("BREVO_API_URL", "https://api.brevo.com/v3/smtp/email")
+BREVO_API_TIMEOUT = int(os.environ.get("BREVO_API_TIMEOUT", "20"))
+BREVO_SENDER_NAME = os.environ.get("BREVO_SENDER_NAME", "KolliLabs")
 
 # Destination for messages submitted through the public contact form. Set the
 # CONTACT_EMAIL environment variable in a deployment to override this default.

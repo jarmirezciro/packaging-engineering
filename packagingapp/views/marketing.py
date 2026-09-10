@@ -5,7 +5,6 @@ import logging
 
 from django.conf import settings
 from django.contrib import messages
-from django.core.mail import send_mail
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -14,6 +13,7 @@ from django.utils import timezone
 
 from packagingapp.forms import ContactForm
 from packagingapp.services.blog_repository import get_published_article, get_published_articles
+from packagingapp.services.email_delivery import send_contact_email
 
 
 logger = logging.getLogger(__name__)
@@ -148,12 +148,11 @@ def about(request):
                 ])
 
                 try:
-                    send_mail(
+                    send_contact_email(
                         subject=subject,
-                        message=body,
-                        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-                        recipient_list=[recipient],
-                        fail_silently=False,
+                        body=body,
+                        recipient=recipient,
+                        reply_to=cleaned["email"],
                     )
                     messages.success(
                         request,
@@ -161,7 +160,8 @@ def about(request):
                     )
                 except Exception:
                     logger.exception(
-                        "Contact form email delivery failed (recipient=%s, backend=%s, host=%s, port=%s)",
+                        "Contact form email delivery failed (transport=%s, recipient=%s, backend=%s, host=%s, port=%s)",
+                        getattr(settings, "EMAIL_TRANSPORT", "smtp"),
                         recipient,
                         getattr(settings, "EMAIL_BACKEND", ""),
                         getattr(settings, "EMAIL_HOST", ""),
