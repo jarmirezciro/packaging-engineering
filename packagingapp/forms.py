@@ -759,10 +759,10 @@ class ContainerToolForm(forms.Form):
 class ContactForm(forms.Form):
     AREA_CHOICES = [
         ("KolliPack app", "KolliPack app"),
-        ("Packaging consultancy", "Packaging consultancy"),
-        ("Packaging project management", "Packaging project management"),
-        ("Packaging optimization", "Packaging optimization"),
-        ("Packaging education / training", "Packaging education / training"),
+        ("Packaging and logistics consultancy", "Packaging and logistics consultancy"),
+        ("Palletization and transport utilization", "Palletization and transport utilization"),
+        ("Training and education", "Training and education"),
+        ("Software idea or partnership", "Software idea or partnership"),
         ("Other", "Other"),
     ]
 
