@@ -38,6 +38,7 @@ Labels used in domain documents:
 | Company/site copy | `product/company-context.md`, `product/product-vision.md` |
 | Pricing and entitlements | `product/pricing-and-entitlements.md` plus the affected feature document |
 | Architecture/refactor | `architecture/application-architecture.md`, `architecture/shared-tool-contract.md` |
+| AI assistant architecture or implementation | `ai_assistant_architecture.md`, `ai_assistant_implementation_status.md`, then the affected tool/domain documents; local OpenAI setup is in `engineering/ai-assistant-local-openai.md`, Session 10.5 product evidence is in `engineering/ai-assistant-input-action-evaluation.md`, and Public Expert evidence is in `engineering/ai-public-expert-evaluation.md` |
 | Packaging Flow | `architecture/packaging-flow.md` |
 | Multi-product Bag/Container | `architecture/shared-tool-contract.md` plus the affected domain document |
 | CSS/templates/JS | `frontend/theme-and-components.md`, `frontend/interactions-and-accessibility.md`; for full-page tool interactions, `frontend/tool-scroll-preservation.md` |

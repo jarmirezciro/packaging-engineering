@@ -94,7 +94,31 @@ A critical rule from prior fixes:
 
 Do not apply `R1/R2/R3` only to the first region while allowing unrestricted orientations in leftovers.
 
-The exact semantic mapping of R1/R2/R3 must be read from current forms/engine and documented here before changing it.
+The mapping below is verified against the current authoritative orientation
+helper and Container Assistant adapter; re-verify both before changing it.
+
+### Restriction
+
+**Current implementation note:** in Container Selection, a restriction is a
+server-enforced condition that removes an otherwise possible orientation or
+candidate from consideration. R1/R2/R3 are rotation restrictions; positive
+dimensions, usable internal bounds, and the selected source/mode impose other
+feasibility restrictions. Payload remains informational for Container capacity
+in the current implementation and must not be described as a capacity
+restriction.
+
+### R1, R2, and R3
+
+**Current implementation note:** the authoritative orientation helper maps the
+controls to the product dimension permitted on the vertical container axis:
+
+- **R1:** product length may be vertical;
+- **R2:** product width may be vertical;
+- **R3:** product height may be vertical.
+
+Disabling a control removes both orthogonal orientations with that product
+dimension vertical. The same mapping applies to the main region, every residual
+region, Design candidates, standalone Container Selection, and Packaging Flow.
 
 ## Modes
 
@@ -207,3 +231,44 @@ serialized results. Single and Optimal modes keep their existing evaluation.
 Selection Mode continues to use `MainBox` and its existing leftover-space logic.
 The extraction preserves Container Design's existing candidate dimensions,
 ordering, representative choices, render geometry, and candidate identifiers.
+
+### Design quantity and additional capacity
+
+**Current implementation note:** Design Mode first raises the requested
+quantity to the smallest quantity at or above it whose prime factors are limited
+to 2, 3, and 5. That supported **design quantity** can be distributed into the
+regular three-axis factor grids used by the shared arrangement generator.
+**Additional capacity** is exactly:
+
+```text
+design quantity - requested quantity
+```
+
+It describes the extra positions created by that supported regular-grid
+quantity. It is not spare capacity discovered in a selected catalogue carton.
+
+### Cubicity
+
+**Current implementation note:** Container Design cubicity is the shape-balance
+ratio of a generated candidate's internal bounding dimensions:
+
+```text
+min(internal length, internal width, internal height)
+----------------------------------------------------
+max(internal length, internal width, internal height)
+```
+
+The ratio is between 0 and 1. Values nearer 1 identify a more cube-like bounding
+box and rank ahead of less balanced candidates before additional capacity and
+volume tie-breakers. Cubicity is not volume utilization and does not prove
+material efficiency, manufacturability, strength, protection, or overall
+packaging quality.
+
+### Design efficiency
+
+**Current implementation note:** the user-visible Design efficiency is `1.0`
+(100%) because each generated candidate is the exact axis-aligned bounding box
+of its regular product grid. Within that idealized cuboid model, the grid fills
+its generated bounding volume without geometric voids. The metric does not
+include board thickness, closures, manufacturing allowances, cushioning,
+strength, product protection, or other real-world packaging requirements.

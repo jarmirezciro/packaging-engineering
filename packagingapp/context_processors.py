@@ -8,6 +8,7 @@ from packagingapp.entitlements import (
     has_feature,
     plan_display_name,
 )
+from packagingapp.assistant.public_ui import public_expert_template_context
 
 
 def subscription_context(request):
@@ -21,3 +22,8 @@ def subscription_context(request):
         "catalogue_image_limit_bytes": catalogue_image_limit_bytes(user),
         "expert_support_hours": expert_support_hours(user),
     }
+
+
+def public_expert_context(request):
+    """Expose only server-owned public page scope and presentation settings."""
+    return public_expert_template_context(request)

@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Container Selection Tool{% endblock %}
 
 {% block content %}
 <div class="app-page">
 
-    <div class="app-hero app-hero--compact">
+    <div class="app-hero app-hero--compact kpa-supported-hero">
         <div>
             <div class="app-hero-badge">
                 <i class="bi bi-box-seam"></i>
@@ -15,6 +16,20 @@
                 Single container analysis and optimal container selection with on-demand 3D rendering.
             </p>
         </div>
+        {% if assistant_ui_enabled %}
+        <button type="button"
+                class="btn kpa-hero-open"
+                data-kollipack-assistant-open
+                data-assistant-surface="standalone"
+                data-assistant-state-root-id="{{ container_ui.ids.root }}"
+                data-assistant-context-label="Container Selection"
+                data-assistant-has-result="{% if result %}true{% else %}false{% endif %}"
+                aria-controls="kollipackAssistantPanel"
+                aria-expanded="false">
+            <i class="bi bi-stars" aria-hidden="true"></i>
+            Open Assistant
+        </button>
+        {% endif %}
     </div>
 
     <form method="post" class="app-page" id="{{ container_ui.ids.root }}_form" data-preserve-tool-scroll="container-selection-standalone">
@@ -24,4 +39,16 @@
 </div>
 
 {% include "container_selection_tool/partials/_container_selection_scripts.html" %}
+{% endblock %}
+
+{% block assistant_workspace %}
+{% if assistant_ui_enabled %}
+    {% include "assistant/_workspace.html" %}
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if assistant_ui_enabled %}
+<script src="{% static 'js/kollipack_assistant.js' %}?v=session105-20261009"></script>
+{% endif %}
 {% endblock %}

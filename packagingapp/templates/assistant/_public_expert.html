@@ -1,0 +1,95 @@
+{% load static %}
+<div class="kpe-root"
+     data-kollipack-public-expert
+     data-public-expert-url="{% url 'public_expert_ask' %}"
+     data-public-expert-scope="{{ public_expert_scope }}"
+     data-public-expert-surface="{{ public_expert_surface }}">
+    <button type="button"
+            class="btn btn-success kpe-launcher"
+            data-public-expert-open
+            aria-controls="kolliPackPublicExpertPanel"
+            aria-expanded="false">
+        <i class="bi bi-chat-square-text" aria-hidden="true"></i>
+        <span>Ask KolliPack</span>
+    </button>
+
+    <button type="button"
+            class="kpe-backdrop"
+            data-public-expert-backdrop
+            aria-label="Close Public Expert"
+            hidden></button>
+
+    <aside id="kolliPackPublicExpertPanel"
+           class="kpe-panel"
+           data-public-expert-panel
+           role="dialog"
+           aria-modal="true"
+           aria-labelledby="kpeTitle"
+           hidden>
+        <header class="kpe-header">
+            <div>
+                <span class="kpe-eyebrow">KolliPack public knowledge</span>
+                <h2 id="kpeTitle">Ask KolliPack</h2>
+            </div>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary kpe-close"
+                    data-public-expert-close
+                    aria-label="Close Public Expert">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+        </header>
+
+        <div class="kpe-body" data-public-expert-scroll>
+            <p class="kpe-intro">
+                Ask about KolliLabs, KolliPack tools, terminology, documented concepts,
+                and which tool may fit your task.
+            </p>
+
+            <div class="kpe-suggestions" aria-label="Suggested questions">
+                {% for suggestion in public_expert_suggestions %}
+                <button type="button"
+                        class="kpe-suggestion"
+                        data-public-expert-suggestion="{{ suggestion }}">{{ suggestion }}</button>
+                {% endfor %}
+            </div>
+
+            <section class="kpe-interaction"
+                     data-public-expert-interaction
+                     aria-label="Latest Public Expert interaction"
+                     hidden>
+                <div class="kpe-turn kpe-turn--visitor">
+                    <span class="kpe-turn-label">Your question</span>
+                    <p data-public-expert-question></p>
+                </div>
+                <div class="kpe-turn kpe-turn--expert">
+                    <span class="kpe-turn-label">KolliPack Public Expert</span>
+                    <p data-public-expert-response role="status" aria-live="polite" aria-atomic="true"></p>
+                </div>
+            </section>
+        </div>
+
+        <form class="kpe-composer" data-public-expert-form novalidate>
+            {% csrf_token %}
+            <label for="kpeQuestion" class="form-label">Your question</label>
+            <textarea id="kpeQuestion"
+                      class="form-control"
+                      data-public-expert-input
+                      rows="3"
+                      maxlength="{{ public_expert_message_limit }}"
+                      placeholder="Ask about a KolliPack tool or concept"
+                      required></textarea>
+            <div class="kpe-composer-meta">
+                <span data-public-expert-count>0 / {{ public_expert_message_limit }}</span>
+                <button type="submit" class="btn btn-success" data-public-expert-send>
+                    <span>Ask</span>
+                    <span class="spinner-border spinner-border-sm" data-public-expert-spinner aria-hidden="true" hidden></span>
+                </button>
+            </div>
+        </form>
+
+        <p class="kpe-disclosure">
+            Uses an external AI service and approved public KolliPack knowledge. It cannot
+            see demo inputs or results. Do not include confidential or personal information.
+        </p>
+    </aside>
+</div>

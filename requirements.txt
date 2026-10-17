@@ -11,6 +11,12 @@ whitenoise==6.12.0
 dj-database-url==3.1.2
 psycopg[binary]==3.3.4
 
+# Railway Redis for the deployment-shared assistant throttle
+redis==8.1.0
+
+# Official OpenAI SDK for the opt-in local read-only assistant provider
+openai==3.24.0
+
 # Engineering calculations, Excel import/export, and generated images
 numpy==1.26.4
 pandas==2.2.3

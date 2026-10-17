@@ -88,6 +88,33 @@ A downstream tool must know whether an input was:
 
 Inheritance should populate the shared tool contract, not bypass the standalone service.
 
+### Inherited input
+
+**Current implementation note:** an inherited input is a JSON-safe physical
+output from the effective upstream step that is normalized into the downstream
+tool's ordinary input contract. It records upstream provenance but does not
+bypass the downstream form, service, validation, or engine. A user override is
+distinct from an inherited value and must remain explicit.
+
+### Pending and selected results
+
+**Current implementation note:** a pending result is the freshest successfully
+calculated output displayed by a step before the user explicitly accepts it. A
+selected result is the output the user has committed for downstream
+propagation. Where a consumer needs the freshest physical output for the active
+step, current orchestration prefers `pending_result` and otherwise falls back to
+`selected`; it does not silently turn a pending result into an explicit user
+selection.
+
+### Assistant scope
+
+**Current implementation note:** the current Assistant pilot is attached only
+to Container Selection steps. One Assistant request receives the active
+Container step's validated Tool Context plus approved documentation. It does not
+receive every Packaging Flow step, and documentation about Bag, Palletization,
+or Transport never supplies those tools' live inputs, pending result, selected
+result, or calculation state.
+
 Bag and Container Selection store one authoritative `mode` value: `design`,
 `single`, or `optimal`. The short-lived legacy `tool_mode=design` state is read
 as `mode=design` and then discarded; new state never writes `tool_mode`.

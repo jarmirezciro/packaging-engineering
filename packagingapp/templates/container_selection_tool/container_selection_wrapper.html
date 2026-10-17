@@ -33,8 +33,13 @@
     </div>
 {% endif %}
 
+{% if assistant_ui_enabled %}
+    {{ container_ui.assistant_state_fields|json_script:container_ui.ids.assistant_state_fields }}
+{% endif %}
+
 <div id="{{ container_ui.ids.root }}"
      data-container-tool-root
-     data-container-prefix="{{ container_ui.prefix|default:'' }}">
+     data-container-prefix="{{ container_ui.prefix|default:'' }}"
+     {% if assistant_ui_enabled %}data-assistant-state-fields="{{ container_ui.ids.assistant_state_fields }}"{% endif %}>
     {% include "container_selection_tool/partials/_container_selection_tool.html" %}
 </div>

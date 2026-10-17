@@ -104,6 +104,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "packagingapp.context_processors.subscription_context",
+                "packagingapp.context_processors.public_expert_context",
             ],
         },
     },
@@ -277,3 +278,124 @@ BREVO_SENDER_NAME = os.environ.get("BREVO_SENDER_NAME", "KolliLabs")
 # CONTACT_EMAIL environment variable in a deployment to override this default.
 CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "jaramirezciro@gmail.com")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", CONTACT_EMAIL or "webmaster@localhost")
+
+
+# -----------------------------------------------------------------------------
+# AI assistant external-provider safety configuration
+# -----------------------------------------------------------------------------
+# These values are deliberately read as raw strings.  The assistant's strict
+# configuration loader validates them without breaking ordinary deterministic
+# KolliPack startup when optional external AI configuration is absent or bad.
+# No provider credential is loaded into Django settings; only the name of the
+# server-side environment variable that will eventually hold it is configured.
+AI_EXTERNAL_PROVIDER_ENABLED = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_ENABLED", "false"
+)
+AI_EXTERNAL_PROVIDER_ID = os.environ.get("AI_EXTERNAL_PROVIDER_ID", "")
+AI_EXTERNAL_PROVIDER_MODEL = os.environ.get("AI_EXTERNAL_PROVIDER_MODEL", "")
+AI_EXTERNAL_PROVIDER_SECRET_ENV = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_SECRET_ENV", ""
+)
+AI_EXTERNAL_PROVIDER_TIMEOUT_SECONDS = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_TIMEOUT_SECONDS", "10"
+)
+AI_EXTERNAL_PROVIDER_MAX_OUTPUT_TOKENS = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_MAX_OUTPUT_TOKENS", "3000"
+)
+AI_EXTERNAL_PROVIDER_REASONING_EFFORT = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_REASONING_EFFORT", ""
+)
+
+# Redis is optional at application startup. Railway deployments that need the
+# external-provider readiness path reference the managed Redis service through
+# REDIS_URL; local development and ordinary deterministic KolliPack operation
+# continue to use the process-local default cache without requiring Redis.
+REDIS_URL = os.environ.get("REDIS_URL", "").strip()
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "kollipack-default",
+    }
+}
+if REDIS_URL:
+    CACHES["assistant"] = {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+        "KEY_PREFIX": "kollipack-assistant",
+        "OPTIONS": {
+            "socket_connect_timeout": 2,
+            "socket_timeout": 2,
+        },
+    }
+
+AI_ASSISTANT_THROTTLE_CACHE_ALIAS = os.environ.get(
+    "AI_ASSISTANT_THROTTLE_CACHE_ALIAS", "assistant"
+)
+AI_ASSISTANT_RATE_LIMIT_REQUESTS = os.environ.get(
+    "AI_ASSISTANT_RATE_LIMIT_REQUESTS", "10"
+)
+AI_ASSISTANT_RATE_LIMIT_WINDOW_SECONDS = os.environ.get(
+    "AI_ASSISTANT_RATE_LIMIT_WINDOW_SECONDS", "60"
+)
+
+# Production external AI may be enabled only after deployment-owned approvals
+# and policy identifiers are explicitly supplied. Empty/false defaults are
+# intentionally incomplete and fail closed; local pilot acknowledgements do not
+# constitute production approval.
+AI_EXTERNAL_PROVIDER_PRIVACY_APPROVED = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_PRIVACY_APPROVED", "false"
+)
+AI_EXTERNAL_DISCLOSURE_POLICY_VERSION = os.environ.get(
+    "AI_EXTERNAL_DISCLOSURE_POLICY_VERSION", ""
+)
+AI_EXTERNAL_PROVIDER_TRAINING_OPT_OUT_CONFIRMED = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_TRAINING_OPT_OUT_CONFIRMED", "false"
+)
+AI_EXTERNAL_PROVIDER_RETENTION_POLICY = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_RETENTION_POLICY", ""
+)
+AI_EXTERNAL_PROVIDER_DATA_RESIDENCY_POLICY = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_DATA_RESIDENCY_POLICY", ""
+)
+AI_EXTERNAL_PROVIDER_DELETION_POLICY = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_DELETION_POLICY", ""
+)
+AI_EXTERNAL_PROVIDER_INCIDENT_POLICY = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_INCIDENT_POLICY", ""
+)
+AI_EXTERNAL_PROVIDER_USER_DISCLOSURE_VERSION = os.environ.get(
+    "AI_EXTERNAL_PROVIDER_USER_DISCLOSURE_VERSION", ""
+)
+AI_ASSISTANT_KNOWLEDGE_EXTERNAL_APPROVED = os.environ.get(
+    "AI_ASSISTANT_KNOWLEDGE_EXTERNAL_APPROVED", "false"
+)
+AI_ASSISTANT_KNOWLEDGE_TRACE_ENABLED = os.environ.get(
+    "AI_ASSISTANT_KNOWLEDGE_TRACE_ENABLED", "false"
+)
+
+# Anonymous Public Expert. This is a separate, knowledge-only capability and is
+# disabled by default. It reuses the configured external provider and shared
+# cache transport, but owns independent session/global quotas and output bounds.
+AI_PUBLIC_EXPERT_ENABLED = os.environ.get("AI_PUBLIC_EXPERT_ENABLED", "false")
+AI_PUBLIC_EXPERT_THROTTLE_CACHE_ALIAS = os.environ.get(
+    "AI_PUBLIC_EXPERT_THROTTLE_CACHE_ALIAS",
+    AI_ASSISTANT_THROTTLE_CACHE_ALIAS,
+)
+AI_PUBLIC_EXPERT_SESSION_RATE_LIMIT_REQUESTS = os.environ.get(
+    "AI_PUBLIC_EXPERT_SESSION_RATE_LIMIT_REQUESTS", "6"
+)
+AI_PUBLIC_EXPERT_SESSION_RATE_LIMIT_WINDOW_SECONDS = os.environ.get(
+    "AI_PUBLIC_EXPERT_SESSION_RATE_LIMIT_WINDOW_SECONDS", "600"
+)
+AI_PUBLIC_EXPERT_GLOBAL_RATE_LIMIT_REQUESTS = os.environ.get(
+    "AI_PUBLIC_EXPERT_GLOBAL_RATE_LIMIT_REQUESTS", "120"
+)
+AI_PUBLIC_EXPERT_GLOBAL_RATE_LIMIT_WINDOW_SECONDS = os.environ.get(
+    "AI_PUBLIC_EXPERT_GLOBAL_RATE_LIMIT_WINDOW_SECONDS", "3600"
+)
+AI_PUBLIC_EXPERT_MAX_OUTPUT_TOKENS = os.environ.get(
+    "AI_PUBLIC_EXPERT_MAX_OUTPUT_TOKENS", "1000"
+)
+AI_PUBLIC_EXPERT_KNOWLEDGE_TRACE_ENABLED = os.environ.get(
+    "AI_PUBLIC_EXPERT_KNOWLEDGE_TRACE_ENABLED", "false"
+)

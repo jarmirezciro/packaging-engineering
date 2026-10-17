@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.conf import settings
 from django.shortcuts import render
@@ -9,6 +10,11 @@ from django.utils import timezone
 from ..tools.container.presenter import (
     selected_container_summary,
     selected_product_summary,
+)
+from ..tools.container.assistant import (
+    STANDALONE_CONTAINER_RESULT_SESSION_KEY,
+    build_container_result_snapshot,
+    build_container_tool_context_from_page_context,
 )
 from ..tools.container.serializers import sanitize_container_config_for_session
 from ..tools.container.service import (
@@ -31,7 +37,11 @@ from ..tools.container.dimensions import (
 from ..tools.selection_mode import normalize_selection_mode
 from ..tools.container.export import build_container_selection_pdf
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
-from ..entitlements import PDF_REPORTS, feature_required
+from ..assistant.contracts import ToolContextValidationError
+from ..entitlements import AI_ASSISTANT, PDF_REPORTS, feature_required, has_feature
+
+
+logger = logging.getLogger(__name__)
 
 
 SEO_CONTAINER_SELECTION_EXAMPLE_CONFIG = {
@@ -107,36 +117,49 @@ def _read_raw_container_config(request, *, initial_config=None):
 def _build_shared_container_ui_contract(prefix=""):
     suffix = f"_{prefix}" if prefix else ""
 
+    names = {
+        "action": f"action{suffix}",
+        "mode": f"mode{suffix}",
+        "product_source": f"product_source{suffix}",
+        "product_catalogue_id": f"product_catalogue_id{suffix}",
+        "selected_product_id": f"selected_product_id{suffix}",
+        "product_l": f"product_l{suffix}",
+        "product_w": f"product_w{suffix}",
+        "product_h": f"product_h{suffix}",
+        "product_weight": f"product_weight{suffix}",
+        "desired_qty": f"desired_qty{suffix}",
+        "product_shape": f"product_shape{suffix}",
+        "r1": f"r1{suffix}",
+        "r2": f"r2{suffix}",
+        "r3": f"r3{suffix}",
+        "container_source": f"container_source{suffix}",
+        "catalogue_id": f"catalogue_id{suffix}",
+        "container_id": f"container_id{suffix}",
+        "box_l": f"box_l{suffix}",
+        "box_w": f"box_w{suffix}",
+        "box_h": f"box_h{suffix}",
+        "box_thickness_mm": f"box_thickness_mm{suffix}",
+        "box_weight": f"box_weight{suffix}",
+        "box_max_payload": f"box_max_payload{suffix}",
+        "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
+    }
+    assistant_state_fields = [
+        {
+            "key": key,
+            "name": names[key],
+            "kind": "boolean" if key in {"r1", "r2", "r3"} else "scalar",
+        }
+        for key in default_container_config()
+        if key != "action"
+    ]
+
     return {
         "prefix": prefix,
-        "names": {
-            "action": f"action{suffix}",
-            "mode": f"mode{suffix}",
-            "product_source": f"product_source{suffix}",
-            "product_catalogue_id": f"product_catalogue_id{suffix}",
-            "selected_product_id": f"selected_product_id{suffix}",
-            "product_l": f"product_l{suffix}",
-            "product_w": f"product_w{suffix}",
-            "product_h": f"product_h{suffix}",
-            "product_weight": f"product_weight{suffix}",
-            "desired_qty": f"desired_qty{suffix}",
-            "product_shape": f"product_shape{suffix}",
-            "r1": f"r1{suffix}",
-            "r2": f"r2{suffix}",
-            "r3": f"r3{suffix}",
-            "container_source": f"container_source{suffix}",
-            "catalogue_id": f"catalogue_id{suffix}",
-            "container_id": f"container_id{suffix}",
-            "box_l": f"box_l{suffix}",
-            "box_w": f"box_w{suffix}",
-            "box_h": f"box_h{suffix}",
-            "box_thickness_mm": f"box_thickness_mm{suffix}",
-            "box_weight": f"box_weight{suffix}",
-            "box_max_payload": f"box_max_payload{suffix}",
-            "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
-        },
+        "names": names,
+        "assistant_state_fields": assistant_state_fields,
         "ids": {
             "root": f"containerSelectionRoot{suffix}",
+            "assistant_state_fields": f"containerAssistantStateFields{suffix}",
             "product_catalogue_section": f"productCatalogueSection{suffix}",
             "container_catalogue_section": f"containerCatalogueSection{suffix}",
             "manual_product_fields": f"manualProductFields{suffix}",
@@ -641,7 +664,34 @@ def _build_container_selection_page_context(
         "prefix": "",
         "container_ui": _build_shared_container_ui_contract(prefix=""),
         "container_values": config,
+        "assistant_ui_enabled": (
+            mode == "standalone"
+            and getattr(request.user, "is_authenticated", False)
+            and has_feature(request.user, AI_ASSISTANT)
+        ),
     }
+
+    if (
+        mode == "standalone"
+        and request.method == "POST"
+        and getattr(request.user, "is_authenticated", False)
+        and has_feature(request.user, AI_ASSISTANT)
+        and (result is not None or top5)
+    ):
+        try:
+            tool_context = build_container_tool_context_from_page_context(
+                context,
+                surface="standalone",
+            )
+            if tool_context["tool"]["calculation_status"] == "complete":
+                request.session[STANDALONE_CONTAINER_RESULT_SESSION_KEY] = (
+                    build_container_result_snapshot(tool_context)
+                )
+                request.session.modified = True
+        except ToolContextValidationError:
+            # Assistant lifecycle failures must not break the deterministic
+            # calculator.  Keep logging privacy-safe and omit state/context.
+            logger.warning("Container assistant result snapshot validation failed.")
 
     return context
 

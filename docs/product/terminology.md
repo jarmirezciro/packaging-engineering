@@ -9,6 +9,7 @@ Use these terms consistently in UI, reports, code comments, and documentation.
 - **Candidate:** a catalogue or generated option being evaluated.
 - **Selected result:** the option explicitly chosen by the user and propagated downstream.
 - **Pending result:** a newly calculated result that may be displayed before explicit selection.
+- **Restriction:** a server-enforced condition that removes an otherwise possible orientation or candidate; the exact restriction types and their effect are tool-specific.
 - **Utilization / fill:** occupied usable volume or area divided by the applicable usable capacity. Always state whether it is volume, footprint, pallet area, or payload utilization.
 - **Tare:** empty packaging or transport-unit weight.
 - **Payload:** maximum allowed cargo weight, excluding tare where the model defines it that way.
@@ -26,7 +27,7 @@ Do not silently swap labels in renders or reports. A rotated placement may map p
 ## Container selection
 
 - **Orientation:** one of the six orthogonal permutations of a rectangular product.
-- **R1/R2/R3:** project rotation controls. Verify exact UI meaning in the current repository; restrictions must apply globally to all main and leftover subboxes.
+- **R1/R2/R3:** Container rotation controls permitting product length, width, or height respectively on the vertical axis. Restrictions apply globally to all main and leftover subboxes.
 - **Main subbox:** the dominant rectangular region filled using one selected orientation/grid.
 - **Leftover subbox:** residual region along length, width, or height after the main region is allocated.
 - **Single mode:** analyse a chosen packaging unit and return maximum feasible quantity.
@@ -41,7 +42,7 @@ Do not silently swap labels in renders or reports. A rotated placement may map p
 ## Palletization
 
 - **Layer / mosaic:** the 2D top-view arrangement of cartons on one pallet layer.
-- **P1/P2:** the two principal carton footprint orientations on the pallet.
+- **P1/P2:** the two principal carton footprint orientations on the pallet: P1 is carton length × width on pallet X × Y; P2 is the orthogonal width × length orientation.
 - **Column view:** identical layer mosaic repeated vertically.
 - **Interlock view:** alternate layer orientation/arrangement intended to improve interlocking.
 - **Interlock possible:** flag indicating a valid alternate-layer construction exists; it is not a guarantee of real-world stability.

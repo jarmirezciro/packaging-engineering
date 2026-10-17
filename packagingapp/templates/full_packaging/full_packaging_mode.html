@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Full Packaging Module{% endblock %}
 
 {% block extra_css %}
@@ -166,6 +167,21 @@
           {% endif %}
         </div>
         <div class="fp-shell-actions">
+          {% if assistant_ui_enabled and step.type == 'container' and step.expanded %}
+          <button type="button"
+                  class="btn btn-app-outline btn-sm kpa-flow-open"
+                  data-kollipack-assistant-open
+                  data-assistant-surface="workflow"
+                  data-assistant-state-root-id="{{ step.container_ui.ids.root }}"
+                  data-assistant-step-ref="{{ step.assistant_step_ref }}"
+                  data-assistant-context-label="Container Selection · Step {{ forloop.counter }}"
+                  data-assistant-has-result="{% if step.result and not step.assistant_result_stale %}true{% else %}false{% endif %}"
+                  aria-controls="kollipackAssistantPanel"
+                  aria-expanded="false">
+            <i class="bi bi-stars" aria-hidden="true"></i>
+            <span>Assistant</span>
+          </button>
+          {% endif %}
           <form method="post" style="margin:0;">
             {% csrf_token %}
             <input type="hidden" name="action" value="show_add_bar">
@@ -232,6 +248,11 @@
         {% include "container_tool/transport_wrapper.html" with mode="workflow" is_workflow=True prefix=forloop.counter0 container_id=step.config.container_id selected_row_index=step.config.selected_row_index product_id_to_fill=step.config.product_id_to_fill messages=step.messages current_container_source=step.config.container_source selected_material=step.selected_material container_summary=step.container_summary current_catalogue_id=step.config.catalogue_id materials=step.materials packaging_catalogues=packaging_catalogues result=step.result threejs_scene=step.threejs_scene product_rows=step.product_rows auto_hide_product_catalogue=step.auto_hide_product_catalogue product_catalogue_id=step.config.product_catalogue_id product_catalogues=product_catalogues product_items=step.products is_first_step=forloop.first %}
 
         {% elif step.type == "container" %}
+{% if step.assistant_result_stale %}
+<div class="alert alert-warning mb-0 kpa-result-stale-note" role="status" data-assistant-result-stale-note>
+  Inputs changed. The displayed result is stale until you run the tool again.
+</div>
+{% endif %}
 {% include "container_selection_tool/container_selection_wrapper.html" with container_ui=step.container_ui container_values=step.container_values mode=step.mode prefix=step.prefix form=step.container_form current_mode=step.current_mode current_product_source=step.current_product_source current_container_source=step.current_container_source selected_product=step.selected_product selected_material=step.selected_material selected_product_summary=step.selected_product_summary selected_container_summary=step.selected_container_summary product_catalogues=product_catalogues packaging_catalogues=packaging_catalogues result=step.result image_url=step.image_url threejs_scene=step.threejs_scene product_unit_scene=step.product_unit_scene product_base_image_url=step.product_base_image_url analysis_report=step.analysis_report products=step.products materials=step.materials top5=step.container_top5_rows design_candidates=step.design_candidates_for_display selected_design_candidate_id=step.selected_design_candidate_id notices=step.notices pending_result=step.pending_result design_chain_ui=step.design_chain_ui %}
 
         {% elif step.type == "bag" %}
@@ -269,6 +290,12 @@
     {% endif %}
   {% endfor %}
 </div>
+{% endblock %}
+
+{% block assistant_workspace %}
+{% if assistant_ui_enabled %}
+  {% include "assistant/_workspace.html" %}
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -416,4 +443,7 @@ document.addEventListener('DOMContentLoaded', function(){
 {% include "container_tool/partials/_transport_scripts.html" with threejs_importmap_loaded=True %}
 
 {% include "bag_selection/partials/_bag_selection_scripts.html" %}
+{% if assistant_ui_enabled %}
+<script src="{% static 'js/kollipack_assistant.js' %}?v=session105-20261009"></script>
+{% endif %}
 {% endblock %}

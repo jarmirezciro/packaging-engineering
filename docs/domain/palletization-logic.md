@@ -57,6 +57,24 @@ The project has discussed and implemented/refined these engineered pattern famil
 
 Pattern definitions are deterministic constructive heuristics. They are not generic unrestricted 2D nesting.
 
+### Block pattern
+
+**Current implementation note:** the Palletization Block pattern is one regular
+rectangular grid using a single carton footprint orientation across the layer.
+The engine generates the P1 and P2 grids, selects the one with more cartons,
+and uses P1 on a quantity tie. This Palletization term is unrelated to a
+Transport Product Block.
+
+### Brick pattern
+
+**Current implementation note:** the customer-facing Brick family is limited
+to carton footprints close to a 2:1 side ratio. The engine compares validated
+bonded/basket-weave candidates with centered staggered-row candidates and ranks
+them by quantity, pallet-area utilization, family preference, orientation mix,
+and bounding-box utilization. It returns no Brick candidate when a genuine
+validated brick arrangement is unavailable; it does not relabel a plain Block
+grid as Brick.
+
 Preferred terminology:
 
 - layer top view = **mosaic**;
@@ -74,6 +92,14 @@ count_P2 = floor(usable_length / carton_width)  × floor(usable_width / carton_l
 ```
 
 These are baseline candidates and useful benchmarks, not the full engine.
+
+### P1 and P2
+
+**Current implementation note:** P1 is the unrotated carton footprint with
+carton length on pallet X and carton width on pallet Y (`L × W`). P2 is the
+orthogonal footprint with carton width on pallet X and carton length on pallet
+Y (`W × L`). The active engine stores those values as `LxW` and `WxL`; P1/P2
+are the user-facing names for the same two footprint orientations.
 
 ## Split and mosaic patterns
 

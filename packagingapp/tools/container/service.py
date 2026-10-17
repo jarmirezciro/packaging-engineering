@@ -273,6 +273,137 @@ def resolve_desired_qty(form, mode, product_source, selected_product):
     return desired_qty
 
 
+def inspect_container_readiness(
+    form,
+    config,
+    selected_product=None,
+    selected_material=None,
+):
+    """Inspect calculation prerequisites without running a packing engine.
+
+    Django form validation remains authoritative for types, choices, and
+    numeric ranges.  This helper centralizes the source- and mode-dependent
+    checks that a consumer needs when deciding whether the current state is
+    ready to calculate.  It deliberately returns structured issues rather
+    than mutating the form or calculating a result.
+    """
+    mode = form.cleaned_data.get("mode") or config.get("mode") or "single"
+    product_source = (
+        form.cleaned_data.get("product_source")
+        or config.get("product_source")
+        or "manual"
+    )
+    container_source = (
+        form.cleaned_data.get("container_source")
+        or config.get("container_source")
+        or "manual"
+    )
+
+    issues = []
+
+    def add_issue(field, code, message):
+        issues.append({"field": field, "code": code, "message": message})
+
+    try:
+        product, r1, r2, r3 = resolve_product_from_form(
+            form=form,
+            product_source=product_source,
+            selected_product=selected_product,
+        )
+    except (TypeError, ValueError):
+        product, r1, r2, r3 = None, 0, 0, 0
+
+    if product_source == "catalogue" and selected_product is None:
+        add_issue(
+            "product.dimensions",
+            "catalogue_selection_required",
+            "Select a product from the visible catalogue.",
+        )
+    elif product is None:
+        for field_name, label in (
+            ("product_l", "length"),
+            ("product_w", "width"),
+            ("product_h", "height"),
+        ):
+            if form.cleaned_data.get(field_name) is None:
+                add_issue(
+                    f"product.dimensions.{label}",
+                    "required",
+                    f"Product {label} is required.",
+                )
+
+    if not any((r1, r2, r3)):
+        add_issue(
+            "product.allowed_vertical_axes",
+            "required",
+            "Enable at least one permitted product orientation.",
+        )
+
+    try:
+        desired_quantity = resolve_desired_qty(
+            form=form,
+            mode=mode,
+            product_source=product_source,
+            selected_product=selected_product,
+        )
+    except (TypeError, ValueError):
+        desired_quantity = None
+    if desired_quantity is None or int(desired_quantity) <= 0:
+        add_issue(
+            "request.desired_quantity",
+            "required",
+            "Desired quantity must be a positive whole number.",
+        )
+
+    container = None
+    if mode == "single":
+        try:
+            container = resolve_container_from_form(
+                form=form,
+                container_source=container_source,
+                selected_material=selected_material,
+            )
+        except (TypeError, ValueError):
+            container = None
+        if container_source == "catalogue" and selected_material is None:
+            add_issue(
+                "container.internal_dimensions",
+                "catalogue_selection_required",
+                "Select a packaging item from the visible catalogue.",
+            )
+        elif container is None:
+            for field_name, label in (
+                ("box_l", "length"),
+                ("box_w", "width"),
+                ("box_h", "height"),
+            ):
+                if form.cleaned_data.get(field_name) is None:
+                    add_issue(
+                        f"container.internal_dimensions.{label}",
+                        "required",
+                        f"Container {label} is required.",
+                    )
+    elif mode == "optimal" and not config.get("catalogue_id"):
+        add_issue(
+            "container.catalogue_selection",
+            "required",
+            "Select a visible packaging catalogue.",
+        )
+
+    return {
+        "mode": mode,
+        "product_source": product_source,
+        "container_source": container_source,
+        "product": product,
+        "container": container,
+        "r1": r1,
+        "r2": r2,
+        "r3": r3,
+        "desired_quantity": desired_quantity,
+        "issues": issues,
+    }
+
+
 def _score_top5_candidates(product, materials, desired_qty, r1, r2, r3):
     product_vol = product[0] * product[1] * product[2]
     scored = []

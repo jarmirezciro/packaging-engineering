@@ -2,6 +2,8 @@
 from django.urls import path
 from django.views.generic.base import RedirectView
 
+from .assistant import views as assistant_views
+from .assistant import public_views as public_assistant_views
 from .views import packaging_catalogue, container_selection
 from .views import products
 from .views import bag_selection
@@ -84,6 +86,26 @@ urlpatterns = [
 
     # KolliPack application
     path("kollipack/", home, name="home"),
+    path(
+        "assistant/context/",
+        assistant_views.assistant_context,
+        name="assistant_context",
+    ),
+    path(
+        "assistant/ask/",
+        assistant_views.assistant_ask,
+        name="assistant_ask",
+    ),
+    path(
+        "assistant/apply-proposal/",
+        assistant_views.assistant_apply_proposal,
+        name="assistant_apply_proposal",
+    ),
+    path(
+        "assistant/public-ask/",
+        public_assistant_views.public_expert_ask,
+        name="public_expert_ask",
+    ),
     path(
         "corrugated-material-strength/",
         corrugated_material_strength,

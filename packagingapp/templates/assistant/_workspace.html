@@ -1,0 +1,88 @@
+<aside class="kpa-panel"
+       id="kollipackAssistantPanel"
+       data-kollipack-assistant
+       data-assistant-tool="container_selection"
+       data-assistant-ask-url="{% url 'assistant_ask' %}"
+       data-assistant-apply-url="{% url 'assistant_apply_proposal' %}"
+       role="complementary"
+       aria-labelledby="kollipackAssistantTitle"
+       aria-hidden="true">
+    <header class="kpa-header">
+        <div class="kpa-heading">
+            <span class="kpa-heading-icon" aria-hidden="true"><i class="bi bi-stars"></i></span>
+            <div>
+                <h2 id="kollipackAssistantTitle">KolliPack Assistant</h2>
+                <p data-assistant-context-label>Container Selection</p>
+            </div>
+        </div>
+        <button type="button"
+                class="kpa-close"
+                data-assistant-close
+                aria-label="Close KolliPack Assistant">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+    </header>
+
+    <div class="kpa-scroll">
+        <section class="kpa-intro" aria-label="About this assistant">
+            <p>Ask about KolliPack concepts, the current Container Selection state, or request a reviewed input-change proposal.</p>
+            <p class="kpa-authority-note">
+                <i class="bi bi-shield-check" aria-hidden="true"></i>
+                KolliPack's calculation engine remains authoritative.
+            </p>
+        </section>
+
+        <section class="kpa-disclosure" aria-label="External AI disclosure">
+            KolliPack uses an external AI service to explain bounded current engineering context and selected approved KolliPack documentation. Calculations remain performed by KolliPack.
+        </section>
+
+        <section class="kpa-suggestions" aria-labelledby="kollipackAssistantSuggestionsTitle">
+            <h3 id="kollipackAssistantSuggestionsTitle">Suggested questions</h3>
+            <div class="kpa-suggestion-list" data-assistant-suggestions></div>
+        </section>
+
+        <section class="kpa-interaction" data-assistant-interaction hidden aria-label="Latest assistant interaction">
+            <div class="kpa-turn">
+                <p class="kpa-turn-label">Your question</p>
+                <p class="kpa-question" data-assistant-question></p>
+            </div>
+            <div class="kpa-turn kpa-turn--assistant">
+                <p class="kpa-turn-label" data-assistant-response-label>KolliPack Assistant</p>
+                <div class="kpa-response" data-assistant-response role="status" aria-live="polite" aria-atomic="true"></div>
+            </div>
+            <details class="kpa-knowledge-trace" data-assistant-knowledge-trace hidden>
+                <summary>Knowledge used</summary>
+                <ul data-assistant-knowledge-trace-list></ul>
+            </details>
+            <div class="kpa-stale-note" data-assistant-stale hidden role="status">
+                <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                <span data-assistant-stale-text>Inputs changed since this answer. Ask again to review the current state.</span>
+            </div>
+        </section>
+    </div>
+
+    <form class="kpa-composer" data-assistant-composer novalidate>
+        {% csrf_token %}
+        <label for="kollipackAssistantQuestion">Ask about KolliPack or the current state</label>
+        <textarea id="kollipackAssistantQuestion"
+                  class="form-control"
+                  data-assistant-input
+                  rows="3"
+                  maxlength="2000"
+                  placeholder="Ask a question or propose an explicit input value"></textarea>
+        <div class="kpa-composer-meta">
+            <span data-assistant-character-count aria-live="off">0 / 2000</span>
+            <span>Enter to ask · Shift+Enter for a new line</span>
+        </div>
+        <button type="submit" class="btn btn-app-primary kpa-send" data-assistant-send aria-label="Ask KolliPack Assistant">
+            <i class="bi bi-send" aria-hidden="true"></i>
+            <span>Ask</span>
+        </button>
+    </form>
+</aside>
+
+<button type="button"
+        class="kpa-backdrop"
+        data-assistant-backdrop
+        aria-label="Close KolliPack Assistant"
+        tabindex="-1"></button>

@@ -91,6 +91,22 @@ V_extra = V_extended - V_native
 marginal_efficiency = V_extra / (D_extra × container_width × container_height)
 ```
 
+### Frontier efficiency
+
+**Current implementation note:** frontier efficiency is the packed product
+volume inside one bounded local residual-frontier prism divided by that prism's
+volume:
+
+```text
+frontier_efficiency = frontier_packed_volume
+                      / (frontier_depth × container_width × container_height)
+```
+
+It is a Transport candidate-comparison metric for that local frontier, not the
+overall transport-unit utilization and not Container Design efficiency. DGFE's
+separate marginal efficiency measures only the extra packed volume divided by
+the additional X prism beyond the paired Native frontier.
+
 The benchmark is the transverse utilization of the normal Pi+1 Product Block
 selected by the shared generator and selector for the quantity, payload, and
 length remaining after Native. DGFE remains eligible only when its marginal

@@ -9,7 +9,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ..models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
-from ..entitlements import PDF_REPORTS, feature_required
+from ..entitlements import AI_ASSISTANT, PDF_REPORTS, feature_required, has_feature
+from ..assistant.contracts import ToolContextValidationError
 from ..utils.box_selection.engine import run_mode1_and_render, compute_max_quantity_only
 from ..utils.bag_selection.engine import (
     SEALING_AREA,
@@ -103,6 +104,11 @@ from ..tools.full_packaging.chain_optimizer import (
     invalidate_design_chain_optimizations,
     optimize_design_chain,
 )
+from ..tools.container.assistant import (
+    build_container_result_snapshot,
+    build_container_tool_context_from_workflow_step,
+)
+from ..assistant.workflow import ensure_workflow_step_refs
 
 
 SESSION_KEY = "full_packaging_mode_session"
@@ -142,16 +148,18 @@ def _init_workflow_session(request):
         return
 
     case_slug = _case_slug_from_request(request)
-    request.session[session_key] = (
+    workflow = (
         _build_case_workflow(case_slug) if case_slug else _empty_workflow()
     )
+    ensure_workflow_step_refs(workflow)
+    request.session[session_key] = workflow
     request.session.modified = True
 
 
 def _get_workflow(request):
     _init_workflow_session(request)
     workflow = request.session[_workflow_session_key(request)]
-    changed = False
+    changed = ensure_workflow_step_refs(workflow)
     for step in workflow.get("steps", []):
         if step.get("type") != "transport":
             continue
@@ -169,6 +177,7 @@ def _get_workflow(request):
 
 
 def _save_workflow(request, workflow):
+    ensure_workflow_step_refs(workflow)
     for step in workflow.get("steps", []):
         step.pop("selected_box_material", None)
         step.pop("selected_pallet_material", None)
@@ -1305,6 +1314,42 @@ def _prepare_container_step_view_model(step, idx):
     )
     apply_container_catalogue_choices(form, packaging_catalogues, product_catalogues)
 
+    step["assistant_result_stale"] = False
+    retained_result = any(
+        step.get(key)
+        for key in (
+            "result",
+            "analysis_report",
+            "top5",
+            "design_candidates",
+            "pending_result",
+            "selected",
+        )
+    )
+    try:
+        assistant_context = build_container_tool_context_from_workflow_step(
+            {**step, "config": cfg},
+            form=form,
+            selected_product=selected_product,
+            selected_material=selected_material,
+            available_materials=materials,
+            step_ordinal=idx + 1,
+            input_origin=(
+                "inherited" if idx > 0 else cfg.get("product_source") or "manual"
+            ),
+            result_state_fingerprint=(
+                "unversioned"
+                if step.get("assistant_result_snapshot") is None and retained_result
+                else None
+            ),
+            result_snapshot=step.get("assistant_result_snapshot"),
+        )
+        step["assistant_result_stale"] = (
+            assistant_context["tool"]["calculation_status"] == "stale"
+        )
+    except ToolContextValidationError:
+        step["assistant_result_stale"] = retained_result
+
     step["config"] = cfg
     step["container_form"] = form
     step["container_values"] = {k: cfg.get(k) for k in default_container_config().keys()}
@@ -1421,6 +1466,56 @@ def _normalized_container_post(cfg):
     if cfg.get("r3"):
         post["r3"] = "on"
     return post
+
+
+def _store_container_assistant_result_snapshot(step, steps, idx, user):
+    """Retain only the compact result/fingerprint after a normal Flow run."""
+    if not getattr(user, "is_authenticated", False) or not has_feature(
+        user, AI_ASSISTANT
+    ):
+        return
+
+    cfg = sanitize_container_config_for_session(step.get("config") or {})
+    selected_product = (
+        get_container_selected_product(cfg, user=user) if idx == 0 else None
+    )
+    selected_material = get_container_selected_material(cfg, user=user)
+    materials = get_container_materials_for_catalogue(cfg, user=user)
+    request_stub = type(
+        "ContainerAssistantSnapshotRequest",
+        (),
+        {"method": "POST", "POST": _normalized_container_post(cfg)},
+    )()
+    form = build_container_form(
+        request=request_stub,
+        config=cfg,
+        selected_product=selected_product,
+        selected_material=selected_material,
+    )
+    apply_container_catalogue_choices(
+        form,
+        get_container_packaging_catalogues(user),
+        get_container_product_catalogues(user),
+    )
+    form.is_valid()
+    try:
+        context = build_container_tool_context_from_workflow_step(
+            step,
+            form=form,
+            selected_product=selected_product,
+            selected_material=selected_material,
+            available_materials=materials,
+            step_ordinal=idx + 1,
+            input_origin=(
+                "inherited" if idx > 0 else cfg.get("product_source") or "manual"
+            ),
+        )
+        if context["tool"]["calculation_status"] == "complete":
+            step["assistant_result_snapshot"] = build_container_result_snapshot(
+                context
+            )
+    except ToolContextValidationError:
+        logger.warning("Workflow Container assistant result snapshot validation failed.")
 
 
 def _build_container_non_design_workflow_payload(
@@ -2317,6 +2412,9 @@ def full_packaging_mode(request, case_slug=None):
                     _process_transport_step(steps[idx], steps, idx, request.POST)
                 else:
                     _process_container_step(steps[idx], steps, idx, request.POST)
+                    _store_container_assistant_result_snapshot(
+                        steps[idx], steps, idx, request.user
+                    )
 
                 if is_pallet_step:
                     pallet_capacity_changed = (
@@ -2517,6 +2615,10 @@ def full_packaging_mode(request, case_slug=None):
         "case_preset": get_case_preset(case_slug) if case_slug else None,
         "full_packaging_export_url": _workflow_export_url(request),
         "transport_packing_modes": TRANSPORT_PACKING_MODE_OPTIONS,
+        "assistant_ui_enabled": (
+            getattr(request.user, "is_authenticated", False)
+            and has_feature(request.user, AI_ASSISTANT)
+        ),
     })
 
 def _build_transport_workflow_payload(
