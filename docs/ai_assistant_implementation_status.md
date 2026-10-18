@@ -1,10 +1,10 @@
 # KolliPack AI assistant implementation status
 
-Last updated: 2026-10-09
+Last updated: 2026-10-18
 
 ## Phase
 
-Anonymous Public Expert implemented and deterministically validated locally; Session 10.5 authenticated Assistant baseline preserved
+Bounded clarification continuity implemented locally for authenticated and public Assistant surfaces; no persistent conversation history added
 
 ## Local provider validation
 
@@ -210,13 +210,28 @@ Anonymous Public Expert implemented and deterministically validated locally; Ses
 - Public browser request built only from the component textarea and server-owned scope; no calculator DOM reads, load/open calls, browser storage, or persisted history
 - Twenty-eight-case reusable public evaluation catalogue plus a local real-provider smoke command using the public policy, shared cache, retrieval, provider, and final response validation path
 - Focused endpoint, capability-isolation, response-schema, cache/throttle, provider-spy, retrieval, prompt-injection, DOM privacy, accessibility, OpenAI request-shape, and existing authenticated-assistant regression tests
+- Shared Clarification Context `1.0` with exact alternating user/assistant turns and a maximum of two assistant clarification rounds
+- Dedicated 10-minute Django timestamped continuation-token salt, random nonce, strict payload schema, 8 KiB context bound, and 12 KiB token bound
+- Authenticated continuation binding to capability, tool, surface, opaque HMAC user identity, semantic Tool Context fingerprint, and workflow `step_ref` where applicable
+- Mandatory fresh Tool Context reconstruction and stale-fingerprint denial before provider invocation
+- Public continuation binding to `public_knowledge`, public surface, knowledge scope, and opaque HMAC anonymous-session identity, with no Tool Context or calculator state
+- Separate provider Clarification Context category for authenticated and public requests; the browser never sends arbitrary history
+- Explicit authority ordering: fresh Tool Context, current user message, Clarification Context, then Knowledge Context
+- Deterministic combined knowledge-retrieval query derived from the initial unresolved request, latest clarification, and current reply without changing source registries or retrieval limits
+- Fixed application guidance instead of a third assistant clarification token
+- Controlled expired, stale, tampered, wrong-user/session, wrong-tool/surface/scope, and cross-workflow-step failures with no provider call
+- Active clarification-chain rendering in the authenticated workspace and Public Expert, including semantic speaker labels, new-content-only live announcements, and an in-memory **Start new question** reset
+- No continuation storage in database, Redis, Django session, localStorage, sessionStorage, IndexedDB, cookies, or OpenAI conversation state
+- Fourteen-case reusable local clarification evaluation catalogue: eight authenticated cases and six public cases, including units, roles, orientations, quantity, two rounds, ambiguity, new-topic precedence, public authority boundaries, and prompt injection
 
 ## Not implemented
 
 - Live Railway pre-production Redis service, web-service variable reference, and deployment smoke result
 - Production provider enablement, credential, and approved privacy-policy values
 - Automatic recalculation after Apply
-- AI conversation persistence
+- Persistent AI conversation history
+- Full-session memory or cross-page clarification resumption
+- Provider-side conversation state, Conversations API objects, or `previous_response_id`
 - Tool Context adapters for other KolliPack tools
 - Semantic embeddings, a vector database, external file search, or LLM-selected repository files
 - Live Bag, Palletization, or Transport Tool Context adapters
@@ -242,6 +257,8 @@ Anonymous Public Expert implemented and deterministically validated locally; Ses
 
 - **Bag Selection Tool Context plus Assistant actions**, with the mandatory
   Multi-product Bag Selection consumer assessment.
+- Bounded clarification continuity is the final shared Assistant UX foundation
+  before that tool-specific expansion.
 - The Public Expert was deliberately completed first because its authority is
   knowledge-only and independent; it does not count as a Bag Tool Context or
   authenticated Assistant adapter.
@@ -571,6 +588,78 @@ Anonymous Public Expert implemented and deterministically validated locally; Ses
   Multi-product Bag Selection consumer assessment. Railway remains a separate
   deployment/privacy decision.
 - No Railway configuration or deployment action is part of Session 10.5.
+
+## Session 11 bounded clarification continuity notes
+
+- The Assistant now remembers exactly one unresolved clarification chain, not
+  the browser session. Clarification Context is versioned separately from Tool
+  Context and Knowledge Context and is never included in the Tool Context
+  fingerprint.
+- `/assistant/ask/` and `/assistant/public-ask/` accept one optional
+  `continuation_token`; browser-supplied `history`, `messages`, `conversation`,
+  previous-question/answer fields, context objects, and other authority fields
+  remain invalid.
+- KolliPack issues a signed token only after a validated
+  `clarifying_question`. An ordinary answer, proposal preview, unavailable
+  outcome, expiry, tampering, stale state, binding failure, explicit reset, or
+  target change ends the active chain.
+- Authenticated tokens bind the original semantic Tool Context fingerprint.
+  State changes fail before knowledge retrieval/provider invocation and cannot
+  continue an old intent against current inputs. Workflow tokens additionally
+  require the same opaque current-session `step_ref`.
+- Public tokens bind the anonymous session through an opaque HMAC and carry no
+  calculator state. Continuation does not add calculation, current-result,
+  form, action, Apply, catalogue, personalization, or authenticated authority.
+- Provider requests keep application instructions, Tool/Public Expert Context,
+  Knowledge Context, Clarification Context, and the current message as separate
+  categories. The current message may abandon the chain and Fresh Tool Context
+  remains engineering truth.
+- Maximum depth is two assistant clarifications. A requested third round becomes
+  fixed application-owned restatement guidance; no third token is issued.
+- The public request-size limit is now 20 KiB so a worst-case existing UTF-8
+  current message plus the capped signed token fits. The authenticated 32 KiB
+  limit is unchanged.
+- Stateless token replay is accepted as the documented V1 tradeoff. It can
+  repeat a provider charge but cannot alter the signed dialogue or gain
+  engineering authority; the browser prevents concurrent duplicate sends.
+- OpenAI remains stateless: `store=false`, `max_retries=0`, no
+  `previous_response_id`, no conversation/thread object, and no
+  tools/functions/web/file/code/MCP.
+- No database model, migration, Redis transcript, Django-session transcript,
+  browser storage, engine change, catalogue change, automatic Apply, automatic
+  calculation, Railway configuration, or deployment action was added.
+
+Implemented terminology after Session 11:
+
+```text
+Implemented:
+bounded active clarification continuity
+
+Not implemented:
+persistent AI conversation history
+full-session memory
+cross-page conversation resumption
+provider-side conversation state
+```
+
+Verification on 2026-10-18 passed 208 focused Django tests, both assistant
+JavaScript suites, Python compilation, `manage.py check`, and `git diff
+--check`. The Public Expert drawer also passed manual responsive inspection at
+1440 x 900, 900 x 800, and 390 x 844. The authenticated drawer passed its
+automated UI coverage but was not manually exercised because no authenticated
+local browser session was available.
+
+The new eight-case authenticated and six-case public live clarification suites
+were invoked through their existing opt-in commands. Both stopped before a
+provider request: authenticated readiness reported `missing_shared_cache`, and
+Public Expert readiness reported `public_not_enabled`. No fake response was
+substituted and no live model-quality result is recorded.
+
+`READY_FOR_EXPANSION = NO` for the next bounded Assistant slice until those two
+real-provider clarification suites run in an approved local configuration and
+the authenticated drawer receives its final manual responsive check. The next
+recommended product slice remains Bag Selection Tool Context plus Assistant
+actions after those gates pass.
 
 ## Anonymous Public Expert implementation notes
 

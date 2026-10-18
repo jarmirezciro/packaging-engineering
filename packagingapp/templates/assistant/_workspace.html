@@ -41,7 +41,8 @@
             <div class="kpa-suggestion-list" data-assistant-suggestions></div>
         </section>
 
-        <section class="kpa-interaction" data-assistant-interaction hidden aria-label="Latest assistant interaction">
+        <section class="kpa-interaction" data-assistant-interaction hidden aria-label="Active assistant clarification">
+            <div class="kpa-history" data-assistant-history hidden></div>
             <div class="kpa-turn">
                 <p class="kpa-turn-label">Your question</p>
                 <p class="kpa-question" data-assistant-question></p>
@@ -58,6 +59,12 @@
                 <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
                 <span data-assistant-stale-text>Inputs changed since this answer. Ask again to review the current state.</span>
             </div>
+            <button type="button"
+                    class="btn btn-sm btn-link kpa-reset"
+                    data-assistant-reset
+                    hidden>
+                Start new question
+            </button>
         </section>
     </div>
 

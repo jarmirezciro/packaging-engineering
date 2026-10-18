@@ -14,6 +14,7 @@ from packagingapp.assistant.configuration import (
 )
 from packagingapp.assistant.evaluation import (
     build_container_evaluation_cases,
+    build_clarification_evaluation_cases,
     build_input_action_evaluation_cases,
     build_knowledge_evaluation_cases,
     build_proposal_evaluation_cases,
@@ -21,6 +22,10 @@ from packagingapp.assistant.evaluation import (
 )
 from packagingapp.assistant.actions import is_provider_proposal_candidate
 from packagingapp.assistant.knowledge import retrieve_knowledge_context
+from packagingapp.assistant.clarification import (
+    build_clarification_retrieval_query,
+    clarification_depth,
+)
 from packagingapp.assistant.policy import evaluate_external_provider_readiness
 from packagingapp.assistant.providers import get_assistant_provider
 from packagingapp.assistant.service import ask_external
@@ -58,6 +63,11 @@ class Command(BaseCommand):
             help="Run the 20-case Session 10.5 realistic input-action suite.",
         )
         parser.add_argument(
+            "--clarification-evaluation",
+            action="store_true",
+            help="Run the eight-case bounded authenticated clarification suite.",
+        )
+        parser.add_argument(
             "--case",
             action="append",
             dest="case_names",
@@ -90,6 +100,7 @@ class Command(BaseCommand):
                     "knowledge_evaluation",
                     "proposal_evaluation",
                     "input_action_evaluation",
+                    "clarification_evaluation",
                 )
             )
             if selected_suites > 1:
@@ -98,6 +109,8 @@ class Command(BaseCommand):
                 )
             if options["input_action_evaluation"]:
                 cases = build_input_action_evaluation_cases(media_root=media_root)
+            elif options["clarification_evaluation"]:
+                cases = build_clarification_evaluation_cases()
             elif options["proposal_evaluation"]:
                 cases = build_proposal_evaluation_cases()
             elif options["knowledge_evaluation"]:
@@ -120,6 +133,7 @@ class Command(BaseCommand):
                     "knowledge_evaluation",
                     "proposal_evaluation",
                     "input_action_evaluation",
+                    "clarification_evaluation",
                 )
             ):
                 cases = tuple(case for case in cases if case.name == "complete_single")
@@ -142,17 +156,28 @@ class Command(BaseCommand):
             )
             failed = False
             for evaluation_case in cases:
-                knowledge_context = retrieve_knowledge_context(
+                retrieval_query = build_clarification_retrieval_query(
                     evaluation_case.question,
+                    evaluation_case.clarification_context,
+                )
+                knowledge_context = retrieve_knowledge_context(
+                    retrieval_query,
                     active_tool=evaluation_case.tool_context["tool"]["id"],
                 )
+                assistant_request = {
+                    "user": local_user,
+                    "message": evaluation_case.question,
+                    "tool_context": evaluation_case.tool_context,
+                    "knowledge_context": knowledge_context,
+                    "provider": provider,
+                    "config": config,
+                }
+                if evaluation_case.clarification_context is not None:
+                    assistant_request["clarification_context"] = (
+                        evaluation_case.clarification_context
+                    )
                 response = ask_external(
-                    user=local_user,
-                    message=evaluation_case.question,
-                    tool_context=evaluation_case.tool_context,
-                    knowledge_context=knowledge_context,
-                    provider=provider,
-                    config=config,
+                    **assistant_request
                 )
                 provider_response_type = response["type"]
                 if is_provider_proposal_candidate(response):
@@ -175,6 +200,14 @@ class Command(BaseCommand):
                 self.stdout.write(f"model={readiness.model_id}")
                 self.stdout.write(f"case={evaluation_case.name}")
                 self.stdout.write(f"category={evaluation_case.category}")
+                self.stdout.write(
+                    "clarification_depth="
+                    + str(
+                        clarification_depth(evaluation_case.clarification_context)
+                        if evaluation_case.clarification_context is not None
+                        else 0
+                    )
+                )
                 self.stdout.write(
                     "question=" + json.dumps(evaluation_case.question, ensure_ascii=True)
                 )

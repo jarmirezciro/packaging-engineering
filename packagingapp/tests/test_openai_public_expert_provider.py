@@ -8,6 +8,7 @@ from packagingapp.assistant.public_contracts import (
     build_public_expert_context,
     build_public_expert_response_json_schema,
 )
+from packagingapp.assistant.clarification import build_next_clarification_context
 from packagingapp.assistant.public_knowledge import retrieve_public_knowledge_context
 from packagingapp.assistant.public_prompts import get_public_expert_instructions
 from packagingapp.assistant.providers.openai import (
@@ -166,3 +167,52 @@ class OpenAIPublicExpertProviderTests(SimpleTestCase):
             "propose_input_changes",
             build_public_expert_response_json_schema()["properties"]["type"]["enum"],
         )
+
+    def test_public_clarification_context_is_separate_and_adds_no_tool_authority(self):
+        client = SimpleNamespace(
+            responses=SimpleNamespace(
+                create=Mock(
+                    return_value=structured_response(
+                        {
+                            "schema_version": "1.0",
+                            "type": "answer",
+                            "message": "Transport loading is the intended comparison.",
+                        }
+                    )
+                )
+            )
+        )
+        provider = OpenAIAssistantProvider(client_factory=Mock(return_value=client))
+        context = build_next_clarification_context(
+            previous_context=None,
+            current_user_message="How is this different from the other loading tool?",
+            assistant_question="Do you mean Palletization or Transport Container Loading?",
+        )
+        provider.generate_public(
+            message="Transport.",
+            expert_context=build_public_expert_context("global"),
+            instructions=get_public_expert_instructions(),
+            timeout_seconds=4.5,
+            max_output_tokens=1000,
+            knowledge_context=retrieve_public_knowledge_context(
+                "Transport Container Loading", knowledge_scope="global"
+            ),
+            clarification_context=context,
+        )
+
+        request = client.responses.create.call_args.kwargs
+        self.assertEqual(
+            [item["role"] for item in request["input"]],
+            ["developer", "developer", "developer", "user"],
+        )
+        self.assertIn("Clarification Context JSON", request["input"][2]["content"][0]["text"])
+        self.assertEqual(request["input"][3]["content"][0]["text"], "Transport.")
+        transmitted = repr(request).lower()
+        for excluded in (
+            "tool_context",
+            "state_fingerprint",
+            "continuation_token",
+            "calculator dom",
+            "catalogue_id",
+        ):
+            self.assertNotIn(excluded, transmitted)

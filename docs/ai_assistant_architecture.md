@@ -1530,6 +1530,173 @@ provider identifier, calculation input/result, session identifier, or
 conversation is written to the database, Django session, cache, or browser
 storage; only bounded throttle counters are retained in shared cache.
 
+## Implemented bounded clarification continuity
+
+Session 11 adds application-owned **Clarification Context `1.0`** without
+adding persistent conversation history:
+
+```text
+current user request
+        +
+optional signed continuation token
+        ↓
+fresh Tool Context reconstruction (authenticated only)
+        ↓
+continuation signature, binding, expiry, depth, and fingerprint validation
+        ↓
+bounded Clarification Context
+        ↓
+approved Knowledge Context retrieval
+        ↓
+one provider call
+        ↓
+answer / clarification / proposal candidate
+```
+
+The three contexts remain separate contracts:
+
+```text
+Fresh Tool Context     = current authoritative engineering state
+Clarification Context  = temporary unresolved conversational intent
+Knowledge Context      = approved KolliPack documentation
+```
+
+Provider instructions enforce this authority order:
+
+1. fresh Tool Context, when the authenticated surface has one;
+2. the current user message;
+3. Clarification Context;
+4. Knowledge Context.
+
+The current message may start a new topic. Clarification Context may explain
+what a short reply such as `mm`, `yes`, `R1`, `24 pieces`, or `Transport`
+refers to, but it never becomes current engineering state. When earlier text
+conflicts with fresh Tool Context, Tool Context wins. A desired value in the
+chain can become only a normal provider proposal candidate and must still pass
+fresh reconstruction, fingerprint, source/editability, unit, form/readiness,
+preview, signed proposal-token, and explicit Apply boundaries.
+
+### Clarification Context contract
+
+The exact context shape is:
+
+```json
+{
+  "schema_version": "1.0",
+  "turns": [
+    {"role": "user", "message": "..."},
+    {"role": "assistant", "message": "..."}
+  ]
+}
+```
+
+Only `user` / `assistant` pairs are valid. A chain contains exactly two or
+four prior turns, corresponding to one or two assistant clarification rounds.
+Unknown properties, arbitrary roles, empty text, unsupported control content,
+HTML/URLs in assistant clarification text, malformed ordering, and invalid
+versions fail closed. Bounds are centralized in
+`packagingapp.assistant.clarification`:
+
+- maximum clarification rounds: 2;
+- maximum prior turns: 4;
+- maximum user turn: 2,000 characters;
+- maximum assistant clarification: 1,200 characters;
+- maximum total turn text: 5,000 characters;
+- maximum serialized Clarification Context: 8 KiB;
+- maximum signed continuation token: 12 KiB;
+- maximum deterministic combined retrieval query: 6,000 characters.
+
+No summarization call or hidden classifier is used. Knowledge retrieval may use
+the current message plus the initial unresolved request and most recent
+assistant clarification. That combined string is only a retrieval query; it is
+not a new knowledge source and does not change either approved source registry
+or any section/text/authority limit.
+
+If the provider asks a third clarification, KolliPack does not issue another
+token. It replaces that candidate with fixed application guidance asking the
+user to restate the request with the missing details included.
+
+### Continuation token contract
+
+Tokens use Django timestamped signing with the dedicated salt
+`packagingapp.assistant.clarification.v1`, a signed 10-minute lifetime, a
+random nonce, strict payload keys, and compressed serialization. The provider
+never creates or sees the token. Signing authenticates the payload but does not
+encrypt it, so the payload contains only the bounded user-visible dialogue and
+the minimum opaque/application bindings required for validation.
+
+Authenticated tokens contain:
+
+- token schema version and `read_only` capability;
+- tool and surface;
+- the original semantic Tool Context fingerprint;
+- validated Clarification Context and matching clarification depth;
+- opaque HMAC-derived user binding;
+- random nonce;
+- the opaque Packaging Flow `step_ref` for workflow tokens only.
+
+They exclude database/catalogue IDs, identity text, session keys, Knowledge
+Context, provider configuration or metadata, secrets, proposal tokens, and
+engineering objects. On the next request, KolliPack first rebuilds fresh Tool
+Context and compares its semantic fingerprint. Changed product dimensions,
+container dimensions, mode, source, user, surface, tool, or Flow step fail
+before provider invocation. Expired, malformed, tampered, wrong-type, and
+binding-mismatched tokens likewise fail before provider cost. Error responses
+use only controlled `expired_continuation`, `stale_continuation`, or
+`invalid_continuation` categories and fixed guidance.
+
+Public tokens contain:
+
+- token schema version and `public_knowledge` capability;
+- public surface and knowledge scope;
+- validated Clarification Context and matching depth;
+- opaque HMAC-derived anonymous-session binding;
+- random nonce.
+
+They contain no Tool Context, calculator form/result state, identity, private
+catalogue data, or action authority. A public token therefore cannot become a
+transferable pseudo-session. The existing deterministic public boundaries are
+also evaluated against the original request when the current message is a
+short continuation, so `mm`, `yes`, or `box width` cannot bypass calculation,
+current-result, or action restrictions. A clearly new current topic remains
+primary.
+
+The authenticated request bound remains 32 KiB. The public request bound is
+20 KiB, increased from 8 KiB so the existing 1,200-character UTF-8 message and
+the strictly capped 12 KiB signed token fit together without loosening either
+content contract. The endpoint still accepts only `message`,
+`knowledge_scope`, and optional `continuation_token`.
+
+### Provider and persistence boundaries
+
+The authenticated provider receives separate application instructions, fresh
+Tool Context, approved Knowledge Context, optional validated Clarification
+Context, and the current user message. The public provider receives separate
+public instructions, Public Expert Context, Public Knowledge Context, optional
+validated Clarification Context, and the current message. Raw continuation
+tokens, Django requests/users, IDs, session keys, browser DOM, and proposal
+tokens never enter either provider request.
+
+OpenAI transport remains one Responses API call with `store=false`, SDK
+`max_retries=0`, and no `previous_response_id`, conversation object,
+provider-side thread, tools, functions, web/file search, code execution, or
+MCP. Each valid continuation answer consumes the normal authenticated/public
+quota. No second model call summarizes or classifies the chain.
+
+The browser keeps only the opaque current token and visible temporary turns in
+component memory/DOM. It never reconstructs authority from rendered messages
+and uses no localStorage, sessionStorage, IndexedDB, cookie, database, Redis,
+or Django-session transcript. Reload clears continuity. A completed answer,
+proposal, unavailable outcome, stale/expired/invalid outcome, target change,
+or explicit **Start new question** clears the active token. Old rendered turns
+may remain until the next interaction without entering future requests.
+
+Tokens are stateless and are not made single-use with Redis. A still-valid
+manual replay may repeat one provider call but gains no new authority because
+all bindings and fresh authenticated state checks repeat. The in-page client
+prevents concurrent duplicate submission and replaces the active token as the
+chain advances.
+
 ## Test strategy
 
 ### Deterministic KolliPack tests

@@ -12,6 +12,7 @@ from packagingapp.assistant.contracts import (
     MAX_PROVIDER_RESPONSE_BYTES,
     validate_tool_context,
 )
+from packagingapp.assistant.clarification import build_next_clarification_context
 from packagingapp.assistant.actions import (
     PROPOSE_INPUT_CHANGES,
     build_assistant_provider_json_schema,
@@ -151,6 +152,7 @@ def generate(
     context=None,
     message="Explain this result.",
     knowledge_context=None,
+    clarification_context=None,
 ):
     return provider.generate(
         message=message,
@@ -158,6 +160,7 @@ def generate(
         instructions=get_assistant_instructions("read_only"),
         timeout_seconds=4.5,
         knowledge_context=knowledge_context,
+        clarification_context=clarification_context,
     )
 
 
@@ -236,6 +239,47 @@ class OpenAIAssistantProviderTests(SimpleTestCase):
                 "message": "Which current result should I explain?",
             },
         )
+
+    def test_valid_clarification_context_is_a_separate_bounded_provider_category(self):
+        provider, _factory, client = provider_with_response(
+            structured_response(
+                wire_payload(
+                    "answer",
+                    message="I understood the supplied dimensions as millimetres.",
+                )
+            )
+        )
+        context = build_next_clarification_context(
+            previous_context=None,
+            current_user_message="Pack 200 x 400 x 600 into 1000 x 2000 x 2000.",
+            assistant_question="Which units are those dimensions in?",
+        )
+
+        candidate = generate(
+            provider,
+            message="mm",
+            clarification_context=context,
+        )
+
+        self.assertEqual(candidate["type"], "answer")
+        request = client.responses.create.call_args.kwargs
+        self.assertEqual(
+            [item["role"] for item in request["input"]],
+            ["developer", "developer", "developer", "user"],
+        )
+        self.assertIn("Tool Context JSON", request["input"][0]["content"][0]["text"])
+        self.assertIn("KolliPack Knowledge JSON", request["input"][1]["content"][0]["text"])
+        self.assertIn("Clarification Context JSON", request["input"][2]["content"][0]["text"])
+        self.assertEqual(request["input"][3]["content"][0]["text"], "mm")
+        transmitted = repr(request)
+        for excluded in (
+            "continuation_token",
+            "proposal_token",
+            "session_key",
+            "user_id",
+            "database_id",
+        ):
+            self.assertNotIn(excluded, transmitted)
 
     def test_refusal_incomplete_empty_and_unexpected_items_fail_safely(self):
         cases = (

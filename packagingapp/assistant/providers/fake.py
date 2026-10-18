@@ -9,6 +9,7 @@ from ..contracts import (
     MAX_PROVIDER_RESPONSE_BYTES,
     ToolContext,
 )
+from ..clarification import ClarificationContext
 from ..actions import MAX_PROPOSAL_CHANGES, PROPOSE_INPUT_CHANGES
 from ..prompts import AssistantInstructions
 from ..knowledge import KnowledgeContext
@@ -66,6 +67,7 @@ class FakeAssistantProvider:
         instructions: AssistantInstructions,
         timeout_seconds: float,
         knowledge_context: KnowledgeContext | None = None,
+        clarification_context: ClarificationContext | None = None,
     ):
         self.call_count += 1
         self.last_timeout_seconds = timeout_seconds
@@ -140,6 +142,7 @@ class FakeAssistantProvider:
         timeout_seconds: float,
         max_output_tokens: int,
         knowledge_context: PublicKnowledgeContext,
+        clarification_context: ClarificationContext | None = None,
     ):
         self.call_count += 1
         self.last_timeout_seconds = timeout_seconds

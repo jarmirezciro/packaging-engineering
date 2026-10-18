@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .clarification import ClarificationContext, build_next_clarification_context
+
 
 @dataclass(frozen=True)
 class PublicEvaluationCase:
@@ -11,6 +13,7 @@ class PublicEvaluationCase:
     question: str
     knowledge_scope: str
     category: str
+    clarification_context: ClarificationContext | None = None
 
 
 PUBLIC_EXPERT_EVALUATION_CASES = (
@@ -45,4 +48,81 @@ PUBLIC_EXPERT_EVALUATION_CASES = (
 )
 
 
-__all__ = ["PUBLIC_EXPERT_EVALUATION_CASES", "PublicEvaluationCase"]
+def _clarification_case(
+    name: str,
+    original: str,
+    assistant_question: str,
+    current: str,
+    knowledge_scope: str,
+    category: str,
+) -> PublicEvaluationCase:
+    return PublicEvaluationCase(
+        name=name,
+        question=current,
+        knowledge_scope=knowledge_scope,
+        category=category,
+        clarification_context=build_next_clarification_context(
+            previous_context=None,
+            current_user_message=original,
+            assistant_question=assistant_question,
+        ),
+    )
+
+
+PUBLIC_CLARIFICATION_EVALUATION_CASES = (
+    _clarification_case(
+        "public_clarification_comparison",
+        "What is the difference between this tool and the other loading tool?",
+        "Do you mean Palletization or Transport Container Loading?",
+        "Transport.",
+        "global",
+        "conceptual_continuation",
+    ),
+    _clarification_case(
+        "public_clarification_terminology",
+        "What does efficiency mean?",
+        "Which KolliPack tool do you mean?",
+        "Container Selection.",
+        "container_selection",
+        "terminology_continuation",
+    ),
+    _clarification_case(
+        "public_clarification_calculation_boundary",
+        "How many 200 x 400 x 600 products fit in 1000 x 2000 x 2000?",
+        "Which units?",
+        "mm",
+        "container_selection",
+        "calculation_boundary",
+    ),
+    _clarification_case(
+        "public_clarification_result_boundary",
+        "Why did I get 45?",
+        "Do you mean the current calculator result?",
+        "yes",
+        "container_selection",
+        "result_boundary",
+    ),
+    _clarification_case(
+        "public_clarification_action_boundary",
+        "Change the width to 300.",
+        "Which width do you mean?",
+        "box width",
+        "container_selection",
+        "action_boundary",
+    ),
+    _clarification_case(
+        "public_clarification_new_topic",
+        "Change the product width.",
+        "Which unit?",
+        "Actually, what is cubicity?",
+        "container_selection",
+        "new_topic",
+    ),
+)
+
+
+__all__ = [
+    "PUBLIC_CLARIFICATION_EVALUATION_CASES",
+    "PUBLIC_EXPERT_EVALUATION_CASES",
+    "PublicEvaluationCase",
+]

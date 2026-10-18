@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from ..contracts import ToolContext
+from ..clarification import ClarificationContext
 from ..knowledge import KnowledgeContext
 from ..prompts import AssistantInstructions
 
@@ -64,5 +65,6 @@ class AssistantProvider(Protocol):
         instructions: AssistantInstructions,
         timeout_seconds: float,
         knowledge_context: KnowledgeContext | None = None,
+        clarification_context: ClarificationContext | None = None,
     ) -> Any:
         """Return an untrusted response candidate for application validation."""

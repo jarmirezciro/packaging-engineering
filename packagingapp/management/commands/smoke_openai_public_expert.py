@@ -9,7 +9,14 @@ from uuid import uuid4
 from django.core.management.base import BaseCommand, CommandError
 
 from packagingapp.assistant.public_contracts import build_public_expert_context
-from packagingapp.assistant.public_evaluation import PUBLIC_EXPERT_EVALUATION_CASES
+from packagingapp.assistant.public_evaluation import (
+    PUBLIC_CLARIFICATION_EVALUATION_CASES,
+    PUBLIC_EXPERT_EVALUATION_CASES,
+)
+from packagingapp.assistant.clarification import (
+    build_clarification_retrieval_query,
+    clarification_depth,
+)
 from packagingapp.assistant.public_knowledge import (
     public_knowledge_trace,
     retrieve_public_knowledge_context,
@@ -37,6 +44,11 @@ class Command(BaseCommand):
             dest="case_names",
             help="Run only a named case; may be repeated.",
         )
+        parser.add_argument(
+            "--clarification-evaluation",
+            action="store_true",
+            help="Run the six-case bounded public clarification suite.",
+        )
 
     def handle(self, *args, **options):
         if os.environ.get("KOLLIPACK_OPENAI_LOCAL_SMOKE", "").strip() != "1":
@@ -45,7 +57,11 @@ class Command(BaseCommand):
                 "No provider request was made."
             )
         config = load_public_expert_configuration()
-        cases = PUBLIC_EXPERT_EVALUATION_CASES
+        cases = (
+            PUBLIC_CLARIFICATION_EVALUATION_CASES
+            if options["clarification_evaluation"]
+            else PUBLIC_EXPERT_EVALUATION_CASES
+        )
         if options["case_names"]:
             requested = set(options["case_names"])
             cases = tuple(case for case in cases if case.name in requested)
@@ -72,15 +88,20 @@ class Command(BaseCommand):
         throttle = build_public_throttle(config)
         session_key = f"local-public-evaluation-{uuid4().hex}"
         first = cases[0]
+        first_query = build_clarification_retrieval_query(
+            first.question,
+            first.clarification_context,
+        )
         preflight = evaluate_public_provider_gate(
             session_key=session_key,
             request=build_public_external_request(
                 message=first.question,
                 expert_context=build_public_expert_context(first.knowledge_scope),
                 knowledge_context=retrieve_public_knowledge_context(
-                    first.question,
+                    first_query,
                     knowledge_scope=first.knowledge_scope,
                 ),
+                clarification_context=first.clarification_context,
             ),
             config=config,
             throttle=throttle,
@@ -99,24 +120,41 @@ class Command(BaseCommand):
         unavailable = 0
         response_types: dict[str, int] = {}
         for case in cases:
-            knowledge = retrieve_public_knowledge_context(
+            retrieval_query = build_clarification_retrieval_query(
                 case.question,
+                case.clarification_context,
+            )
+            knowledge = retrieve_public_knowledge_context(
+                retrieval_query,
                 knowledge_scope=case.knowledge_scope,
             )
+            public_request = {
+                "session_key": session_key,
+                "message": case.question,
+                "expert_context": build_public_expert_context(case.knowledge_scope),
+                "knowledge_context": knowledge,
+                "provider": provider,
+                "config": config,
+                "throttle": throttle,
+            }
+            if case.clarification_context is not None:
+                public_request["clarification_context"] = case.clarification_context
             response = ask_public_external(
-                session_key=session_key,
-                message=case.question,
-                expert_context=build_public_expert_context(case.knowledge_scope),
-                knowledge_context=knowledge,
-                provider=provider,
-                config=config,
-                throttle=throttle,
+                **public_request
             )
             response_types[response["type"]] = response_types.get(response["type"], 0) + 1
             unavailable += int(response["type"] == "unavailable")
             self.stdout.write(f"case={case.name}")
             self.stdout.write(f"category={case.category}")
             self.stdout.write(f"scope={case.knowledge_scope}")
+            self.stdout.write(
+                "clarification_depth="
+                + str(
+                    clarification_depth(case.clarification_context)
+                    if case.clarification_context is not None
+                    else 0
+                )
+            )
             self.stdout.write(
                 "knowledge_refs="
                 + json.dumps(

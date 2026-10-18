@@ -55,8 +55,9 @@
 
             <section class="kpe-interaction"
                      data-public-expert-interaction
-                     aria-label="Latest Public Expert interaction"
+                     aria-label="Active Public Expert clarification"
                      hidden>
+                <div class="kpe-history" data-public-expert-history hidden></div>
                 <div class="kpe-turn kpe-turn--visitor">
                     <span class="kpe-turn-label">Your question</span>
                     <p data-public-expert-question></p>
@@ -65,6 +66,12 @@
                     <span class="kpe-turn-label">KolliPack Public Expert</span>
                     <p data-public-expert-response role="status" aria-live="polite" aria-atomic="true"></p>
                 </div>
+                <button type="button"
+                        class="btn btn-sm btn-link kpe-reset"
+                        data-public-expert-reset
+                        hidden>
+                    Start new question
+                </button>
             </section>
         </div>
 

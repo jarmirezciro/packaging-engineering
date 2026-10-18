@@ -346,6 +346,27 @@ body {
     background: var(--app-surface-soft);
 }
 
+.kpa-history,
+.kpe-history {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.kpa-history[hidden],
+.kpe-history[hidden],
+.kpa-reset[hidden],
+.kpe-reset[hidden] {
+    display: none;
+}
+
+.kpa-reset,
+.kpe-reset {
+    align-self: flex-start;
+    padding-left: 0;
+    padding-right: 0;
+}
+
 .kpa-turn--assistant {
     background: #ffffff;
     border-color: color-mix(in srgb, var(--app-primary) 24%, var(--app-border));

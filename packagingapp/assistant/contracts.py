@@ -32,6 +32,7 @@ ASSISTANT_RESPONSE_TYPES = frozenset(
 )
 MAX_USER_MESSAGE_LENGTH = 2_000
 MAX_ASSISTANT_MESSAGE_LENGTH = 4_000
+MAX_CLARIFYING_QUESTION_LENGTH = 1_200
 MAX_ASSISTANT_FACT_REFS = 16
 MAX_PROVIDER_RESPONSE_BYTES = 16 * 1024
 
@@ -445,7 +446,14 @@ def validate_assistant_response(
             "Unsupported assistant response schema version."
         )
 
-    message = _validate_assistant_message(response.get("message"))
+    message = validate_assistant_plain_text(
+        response.get("message"),
+        max_length=(
+            MAX_CLARIFYING_QUESTION_LENGTH
+            if response_type == "clarifying_question"
+            else MAX_ASSISTANT_MESSAGE_LENGTH
+        ),
+    )
     if response_type == "unavailable" and message != ASSISTANT_UNAVAILABLE_MESSAGE:
         raise AssistantResponseValidationError(
             "Unavailable responses must use the application-owned safe message."

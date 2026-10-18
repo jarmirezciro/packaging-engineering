@@ -18,9 +18,25 @@ from .public_contracts import (
 from .public_knowledge import public_knowledge_trace, retrieve_public_knowledge_context
 from .public_policy import load_public_expert_configuration
 from .public_service import ask_public_external
+from .clarification import (
+    CLARIFICATION_DEPTH_MESSAGE,
+    EXPIRED_CONTINUATION_MESSAGE,
+    INVALID_CONTINUATION_MESSAGE,
+    MAX_CLARIFICATION_ROUNDS,
+    MAX_CONTINUATION_TOKEN_LENGTH,
+    ClarificationContextError,
+    ContinuationTokenBindingMismatch,
+    ContinuationTokenError,
+    ContinuationTokenExpired,
+    build_clarification_retrieval_query,
+    build_next_clarification_context,
+    clarification_depth,
+    issue_public_continuation_token,
+    load_public_continuation_token,
+)
 
 
-MAX_PUBLIC_EXPERT_REQUEST_BYTES = 8 * 1024
+MAX_PUBLIC_EXPERT_REQUEST_BYTES = 20 * 1024
 
 
 def _error(code: str, message: str, *, status: int) -> JsonResponse:
@@ -49,7 +65,11 @@ def _parse_payload(request) -> dict:
         )
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise PublicExpertValidationError("malformed_json") from exc
-    if not isinstance(payload, dict) or set(payload) != {"message", "knowledge_scope"}:
+    allowed = {
+        frozenset({"message", "knowledge_scope"}),
+        frozenset({"message", "knowledge_scope", "continuation_token"}),
+    }
+    if not isinstance(payload, dict) or frozenset(payload) not in allowed:
         raise PublicExpertValidationError("invalid_request_schema")
     return payload
 
@@ -84,6 +104,13 @@ def public_expert_ask(request):
         knowledge_scope = payload.get("knowledge_scope")
         if knowledge_scope not in PUBLIC_KNOWLEDGE_SCOPES:
             raise PublicExpertValidationError("unsupported_knowledge_scope")
+        continuation_token = payload.get("continuation_token")
+        if continuation_token is not None and (
+            not isinstance(continuation_token, str)
+            or not continuation_token
+            or len(continuation_token) > MAX_CONTINUATION_TOKEN_LENGTH
+        ):
+            raise PublicExpertValidationError("invalid_continuation")
     except PublicExpertValidationError as exc:
         code = str(exc)
         if code == "request_too_large":
@@ -104,9 +131,15 @@ def public_expert_ask(request):
                 "The requested public knowledge scope is not supported.",
                 status=400,
             )
+        if code == "invalid_continuation":
+            return _error(
+                "invalid_continuation",
+                INVALID_CONTINUATION_MESSAGE,
+                status=400,
+            )
         return _error(
             "invalid_request_schema",
-            f"Request must contain only message (maximum {MAX_PUBLIC_USER_MESSAGE_LENGTH} characters) and knowledge_scope.",
+            f"Request must contain message (maximum {MAX_PUBLIC_USER_MESSAGE_LENGTH} characters), knowledge_scope, and optionally continuation_token.",
             status=400,
         )
 
@@ -118,18 +151,46 @@ def public_expert_ask(request):
         request.session.create()
     session_key = request.session.session_key
     expert_context = build_public_expert_context(knowledge_scope)
-    knowledge_context = retrieve_public_knowledge_context(
+    clarification_context = None
+    if continuation_token is not None:
+        try:
+            clarification_context = load_public_continuation_token(
+                continuation_token,
+                session_key=session_key,
+                surface=expert_context["surface"],
+                knowledge_scope=knowledge_scope,
+            )
+        except ContinuationTokenExpired:
+            return _error(
+                "expired_continuation",
+                EXPIRED_CONTINUATION_MESSAGE,
+                status=410,
+            )
+        except (ContinuationTokenBindingMismatch, ContinuationTokenError):
+            return _error(
+                "invalid_continuation",
+                INVALID_CONTINUATION_MESSAGE,
+                status=400,
+            )
+    retrieval_query = build_clarification_retrieval_query(
         message,
+        clarification_context,
+    )
+    knowledge_context = retrieve_public_knowledge_context(
+        retrieval_query,
         knowledge_scope=knowledge_scope,
     )
     try:
-        response = ask_public_external(
-            session_key=session_key,
-            message=message,
-            expert_context=expert_context,
-            knowledge_context=knowledge_context,
-            config=config,
-        )
+        public_request = {
+            "session_key": session_key,
+            "message": message,
+            "expert_context": expert_context,
+            "knowledge_context": knowledge_context,
+            "config": config,
+        }
+        if clarification_context is not None:
+            public_request["clarification_context"] = clarification_context
+        response = ask_public_external(**public_request)
     except PublicExpertValidationError:
         return _error(
             "public_expert_request_failed",
@@ -137,7 +198,40 @@ def public_expert_ask(request):
             status=422,
         )
 
+    response_continuation_token = None
+    if response.get("type") == "clarifying_question":
+        if (
+            clarification_context is not None
+            and clarification_depth(clarification_context) >= MAX_CLARIFICATION_ROUNDS
+        ):
+            response = {
+                "schema_version": "1.0",
+                "type": "answer",
+                "message": CLARIFICATION_DEPTH_MESSAGE,
+            }
+        else:
+            try:
+                next_context = build_next_clarification_context(
+                    previous_context=clarification_context,
+                    current_user_message=message,
+                    assistant_question=response["message"],
+                )
+                response_continuation_token = issue_public_continuation_token(
+                    clarification_context=next_context,
+                    session_key=session_key,
+                    surface=expert_context["surface"],
+                    knowledge_scope=knowledge_scope,
+                )
+            except (ClarificationContextError, ContinuationTokenError):
+                response = {
+                    "schema_version": "1.0",
+                    "type": "answer",
+                    "message": CLARIFICATION_DEPTH_MESSAGE,
+                }
+
     envelope = {"ok": True, "response": response}
+    if response_continuation_token is not None:
+        envelope["continuation_token"] = response_continuation_token
     if _trace_enabled():
         envelope["knowledge_trace"] = public_knowledge_trace(knowledge_context)
     return JsonResponse(envelope)
