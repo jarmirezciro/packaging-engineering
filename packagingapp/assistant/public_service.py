@@ -5,6 +5,10 @@ from __future__ import annotations
 import logging
 import re
 
+from .clarification import (
+    ClarificationContext,
+    is_probable_short_clarification_reply,
+)
 from .providers import DEFAULT_ASSISTANT_PROVIDER, get_assistant_provider
 from .providers.base import (
     AssistantProviderError,
@@ -161,6 +165,7 @@ def ask_public_external(
     message: str,
     expert_context: PublicExpertContext,
     knowledge_context: PublicKnowledgeContext,
+    clarification_context: ClarificationContext | None = None,
     provider=None,
     provider_name: str = DEFAULT_ASSISTANT_PROVIDER,
     config=None,
@@ -172,6 +177,7 @@ def ask_public_external(
             message=message,
             expert_context=expert_context,
             knowledge_context=knowledge_context,
+            clarification_context=clarification_context,
         )
     except PublicExternalRequestError as exc:
         raise PublicExpertValidationError(exc.safe_message) from exc
@@ -185,9 +191,17 @@ def ask_public_external(
     if not decision.allowed:
         return _unavailable(decision.outcome, decision.provider_id)
 
-    boundary = public_question_boundary(external_request.message)
+    boundary_question = external_request.message
+    boundary = public_question_boundary(boundary_question)
+    if (
+        boundary is None
+        and external_request.clarification_context is not None
+        and is_probable_short_clarification_reply(external_request.message)
+    ):
+        boundary_question = external_request.clarification_context["turns"][0]["message"]
+        boundary = public_question_boundary(boundary_question)
     if boundary:
-        return _boundary_response(external_request.message, boundary)
+        return _boundary_response(boundary_question, boundary)
     if external_request.knowledge_context["status"] == "no_match":
         return build_public_answer(PUBLIC_KNOWLEDGE_FALLBACK_MESSAGE)
     if external_request.knowledge_context["status"] != "available":
@@ -205,14 +219,19 @@ def ask_public_external(
         return _unavailable(PUBLIC_PROVIDER_CONFIGURATION_MISMATCH)
 
     try:
-        candidate = generate_public(
-            message=external_request.message,
-            expert_context=external_request.expert_context,
-            instructions=external_request.instructions,
-            timeout_seconds=decision.timeout_seconds,
-            max_output_tokens=decision.max_output_tokens,
-            knowledge_context=external_request.knowledge_context,
-        )
+        provider_request = {
+            "message": external_request.message,
+            "expert_context": external_request.expert_context,
+            "instructions": external_request.instructions,
+            "timeout_seconds": decision.timeout_seconds,
+            "max_output_tokens": decision.max_output_tokens,
+            "knowledge_context": external_request.knowledge_context,
+        }
+        if external_request.clarification_context is not None:
+            provider_request["clarification_context"] = (
+                external_request.clarification_context
+            )
+        candidate = generate_public(**provider_request)
     except AssistantProviderTimeout:
         return _unavailable(PUBLIC_PROVIDER_TIMEOUT, decision.provider_id)
     except AssistantProviderResponseTooLarge:

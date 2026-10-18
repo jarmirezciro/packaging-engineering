@@ -19,6 +19,7 @@
 
     const MAX_QUESTION_LENGTH = 2000;
     const MAX_RESPONSE_LENGTH = 4000;
+    const MAX_CONTINUATION_TOKEN_LENGTH = 12 * 1024;
     const ASSISTANT_RESPONSE_SCHEMA_VERSION = "1.1";
     const PROPOSAL_PREVIEW_SCHEMA_VERSION = "1.0";
     const APPLY_RESPONSE_SCHEMA_VERSION = "1.0";
@@ -142,7 +143,7 @@
         };
     }
 
-    function buildRequest(target, state, message) {
+    function buildRequest(target, state, message, continuationToken) {
         const request = {
             tool: target.tool,
             surface: target.surface,
@@ -151,6 +152,9 @@
         };
         if (target.surface === "workflow") {
             request.step_ref = target.stepRef;
+        }
+        if (continuationToken) {
+            request.continuation_token = continuationToken;
         }
         return request;
     }
@@ -332,6 +336,9 @@
     function validateResponsePayload(payload) {
         const response = payload && payload.ok === true ? payload.response : null;
         if (response && response.type === "proposal_preview") {
+            if (Object.prototype.hasOwnProperty.call(payload, "continuation_token")) {
+                throw new AssistantUiError("KolliPack Assistant returned an unreadable response. Please ask again.");
+            }
             const proposal = validateProposalPreview(response);
             if (Object.prototype.hasOwnProperty.call(payload, "knowledge_trace")) {
                 proposal.knowledge_trace = validateKnowledgeTrace(payload.knowledge_trace);
@@ -353,6 +360,22 @@
             type: response.type,
             message: response.message,
         };
+        const hasContinuationToken = Object.prototype.hasOwnProperty.call(
+            payload, "continuation_token"
+        );
+        if (response.type === "clarifying_question") {
+            if (
+                !hasContinuationToken ||
+                typeof payload.continuation_token !== "string" ||
+                !payload.continuation_token ||
+                payload.continuation_token.length > MAX_CONTINUATION_TOKEN_LENGTH
+            ) {
+                throw new AssistantUiError("KolliPack Assistant returned an unreadable response. Please ask again.");
+            }
+            validated.continuation_token = payload.continuation_token;
+        } else if (hasContinuationToken) {
+            throw new AssistantUiError("KolliPack Assistant returned an unreadable response. Please ask again.");
+        }
         if (Object.prototype.hasOwnProperty.call(payload, "knowledge_trace")) {
             validated.knowledge_trace = validateKnowledgeTrace(payload.knowledge_trace);
         }
@@ -425,7 +448,31 @@
         }
 
         if (!response || !response.ok) {
-            throw new AssistantUiError(messageForHttpStatus(response ? response.status : 0));
+            let failurePayload = null;
+            if (response && typeof response.json === "function") {
+                try {
+                    failurePayload = await response.json();
+                } catch (error) {
+                    failurePayload = null;
+                }
+            }
+            const code = failurePayload && failurePayload.error &&
+                typeof failurePayload.error.code === "string"
+                ? failurePayload.error.code
+                : "";
+            const continuationMessages = {
+                stale_continuation: "The tool inputs changed since that clarification. Repeat the request for the current inputs.",
+                expired_continuation: "That clarification has expired. Please repeat the original request.",
+                invalid_continuation: "That clarification can no longer be continued safely. Please repeat the original request.",
+            };
+            const failure = new AssistantUiError(
+                continuationMessages[code] || messageForHttpStatus(response ? response.status : 0)
+            );
+            failure.code = code;
+            failure.terminalContinuation = Object.prototype.hasOwnProperty.call(
+                continuationMessages, code
+            );
+            throw failure;
         }
 
         let payload;
@@ -550,6 +597,7 @@
         const scrollNode = panel.querySelector(".kpa-scroll");
         const suggestionsNode = panel.querySelector("[data-assistant-suggestions]");
         const interactionNode = panel.querySelector("[data-assistant-interaction]");
+        const historyNode = panel.querySelector("[data-assistant-history]");
         const questionNode = panel.querySelector("[data-assistant-question]");
         const responseNode = panel.querySelector("[data-assistant-response]");
         const responseLabel = panel.querySelector("[data-assistant-response-label]");
@@ -557,6 +605,7 @@
         const knowledgeTraceList = panel.querySelector("[data-assistant-knowledge-trace-list]");
         const staleNode = panel.querySelector("[data-assistant-stale]");
         const staleTextNode = panel.querySelector("[data-assistant-stale-text]");
+        const resetButton = panel.querySelector("[data-assistant-reset]");
         const composer = panel.querySelector("[data-assistant-composer]");
         const input = panel.querySelector("[data-assistant-input]");
         const sendButton = panel.querySelector("[data-assistant-send]");
@@ -568,9 +617,9 @@
 
         if (
             !appShell || !closeButton || !backdrop || !contextLabel || !scrollNode ||
-            !suggestionsNode || !interactionNode || !questionNode ||
+            !suggestionsNode || !interactionNode || !historyNode || !questionNode ||
             !responseNode || !responseLabel || !knowledgeTraceNode ||
-            !knowledgeTraceList || !staleNode || !staleTextNode || !composer ||
+            !knowledgeTraceList || !staleNode || !staleTextNode || !resetButton || !composer ||
             !input || !sendButton || !countNode || !csrfInput ||
             !panel.dataset.assistantApplyUrl
         ) {
@@ -589,6 +638,8 @@
         let staleDuringRequest = false;
         let latestQuestion = "";
         let latestResponseType = "";
+        let activeContinuationToken = "";
+        let clarificationTurns = [];
         let inertSnapshot = null;
         let applyInputSnapshot = null;
 
@@ -740,7 +791,11 @@
             staleDuringRequest = false;
             latestQuestion = "";
             latestResponseType = "";
+            activeContinuationToken = "";
+            clarificationTurns = [];
             interactionNode.hidden = true;
+            historyNode.hidden = true;
+            historyNode.replaceChildren();
             staleNode.hidden = true;
             questionNode.textContent = "";
             responseNode.textContent = "";
@@ -749,6 +804,7 @@
             knowledgeTraceNode.hidden = true;
             knowledgeTraceNode.open = false;
             knowledgeTraceList.replaceChildren();
+            resetButton.hidden = true;
             input.value = "";
             sendButton.disabled = false;
             updateCharacterCount();
@@ -867,6 +923,30 @@
                     behavior: reducedMotion ? "auto" : "smooth",
                 });
             });
+        }
+
+        function appendHistoryTurn(role, message) {
+            const turn = document.createElement("div");
+            turn.className = role === "assistant"
+                ? "kpa-turn kpa-turn--assistant"
+                : "kpa-turn";
+            const label = document.createElement("p");
+            label.className = "kpa-turn-label";
+            label.textContent = role === "assistant" ? "KolliPack Assistant" : "You";
+            const text = document.createElement("p");
+            text.className = role === "assistant" ? "kpa-response" : "kpa-question";
+            text.textContent = message;
+            turn.append(label, text);
+            historyNode.appendChild(turn);
+        }
+
+        function renderClarificationHistory() {
+            historyNode.replaceChildren();
+            clarificationTurns.forEach(function (turn) {
+                appendHistoryTurn("user", turn.question);
+                appendHistoryTurn("assistant", turn.answer);
+            });
+            historyNode.hidden = clarificationTurns.length === 0;
         }
 
         function renderLoading(question) {
@@ -1126,7 +1206,17 @@
                 return;
             }
 
-            const payload = buildRequest(currentTarget, current.state, question);
+            if (!activeContinuationToken) {
+                clarificationTurns = [];
+            }
+            renderClarificationHistory();
+            const continuationToken = activeContinuationToken;
+            const payload = buildRequest(
+                currentTarget,
+                current.state,
+                question,
+                continuationToken
+            );
             const thisRequest = ++requestVersion;
             requestPending = true;
             staleDuringRequest = false;
@@ -1142,11 +1232,26 @@
                 });
                 if (thisRequest !== requestVersion) return;
                 renderResponse(response);
+                if (response.type === "clarifying_question") {
+                    activeContinuationToken = response.continuation_token;
+                    clarificationTurns.push({
+                        question: question,
+                        answer: response.message,
+                    });
+                    resetButton.hidden = false;
+                } else {
+                    activeContinuationToken = "";
+                    resetButton.hidden = true;
+                }
                 input.value = "";
                 updateCharacterCount();
                 if (staleDuringRequest) staleNode.hidden = false;
             } catch (error) {
                 if (thisRequest !== requestVersion) return;
+                if (error && error.terminalContinuation) {
+                    activeContinuationToken = "";
+                    resetButton.hidden = true;
+                }
                 renderError(
                     error && error.safeMessage
                         ? error.safeMessage
@@ -1168,6 +1273,10 @@
         });
         closeButton.addEventListener("click", function () { close(true); });
         backdrop.addEventListener("click", function () { close(true); });
+        resetButton.addEventListener("click", function () {
+            clearInteraction();
+            input.focus();
+        });
         composer.addEventListener("submit", function (event) {
             event.preventDefault();
             sendQuestion();

@@ -21,6 +21,12 @@ from .contracts import (
     validate_tool_context,
     validate_user_message,
 )
+from .clarification import (
+    ClarificationContext,
+    ClarificationContextError,
+    canonical_clarification_json,
+    validate_clarification_context,
+)
 from .actions import (
     ProviderProposalCandidate,
     parse_assistant_provider_candidate,
@@ -168,6 +174,7 @@ def ask(
     provider_name: str = DEFAULT_ASSISTANT_PROVIDER,
     timeout_seconds: float = DEFAULT_PROVIDER_TIMEOUT_SECONDS,
     knowledge_context: KnowledgeContext | None = None,
+    clarification_context: ClarificationContext | None = None,
 ) -> AssistantResponse | ProviderProposalCandidate:
     """Return a validated response without calculations, mutation, or persistence."""
     try:
@@ -188,6 +195,20 @@ def ask(
             ASSISTANT_INVALID_REQUEST,
             "KolliPack Knowledge Context is invalid.",
         ) from exc
+    detached_clarification = None
+    if clarification_context is not None:
+        try:
+            validated_clarification = validate_clarification_context(
+                clarification_context
+            )
+            detached_clarification = json.loads(
+                canonical_clarification_json(validated_clarification)
+            )
+        except ClarificationContextError as exc:
+            raise AssistantServiceError(
+                ASSISTANT_INVALID_REQUEST,
+                "Clarification Context is invalid.",
+            ) from exc
     timeout = _validated_timeout(timeout_seconds)
     try:
         instructions = get_assistant_instructions(capability)
@@ -209,12 +230,17 @@ def ask(
 
     try:
         provider_context = json.loads(canonical_json(validated_context))
+        provider_request = {
+            "message": validated_message,
+            "tool_context": provider_context,
+            "instructions": instructions,
+            "timeout_seconds": timeout,
+            "knowledge_context": detached_knowledge,
+        }
+        if detached_clarification is not None:
+            provider_request["clarification_context"] = detached_clarification
         candidate = provider.generate(
-            message=validated_message,
-            tool_context=provider_context,
-            instructions=instructions,
-            timeout_seconds=timeout,
-            knowledge_context=detached_knowledge,
+            **provider_request
         )
     except AssistantProviderTimeout:
         return _unavailable(PROVIDER_TIMEOUT, provider)
@@ -248,6 +274,7 @@ def ask_external(
     config=None,
     throttle=None,
     knowledge_context: KnowledgeContext | None = None,
+    clarification_context: ClarificationContext | None = None,
 ) -> AssistantResponse | ProviderProposalCandidate:
     """Gate an external call before delegating to the provider service.
 
@@ -260,6 +287,7 @@ def ask_external(
             message=message,
             tool_context=tool_context,
             knowledge_context=knowledge_context or empty_knowledge_context(),
+            clarification_context=clarification_context,
             capability=capability,
         )
     except ExternalAssistantRequestError as exc:
@@ -292,6 +320,7 @@ def ask_external(
         message=external_request.message,
         tool_context=external_request.tool_context,
         knowledge_context=external_request.knowledge_context,
+        clarification_context=external_request.clarification_context,
         capability=external_request.instructions.capability,
         provider=provider,
         timeout_seconds=decision.timeout_seconds,

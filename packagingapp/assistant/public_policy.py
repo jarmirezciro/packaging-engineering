@@ -14,6 +14,12 @@ from .configuration import (
     load_external_provider_configuration,
 )
 from .prompts import AssistantInstructions
+from .clarification import (
+    ClarificationContext,
+    ClarificationContextError,
+    canonical_clarification_json,
+    validate_clarification_context,
+)
 from .public_contracts import (
     PUBLIC_EXPERT_CAPABILITY,
     PublicExpertContext,
@@ -67,6 +73,7 @@ class PublicExternalAssistantRequest:
     message: str
     expert_context: PublicExpertContext
     knowledge_context: PublicKnowledgeContext
+    clarification_context: ClarificationContext | None
 
 
 @dataclass(frozen=True)
@@ -207,6 +214,7 @@ def build_public_external_request(
     message: str,
     expert_context: PublicExpertContext,
     knowledge_context: PublicKnowledgeContext,
+    clarification_context: ClarificationContext | None = None,
     capability: str = PUBLIC_EXPERT_CAPABILITY,
 ) -> PublicExternalAssistantRequest:
     if capability != PUBLIC_EXPERT_CAPABILITY:
@@ -225,11 +233,25 @@ def build_public_external_request(
             PUBLIC_INVALID_EXTERNAL_REQUEST,
             "Public Expert request is invalid.",
         ) from exc
+    detached_clarification = None
+    if clarification_context is not None:
+        try:
+            detached_clarification = json.loads(
+                canonical_clarification_json(
+                    validate_clarification_context(clarification_context)
+                )
+            )
+        except ClarificationContextError as exc:
+            raise PublicExternalRequestError(
+                PUBLIC_INVALID_EXTERNAL_REQUEST,
+                "Public Clarification Context is invalid.",
+            ) from exc
     return PublicExternalAssistantRequest(
         instructions=get_public_expert_instructions(),
         message=validated_message,
         expert_context=detached_expert,
         knowledge_context=detached_knowledge,
+        clarification_context=detached_clarification,
     )
 
 

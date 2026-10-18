@@ -133,6 +133,13 @@ async function main() {
         ["tool", "surface", "state", "message", "step_ref"]
     );
     assert.equal(workflowRequest.step_ref, "opaque-step-reference-123");
+    const continuationRequest = assistant.buildRequest(
+        {tool: "container_selection", surface: "standalone"},
+        standalone.state,
+        "mm",
+        "signed-continuation-token"
+    );
+    assert.equal(continuationRequest.continuation_token, "signed-continuation-token");
     const workflowApplyRequest = assistant.buildApplyRequest(
         {surface: "workflow", stepRef: "opaque-step-reference-123"},
         workflow.state,
@@ -145,12 +152,31 @@ async function main() {
 
     for (const type of ["answer", "clarifying_question", "unavailable"]) {
         const message = type === "answer" ? "<img src=x onerror=alert(1)>" : `${type} message`;
-        const validated = assistant.validateResponsePayload({
+        const envelope = {
             ok: true,
             response: {schema_version: "1.1", type, message, fact_refs: []},
-        });
-        assert.deepEqual(validated, {schema_version: "1.1", type, message});
+        };
+        if (type === "clarifying_question") {
+            envelope.continuation_token = "signed-continuation-token";
+        }
+        const validated = assistant.validateResponsePayload(envelope);
+        const expected = {schema_version: "1.1", type, message};
+        if (type === "clarifying_question") {
+            expected.continuation_token = "signed-continuation-token";
+        }
+        assert.deepEqual(validated, expected);
     }
+    assert.throws(
+        () => assistant.validateResponsePayload({
+            ok: true,
+            response: {
+                schema_version: "1.1",
+                type: "clarifying_question",
+                message: "Which units?",
+            },
+        }),
+        /unreadable response/
+    );
     const traced = assistant.validateResponsePayload({
         ok: true,
         response: {

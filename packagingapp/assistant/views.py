@@ -40,6 +40,24 @@ from .contracts import (
     validate_tool_context,
     validate_user_message,
 )
+from .clarification import (
+    CLARIFICATION_DEPTH_MESSAGE,
+    EXPIRED_CONTINUATION_MESSAGE,
+    INVALID_CONTINUATION_MESSAGE,
+    MAX_CLARIFICATION_ROUNDS,
+    MAX_CONTINUATION_TOKEN_LENGTH,
+    STALE_CONTINUATION_MESSAGE,
+    ClarificationContextError,
+    ContinuationTokenBindingMismatch,
+    ContinuationTokenError,
+    ContinuationTokenExpired,
+    ContinuationTokenStale,
+    build_clarification_retrieval_query,
+    build_next_clarification_context,
+    clarification_depth,
+    issue_authenticated_continuation_token,
+    load_authenticated_continuation_token,
+)
 from .actions import (
     APPLY_RESPONSE_SCHEMA_VERSION,
     APPLY_RESPONSE_TYPE,
@@ -226,7 +244,8 @@ def _validate_ask_request_payload(payload):
     expected_keys = {"tool", "surface", "state", "message"}
     if surface == "workflow":
         expected_keys.add("step_ref")
-    if set(payload) != expected_keys:
+    allowed_key_sets = {frozenset(expected_keys), frozenset(expected_keys | {"continuation_token"})}
+    if frozenset(payload) not in allowed_key_sets:
         raise AssistantContextRequestError(
             "invalid_request_schema", "Request fields do not match the endpoint schema."
         )
@@ -243,7 +262,26 @@ def _validate_ask_request_payload(payload):
             "invalid_assistant_message",
             "Assistant message must be non-empty plain text within the application limit.",
         ) from exc
-    return surface, state, message
+    continuation_token = payload.get("continuation_token")
+    if continuation_token is not None and (
+        not isinstance(continuation_token, str)
+        or not continuation_token
+        or len(continuation_token) > MAX_CONTINUATION_TOKEN_LENGTH
+    ):
+        raise AssistantContextRequestError(
+            "invalid_continuation",
+            INVALID_CONTINUATION_MESSAGE,
+        )
+    return surface, state, message, continuation_token
+
+
+def _clarification_reset_response(message):
+    return {
+        "schema_version": ASSISTANT_RESPONSE_SCHEMA_VERSION,
+        "type": "answer",
+        "message": message,
+        "fact_refs": [],
+    }
 
 
 def _validate_apply_request_payload(payload):
@@ -576,7 +614,7 @@ def assistant_ask(request):
 
     try:
         payload = _parse_json_request(request)
-        surface, state, message = _validate_ask_request_payload(payload)
+        surface, state, message, continuation_token = _validate_ask_request_payload(payload)
         context = build_current_assistant_context(
             request,
             surface=surface,
@@ -584,17 +622,53 @@ def assistant_ask(request):
             step_ref=payload.get("step_ref"),
         )
         validate_tool_context(context)
-        knowledge_context = retrieve_knowledge_context(
+        clarification_context = None
+        if continuation_token is not None:
+            try:
+                clarification_context = load_authenticated_continuation_token(
+                    continuation_token,
+                    user_identifier=request.user.pk,
+                    tool=CONTAINER_TOOL_ID,
+                    surface=surface,
+                    state_fingerprint=context["tool"]["state_fingerprint"],
+                    step_ref=payload.get("step_ref"),
+                )
+            except ContinuationTokenExpired:
+                return _error(
+                    "expired_continuation",
+                    EXPIRED_CONTINUATION_MESSAGE,
+                    status=410,
+                )
+            except ContinuationTokenStale:
+                return _error(
+                    "stale_continuation",
+                    STALE_CONTINUATION_MESSAGE,
+                    status=409,
+                )
+            except (ContinuationTokenBindingMismatch, ContinuationTokenError):
+                return _error(
+                    "invalid_continuation",
+                    INVALID_CONTINUATION_MESSAGE,
+                    status=400,
+                )
+        retrieval_query = build_clarification_retrieval_query(
             message,
+            clarification_context,
+        )
+        knowledge_context = retrieve_knowledge_context(
+            retrieval_query,
             active_tool=context["tool"]["id"],
         )
-        response = ask_external(
-            user=request.user,
-            message=message,
-            tool_context=context,
-            knowledge_context=knowledge_context,
-            capability=READ_ONLY_CAPABILITY,
-        )
+        assistant_request = {
+            "user": request.user,
+            "message": message,
+            "tool_context": context,
+            "knowledge_context": knowledge_context,
+            "capability": READ_ONLY_CAPABILITY,
+        }
+        if clarification_context is not None:
+            assistant_request["clarification_context"] = clarification_context
+        response = ask_external(**assistant_request)
         if is_provider_proposal_candidate(response):
             fresh_state = build_current_container_proposal_state(
                 request,
@@ -631,6 +705,37 @@ def assistant_ask(request):
                     extra={"assistant_failure_category": "proposal_invalid_or_stale"},
                 )
                 response = build_unavailable_response()
+        response_continuation_token = None
+        if response.get("type") == "clarifying_question":
+            if (
+                clarification_context is not None
+                and clarification_depth(clarification_context)
+                >= MAX_CLARIFICATION_ROUNDS
+            ):
+                response = _clarification_reset_response(
+                    CLARIFICATION_DEPTH_MESSAGE
+                )
+            else:
+                try:
+                    next_context = build_next_clarification_context(
+                        previous_context=clarification_context,
+                        current_user_message=message,
+                        assistant_question=response["message"],
+                    )
+                    response_continuation_token = (
+                        issue_authenticated_continuation_token(
+                            clarification_context=next_context,
+                            user_identifier=request.user.pk,
+                            tool=CONTAINER_TOOL_ID,
+                            surface=surface,
+                            state_fingerprint=context["tool"]["state_fingerprint"],
+                            step_ref=payload.get("step_ref"),
+                        )
+                    )
+                except (ClarificationContextError, ContinuationTokenError):
+                    response = _clarification_reset_response(
+                        CLARIFICATION_DEPTH_MESSAGE
+                    )
     except AssistantContextRequestError as exc:
         return _error(exc.code, exc.message, status=exc.status)
     except ToolContextValidationError as exc:
@@ -653,6 +758,8 @@ def assistant_ask(request):
         )
 
     envelope = {"ok": True, "response": response}
+    if response_continuation_token is not None:
+        envelope["continuation_token"] = response_continuation_token
     if knowledge_trace_enabled():
         envelope["knowledge_trace"] = knowledge_trace(knowledge_context)
     return JsonResponse(envelope)

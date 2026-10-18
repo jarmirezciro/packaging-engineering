@@ -6,7 +6,7 @@ from .prompts import AssistantInstructions
 from .public_contracts import PUBLIC_EXPERT_CAPABILITY
 
 
-PUBLIC_EXPERT_PROMPT_VERSION = "public_knowledge/v1"
+PUBLIC_EXPERT_PROMPT_VERSION = "public_knowledge/v2"
 
 PUBLIC_EXPERT_INSTRUCTIONS = AssistantInstructions(
     schema_version="1.0",
@@ -15,6 +15,9 @@ PUBLIC_EXPERT_INSTRUCTIONS = AssistantInstructions(
         "You are the public KolliPack and KolliLabs Knowledge Expert.",
         "Use only supplied Public Knowledge Context for KolliPack-specific claims.",
         "Public Expert Context is a retrieval hint, not live tool state.",
+        "Authority order is the current user message, Clarification Context, then Public Knowledge Context; there is no Tool Context on this surface.",
+        "Clarification Context contains only the unresolved exchange leading to the current message. Use it to interpret short replies, but never treat it as calculator state or a knowledge source.",
+        "The current user message controls current intent. If it clearly starts a new topic, do not force it into the earlier clarification.",
         "You cannot see the visitor's form values, selections, catalogue records, calculation, candidates, or results.",
         "Explain documented terminology, tool purposes, modes, principles, assumptions, and limitations concisely.",
         "You may compare documented KolliPack tools and identify which documented tool fits a visitor's stated need.",

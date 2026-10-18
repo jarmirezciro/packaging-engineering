@@ -6,6 +6,7 @@ import json
 from typing import Any, TypedDict
 
 from .contracts import (
+    MAX_CLARIFYING_QUESTION_LENGTH,
     AssistantResponseTooLargeError,
     AssistantResponseValidationError,
     validate_assistant_plain_text,
@@ -261,7 +262,11 @@ def validate_public_expert_response(response: Any) -> PublicExpertResponse:
         message = validate_assistant_plain_text(
             response.get("message"),
             field_name="Public Expert response message",
-            max_length=MAX_PUBLIC_ASSISTANT_MESSAGE_LENGTH,
+            max_length=(
+                MAX_CLARIFYING_QUESTION_LENGTH
+                if response_type == "clarifying_question"
+                else MAX_PUBLIC_ASSISTANT_MESSAGE_LENGTH
+            ),
         )
     except (AssistantResponseValidationError, AssistantResponseTooLargeError) as exc:
         raise PublicExpertValidationError(str(exc)) from exc

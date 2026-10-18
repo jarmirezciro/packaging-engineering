@@ -25,6 +25,12 @@ from .prompts import (
     AssistantInstructions,
     get_assistant_instructions,
 )
+from .clarification import (
+    ClarificationContext,
+    ClarificationContextError,
+    canonical_clarification_json,
+    validate_clarification_context,
+)
 from .knowledge import (
     KnowledgeContext,
     KnowledgeContextValidationError,
@@ -82,6 +88,7 @@ class ExternalAssistantRequest:
     message: str
     tool_context: ToolContext
     knowledge_context: KnowledgeContext
+    clarification_context: ClarificationContext | None
 
 
 @dataclass(frozen=True)
@@ -129,6 +136,7 @@ def build_external_assistant_request(
     message: str,
     tool_context: ToolContext,
     knowledge_context: KnowledgeContext | None = None,
+    clarification_context: ClarificationContext | None = None,
     capability: str = READ_ONLY_CAPABILITY,
 ) -> ExternalAssistantRequest:
     """Validate and detach the only data that an external adapter may receive."""
@@ -170,11 +178,26 @@ def build_external_assistant_request(
             INVALID_EXTERNAL_REQUEST,
             "KolliPack Knowledge Context is invalid.",
         ) from exc
+    detached_clarification = None
+    if clarification_context is not None:
+        try:
+            validated_clarification = validate_clarification_context(
+                clarification_context
+            )
+            detached_clarification = json.loads(
+                canonical_clarification_json(validated_clarification)
+            )
+        except ClarificationContextError as exc:
+            raise ExternalAssistantRequestError(
+                INVALID_EXTERNAL_REQUEST,
+                "Clarification Context is invalid.",
+            ) from exc
     return ExternalAssistantRequest(
         instructions=get_assistant_instructions(capability),
         message=validated_message,
         tool_context=detached_context,
         knowledge_context=detached_knowledge,
+        clarification_context=detached_clarification,
     )
 
 

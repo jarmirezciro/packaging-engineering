@@ -16,6 +16,14 @@ async function main() {
         message: "What does cubicity mean?",
         knowledge_scope: "container_selection",
     });
+    assert.deepEqual(
+        expert.buildRequest("mm", "container_selection", "signed-token"),
+        {
+            message: "mm",
+            knowledge_scope: "container_selection",
+            continuation_token: "signed-token",
+        }
+    );
 
     const privateDomState = {
         product_l: "300",
@@ -62,6 +70,27 @@ async function main() {
                 schema_version: "1.0",
                 type: "proposal_preview",
                 message: "Unsafe",
+            },
+        }),
+        /unreadable response/
+    );
+    const clarification = expert.validateResponsePayload({
+        ok: true,
+        response: {
+            schema_version: "1.0",
+            type: "clarifying_question",
+            message: "Which tool do you mean?",
+        },
+        continuation_token: "signed-public-token",
+    });
+    assert.equal(clarification.continuation_token, "signed-public-token");
+    assert.throws(
+        () => expert.validateResponsePayload({
+            ok: true,
+            response: {
+                schema_version: "1.0",
+                type: "clarifying_question",
+                message: "Which tool do you mean?",
             },
         }),
         /unreadable response/
