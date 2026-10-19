@@ -154,13 +154,13 @@ async function main() {
         const message = type === "answer" ? "<img src=x onerror=alert(1)>" : `${type} message`;
         const envelope = {
             ok: true,
-            response: {schema_version: "1.1", type, message, fact_refs: []},
+            response: {schema_version: "1.2", type, message, fact_refs: []},
         };
         if (type === "clarifying_question") {
             envelope.continuation_token = "signed-continuation-token";
         }
         const validated = assistant.validateResponsePayload(envelope);
-        const expected = {schema_version: "1.1", type, message};
+        const expected = {schema_version: "1.2", type, message};
         if (type === "clarifying_question") {
             expected.continuation_token = "signed-continuation-token";
         }
@@ -170,7 +170,7 @@ async function main() {
         () => assistant.validateResponsePayload({
             ok: true,
             response: {
-                schema_version: "1.1",
+                schema_version: "1.2",
                 type: "clarifying_question",
                 message: "Which units?",
             },
@@ -180,7 +180,7 @@ async function main() {
     const traced = assistant.validateResponsePayload({
         ok: true,
         response: {
-            schema_version: "1.1",
+            schema_version: "1.2",
             type: "answer",
             message: "Design Mode creates and ranks candidate arrangements.",
             fact_refs: [],
@@ -198,7 +198,7 @@ async function main() {
     assert.throws(
         () => assistant.validateResponsePayload({
             ok: true,
-            response: {schema_version: "1.1", type: "answer", message: "x", fact_refs: []},
+            response: {schema_version: "1.2", type: "answer", message: "x", fact_refs: []},
             knowledge_trace: [{ref: "unsafe", title: "Unsafe", heading_path: []}],
         }),
         /unreadable response/
@@ -297,7 +297,7 @@ async function main() {
                     return {
                         ok: true,
                         response: {
-                            schema_version: "1.1",
+                            schema_version: "1.2",
                             type: "answer",
                             message: "The current result fits 24 products.",
                             fact_refs: [],

@@ -20,7 +20,7 @@
     const MAX_QUESTION_LENGTH = 2000;
     const MAX_RESPONSE_LENGTH = 4000;
     const MAX_CONTINUATION_TOKEN_LENGTH = 12 * 1024;
-    const ASSISTANT_RESPONSE_SCHEMA_VERSION = "1.1";
+    const ASSISTANT_RESPONSE_SCHEMA_VERSION = "1.2";
     const PROPOSAL_PREVIEW_SCHEMA_VERSION = "1.0";
     const APPLY_RESPONSE_SCHEMA_VERSION = "1.0";
     const RESPONSE_TYPES = new Set(["answer", "clarifying_question", "unavailable"]);

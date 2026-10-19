@@ -24,11 +24,14 @@ except ImportError:  # pragma: no cover - numpy is a declared project dependency
 
 
 TOOL_CONTEXT_SCHEMA_VERSION = "1.0"
-ASSISTANT_RESPONSE_SCHEMA_VERSION = "1.1"
+ASSISTANT_RESPONSE_SCHEMA_VERSION = "1.2"
 ASSISTANT_UNAVAILABLE_MESSAGE = "The assistant is temporarily unavailable."
+ASSISTANT_KNOWLEDGE_GAP_MESSAGE = (
+    "I don't have enough approved KolliPack information to answer that reliably."
+)
 
 ASSISTANT_RESPONSE_TYPES = frozenset(
-    {"answer", "clarifying_question", "unavailable"}
+    {"answer", "clarifying_question", "knowledge_gap", "unavailable"}
 )
 MAX_USER_MESSAGE_LENGTH = 2_000
 MAX_ASSISTANT_MESSAGE_LENGTH = 4_000
@@ -458,6 +461,10 @@ def validate_assistant_response(
         raise AssistantResponseValidationError(
             "Unavailable responses must use the application-owned safe message."
         )
+    if response_type == "knowledge_gap" and message != ASSISTANT_KNOWLEDGE_GAP_MESSAGE:
+        raise AssistantResponseValidationError(
+            "Knowledge-gap responses must use the application-owned limitation message."
+        )
     validated: AssistantResponse = {
         "schema_version": ASSISTANT_RESPONSE_SCHEMA_VERSION,
         "type": response_type,
@@ -541,6 +548,16 @@ def build_unavailable_response() -> AssistantResponse:
     }
 
 
+def build_knowledge_gap_answer_response() -> AssistantResponse:
+    """Return the user-facing answer after the internal gap outcome is handled."""
+    return {
+        "schema_version": ASSISTANT_RESPONSE_SCHEMA_VERSION,
+        "type": "answer",
+        "message": ASSISTANT_KNOWLEDGE_GAP_MESSAGE,
+        "fact_refs": [],
+    }
+
+
 def build_assistant_response_json_schema() -> dict[str, Any]:
     """Build the strict provider wire schema from Assistant Response constants.
 
@@ -564,8 +581,8 @@ def build_assistant_response_json_schema() -> dict[str, Any]:
             "message": {
                 "type": "string",
                 "description": (
-                    "Plain-text answer, clarifying question, or the exact "
-                    "application-owned unavailable message."
+                    "Plain-text answer or clarifying question, or the exact "
+                    "application-owned knowledge-gap/unavailable message."
                 ),
             },
             "fact_refs": {

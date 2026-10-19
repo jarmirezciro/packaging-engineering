@@ -8,6 +8,7 @@ import openai
 from django.test import SimpleTestCase, override_settings
 
 from packagingapp.assistant.contracts import (
+    ASSISTANT_KNOWLEDGE_GAP_MESSAGE,
     ASSISTANT_RESPONSE_SCHEMA_VERSION,
     MAX_PROVIDER_RESPONSE_BYTES,
     validate_tool_context,
@@ -239,6 +240,35 @@ class OpenAIAssistantProviderTests(SimpleTestCase):
                 "message": "Which current result should I explain?",
             },
         )
+
+    def test_valid_knowledge_gap_is_a_minimal_typed_candidate(self):
+        provider, _factory, client = provider_with_response(
+            structured_response(
+                wire_payload(
+                    "knowledge_gap",
+                    message=ASSISTANT_KNOWLEDGE_GAP_MESSAGE,
+                )
+            )
+        )
+
+        candidate = generate(
+            provider,
+            context=ready_context(),
+            message="What unsupported packaging guidance should I use?",
+        )
+
+        self.assertEqual(
+            candidate,
+            {
+                "schema_version": ASSISTANT_RESPONSE_SCHEMA_VERSION,
+                "type": "knowledge_gap",
+                "message": ASSISTANT_KNOWLEDGE_GAP_MESSAGE,
+            },
+        )
+        request = client.responses.create.call_args.kwargs
+        self.assertIn("type=knowledge_gap", request["instructions"])
+        self.assertFalse(request["store"])
+        self.assertNotIn("previous_response_id", request)
 
     def test_valid_clarification_context_is_a_separate_bounded_provider_category(self):
         provider, _factory, client = provider_with_response(

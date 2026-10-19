@@ -8,6 +8,7 @@ import re
 from typing import Any, TypedDict
 
 from .contracts import (
+    ASSISTANT_KNOWLEDGE_GAP_MESSAGE,
     ASSISTANT_RESPONSE_SCHEMA_VERSION,
     ASSISTANT_RESPONSE_TYPES,
     MAX_ASSISTANT_FACT_REFS,
@@ -352,8 +353,10 @@ def build_assistant_provider_json_schema(
             "message": {
                 "type": "string",
                 "description": (
-                    "Plain text for answer, clarification, or unavailable; empty "
-                    "for propose_input_changes."
+                    "Plain text for answer or clarification; the exact application "
+                    f"limitation text '{ASSISTANT_KNOWLEDGE_GAP_MESSAGE}' for "
+                    "knowledge_gap; or the exact unavailable message. Empty for "
+                    "propose_input_changes."
                 ),
             },
             "fact_refs": {

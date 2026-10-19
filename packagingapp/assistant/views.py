@@ -36,6 +36,7 @@ from .contracts import (
     ASSISTANT_RESPONSE_SCHEMA_VERSION,
     AssistantMessageValidationError,
     ToolContextValidationError,
+    build_knowledge_gap_answer_response,
     build_unavailable_response,
     validate_tool_context,
     validate_user_message,
@@ -75,6 +76,7 @@ from .knowledge import (
     knowledge_trace_enabled,
     retrieve_knowledge_context,
 )
+from .knowledge_gaps import register_ai_knowledge_gap
 from .service import AssistantServiceError, ask_external
 from .proposal_tokens import (
     MAX_PROPOSAL_TOKEN_LENGTH,
@@ -669,7 +671,16 @@ def assistant_ask(request):
         if clarification_context is not None:
             assistant_request["clarification_context"] = clarification_context
         response = ask_external(**assistant_request)
-        if is_provider_proposal_candidate(response):
+        if response.get("type") == "knowledge_gap":
+            register_ai_knowledge_gap(
+                question=message,
+                source="authenticated",
+                surface=surface,
+                knowledge_scope=context["tool"]["id"],
+                reason="documentation_gap",
+            )
+            response = build_knowledge_gap_answer_response()
+        elif is_provider_proposal_candidate(response):
             fresh_state = build_current_container_proposal_state(
                 request,
                 surface=surface,
@@ -714,6 +725,13 @@ def assistant_ask(request):
             ):
                 response = _clarification_reset_response(
                     CLARIFICATION_DEPTH_MESSAGE
+                )
+                register_ai_knowledge_gap(
+                    question=clarification_context["turns"][0]["message"],
+                    source="authenticated",
+                    surface=surface,
+                    knowledge_scope=context["tool"]["id"],
+                    reason="clarification_exhausted",
                 )
             else:
                 try:

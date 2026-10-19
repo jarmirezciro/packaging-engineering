@@ -9,12 +9,14 @@ from django.http import JsonResponse
 
 from .public_contracts import (
     MAX_PUBLIC_USER_MESSAGE_LENGTH,
+    PUBLIC_KNOWLEDGE_FALLBACK_MESSAGE,
     PUBLIC_KNOWLEDGE_SCOPES,
     PublicExpertValidationError,
     build_public_expert_context,
     build_public_unavailable_response,
     validate_public_user_message,
 )
+from .knowledge_gaps import register_ai_knowledge_gap
 from .public_knowledge import public_knowledge_trace, retrieve_public_knowledge_context
 from .public_policy import load_public_expert_configuration
 from .public_service import ask_public_external
@@ -198,6 +200,19 @@ def public_expert_ask(request):
             status=422,
         )
 
+    if (
+        knowledge_context["status"] == "no_match"
+        and response.get("type") == "answer"
+        and response.get("message") == PUBLIC_KNOWLEDGE_FALLBACK_MESSAGE
+    ):
+        register_ai_knowledge_gap(
+            question=message,
+            source="public",
+            surface=expert_context["surface"],
+            knowledge_scope=knowledge_scope,
+            reason="documentation_gap",
+        )
+
     response_continuation_token = None
     if response.get("type") == "clarifying_question":
         if (
@@ -209,6 +224,13 @@ def public_expert_ask(request):
                 "type": "answer",
                 "message": CLARIFICATION_DEPTH_MESSAGE,
             }
+            register_ai_knowledge_gap(
+                question=clarification_context["turns"][0]["message"],
+                source="public",
+                surface=expert_context["surface"],
+                knowledge_scope=knowledge_scope,
+                reason="clarification_exhausted",
+            )
         else:
             try:
                 next_context = build_next_clarification_context(

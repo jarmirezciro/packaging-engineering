@@ -54,6 +54,80 @@ class UserSubscription(models.Model):
     def __str__(self):
         return f"{self.user} - {self.get_plan_display()} ({self.get_status_display()})"
 
+
+class AIKnowledgeGap(models.Model):
+    """One de-identified, human-reviewable gap in approved KolliPack knowledge."""
+
+    class Source(models.TextChoices):
+        AUTHENTICATED = "authenticated", "Authenticated Assistant"
+        PUBLIC = "public", "Public Expert"
+
+    class Surface(models.TextChoices):
+        STANDALONE = "standalone", "Standalone tool"
+        WORKFLOW = "workflow", "Packaging Flow"
+        PUBLIC_SITE = "public_site", "Public site"
+        PUBLIC_TOOL = "public_tool", "Public tool"
+
+    class KnowledgeScope(models.TextChoices):
+        GLOBAL = "global", "Global"
+        CONTAINER_SELECTION = "container_selection", "Container Selection"
+        BAG_SELECTION = "bag_selection", "Bag Selection"
+        PALLETIZATION = "palletization", "Palletization"
+        TRANSPORT = "transport", "Transport"
+        CORRUGATED = "corrugated", "Corrugated"
+        PACKAGING_FLOW = "packaging_flow", "Packaging Flow"
+
+    class Reason(models.TextChoices):
+        DOCUMENTATION_GAP = "documentation_gap", "Documentation gap"
+        CLARIFICATION_EXHAUSTED = (
+            "clarification_exhausted",
+            "Clarification exhausted",
+        )
+
+    class Status(models.TextChoices):
+        NEW = "new", "New"
+        RESOLVED = "resolved", "Resolved"
+        IGNORED = "ignored", "Ignored"
+
+    question_text = models.TextField(max_length=2000)
+    question_hash = models.CharField(max_length=64, editable=False)
+    source = models.CharField(max_length=20, choices=Source.choices)
+    surface = models.CharField(max_length=20, choices=Surface.choices)
+    knowledge_scope = models.CharField(
+        max_length=32,
+        choices=KnowledgeScope.choices,
+    )
+    reason = models.CharField(max_length=32, choices=Reason.choices)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.NEW,
+    )
+    occurrence_count = models.PositiveIntegerField(default=1)
+    first_seen_at = models.DateTimeField(default=timezone.now)
+    last_seen_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ("-last_seen_at", "-first_seen_at")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("question_hash",),
+                name="ai_knowledge_gap_hash_uniq",
+            ),
+        )
+        indexes = (
+            models.Index(
+                fields=("status", "last_seen_at"),
+                name="ai_gap_review_idx",
+            ),
+        )
+        verbose_name = "AI knowledge gap"
+        verbose_name_plural = "AI knowledge gaps"
+
+    def __str__(self):
+        return self.question_text
+
+
 ###
 # Packaging Catalogue Data Model
 ###

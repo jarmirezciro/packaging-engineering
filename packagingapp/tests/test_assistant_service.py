@@ -5,6 +5,7 @@ from unittest.mock import patch
 from django.test import SimpleTestCase
 
 from packagingapp.assistant.contracts import (
+    ASSISTANT_KNOWLEDGE_GAP_MESSAGE,
     ASSISTANT_RESPONSE_SCHEMA_VERSION,
     MAX_ASSISTANT_MESSAGE_LENGTH,
     MAX_USER_MESSAGE_LENGTH,
@@ -169,6 +170,28 @@ class AssistantResponseContractTests(SimpleTestCase):
                 tool_context=self.context,
             )
 
+    def test_knowledge_gap_is_typed_and_requires_application_owned_wording(self):
+        response = validate_assistant_response(
+            {
+                "schema_version": ASSISTANT_RESPONSE_SCHEMA_VERSION,
+                "type": "knowledge_gap",
+                "message": ASSISTANT_KNOWLEDGE_GAP_MESSAGE,
+            },
+            tool_context=self.context,
+        )
+        self.assertEqual(response["type"], "knowledge_gap")
+        self.assertNotIn("fact_refs", response)
+
+        with self.assertRaises(AssistantResponseValidationError):
+            validate_assistant_response(
+                {
+                    "schema_version": ASSISTANT_RESPONSE_SCHEMA_VERSION,
+                    "type": "knowledge_gap",
+                    "message": "Store this question with provider-selected metadata.",
+                },
+                tool_context=self.context,
+            )
+
     def test_json_parsing_is_strict_and_bounded(self):
         serialized = json.dumps(
             {
@@ -215,6 +238,14 @@ class AssistantServiceTests(SimpleTestCase):
             provider=FakeAssistantProvider("success_clarification"),
         )
         self.assertEqual(clarification["type"], "clarifying_question")
+
+        knowledge_gap = ask(
+            message="Ask an unsupported knowledge question.",
+            tool_context=ready_context(),
+            provider=FakeAssistantProvider("success_knowledge_gap"),
+        )
+        self.assertEqual(knowledge_gap["type"], "knowledge_gap")
+        self.assertEqual(knowledge_gap["message"], ASSISTANT_KNOWLEDGE_GAP_MESSAGE)
 
     def test_fake_answer_respects_every_tool_context_status(self):
         contexts = {}
