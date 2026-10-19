@@ -43,7 +43,7 @@ from packagingapp.assistant.throttle import (
     AssistantThrottle,
     DeterministicAtomicCounterBackend,
 )
-from packagingapp.models import UserSubscription
+from packagingapp.models import AIKnowledgeGap, UserSubscription
 from packagingapp.tests.test_assistant_ask_endpoint import (
     VALID_EXTERNAL_SETTINGS,
     ready_state,
@@ -499,6 +499,9 @@ class AuthenticatedClarificationEndpointTests(TestCase):
         self.assertEqual(third.json()["response"]["message"], CLARIFICATION_DEPTH_MESSAGE)
         self.assertNotIn("continuation_token", third.json())
         self.assertEqual(len(provider.calls), 3)
+        gap = AIKnowledgeGap.objects.get()
+        self.assertEqual(gap.question_text, "Pack these dimensions.")
+        self.assertEqual(gap.reason, AIKnowledgeGap.Reason.CLARIFICATION_EXHAUSTED)
 
     def test_clarified_unit_uses_existing_deterministic_normalization(self):
         provider = _UnitContinuationProvider()
@@ -524,7 +527,7 @@ class AuthenticatedClarificationEndpointTests(TestCase):
             with self.subTest(name=name), patch(
                 "packagingapp.assistant.views.ask_external",
                 return_value={
-                    "schema_version": "1.1",
+                    "schema_version": "1.2",
                     "type": "clarifying_question",
                     "message": "Which unit?",
                 },
@@ -546,7 +549,7 @@ class AuthenticatedClarificationEndpointTests(TestCase):
         with patch(
             "packagingapp.assistant.views.ask_external",
             return_value={
-                "schema_version": "1.1",
+                "schema_version": "1.2",
                 "type": "clarifying_question",
                 "message": "Which unit?",
             },
@@ -681,6 +684,9 @@ class PublicClarificationEndpointTests(TestCase):
         self.assertEqual(third.json()["response"]["type"], "answer")
         self.assertEqual(third.json()["response"]["message"], CLARIFICATION_DEPTH_MESSAGE)
         self.assertNotIn("continuation_token", third.json())
+        gap = AIKnowledgeGap.objects.get()
+        self.assertEqual(gap.question_text, "Compare these tools.")
+        self.assertEqual(gap.reason, AIKnowledgeGap.Reason.CLARIFICATION_EXHAUSTED)
 
 
 class _PublicProviderSpy:
@@ -794,4 +800,3 @@ class PublicClarificationAuthorityTests(SimpleTestCase):
         transmitted = repr(provider.calls[0])
         for excluded in ("tool_context", "product_l", "session_key"):
             self.assertNotIn(excluded, transmitted)
-

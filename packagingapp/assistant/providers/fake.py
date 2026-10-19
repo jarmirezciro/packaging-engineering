@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from ..contracts import (
+    ASSISTANT_KNOWLEDGE_GAP_MESSAGE,
     ASSISTANT_RESPONSE_SCHEMA_VERSION,
     MAX_PROVIDER_RESPONSE_BYTES,
     ToolContext,
@@ -25,6 +26,7 @@ FAKE_PROVIDER_MODES = frozenset(
     {
         "success_answer",
         "success_clarification",
+        "success_knowledge_gap",
         "malformed_response",
         "unknown_response_type",
         "missing_required_field",
@@ -118,6 +120,14 @@ class FakeAssistantProvider:
                     "schema_version": ASSISTANT_RESPONSE_SCHEMA_VERSION,
                     "type": "clarifying_question",
                     "message": "Which part of the current KolliPack state should I explain?",
+                }
+            )
+        if self.mode == "success_knowledge_gap":
+            return _json_response(
+                {
+                    "schema_version": ASSISTANT_RESPONSE_SCHEMA_VERSION,
+                    "type": "knowledge_gap",
+                    "message": ASSISTANT_KNOWLEDGE_GAP_MESSAGE,
                 }
             )
 

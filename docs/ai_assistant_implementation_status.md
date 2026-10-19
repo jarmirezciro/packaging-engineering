@@ -4,7 +4,7 @@ Last updated: 2026-10-18
 
 ## Phase
 
-Bounded clarification continuity implemented locally for authenticated and public Assistant surfaces; no persistent conversation history added
+Automatic Knowledge Gap Registry implemented locally for authenticated and public Assistant surfaces; no persistent conversation history added
 
 ## Local provider validation
 
@@ -25,6 +25,14 @@ Bounded clarification continuity implemented locally for authenticated and publi
 - This is local developer verification only. Railway configuration,
   production provider enablement, and production privacy/legal approval remain
   parked.
+- Any Session 12 model-quality evaluation must use `gpt-5.6-luna` with
+  `xhigh` (Extra High) reasoning. Deterministic unit, Django, database,
+  contract, migration, privacy, deduplication, and JavaScript tests remain
+  model-independent and make no live LLM call. Historical model records below
+  remain unchanged because they describe earlier completed sessions.
+- The Session 12 live-evaluation preflight selected `gpt-5.6-luna` with
+  `xhigh` reasoning but stopped at `missing_shared_cache`; no provider request
+  was made and no live model-quality result is claimed.
 - Session 8.5A was evaluated locally with `gpt-5.6-sol`, `xhigh` reasoning,
   the normal Redis/policy gate, the explicit knowledge-disclosure
   acknowledgement, and the 12-case knowledge suite. The first full pass exposed
@@ -165,8 +173,8 @@ Bounded clarification continuity implemented locally for authenticated and publi
 - Forty-case Session 8.5B real-provider evaluation fixture and selectable local smoke-command cases
 - Focused parser, retrieval, authority, allow-list, hot-reload, bounds, privacy, prompt-injection, trace, provider, endpoint, UI, and failure-isolation tests
 - Development knowledge evaluation report and documentation-gap backlog
-- Explicit Assistant Response `1.1` evolution preserving answer, clarification, and unavailable semantics while adding a separate provider proposal-candidate path
-- Strict `propose_input_changes` Provider Candidate `1.1` with mechanically generated OpenAI Structured Output schema, eight-change cap, known semantic fields, bounded value types, duplicate/extra-property rejection, plain-text summary policy, and SHA-256 state binding
+- Explicit Assistant Response `1.2` evolution preserving answer, clarification, and unavailable semantics while adding typed `knowledge_gap` and retaining the separate provider proposal-candidate path
+- Strict `propose_input_changes` Provider Candidate `1.2` with mechanically generated OpenAI Structured Output schema, eight-change cap, known semantic fields, bounded value types, duplicate/extra-property rejection, plain-text summary policy, and SHA-256 state binding
 - Separate application-owned Proposal Preview `1.0`; raw provider proposals never reach JavaScript
 - Fresh post-provider Container Tool Context reconstruction and fingerprint comparison before proposal preview creation
 - Container proposal mapping for manual product dimensions/weight, desired quantity, allowed vertical axes, manual container dimensions/thickness/tare/payload, with current-mode/source-dependent availability
@@ -224,6 +232,43 @@ Bounded clarification continuity implemented locally for authenticated and publi
 - No continuation storage in database, Redis, Django session, localStorage, sessionStorage, IndexedDB, cookies, or OpenAI conversation state
 - Fourteen-case reusable local clarification evaluation catalogue: eight authenticated cases and six public cases, including units, roles, orientations, quantity, two rounds, ambiguity, new-topic precedence, public authority boundaries, and prompt injection
 
+## Implemented automatic Knowledge Gap Registry
+
+- `AIKnowledgeGap` model and migration `0016_aiknowledgegap` with question text,
+  SHA-256 identity, source, surface, knowledge scope, reviewed reason, `new` /
+  `resolved` / `ignored` status, occurrence count, timestamps, one unique hash
+  constraint, and one status/last-seen Admin review index
+- Narrow `register_ai_knowledge_gap` service accepting only question, source,
+  surface, knowledge scope, and reason primitives; no identity, session,
+  engineering state, context, result, proposal, token, or provider metadata
+- Deterministic identity normalization limited to trim/collapse whitespace and
+  Unicode casefold; no embeddings, similarity, clustering, rewrite, summary, or
+  model call
+- Atomic update-first/create/race-increment duplicate handling with the database
+  unique constraint as authority; original first-seen wording is preserved
+- Strict authenticated `knowledge_gap` Candidate `1.2` for the case where both
+  fresh Tool Context and approved Knowledge Context are insufficient; plain
+  Knowledge Context `no_match` does not register a gap when Tool Context answers
+- Automatic public registration only for the existing deterministic genuine
+  documentation no-match fallback, after all public state/calculation/action/
+  authority boundaries; no additional provider call
+- Clarification-exhaustion registration on authenticated and public surfaces,
+  storing only the original unresolved user request from signed Clarification
+  Context
+- Best-effort persistence with the normal response preserved on database
+  failure, no automatic retry, and category-only
+  `knowledge_gap_persistence_failed` logging
+- Django Admin list/filter/search review with system fields read-only and only
+  reviewer status editable
+- Updated authenticated and public disclosure: “Questions that KolliPack cannot
+  answer may be stored to improve its approved knowledge. Do not include
+  confidential or personal information.”
+- Local and production registries are independent because each uses its active
+  configured Django database. There is no environment field, synchronization,
+  ingest API, Redis registry, replication, scheduled merge, or background job.
+- Durable product-improvement retention is documented; automated retention is a
+  future governance decision rather than an invented mechanism in this slice.
+
 ## Not implemented
 
 - Live Railway pre-production Redis service, web-service variable reference, and deployment smoke result
@@ -232,6 +277,7 @@ Bounded clarification continuity implemented locally for authenticated and publi
 - Persistent AI conversation history
 - Full-session memory or cross-page clarification resumption
 - Provider-side conversation state, Conversations API objects, or `previous_response_id`
+- Environment synchronization or cross-database knowledge-gap identifiers
 - Tool Context adapters for other KolliPack tools
 - Semantic embeddings, a vector database, external file search, or LLM-selected repository files
 - Live Bag, Palletization, or Transport Tool Context adapters

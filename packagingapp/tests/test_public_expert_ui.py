@@ -52,6 +52,16 @@ class PublicExpertUiTests(TestCase):
                 self.assertContains(response, "data-public-expert-open", count=1)
                 self.assertContains(response, "aria-live=\"polite\"", count=1)
                 self.assertContains(response, "Uses an external AI service", count=1)
+                self.assertContains(
+                    response,
+                    "Questions that KolliPack cannot answer may be stored",
+                    count=1,
+                )
+                self.assertContains(
+                    response,
+                    "Do not include confidential or personal information.",
+                    count=1,
+                )
 
     def test_every_published_blog_article_renders_global_public_expert(self):
         articles = get_published_articles()

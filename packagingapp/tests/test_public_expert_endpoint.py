@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from packagingapp.assistant.public_contracts import MAX_PUBLIC_USER_MESSAGE_LENGTH
 from packagingapp.assistant.public_views import MAX_PUBLIC_EXPERT_REQUEST_BYTES
+from packagingapp.models import AIKnowledgeGap
 
 
 @override_settings(AI_PUBLIC_EXPERT_ENABLED=True)
@@ -121,7 +122,7 @@ class PublicExpertEndpointTests(TestCase):
         self.assertNotIn("sessionid", client.cookies)
         service.assert_not_called()
 
-    def test_public_expert_does_not_persist_question_answer_or_engineering_state(self):
+    def test_normal_public_answer_does_not_persist_question_answer_or_engineering_state(self):
         session = self.client.session
         session["existing_calculator_state"] = {"product_l": 300, "result": 45}
         session.save()
@@ -144,6 +145,7 @@ class PublicExpertEndpointTests(TestCase):
         self.assertNotIn("72%", serialized)
         self.assertNotIn("public answer", serialized)
         self.assertNotIn("knowledge_context", serialized)
+        self.assertFalse(AIKnowledgeGap.objects.exists())
 
     def test_csrf_is_required_and_valid_same_origin_token_works(self):
         client = Client(enforce_csrf_checks=True)
@@ -172,6 +174,7 @@ class PublicExpertEndpointTests(TestCase):
         self.assertEqual(missing.status_code, 403)
         self.assertEqual(valid.status_code, 200)
         service.assert_called_once()
+        self.assertFalse(AIKnowledgeGap.objects.exists())
 
     def test_authenticated_endpoints_remain_private(self):
         for name in ("assistant_context", "assistant_ask", "assistant_apply_proposal"):

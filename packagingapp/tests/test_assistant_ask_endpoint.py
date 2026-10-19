@@ -27,6 +27,7 @@ from packagingapp.assistant.throttle import (
 from packagingapp.assistant.views import MAX_ASSISTANT_CONTEXT_REQUEST_BYTES
 from packagingapp.assistant.workflow import ASSISTANT_STEP_REF_KEY
 from packagingapp.models import (
+    AIKnowledgeGap,
     PackagingCatalogue,
     PackagingMaterial,
     Product,
@@ -192,6 +193,7 @@ class AssistantAskEndpointTests(TestCase):
             )
             reconstruct.assert_not_called()
             service.assert_not_called()
+        self.assertFalse(AIKnowledgeGap.objects.exists())
 
     def test_only_post_and_json_content_are_accepted(self):
         self.login_entitled()
@@ -233,6 +235,7 @@ class AssistantAskEndpointTests(TestCase):
                 content_type="application/json; charset=utf-8",
             )
         self.assertEqual(accepted.status_code, 200)
+        self.assertFalse(AIKnowledgeGap.objects.exists())
 
     def test_strict_schema_rejects_browser_authority_and_missing_fields(self):
         self.login_entitled()
@@ -273,6 +276,7 @@ class AssistantAskEndpointTests(TestCase):
                     self.assertEqual(response.status_code, 400)
                     self.assertFalse(response.json()["ok"])
             service.assert_not_called()
+        self.assertFalse(AIKnowledgeGap.objects.exists())
 
     def test_message_and_json_validation_happen_before_reconstruction(self):
         self.login_entitled()
@@ -316,6 +320,7 @@ class AssistantAskEndpointTests(TestCase):
             service.call_args.kwargs["message"],
             "Erkläre das Ergebnis für Größe, Maß und Stückzahl.",
         )
+        self.assertFalse(AIKnowledgeGap.objects.exists())
 
     def test_request_size_limit_is_reused(self):
         self.login_entitled()
@@ -331,6 +336,7 @@ class AssistantAskEndpointTests(TestCase):
             response.json()["error"]["code"], "assistant_request_too_large"
         )
         service.assert_not_called()
+        self.assertFalse(AIKnowledgeGap.objects.exists())
 
     def test_standalone_context_matches_context_endpoint_semantics(self):
         self.login_entitled()
@@ -471,6 +477,7 @@ class AssistantAskEndpointTests(TestCase):
         self.assertEqual(denied.status_code, 200)
         self.assertEqual(denied.json()["response"]["type"], "unavailable")
         provider_registry.assert_not_called()
+        self.assertFalse(AIKnowledgeGap.objects.exists())
 
     def test_csrf_denial_never_invokes_service(self):
         csrf_client = Client(enforce_csrf_checks=True)
@@ -498,6 +505,7 @@ class AssistantAskEndpointTests(TestCase):
             )
             self.assertEqual(valid.status_code, 200)
             service.assert_called_once()
+        self.assertFalse(AIKnowledgeGap.objects.exists())
 
     def test_answer_clarification_and_unavailable_are_successful_transport(self):
         self.login_entitled()
@@ -554,6 +562,7 @@ class AssistantAskEndpointTests(TestCase):
                     set(response.json()["response"]),
                     {"schema_version", "type", "message"},
                 )
+                self.assertFalse(AIKnowledgeGap.objects.exists())
 
     def test_existing_throttle_is_consumed_and_no_second_namespace_is_added(self):
         self.login_entitled()
@@ -574,6 +583,7 @@ class AssistantAskEndpointTests(TestCase):
         self.assertEqual(second.json()["response"]["type"], "unavailable")
         self.assertEqual(provider.call_count, 1)
         self.assertEqual(throttle.requests, 1)
+        self.assertFalse(AIKnowledgeGap.objects.exists())
 
     def test_valid_fact_refs_come_only_from_the_fresh_complete_context(self):
         self.login_entitled()

@@ -96,6 +96,16 @@ class AssistantUiTemplateTests(TestCase):
             count=1,
         )
         self.assertContains(response, "js/kollipack_assistant.js", count=1)
+        self.assertContains(
+            response,
+            "Questions that KolliPack cannot answer may be stored to improve its approved knowledge.",
+            count=1,
+        )
+        self.assertContains(
+            response,
+            "Do not include confidential or personal information.",
+            count=1,
+        )
 
         parser = self._parse(response)
         self.assertEqual(parser.assistant_form_depths, [0])

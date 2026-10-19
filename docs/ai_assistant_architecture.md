@@ -1,8 +1,8 @@
 # KolliPack AI assistant architecture
 
-Status: Session 10 explicit reviewed-proposal Apply and the anonymous Public Expert implemented locally; production/Railway enablement remains parked
+Status: Session 12 automatic Knowledge Gap Registry implemented locally; production/Railway enablement remains parked
 Pilot: Container Selection / Box Selection
-Last repository audit: 2026-10-09
+Last repository audit: 2026-10-18
 
 ## Purpose and authority
 
@@ -14,7 +14,7 @@ The governing rule is:
 
 The checked-out code remains authoritative for exact behavior. This document must be updated when the assistant contract, a tool adapter, action semantics, or data-disclosure policy changes.
 
-The current phase includes the provider-free authenticated Tool Context endpoint, its compact result-fingerprint lifecycle, the offline fake provider, the external-transmission policy/throttle/readiness gate, Redis-backed shared throttle support, the first real OpenAI adapter for explicit local development, the authenticated `POST /assistant/ask/` bridge, the local contextual right-side UI for entitled Container Selection users, a bounded documentation-grounded Knowledge Context selected from an explicit approved-source registry, structured Container input-change proposal preview, and explicit application of one reviewed proposal to current inputs. It also includes a separate anonymous Public Expert capability on the marketing homepage and supported public calculators. The authenticated UI collects current allow-listed field state; the public UI never does. Apply is a separate authenticated application-side request: it performs fresh reconstruction and deterministic revalidation, updates inputs only after the user presses **Apply changes**, and stops without calling a provider or calculation engine. This phase does not enable production/Railway external AI, automatically calculate proposed outcomes, or persist conversation/proposal history.
+The current phase includes the provider-free authenticated Tool Context endpoint, its compact result-fingerprint lifecycle, the offline fake provider, the external-transmission policy/throttle/readiness gate, Redis-backed shared throttle support, the first real OpenAI adapter for explicit local development, the authenticated `POST /assistant/ask/` bridge, the local contextual right-side UI for entitled Container Selection users, a bounded documentation-grounded Knowledge Context selected from an explicit approved-source registry, structured Container input-change proposal preview, explicit application of one reviewed proposal to current inputs, and the application-owned automatic Knowledge Gap Registry. It also includes a separate anonymous Public Expert capability on the marketing homepage and supported public calculators. The authenticated UI collects current allow-listed field state; the public UI never does. Apply is a separate authenticated application-side request: it performs fresh reconstruction and deterministic revalidation, updates inputs only after the user presses **Apply changes**, and stops without calling a provider or calculation engine. This phase does not enable production/Railway external AI, automatically calculate proposed outcomes, or persist conversation/proposal history. It persists only reviewed genuine unanswered questions as de-identified knowledge-gap backlog records.
 
 ## Architectural decisions
 
@@ -76,6 +76,9 @@ The current phase includes the provider-free authenticated Tool Context endpoint
 | External transmission policy | `packagingapp/assistant/policy.py` | Builds the bounded external request, evaluates readiness, enforces authentication/entitlement/capability/privacy/cache/rate policy, and returns one allow/deny outcome before an adapter is called. |
 | Assistant throttle | `packagingapp/assistant/throttle.py` | Implements the opaque per-user fixed window over an atomic shared counter backend and rejects process-local caches for deployment use. |
 | Gated service entry | `packagingapp/assistant/service.py::ask_external` | Invokes only the server-configured allow-listed adapter after the central policy gate and existing Redis throttle allow the request. |
+| Knowledge-gap model | `packagingapp/models.py::AIKnowledgeGap` and migration `0016_aiknowledgegap` | Stores one de-identified unanswered question plus reviewed classification, count, status, and timestamps in the active Django database. |
+| Knowledge-gap service | `packagingapp/assistant/knowledge_gaps.py::register_ai_knowledge_gap` | Validates primitive fields, computes exact-normalized SHA-256 identity, performs a database-protected atomic upsert, and fails without exposing raw question text in logs. |
+| Knowledge-gap review | `packagingapp/admin.py::AIKnowledgeGapAdmin` | Provides staff list/filter/search review with only `status` editable. |
 
 ### Inputs and units
 
@@ -903,7 +906,7 @@ Responses API (`store=false`)
         ↓
 strict `text.format` JSON Schema
         ↓
-KolliPack Provider Candidate 1.1 validation
+KolliPack Provider Candidate 1.2 validation
 ```
 
 `openai` is an explicit provider registry entry beside `fake`. The model,
@@ -971,9 +974,10 @@ external policy/readiness + existing Redis per-user throttle
         ↓
 server-configured provider
         ↓
-Provider Candidate 1.1 validation
+Provider Candidate 1.2 validation
         ↓
-answer/clarification/unavailable → Assistant Response 1.1
+answer/clarification/unavailable → Assistant Response 1.2
+knowledge_gap → register + fixed Assistant Response 1.2 answer
 proposal → fresh reconstruction + application-owned Preview 1.0
 ```
 
@@ -1173,8 +1177,9 @@ Conceptual questions may be answered when the active Tool Context has no
 result. Current-result questions still use Tool Context facts as authority.
 Other-tool knowledge can explain Bag, Palletization, Transport, or Flow
 concepts from the Container surface, but cannot claim a current result for
-those tools. Knowledge retrieval performs no engineering mutation, runs no
-engine, and persists no question, answer, section, trace, or conversation.
+those tools. Knowledge retrieval performs no engineering mutation and runs no
+engine. It persists no answer, section, trace, or conversation; only a reviewed
+genuine unanswered question may enter the separate Knowledge Gap Registry.
 
 ## Session 8.5B calibration findings
 
@@ -1525,10 +1530,12 @@ Deterministic boundary classification answers requests for current form state,
 current results, calculations, actions, hidden prompts, internal
 implementation, private catalogues, or authenticated/premium behavior without
 calling the provider. It may explain the meaning of a documented metric, but
-it cannot inspect or judge the visitor's actual result. No question, answer,
-provider identifier, calculation input/result, session identifier, or
-conversation is written to the database, Django session, cache, or browser
-storage; only bounded throttle counters are retained in shared cache.
+it cannot inspect or judge the visitor's actual result. Normal questions,
+answers, provider identifiers, calculation inputs/results, session identifiers,
+and conversations are not written to the database, Django session, cache, or
+browser storage. A genuine public documentation no-match is the sole public
+question-persistence exception and enters the de-identified Knowledge Gap
+Registry; bounded throttle counters remain the only shared-cache persistence.
 
 ## Implemented bounded clarification continuity
 
@@ -1696,6 +1703,94 @@ manual replay may repeat one provider call but gains no new authority because
 all bindings and fresh authenticated state checks repeat. The in-page client
 prevents concurrent duplicate submission and replaces the active token as the
 chain advances.
+
+## Implemented automatic Knowledge Gap Registry
+
+Session 12 adds a deliberately narrow application-owned backlog for questions
+that KolliPack cannot answer from approved authority. It is not conversation
+history and it is not autonomous learning. Users reveal gaps; a human reviewer
+decides whether and how approved documentation should change.
+
+Eligible triggers are:
+
+- Public Expert retrieval returns a genuine `no_match`, after the existing
+  deterministic current-result, calculation, action, form-state, and authority
+  boundaries have been applied. The existing fixed fallback is returned and no
+  provider call is added.
+- The authenticated provider returns the strict Assistant Candidate `1.2`
+  `knowledge_gap` outcome, meaning neither fresh Tool Context nor approved
+  Knowledge Context supports the requested answer. The application validates
+  the fixed limitation wording, registers the current user question, and sends
+  the fixed limitation to the browser as a normal answer.
+- The existing two-round clarification limit is exhausted. Only the initial
+  unresolved user request from the signed Clarification Context is registered.
+
+Operational failures never create gaps: timeout, authentication, permission,
+rate limit, unavailable provider, invalid/oversized response, Redis/throttle
+failure, malformed request, CSRF denial, and internal errors remain operational
+outcomes. Intentional public state, calculation, action, private-data,
+hidden-prompt, internal-implementation, and premium/authenticated boundaries
+also remain non-gaps. A Knowledge Context `no_match` alone is not sufficient on
+the authenticated surface; current Tool Context may still answer the question.
+
+`AIKnowledgeGap` stores only `question_text`, deterministic `question_hash`,
+`source`, `surface`, `knowledge_scope`, reviewed `reason`, reviewer `status`,
+`occurrence_count`, `first_seen_at`, and `last_seen_at`. It has no user, account,
+email, username, IP, session, quota, catalogue, engineering-state, result,
+proposal, token, context, provider-request, or provider-response field. Question
+text is ordinary escaped Django Admin text and is never marked safe or rendered
+as HTML/Markdown.
+
+Deduplication strips outer whitespace, collapses whitespace runs, applies
+Unicode `casefold()`, and hashes UTF-8 text in this exact order with an internal
+field separator:
+
+```text
+SHA256(source + separator + knowledge_scope + separator + reason
+       + separator + normalized_question)
+```
+
+Surface is retained as first-seen review metadata but is intentionally not part
+of identity. There are no embeddings, semantic similarity, clustering,
+summarization, rewriting, or model calls. A unique database constraint on
+`question_hash` is authoritative. The service first performs one atomic
+database increment, creates inside a savepoint when absent, and on a concurrent
+unique collision increments the row inserted by the competing request.
+
+Persistence is best effort. Failure returns the normal limitation/fallback,
+makes no retry, and logs only `knowledge_gap_persistence_failed`; raw question
+text is not logged. Records are durable product-improvement data in the active
+configured Django database. Automated retention is not invented here; retention
+remains a future governance decision unless a broader mandatory application
+policy is adopted.
+
+There is no environment synchronization and no `environment` field:
+
+```text
+local Assistant      -> local configured database only
+production Assistant -> production configured database only
+```
+
+No ingest API, HTTP forwarding, shared Redis registry, scheduled merge,
+replication, cross-database identity, or background job exists. Django Admin
+lists the question, source, scope, reason, count, status, and timestamps; staff
+may change `status` among `new`, `resolved`, and `ignored`.
+
+The disclosures on authenticated and public surfaces state: “Questions that
+KolliPack cannot answer may be stored to improve its approved knowledge. Do not
+include confidential or personal information.” They do not imply that normal
+questions, answers, or conversations are stored.
+
+Implemented terminology after Session 12:
+
+```text
+Persistent AI conversation history     NOT IMPLEMENTED
+Full-session memory                     NOT IMPLEMENTED
+Cross-page conversation resumption      NOT IMPLEMENTED
+Provider conversation state             NOT IMPLEMENTED
+Automatic Knowledge Gap Registry        IMPLEMENTED
+Environment synchronization             NOT IMPLEMENTED
+```
 
 ## Test strategy
 

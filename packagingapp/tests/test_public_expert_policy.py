@@ -3,7 +3,11 @@ from dataclasses import replace
 from django.test import SimpleTestCase, override_settings
 
 from packagingapp.assistant.configuration import EXTERNAL_DISCLOSURE_POLICY_VERSION
-from packagingapp.assistant.public_contracts import build_public_expert_context
+from packagingapp.assistant.public_contracts import (
+    PUBLIC_KNOWLEDGE_FALLBACK_MESSAGE,
+    build_public_expert_context,
+    empty_public_knowledge_context,
+)
 from packagingapp.assistant.public_knowledge import retrieve_public_knowledge_context
 from packagingapp.assistant.public_policy import (
     PUBLIC_ALLOWED,
@@ -232,3 +236,18 @@ class PublicExpertPolicyTests(SimpleTestCase):
             self.assertEqual(response["type"], "answer")
             self.assertIn(phrase, response["message"])
             self.assertEqual(provider.calls, [])
+
+    def test_genuine_documentation_no_match_uses_fixed_fallback_without_provider(self):
+        provider = _ProviderSpy()
+        response = ask_public_external(
+            session_key="no-match-session",
+            message="What adhesive should I use?",
+            expert_context=build_public_expert_context("global"),
+            knowledge_context=empty_public_knowledge_context(),
+            provider=provider,
+            config=self.config,
+            throttle=self.throttle(),
+        )
+        self.assertEqual(response["type"], "answer")
+        self.assertEqual(response["message"], PUBLIC_KNOWLEDGE_FALLBACK_MESSAGE)
+        self.assertEqual(provider.calls, [])

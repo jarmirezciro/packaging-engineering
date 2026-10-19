@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import (
+    AIKnowledgeGap,
     CorrugatedBoardConstruction,
     CorrugatedECTReferenceGrade,
     PackagingCatalogue,
@@ -9,6 +10,36 @@ from .models import (
     Product,
     UserSubscription,
 )
+
+
+@admin.register(AIKnowledgeGap)
+class AIKnowledgeGapAdmin(admin.ModelAdmin):
+    list_display = (
+        "question_text",
+        "source",
+        "knowledge_scope",
+        "reason",
+        "occurrence_count",
+        "status",
+        "first_seen_at",
+        "last_seen_at",
+    )
+    list_filter = ("status", "source", "knowledge_scope", "reason")
+    search_fields = ("question_text",)
+    readonly_fields = (
+        "question_text",
+        "question_hash",
+        "source",
+        "surface",
+        "knowledge_scope",
+        "reason",
+        "occurrence_count",
+        "first_seen_at",
+        "last_seen_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(UserSubscription)
