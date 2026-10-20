@@ -60,6 +60,7 @@ Scores are on a 1–5 scale for clarity, specificity, curiosity, business releva
 |---|---|---|---|---|
 | Supplied TOPS screenshots in C:/Users/jaram/Desktop/transport_container_tool | Original and optimized manifests, vehicle, algorithms, visible arrangements, 1,228 and 1,285 totals | Supplied public-source evidence | 2026-10-20 | Figures 1–4 and fixture values |
 | Supplied KolliPack screenshots in C:/Users/jaram/Desktop/transport_container_tool | Original reproduction, exact 1,285 reproduction, probes A and B | Supplied application evidence | 2026-10-20 | Figures 2, 4, and 5 |
+| https://www.youtube.com/watch?v=D4UMzr5B_KU | Public source of the supplied TOPS screenshots; title “MaxLoad - Container Loading Optimization,” TOPS Software Corporation, published 2020-05-07 | Official vendor YouTube video | 2026-10-20 | Primary comparator fixture source and provenance |
 | https://topseng.com/maxload-smart-loading-algorithms/ | Official vendor description of MaxLoad loading-algorithm context | Vendor website | 2026-10-20 | Comparator context only; not treated as the fixture source |
 | https://topseng.com/download-center/ | Current vendor download center and current-production MaxLoad Pro release listing | Vendor website | 2026-10-20 | Version caution only; does not identify the video version |
 | packagingapp/tools/transport/case_presets.py | Exact public preset dimensions, rows, quantities, and route slug | Current repository | 2026-10-20 | CTA verification |
@@ -70,18 +71,19 @@ Scores are on a 1–5 scale for clarity, specificity, curiosity, business releva
 ## Comparator record
 
 - Comparator: MaxLoad / TOPS Software Corporation.
-- Evidence: supplied screenshots said to originate from a public YouTube example.
-- Exact YouTube URL: TODO — not present in the supplied files or repository and not found in a bounded web search.
-- Video title/tutorial date: TODO.
-- Source software version/edition: unknown; do not infer from the current TOPS download page.
-- Capture date: unknown for the original source screenshots; supplied for this article on 2026-10-20.
+- Evidence: supplied screenshots originate from the public TOPS Software Corporation YouTube video linked below.
+- Exact YouTube URL: https://www.youtube.com/watch?v=D4UMzr5B_KU
+- Video title: MaxLoad - Container Loading Optimization.
+- Video publication date: 2020-05-07, verified from the public YouTube watch-page metadata on 2026-10-20.
+- Source software version/edition: not stated in the video; do not infer it from the current TOPS download page.
+- Screenshot source date: the public video was published on 2020-05-07; screenshots were supplied for this article on 2026-10-20.
 - Region: not applicable to the dimensional fixture; source UI uses inches and pounds.
 - Unit conversion: 474 × 93 × 106 in corresponds to approximately 12039.6 × 2362.2 × 2692.4 mm; KolliPack uses 12039 × 2362 × 2692 mm.
 - Comparison scope: load-unit dimensions, requested/loaded quantities, product-envelope volume, calculated arrangement, and tested additional capacity.
 - Omitted scope: weight comparison, payload, product features, price, speed, usability, safety, and commercial value.
-- Rights status: supplied screenshots require provenance and reuse-rights confirmation before public release.
+- Rights status: the article author supplied the public video source and explicitly approved publication of the bounded comparison, including the supplied screenshot excerpts, on 2026-10-20.
 - Affiliation disclosure: KolliLabs/KolliPack is independent of and not affiliated with TOPS Software Corporation.
-- Review status: human/legal review required before publication because a named commercial comparator and its screenshots are used.
+- Review status: author publication review completed on 2026-10-20. This record does not represent an independent legal opinion or TOPS endorsement.
 
 ## Backend reproduction
 
@@ -127,9 +129,9 @@ Treatment: omit this optional result and screenshot. Do not use it in the benchm
 
 ### Exact public video source
 
-The exact YouTube URL, video title, tutorial date, and video software version were not present in the repository or supplied evidence and were not identified in a bounded search.
+The article author supplied https://www.youtube.com/watch?v=D4UMzr5B_KU. Official YouTube metadata identifies it as “MaxLoad - Container Loading Optimization,” published by TOPS Software Corporation on 7 May 2020. The video does not state the MaxLoad software version.
 
-Treatment: keep the article in draft, state the source-metadata gap in the draft, and block publication until the URL and reuse rights are confirmed.
+Treatment: cite the video directly, state the publication date, and leave the source software version explicitly unspecified rather than inferring it. The author approved publication of the article and supplied screenshot excerpts on 20 October 2026.
 
 ### Preset scope
 
@@ -194,8 +196,8 @@ Outcome: passes the seven comprehension questions after revision.
 
 ## Publication gates
 
-- Keep status = draft.
-- Confirm the exact public YouTube URL, title, tutorial date, and source version when available.
-- Confirm permission/rights basis for the TOPS screenshots.
-- Complete human/legal review of comparator naming, screenshot use, and bounded claims.
-- Recheck the public preset and current backend immediately before publication if the engine changes.
+- Status = published, approved by the article author on 2026-10-20.
+- Source confirmed: https://www.youtube.com/watch?v=D4UMzr5B_KU; title and 2020-05-07 publication date verified from official YouTube metadata; software version is not stated and is not inferred.
+- Screenshot publication basis recorded: public vendor video, short excerpts used for bounded technical commentary, and explicit author approval on 2026-10-20.
+- Human publication review completed by the author on 2026-10-20; no independent legal opinion is represented.
+- Public preset and current backend were verified on repository snapshot 92d0f80b22a4c32a0693866196245ad92a2e531c. No Transport Container engine or preset changes occurred between that snapshot and publication commit 22216aec106a19667a50f91e0439bfcf7a90247f.

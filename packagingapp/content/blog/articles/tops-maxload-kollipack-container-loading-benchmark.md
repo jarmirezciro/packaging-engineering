@@ -194,8 +194,8 @@ The exact route is retained so the benchmark can be revisited against the curren
 
 ## Evidence and publication note
 
-The TOPS panels are faithful compositions of screenshots supplied from a public TOPS MaxLoad video. The exact video URL, tutorial date, and software version still require source confirmation before publication. The KolliPack values were reproduced on the current repository backend snapshot dated 20 October 2026.
+The TOPS panels are faithful compositions of screenshots supplied from [MaxLoad - Container Loading Optimization](https://www.youtube.com/watch?v=D4UMzr5B_KU), published by TOPS Software Corporation on 7 May 2020 and accessed for this benchmark on 20 October 2026. The video does not identify the MaxLoad software version, so no version is inferred. The KolliPack values were reproduced on the current repository backend snapshot dated 20 October 2026.
 
-Because this draft names a commercial comparator and reproduces source screenshots, source provenance, screenshot rights, and the final bounded wording require human/legal review before public release.
+The article author supplied the public source URL and approved publication of this bounded comparison, including the supplied screenshot excerpts, on 20 October 2026. That approval is recorded as the publication and rights review for this article; it is not presented as an independent legal opinion or as endorsement by TOPS Software Corporation.
 
 </section>
