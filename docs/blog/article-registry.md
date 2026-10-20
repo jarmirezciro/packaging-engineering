@@ -4,8 +4,9 @@
 
 | Slug | Title | Status | Type | Primary keyword | Published | Updated | Related tools |
 |---|---|---|---|---|---|---|---|
-| ask-kollipack-ai-assistant-packaging-logistics | Ask KolliPack: Bringing AI Into Packaging and Logistics Engineering | draft | kollipack_update | packaging AI assistant | 2026-10-19 | 2026-10-19 | container-selection, packaging-flow |
-| container-loading-benchmark-kollipack-br1-br7 | 700 Container-Loading Tests: An Honest Benchmark of KolliPack | published | engineering_deep_dive | container loading benchmark | 2026-08-20 | 2026-08-20 | transport-container |
+| tops-maxload-kollipack-container-loading-benchmark | From 1,285 to 1,319: Testing a TOPS MaxLoad Case in KolliPack | draft | demo_case_study | TOPS MaxLoad container loading benchmark | 2026-10-20 | 2026-10-20 | transport-container |
+| ask-kollipack-ai-assistant-packaging-logistics | Ask KolliPack: Bringing AI Into Packaging and Logistics Engineering | published | kollipack_update | packaging AI assistant | 2026-10-19 | 2026-10-19 | container-selection, packaging-flow |
+| container-loading-benchmark-kollipack-br1-br7 | 700 Container-Loading Tests: An Honest Benchmark of KolliPack | published | engineering_deep_dive | container loading benchmark | 2026-08-20 | 2026-10-20 | transport-container |
 | tops-pro-case-size-optimization-kollipack-comparison | Can KolliPack Match TOPS Pro? The 8-Pack vs 16-Pack Case | published | demo_case_study | KolliPack vs TOPS Pro | 2026-08-08 | 2026-08-08 | packaging-flow, palletization |
 | kollipack-vs-tops-pro-palletization-benchmark | One Pallet Case, Two Optimizers: Can KolliPack Match TOPS Pro? | published | demo_case_study | TOPS Pro palletization comparison | 2026-08-04 | 2026-08-04 | palletization |
 | rsc-material-optimization | Same Volume, Different Material: The Hidden Cost of Box Geometry | published | engineering_deep_dive | corrugated box material consumption | 2026-07-28 | 2026-07-30 | container-selection, palletization-calculator, packaging-flow |
