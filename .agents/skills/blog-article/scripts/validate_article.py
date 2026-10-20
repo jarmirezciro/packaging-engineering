@@ -15,7 +15,6 @@ from typing import Any
 ARTICLE_TYPES = {
     "demo_case_study",
     "engineering_deep_dive",
-    "business_case",
     "practical_guide",
     "kollipack_update",
     "sustainability",

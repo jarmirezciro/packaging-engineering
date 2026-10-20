@@ -42,12 +42,6 @@ ARTICLE_TYPES = {
         "icon": "bi-cpu",
         "description": "Technical articles with algorithms, geometry, calculations, and detailed packaging logic.",
     },
-    "business_case": {
-        "label": "Business case",
-        "short_label": "Business article",
-        "icon": "bi-briefcase",
-        "description": "Management-friendly articles about cost, savings, CO₂, process improvement, and business decisions.",
-    },
     "practical_guide": {
         "label": "Practical guide",
         "short_label": "How-to guide",

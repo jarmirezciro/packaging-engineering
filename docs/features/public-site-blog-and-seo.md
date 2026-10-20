@@ -34,8 +34,8 @@ The blog is a packaging-engineering knowledge base that supports:
 
 Approved article types:
 
+- `demo_case_study`;
 - `engineering_deep_dive` (“nerd” article);
-- `business_case`;
 - `practical_guide`;
 - `kollipack_update`;
 - `sustainability`.

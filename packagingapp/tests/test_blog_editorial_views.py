@@ -9,6 +9,26 @@ from .test_blog_editorial_metadata import EXPECTED_ARTICLES, load_metadata
 
 
 class BlogEditorialViewTests(SimpleTestCase):
+    def test_business_case_category_is_removed_and_existing_cases_remain_case_studies(self):
+        listing = self.client.get(reverse("blog_list"))
+
+        self.assertEqual(listing.status_code, 200)
+        self.assertNotContains(listing, "Business case")
+
+        for slug in (
+            "think-beyond-the-box-packaging-flow-case-study",
+            "how-many-products-fit-in-a-box-orientation-case-study",
+        ):
+            with self.subTest(slug=slug):
+                response = self.client.get(reverse("blog_detail", kwargs={"slug": slug}))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["post"]["article_type"], "demo_case_study")
+                self.assertEqual(
+                    response.context["post"]["article_type_meta"]["label"],
+                    "Demo case study",
+                )
+
     def test_listing_renders_all_editorial_titles_and_metadata_alt_text(self):
         response = self.client.get(reverse("blog_list"))
 
