@@ -129,9 +129,9 @@ each case. No raw provider metadata or secrets were recorded.
 | 27 | Palletization vs Container Selection | C/D/R | `palletization-logic#purpose`; `container-selection-logic#purpose` | Answer; carton-to-pallet versus product-to-container | `retrieval_good` | 2/2/2/1 |
 | 28 | What does Transport Container loading do? | C/D/R | `transport-selection-logic#purpose`; `terminology#transport-loading` | Answer; transport-unit scope and physical caveats | `retrieval_good` | 2/2/2/1 |
 | 29 | What is a Product Block? | C/D/R | `transport-container-engine#product-block-definition`; `#glossary` | Answer; regular one-SKU Y×Z module repeated in X | `retrieval_good` | 2/2/2/1 |
-| 30 | What is Space Evenly? | C/D/R | `transport-container-engine#what-space-evenly-is`; `transport-selection-logic#how-space-evenly-behaves-for-users` | Answer; two-phase deterministic heuristic | `retrieval_good` | 2/2/2/1 |
-| 31 | What is Front-to-Back? | C/D/R | `transport-container-engine#load-front-to-back-with-dgfe`; corresponding user section | Answer; bounded transition frontier behavior | `retrieval_good` | 2/2/2/1 |
-| 32 | What is DGFE? | C/D/R | `transport-container-engine#load-front-to-back-with-dgfe`; `#glossary` | Answer; deferred vertical settlement boundary | `retrieval_good` | 2/2/2/1 |
+| 30 | What is Balanced Spread? | C/D/R | `transport-container-engine#what-balanced-spread-is`; `transport-selection-logic#how-balanced-spread-behaves-for-users` | Answer; two-phase deterministic heuristic | `retrieval_good` | 2/2/2/1 |
+| 31 | What is Progressive Fill? | C/D/R | `transport-container-engine#progressive-fill-with-dgfe`; corresponding user section | Answer; bounded transition frontier behavior | `retrieval_good` | 2/2/2/1 |
+| 32 | What is DGFE? | C/D/R | `transport-container-engine#progressive-fill-with-dgfe`; `#glossary` | Answer; deferred vertical settlement boundary | `retrieval_good` | 2/2/2/1 |
 | 33 | What does frontier efficiency mean? | C/D/R | `transport-container-engine#frontier-efficiency` | Answer; local prism ratio, not overall/Container efficiency | `retrieval_good` | 2/2/2/1 |
 | 34 | Transport loading vs Palletization | C/D/R | `transport-selection-logic#purpose`; `palletization-logic#purpose` | Answer; load-space versus pallet-layer responsibilities | `retrieval_good` | 2/2/2/1 |
 | 35 | What is Packaging Flow? | C/D/R | `packaging-flow#purpose`; `#assistant-scope` | Answer; independent-tool chain | `retrieval_good` | 2/2/2/1 |

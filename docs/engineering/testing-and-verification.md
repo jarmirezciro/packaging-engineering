@@ -92,9 +92,9 @@ Do not run a broad destructive migration or production command as a substitute f
 
 ## Transport Container engine regression contract
 
-The current active `engine.py` dispatch implements the unchanged Space Evenly
-and Load Front-to-Back baselines plus their opt-in Mixed Cargo Infill variants.
-Load Front-to-Back is canonicalized to `front_to_back`; the historical
+The current active `engine.py` dispatch implements the unchanged Balanced Spread
+and Progressive Fill baselines plus their opt-in Mixed Cargo Infill variants.
+Progressive Fill is canonicalized to `front_to_back`; the historical
 `maximum_utilization` values remain compatibility aliases. Older fixture material may refer to the
 former Maximum, Accessible, or Strict Sequence implementations; those legacy
 paths are not imported by the current engine. Run focused checks for both
@@ -117,8 +117,8 @@ Mixed Cargo Infill regression must additionally assert that the parent anchor
 signature is unchanged, filler quantity carries forward, side residuals are
 derived from committed XY geometry, complete-face-compatible X/Y residuals
 merge without overlap, partial fillers preserve their unused X tails, and
-Front-to-Back sees residuals produced by the committed local frontier/DGFE
-geometry. Space Evenly Infill must close every committed residual frontier in
+Progressive Fill sees residuals produced by the committed local frontier/DGFE
+geometry. Balanced Spread Infill must close every committed residual frontier in
 its own X window, synchronize the same remaining/item-index/weight state, and
 then run the separate supported-top closure only above local, coplanar,
 stackable, roof-clear support unions. Top closure must re-derive after each
@@ -129,7 +129,7 @@ historical gap searches, backtracking, and beam states at zero. High-quantity
 fixtures must show candidate counts bounded by geometry rather than requested
 units.
 
-Space Evenly residual regression must preserve the exact Phase 1 Product Block
+Balanced Spread residual regression must preserve the exact Phase 1 Product Block
 signature and cover ordered anchor selection, quantities 1/2/3 and a larger
 arbitrary residual, whole-frontier population, contiguous union support,
 unsupported gaps, non-stackable lower and upper placements, payload limits,
@@ -137,7 +137,7 @@ restricted rotations, no-residual and X-exhausted cases, both Bottom-Up and
 deferred candidates, Native preference on an extension-efficiency tie,
 deterministic placements, and JSON-safe diagnostics.
 
-Load Front-to-Back regression must additionally cover four residual strategies
+Progressive Fill regression must additionally cover four residual strategies
 per enabled current orientation and both Native/DGFE family outcomes, arbitrary
 residual quantities, placement-derived Pi X footprints, first-clean-row
 envelope closure, all-orientation incoming-product evaluation, vertical-only

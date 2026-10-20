@@ -56,7 +56,8 @@ This is a compact log of decisions that repeatedly affect implementation.
 - Accessible Sequence Loading may use supported, door-visible transition residuals and its dedicated backward/forward compaction behavior.
 - Strict Sequence Loading creates a full-width frontier after **each product row** and does not reuse side/top/deep residuals behind it, even when adjacent rows share the same numeric sequence value.
 - Transport mode semantics must remain isolated; mode-specific behavior should not be smuggled through shared helpers without cross-mode regression proof.
-- `Space evenly` is the active independent Space Evenly V1 mode. The current
+- `space_evenly` is the retained backend identifier for the active independent
+  Balanced Spread V1 mode. The current
   engine forces every row to sequence `1`, orders products deterministically by
   size/valid footprint/longest dimension/input order, completes all eligible
   YZ-optimized regular Product Blocks first, then sends the common residual
@@ -70,7 +71,7 @@ This is a compact log of decisions that repeatedly affect implementation.
 - `Maximum utilization floor first` is an isolated comparison mode. It keeps
   Maximum Utilization's physical rules and sequence ordering, then selects a
   homogeneous main block using the bounded transverse `ny × nz` candidate
-  math shared with Space Evenly. It subtracts that block from real free-space
+  math shared with Balanced Spread. It subtracts that block from real free-space
   geometry and packs its residual units adjacently in x-strip -> z-layer ->
   y-row order, including available side spaces. At each non-final fragmented
   frontier it additionally reflows at most three current-product suffix
@@ -79,5 +80,5 @@ This is a compact log of decisions that repeatedly affect implementation.
   frontier's X-step reduction, transverse coverage, usable void/discontinuity,
   and X footprint, while retaining the incumbent on exact ties. This is
   bounded per frontier and never branches future product rows. It does not use
-  Space Evenly's orchestration or final door-side residual zone. The unchanged
+  Balanced Spread's orchestration or final door-side residual zone. The unchanged
   Maximum result is retained only when this candidate would lose capacity.

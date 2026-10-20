@@ -10,34 +10,34 @@ DEFAULT_TRANSPORT_PACKING_MODE = FRONT_TO_BACK_MODE
 TRANSPORT_PACKING_MODE_OPTIONS = (
     {
         "value": SPACE_EVENLY_MODE,
-        "label": "Space Evenly",
+        "label": "Balanced Spread",
         "help": (
-            "Creates strong product blocks and distributes cargo using the "
-            "Space Evenly loading strategy."
+            "Distributes product quantities through the load to create a more "
+            "balanced spatial arrangement across multiple products."
         ),
     },
     {
         "value": FRONT_TO_BACK_MODE,
-        "label": "Load Front-to-Back",
+        "label": "Progressive Fill",
         "help": (
-            "Creates strong product blocks and fills the load progressively "
-            "from the back toward the doors."
+            "Builds the load progressively through the container, prioritizing "
+            "compact product blocks and efficient use of residual space."
         ),
     },
     {
         "value": SPACE_EVENLY_INFILL_MODE,
-        "label": "Space Evenly – Mixed Cargo Infill",
+        "label": "Balanced Spread – Mixed Cargo Infill",
         "help": (
-            "Uses Space Evenly as the main loading strategy and fills bounded "
+            "Uses Balanced Spread as the main loading strategy and fills bounded "
             "side residuals with compatible remaining products. Explicit "
             "sequence groups are respected."
         ),
     },
     {
         "value": FRONT_TO_BACK_INFILL_MODE,
-        "label": "Load Front-to-Back – Mixed Cargo Infill",
+        "label": "Progressive Fill – Mixed Cargo Infill",
         "help": (
-            "Uses Load Front-to-Back as the main strategy and fills compatible "
+            "Uses Progressive Fill as the main strategy and fills compatible "
             "side residuals while preserving the active loading frontier. "
             "Explicit sequence groups are respected."
         ),
@@ -51,16 +51,22 @@ TRANSPORT_PACKING_MODE_CHOICES = tuple(
 
 _MODE_ALIASES = {
     SPACE_EVENLY_MODE: SPACE_EVENLY_MODE,
+    "balanced_spread": SPACE_EVENLY_MODE,
     "evenly_spaced": SPACE_EVENLY_MODE,
     "spread_evenly": SPACE_EVENLY_MODE,
     FRONT_TO_BACK_MODE: FRONT_TO_BACK_MODE,
+    "progressive_fill": FRONT_TO_BACK_MODE,
     "front_to_back_blocks": FRONT_TO_BACK_MODE,
     "load_front_to_back": FRONT_TO_BACK_MODE,
     "maximum_utilization": FRONT_TO_BACK_MODE,
     "maximum_utilization_floor_first": FRONT_TO_BACK_MODE,
     SPACE_EVENLY_INFILL_MODE: SPACE_EVENLY_INFILL_MODE,
+    "balanced_spread_infill": SPACE_EVENLY_INFILL_MODE,
+    "balanced_spread_mixed_cargo_infill": SPACE_EVENLY_INFILL_MODE,
     "space_evenly_mixed_cargo_infill": SPACE_EVENLY_INFILL_MODE,
     FRONT_TO_BACK_INFILL_MODE: FRONT_TO_BACK_INFILL_MODE,
+    "progressive_fill_infill": FRONT_TO_BACK_INFILL_MODE,
+    "progressive_fill_mixed_cargo_infill": FRONT_TO_BACK_INFILL_MODE,
     "load_front_to_back_infill": FRONT_TO_BACK_INFILL_MODE,
     "front_to_back_mixed_cargo_infill": FRONT_TO_BACK_INFILL_MODE,
 }

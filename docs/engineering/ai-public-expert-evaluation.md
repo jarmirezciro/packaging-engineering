@@ -110,7 +110,7 @@ not transmitted to the provider.
    shorter and more consistent.
 2. **Medium — concise public Transport mode overview.** The reviewed
    user-facing mode sections are accurate but detailed. A short public summary
-   of Space Evenly versus Load Front-to-Back would better fit the lightweight
+   of Balanced Spread versus Progressive Fill would better fit the lightweight
    panel while keeping deep packing-engine implementation outside the registry.
 3. **Low — public Packaging Flow overview.** The current architecture headings
    answer the question correctly but include historical/internal framing. A

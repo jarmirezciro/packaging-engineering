@@ -32,7 +32,7 @@ Classify the task as one of:
 - Maximum Utilization;
 - Accessible Sequence Loading;
 - Strict Sequence Loading;
-- Space Evenly (when/after implemented);
+- Balanced Spread (internal `space_evenly` mode);
 - shared physical geometry/invariant helper.
 
 ### 2. Reproduce and measure
@@ -71,6 +71,6 @@ After one focused correction pass, stop and report the exact failing fixture if 
 ## Task handoffs
 
 - Baseline regression harness: `docs/handoffs/transport-container-regression-harness-codex-task.md`.
-- Space Evenly implementation: `docs/handoffs/transport-container-space-evenly-codex-task.md`.
+- Balanced Spread historical implementation handoff: `docs/handoffs/transport-container-space-evenly-codex-task.md`.
 
 Handoffs are execution briefs. The domain document remains the durable source of truth.

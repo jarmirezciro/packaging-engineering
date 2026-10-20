@@ -1,7 +1,12 @@
 # Historical handoff — Transport Container Space Evenly V3 (superseded)
 
+> Naming note: **Space Evenly** is the historical product name for the current
+> **Balanced Spread** strategy. Legacy wording is retained in this superseded
+> handoff so its original implementation context remains traceable.
+
 > This execution handoff is retained for historical context. It is **not** the
-> current algorithm contract. The active implementation is Space Evenly V1 as
+> current algorithm contract. The active implementation is Balanced Spread V1
+> (called Space Evenly in this historical handoff) as
 > documented in `docs/domain/transport-container-engine.md`. In particular,
 > the older one-pass full-width door-side residual description below predates
 > the current support-surface residual bands, width planning, and pattern

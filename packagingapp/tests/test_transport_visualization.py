@@ -9,10 +9,14 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, SimpleTestCase
 from django.urls import reverse
 
-from packagingapp.tools.transport.serializers import serialize_transport_threejs_scene
-from packagingapp.tools.transport.service import analyze_transport_capacity
 from packagingapp.forms import ContainerToolForm
 from packagingapp.models import UserSubscription
+from packagingapp.tools.transport.modes import (
+    normalize_transport_packing_mode,
+    transport_packing_mode_label,
+)
+from packagingapp.tools.transport.serializers import serialize_transport_threejs_scene
+from packagingapp.tools.transport.service import analyze_transport_capacity
 
 
 class TransportVisualizationContractTests(SimpleTestCase):
@@ -20,18 +24,110 @@ class TransportVisualizationContractTests(SimpleTestCase):
         self.assertEqual(
             ContainerToolForm.PACKING_MODE_CHOICES,
             [
-                ("space_evenly", "Space Evenly"),
-                ("front_to_back", "Load Front-to-Back"),
+                ("space_evenly", "Balanced Spread"),
+                ("front_to_back", "Progressive Fill"),
                 (
                     "space_evenly_infill",
-                    "Space Evenly – Mixed Cargo Infill",
+                    "Balanced Spread – Mixed Cargo Infill",
                 ),
                 (
                     "front_to_back_infill",
-                    "Load Front-to-Back – Mixed Cargo Infill",
+                    "Progressive Fill – Mixed Cargo Infill",
                 ),
             ],
         )
+
+    def test_product_names_normalize_to_compatible_backend_identifiers(self):
+        self.assertEqual(
+            normalize_transport_packing_mode("balanced_spread"),
+            "space_evenly",
+        )
+        self.assertEqual(
+            normalize_transport_packing_mode("Balanced Spread"),
+            "space_evenly",
+        )
+        self.assertEqual(
+            normalize_transport_packing_mode("progressive_fill"),
+            "front_to_back",
+        )
+        self.assertEqual(
+            normalize_transport_packing_mode("Progressive Fill"),
+            "front_to_back",
+        )
+        self.assertEqual(
+            normalize_transport_packing_mode("balanced_spread_infill"),
+            "space_evenly_infill",
+        )
+        self.assertEqual(
+            normalize_transport_packing_mode("progressive_fill_infill"),
+            "front_to_back_infill",
+        )
+        self.assertEqual(
+            transport_packing_mode_label("space_evenly"),
+            "Balanced Spread",
+        )
+        self.assertEqual(
+            transport_packing_mode_label("front_to_back"),
+            "Progressive Fill",
+        )
+
+    def test_product_name_aliases_preserve_legacy_engine_geometry(self):
+        config = {
+            "container_source": "manual",
+            "container_l": 400,
+            "container_w": 200,
+            "container_h": 100,
+            "max_weight": None,
+            "tare_weight": None,
+        }
+        rows = [{
+            "name": "Alias cube",
+            "length": 100,
+            "width": 100,
+            "height": 100,
+            "qty": 8,
+            "max_qty": False,
+            "stackable": True,
+            "weight": 0,
+            "sequence": 1,
+            "r1": True,
+            "r2": False,
+            "r3": False,
+        }]
+
+        def signature(analysis):
+            return [
+                (
+                    placement.row_index,
+                    placement.x,
+                    placement.y,
+                    placement.z,
+                    placement.l,
+                    placement.w,
+                    placement.h,
+                )
+                for placement in analysis["result"]["placements"]
+            ]
+
+        for product_name, legacy_value in (
+            ("balanced_spread", "space_evenly"),
+            ("progressive_fill", "front_to_back"),
+            ("balanced_spread_infill", "space_evenly_infill"),
+            ("progressive_fill_infill", "front_to_back_infill"),
+        ):
+            with self.subTest(product_name=product_name):
+                named = analyze_transport_capacity(
+                    {**config, "packing_mode": product_name},
+                    rows,
+                )
+                legacy = analyze_transport_capacity(
+                    {**config, "packing_mode": legacy_value},
+                    rows,
+                )
+                self.assertTrue(named["ok"], named["messages"])
+                self.assertTrue(legacy["ok"], legacy["messages"])
+                self.assertEqual(named["result"]["packing_mode"], legacy_value)
+                self.assertEqual(signature(named), signature(legacy))
 
     def test_space_evenly_infill_normalizes_engine_sequence(self):
         analysis = analyze_transport_capacity(
@@ -333,18 +429,30 @@ class TransportVisualizationSurfaceTests(TestCase):
         self.assertEqual(missing.status_code, 400)
         self.assertIn(b"Loading, Opposite Side and Top", missing.content)
 
-    def test_public_calculator_inherits_space_evenly_from_shared_form(self):
+    def test_public_calculator_inherits_transport_modes_from_shared_form(self):
         with self.settings(MEDIA_ROOT=self.media_root):
             response = self.client.get(reverse("transport_container_calculator"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'value="front_to_back"', count=1)
-        self.assertContains(response, "Load Front-to-Back")
+        self.assertContains(response, "Progressive Fill")
         self.assertContains(response, 'value="space_evenly"', count=1)
-        self.assertContains(response, "Space Evenly")
+        self.assertContains(response, "Balanced Spread")
         self.assertContains(response, 'value="space_evenly_infill"', count=1)
         self.assertContains(response, 'value="front_to_back_infill"', count=1)
-        self.assertContains(response, "Space Evenly – Mixed Cargo Infill")
-        self.assertContains(response, "Load Front-to-Back – Mixed Cargo Infill")
+        self.assertContains(response, "Balanced Spread – Mixed Cargo Infill")
+        self.assertContains(response, "Progressive Fill – Mixed Cargo Infill")
+        self.assertContains(
+            response,
+            "Distributes product quantities through the load to create a more "
+            "balanced spatial arrangement across multiple products.",
+        )
+        self.assertContains(
+            response,
+            "Builds the load progressively through the container, prioritizing "
+            "compact product blocks and efficient use of residual space.",
+        )
+        self.assertNotContains(response, "Load Front-to-Back")
+        self.assertNotContains(response, "Space Evenly")
         self.assertNotContains(response, "Maximum utilization")
 
     def test_public_calculator_loads_tops_high_cube_case_preset(self):
@@ -434,7 +542,7 @@ class TransportVisualizationSurfaceTests(TestCase):
         self.assertEqual(result["packing_mode"], "space_evenly")
         self.assertEqual(result["strategy"], "space_evenly_blocks")
         self.assertIn("space_evenly_effective_height", result)
-        self.assertContains(response, "Packing mode: Space Evenly")
+        self.assertContains(response, "Packing mode: Balanced Spread")
         json.dumps(result)
 
     def test_workflow_viewer_ids_are_prefixed_and_unique(self):
@@ -476,5 +584,5 @@ class TransportVisualizationSurfaceTests(TestCase):
             workflow["steps"][0]["result"]["packing_mode"],
             "space_evenly",
         )
-        self.assertContains(page, "Packing mode: Space Evenly")
+        self.assertContains(page, "Packing mode: Balanced Spread")
         json.dumps(workflow)

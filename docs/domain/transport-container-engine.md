@@ -1,4 +1,4 @@
-# KolliPack Transport Container Engine — Space Evenly and Load Front-to-Back DGFE
+# KolliPack Transport Container Engine — Balanced Spread and Progressive Fill DGFE
 
 ## Status and authority
 
@@ -9,11 +9,17 @@ implementation is:
 `packagingapp/utils/container_tool/engine.py`
 
 The active engine contains four isolated deterministic modes: the approved
-baselines **Space Evenly with V1 Product Blocks and Residual Frontier Closure
-V2** and **Load Front-to-Back with DGFE**, plus their opt-in **Mixed Cargo
+baselines **Balanced Spread with V1 Product Blocks and Residual Frontier Closure
+V2** and **Progressive Fill with DGFE**, plus their opt-in **Mixed Cargo
 Infill** variants. The canonical identifiers are `space_evenly`,
 `front_to_back`, `space_evenly_infill`, and `front_to_back_infill`.
-Load Front-to-Back retains `maximum_utilization`,
+These backend values are deliberately retained for saved configurations,
+session state, requests, exports, diagnostics, and regression fixtures. The
+product-facing names are **Balanced Spread** (formerly Space Evenly) and
+**Progressive Fill** (formerly Load Front-to-Back); `balanced_spread` and
+`progressive_fill`, including their infill variants, normalize to the retained
+canonical values.
+Progressive Fill retains `maximum_utilization`,
 `maximum_utilization_floor_first`, `front_to_back_blocks`, and
 `load_front_to_back` as input compatibility aliases only. Its baseline internal
 strategy remains `front_to_back_blocks`. The transport service, forms, views, templates,
@@ -25,9 +31,9 @@ It is not the current algorithm specification and is not imported by the active
 engine. A requested mode other than the four canonical modes or a recognized
 compatibility alias returns a graceful unsupported result with no placements.
 
-## Load Front-to-Back with DGFE
+## Progressive Fill with DGFE
 
-Load Front-to-Back reuses the Space Evenly normalizer, product ordering,
+Progressive Fill reuses the Balanced Spread normalizer, product ordering,
 R1/R2/R3 orientation families, Product Block candidate generation and ranking,
 block materialization, payload checks, and placement structures. Its distinct
 orchestration is:
@@ -130,9 +136,9 @@ Evenly.
 
 The two infill variants preserve their parent macro orchestration and add one
 shared constructive closure over each bounded local product/frontier window.
-Space Evenly closes a current product's contiguous span after all of its
+Balanced Spread closes a current product's contiguous span after all of its
 approved complete blocks are committed, and then closes each committed
-Space-Evenly residual frontier in its own X window. Load Front-to-Back closes
+Balanced Spread residual frontier in its own X window. Progressive Fill closes
 after the current product's complete blocks and its approved Native/DGFE
 transition are committed. Every window is fixed in X and is never reopened
 after the phase is closed. Residual-frontier candidate selection is completed
@@ -191,9 +197,9 @@ orientations, the existing non-stackable vertical cap, and the shared payload
 arithmetic. Materialized filler blocks start on the floor; physical overlap is
 excluded by deriving the next residual envelope from all committed geometry.
 
-Space Evenly and Space Evenly Infill normalize every product to sequence `1`.
-Load Front-to-Back and Load Front-to-Back Infill preserve input sequence
-values. In the Front-to-Back infill variant, more than one distinct sequence
+Balanced Spread and Balanced Spread Infill normalize every product to sequence `1`.
+Progressive Fill and Progressive Fill Infill preserve input sequence
+values. In the Progressive Fill infill variant, more than one distinct sequence
 activates protection: side/top infill is limited to the current sequence group,
 while different groups may interact only through the immediate Pi/Pi+1
 transition frontier. A later sequence group cannot fill an earlier closed
@@ -205,9 +211,9 @@ committed side residuals × eligible products × geometry-derived Product Block
 candidates. Quantity affects the committed module count and final placement
 materialization, not the number of future packing branches.
 
-## What Space Evenly is
+## What Balanced Spread is
 
-Space Evenly is a deterministic, explainable, block-based heuristic for
+Balanced Spread is a deterministic, explainable, block-based heuristic for
 rectangular transport loads. It is intended to create a structured candidate
 layout for several rectangular load-unit types, particularly when quantities
 are large enough to form repeated blocks. It is not a mathematical optimizer
@@ -224,7 +230,7 @@ Its defining vocabulary is:
 
 The concise definition is:
 
-> **Space Evenly is a deterministic two-phase transport-loading heuristic that first converts large product quantities into YZ-optimized regular blocks and then closes bounded, union-supported residual frontiers, following a Y → Z → X filling philosophy.**
+> **Balanced Spread is a deterministic two-phase transport-loading heuristic that first converts large product quantities into YZ-optimized regular blocks and then closes bounded, union-supported residual frontiers, following a Y → Z → X filling philosophy.**
 
 ## Coordinate system and loading philosophy
 
@@ -286,20 +292,20 @@ is generated.
 
 ## Sequence semantics and product order
 
-Space Evenly deliberately has one common loading group, including its Mixed
+Balanced Spread deliberately has one common loading group, including its Mixed
 Cargo Infill variant:
 
 ```text
 all products are normalized to sequence = 1
 ```
 
-The service sets each Space Evenly row to sequence `1` before validation, the
+The service sets each Balanced Spread row to sequence `1` before validation, the
 template renders the field as read-only in that mode, and the engine enforces
 the same rule again before normalization. A stale posted sequence value cannot
-change Space Evenly allocation.
+change Balanced Spread allocation.
 
 The engine still retains a sequence key internally because the shared result
-contract supports other modes. Space Evenly therefore uses the effective
+contract supports other modes. Balanced Spread therefore uses the effective
 deterministic product order:
 
 1. larger valid footprint among enabled orientations that fit the container;
@@ -312,7 +318,7 @@ order of Phase 1 Product Blocks and is the primary residual-anchor priority in
 Phase 2. A lower-priority SKU may still fill valid capacity inside the active
 anchor frontier.
 
-Load Front-to-Back uses the same geometric priority after sequence: products
+Progressive Fill uses the same geometric priority after sequence: products
 are ordered by ascending input sequence, then larger valid footprint, unit
 volume, longest dimension, and original input order. Its Mixed Cargo Infill
 variant applies the existing same-sequence side/top eligibility rules within
@@ -321,7 +327,7 @@ each bounded local window.
 ## Two-phase architecture
 
 ```text
-SPACE EVENLY
+BALANCED SPREAD
       |
       +-- PHASE 1 — REGULAR PRODUCT BLOCKS
       |
@@ -335,7 +341,7 @@ The global ordering is important:
 ```text
 ALL PRODUCTS — complete regular blocks first
 then
-ALL PRODUCT RESIDUALS — one common Space Evenly residual group
+ALL PRODUCT RESIDUALS — one common Balanced Spread residual group
 ```
 
 The engine does not load a product's residual immediately after that product's
@@ -530,7 +536,7 @@ Only the selected trial mutates placements, quantities, weight, item indices,
 and the X frontier. The loop stops when residuals are complete, no physical
 candidate exists, payload is exhausted, or X is exhausted. The previous
 `SupportSurface` greedy helpers remain in the module for compatibility testing
-but are not the active Space Evenly Phase 2 path.
+but are not the active Balanced Spread Phase 2 path.
 
 ## Payload behavior
 
@@ -618,7 +624,7 @@ possible packing.
 
 ## Limitations
 
-Space Evenly does not prove or calculate:
+Balanced Spread does not prove or calculate:
 
 - global mathematical optimum;
 - cargo securing, lashing, or dunnage design;
@@ -646,7 +652,7 @@ Direct engine regression should check, at minimum:
 - non-stackable support rejection;
 - quantity accounting and unplaced reasons;
 - payload-limited cases;
-- sequence forcing to one for Space Evenly;
+- sequence forcing to one for Balanced Spread;
 - regular-before-residual phase order;
 - synchronized mixed-block flat frontiers;
 - ordered residual-anchor priority and quantity-agnostic compact Pi footprints;
@@ -654,7 +660,7 @@ Direct engine regression should check, at minimum:
 - unsupported gaps, non-stackable foundations, and non-stackable upper cargo;
 - Bottom-Up and deferred Top-Down Row-First trials;
 - clean-frontier versus marginal-extension efficiency and Native tie preference;
-- Front-to-Back orientation × traversal base candidates and both family outcomes;
+- Progressive Fill orientation × traversal base candidates and both family outcomes;
 - four residual strategies per current orientation and quantity-agnostic residuals;
 - actual Pi X-footprint compactness before local frontier efficiency;
 - Native preservation, bounded DGFE extension, marginal extra-X efficiency, and
@@ -678,17 +684,17 @@ are historical compatibility context, not active behavior in the current
 `engine.py`. The former generic sequence-loading algorithms remain historical
 compatibility context and are not imported by the current engine. The
 `maximum_utilization` and `maximum_utilization_floor_first` values now route to
-Load Front-to-Back with DGFE; other historical values return an explicit
+Progressive Fill with DGFE; other historical values return an explicit
 unsupported-mode result.
 
 ## Glossary
 
 | Term | Definition |
 |---|---|
-| Space Evenly | The structured two-phase heuristic using V1 regular Product Blocks and Residual Frontier Closure V2. |
-| Load Front-to-Back | The approved block-and-local-frontier DGFE heuristic, canonically `front_to_back`. |
+| Balanced Spread | The structured two-phase heuristic using V1 regular Product Blocks and Residual Frontier Closure V2. |
+| Progressive Fill | The approved block-and-local-frontier DGFE heuristic, canonically `front_to_back`. |
 | Mixed Cargo Infill | An opt-in parent-mode extension that constructively fills only the current Product Block's bounded side strip with compatible later products. |
-| Deferred-Gravity Frontier Envelope (DGFE) | A bounded Front-to-Back candidate construction that temporarily reserves a top-down residual, fills the next product around it, and restores vertical gravity before validation. |
+| Deferred-Gravity Frontier Envelope (DGFE) | A bounded Progressive Fill candidate construction that temporarily reserves a top-down residual, fills the next product around it, and restores vertical gravity before validation. |
 | Stepped Frontier Envelope (SFE) | The physically valid local boundary produced by residual construction, next-product population, and any deferred settlement. |
 | Product Block | A regular one-SKU module repeated longitudinally. |
 | Transverse Pattern | The Y × Z arrangement defining a Product Block. |

@@ -93,7 +93,8 @@ benchmark is available at
 `/free-container-loading-calculator/?case=tops-max-load-high-cube-benchmark`;
 it loads the manual 12039 × 2362 × 2692 mm fixture, four requested load-unit
 rows, and uses the canonical `front_to_back` configuration. Historical
-Front-to-Back identifiers remain accepted as input compatibility aliases.
+`load_front_to_back`, `front_to_back_blocks`, and maximum-utilization values
+remain accepted as input compatibility aliases for Progressive Fill.
 The mixed-load high-cube case is available at
 `/free-container-loading-calculator/?case=mix_load_case_hight_cube` and loads
 the 12032 × 2352 × 2395 mm container with the EUR pallet, 500 × 400 × 700 mm,

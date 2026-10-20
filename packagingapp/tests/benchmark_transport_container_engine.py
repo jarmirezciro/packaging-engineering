@@ -1,6 +1,6 @@
 """Optional direct Transport Container timing baseline.
 
-Compare Maximum Utilization and Space Evenly with:
+Compare Maximum Utilization and Balanced Spread with:
 
     python -m packagingapp.tests.benchmark_transport_container_engine
 
@@ -130,7 +130,7 @@ def main():
     parser.add_argument(
         "--space-only",
         action="store_true",
-        help="Run only the bounded Space Evenly scenarios.",
+        help="Run only the bounded Balanced Spread scenarios.",
     )
     args = parser.parse_args()
     modes = (

@@ -19,7 +19,7 @@
 - Business decision: decide whether a loading engine is suitable for a geometric shortlist, and what validation is still required before an operational load is released.
 - Business consequence: better geometric utilization can reduce unused container volume, but the benchmark score must not be confused with transport safety, access, balance, or physical approval.
 - Approved workflow scope: benchmark and interpretation only; no engine, application, UI, export, or deployment changes.
-- First-block result: 700 public cases × 4 KolliPack modes = 2,800 solves; Space Evenly – Mixed Cargo Infill = 83.666% average; CLTRS packing reference = 94.2% average.
+- First-block result: 700 public cases × 4 KolliPack modes = 2,800 solves; Balanced Spread – Mixed Cargo Infill = 83.666% average; CLTRS packing reference = 94.2% average.
 - Comparison claim: KolliPack performs credibly and improves materially with Mixed Cargo Infill, but the published full-support CLTRS reference is substantially higher on pure volume utilization.
 - Figure plan: four deterministic figures plus a simple thumbnail; no vendor UI recreation and no interpolated commercial values.
 
@@ -84,26 +84,26 @@ Thumbnail headline: **700 CASES / HONEST BENCHMARK / 83.7%**
 
 | Mode | Average | Median | Minimum | Maximum |
 |---|---:|---:|---:|---:|
-| Space Evenly | 76.203259% | 76.146153% | 53.408996% | 93.051753% |
-| Space Evenly – Mixed Cargo Infill | 83.666441% | 83.686883% | 68.341169% | 93.051753% |
-| Front-to-Back | 67.413785% | 67.521949% | 41.781957% | 91.918499% |
-| Front-to-Back – Mixed Cargo Infill | 82.540533% | 82.765675% | 67.008689% | 92.660253% |
+| Balanced Spread | 76.203259% | 76.146153% | 53.408996% | 93.051753% |
+| Balanced Spread – Mixed Cargo Infill | 83.666441% | 83.686883% | 68.341169% | 93.051753% |
+| Progressive Fill | 67.413785% | 67.521949% | 41.781957% | 91.918499% |
+| Progressive Fill – Mixed Cargo Infill | 82.540533% | 82.765675% | 67.008689% | 92.660253% |
 | Retrospective best of all four modes per case | 84.453450% | 84.476318% | — | — |
 
-Per-class Space Evenly Infill: BR1 84.952353%; BR2 85.096030%; BR3 84.711384%; BR4 83.753898%; BR5 83.192104%; BR6 82.556058%; BR7 81.403256%.
+Per-class Balanced Spread Infill: BR1 84.952353%; BR2 85.096030%; BR3 84.711384%; BR4 83.753898%; BR5 83.192104%; BR6 82.556058%; BR7 81.403256%.
 
-Per-class Front-to-Back Infill: BR1 83.334561%; BR2 83.678322%; BR3 83.742955%; BR4 82.448722%; BR5 82.244029%; BR6 81.941185%; BR7 80.393957%.
+Per-class Progressive Fill Infill: BR1 83.334561%; BR2 83.678322%; BR3 83.742955%; BR4 82.448722%; BR5 82.244029%; BR6 81.941185%; BR7 80.393957%.
 
-Mixed Cargo Infill changes: Space Evenly +7.463181 percentage points; Front-to-Back +15.126748 percentage points.
+Mixed Cargo Infill changes: Balanced Spread +7.463181 percentage points; Progressive Fill +15.126748 percentage points.
 
-Infill head-to-head: Space Evenly Infill wins 433 cases; Front-to-Back Infill wins 257; ties 10.
+Infill head-to-head: Balanced Spread Infill wins 433 cases; Progressive Fill Infill wins 257; ties 10.
 
 ## Academic comparison record
 
 - Comparison uses CLTRS **packing variant**, not the cutting variant.
 - Packing variant requires full support from below; cutting variant does not enforce that support constraint.
 - Published BR1–BR7 packing averages: 94.51%, 94.73%, 94.74%, 94.41%, 94.13%, 93.85%, 93.20%; overall 94.2% as reported in Table 4.
-- Gap against KolliPack Space Evenly Infill: 94.2% − 83.666441% = approximately 10.534 percentage points.
+- Gap against KolliPack Balanced Spread Infill: 94.2% − 83.666441% = approximately 10.534 percentage points.
 - Historical support-constrained Table 4 values used compactly: Terno B&B 88.5%; Bortfeldt/Gehring GA 90.1%; Gehring/Bortfeldt parallel GA 90.4%; Eley TRS 88.8%; Bischoff 90.5%; Moura/Oliveira GRASP 89.7%; CLTRS packing 94.2%.
 - Do not call 94.2% a current state-of-the-art, world record, global optimum, or exact optimum.
 - Do not compare paper CPU seconds directly with KolliPack runtime.
@@ -123,7 +123,7 @@ Infill head-to-head: Space Evenly Infill wins 433 cases; Front-to-Back Infill wi
 
 | Claim | Status | Reason/action |
 |---|---|---|
-| KolliPack reaches 83.666% | Verified | Frozen CSV recomputation; scope to Space Evenly – Mixed Cargo Infill and 2026-08-18 run |
+| KolliPack reaches 83.666% | Verified | Frozen CSV recomputation; scope to Balanced Spread – Mixed Cargo Infill and 2026-08-18 run |
 | CLTRS reaches 94.2% | Verified published reference | Scope to Fanslau–Bortfeldt BR1–BR7 packing variant; not current best or mathematical optimum claim |
 | All 2,800 results are valid | Verified narrowly | Say internal bounds/overlap/support validation; do not say physical certification or transport safe |
 | KolliPack is near LoadingMCP | Bounded inference | Say similar numerical range only; vendor values not independently reproduced |

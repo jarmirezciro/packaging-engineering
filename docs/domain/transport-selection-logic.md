@@ -22,13 +22,17 @@ The active source is:
 
 `packagingapp/utils/container_tool/engine.py`
 
-The active engine provides the approved **Space Evenly** and **Load
-Front-to-Back** baselines plus opt-in **Space Evenly – Mixed Cargo Infill** and
-**Load Front-to-Back – Mixed Cargo Infill** variants. Their canonical values
+The active engine provides the approved **Balanced Spread** and **Progressive
+Fill** baselines plus opt-in **Balanced Spread – Mixed Cargo Infill** and
+**Progressive Fill – Mixed Cargo Infill** variants. Their canonical values
 are `space_evenly`, `front_to_back`, `space_evenly_infill`, and
-`front_to_back_infill`. The persisted values `maximum_utilization` and
+`front_to_back_infill`. These established backend values remain stable for
+saved and serialized data. Product-name inputs such as `balanced_spread` and
+`progressive_fill` normalize to them, while the former product names remain
+accepted as invisible compatibility inputs. The persisted values
+`maximum_utilization` and
 `maximum_utilization_floor_first` remain compatibility aliases for the
-unchanged Load Front-to-Back baseline. Sequence Loading and Strict Sequence
+unchanged Progressive Fill baseline. Sequence Loading and Strict Sequence
 Loading remain unsupported historical values and return a graceful unsupported
 result. Historical implementations remain separate and are not imported by the
 active engine.
@@ -87,9 +91,9 @@ Each row contains:
 The rotation flags are safety constraints, not suggestions. Enable only
 orientations that are physically permitted for the packaged unit.
 
-## How Space Evenly behaves for users
+## How Balanced Spread behaves for users
 
-Space Evenly puts all product rows into one common loading group. In this mode:
+Balanced Spread puts all product rows into one common loading group. In this mode:
 
 - every row is normalized to sequence `1`;
 - the sequence input is rendered read-only and stale posted values are ignored;
@@ -114,9 +118,9 @@ separate algorithmic alternatives.
 The layout is a candidate engineering arrangement. It is not a cargo-securing
 plan and should not be read as proof of globally optimal utilization.
 
-## How Load Front-to-Back behaves for users
+## How Progressive Fill behaves for users
 
-Load Front-to-Back keeps the shared product ordering and Product Block
+Progressive Fill keeps the shared product ordering and Product Block
 mathematics, then closes one bounded Pi/Pi+1 transition at a time. Each current
 residual orientation evaluates Bottom-Up and deferred Top-Down Row/Column
 strategies. The next product retains the established all-orientation evaluation
@@ -145,15 +149,15 @@ the mixed modes also evaluate a separate supported-top envelope above local,
 coplanar, stackable, roof-clear support unions. The envelope is
 derived from committed XY geometry, so continuous space can cross internal
 Product Block boundaries and a partial filler can leave an X tail for the next
-local iteration. Space Evenly Infill also applies the same closure after each
+local iteration. Balanced Spread Infill also applies the same closure after each
 committed residual frontier, using the frontier's own X window and the same
 remaining quantity state. It does not reopen older windows or run a general
 free-space optimizer. Top closure is bottom-up and re-derived after each
 committed Product Block; top units have separate accounting and diagnostics.
 The current product may compete in that supported-top closure when it still has
 remaining quantity; side closure retains its later-product-only eligibility.
-Space Evenly Infill normalizes sequence to one, so its geometry is sequence-
-agnostic. Front-to-Back Infill preserves explicit sequence groups: later
+Balanced Spread Infill normalizes sequence to one, so its geometry is sequence-
+agnostic. Progressive Fill Infill preserves explicit sequence groups: later
 products may cooperate locally only within the active group, and different
 groups can meet only at the adjacent active transition frontier.
 
@@ -171,7 +175,7 @@ The service:
    heuristic whether the fixed rows and the candidate row can be packed;
 5. resolves multiple Max qty rows in row order, with earlier resolved rows
    becoming fixed inputs for later rows;
-6. passes the resolved quantities into the normal Space Evenly calculation.
+6. passes the resolved quantities into the normal Balanced Spread calculation.
 
 The service caps the automatic search at 5,000 units to keep rendering
 responsive. A checked row can therefore resolve to zero when it cannot fit, or
@@ -187,7 +191,7 @@ Cargo weight is:
 cargo_weight = Σ(loaded_quantity_i × unit_weight_i)
 ```
 
-When a positive maximum payload is supplied, Space Evenly limits additional
+When a positive maximum payload is supplied, Balanced Spread limits additional
 positive-weight units by the remaining payload while it constructs blocks and
 residual rows. A zero-weight row is not reduced by payload. Geometry may still
 be available after the payload limit is reached, so the result reports the
@@ -214,7 +218,7 @@ metadata. It includes, where applicable:
 - residual dimensions;
 - cargo weight, optional tare, gross weight, and payload utilization;
 - active strategy/mode status and unplaced reasons;
-- Space Evenly technical diagnostics for engineering review.
+- Balanced Spread technical diagnostics for engineering review.
 
 The interactive Three.js scene, Loading View, Opposite Side, Top View, and PDF
 report all refer to the same selected placement list. Final customer views do
@@ -284,7 +288,7 @@ Consumer and engine checks should cover:
 - geometry capacity greater than payload capacity;
 - omitted payload/tare values;
 - multiple rows with stable identity and deterministic order;
-- sequence forcing to one in Space Evenly;
+- sequence forcing to one in Balanced Spread;
 - complete-block-before-residual behavior;
 - four residual strategies and Native/DGFE family outcomes per current-product
   orientation;

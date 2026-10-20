@@ -252,8 +252,8 @@ def build_knowledge_evaluation_cases(
             "transport_container",
         ),
         case("product_block", "What is a Product Block?", "transport_container"),
-        case("space_evenly", "What is Space Evenly?", "transport_container"),
-        case("front_to_back", "What is Front-to-Back?", "transport_container"),
+        case("space_evenly", "What is Balanced Spread?", "transport_container"),
+        case("front_to_back", "What is Progressive Fill?", "transport_container"),
         case("dgfe", "What is DGFE?", "transport_container"),
         case(
             "frontier_efficiency",

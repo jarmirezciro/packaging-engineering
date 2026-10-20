@@ -14,7 +14,7 @@ author = "Alejandro Ramírez"
 category = "Transport container loading"
 read_time = "12 min read"
 published_at = 2026-08-20
-updated_at = 2026-08-20
+updated_at = 2026-10-20
 hero_icon = "bi-bar-chart-line"
 featured_image = "img/blog/container-loading-benchmark-kollipack-br1-br7/thumbnail.webp"
 thumbnail = "img/blog/container-loading-benchmark-kollipack-br1-br7/thumbnail.webp"
@@ -25,7 +25,7 @@ related_articles = ["box-selection-3d-bin-packing-problem", "think-beyond-the-bo
 related_tools = ["transport-container"]
 canonical_path = "/blog/container-loading-benchmark-kollipack-br1-br7/"
 og_image = "img/blog/container-loading-benchmark-kollipack-br1-br7/thumbnail.webp"
-takeaways = ["A fair comparison needs the same public instances, dimensions, orientations, support assumptions, objective, and metric.", "KolliPack Space Evenly Infill averaged 83.666% across 700 cases in the frozen 2026-08-18 run.", "The CLTRS full-support academic reference reported 94.2% on BR1–BR7; the 10.534-point gap is real.", "Mixed Cargo Infill improved KolliPack materially, while the benchmark now serves as a diagnostic baseline rather than an overfitting target."]
+takeaways = ["A fair comparison needs the same public instances, dimensions, orientations, support assumptions, objective, and metric.", "KolliPack Balanced Spread Infill averaged 83.666% across 700 cases in the frozen 2026-08-18 run.", "The CLTRS full-support academic reference reported 94.2% on BR1–BR7; the 10.534-point gap is real.", "Mixed Cargo Infill improved KolliPack materially, while the benchmark now serves as a diagnostic baseline rather than an overfitting target."]
 
 [cta]
 label = "Try KolliPack Transport Container Loading"
@@ -37,7 +37,7 @@ new_tab = true
 
 ## The result before the explanation
 
-On a frozen run dated **18 August 2026**, KolliPack evaluated **700 public Bischoff–Ratcliff benchmark cases** in four modes: **2,800 complete solves**. Its strongest standalone mode for the benchmark's pure utilization objective—**Space Evenly with Mixed Cargo Infill**—averaged **83.666%** of container volume. The full-support CLTRS reference reported by Fanslau and Bortfeldt averaged **94.2%** on BR1–BR7: a gap of **10.534 percentage points**.
+On a frozen run dated **18 August 2026**, KolliPack evaluated **700 public Bischoff–Ratcliff benchmark cases** in four modes: **2,800 complete solves**. Its strongest standalone mode for the benchmark's pure utilization objective—**Balanced Spread with Mixed Cargo Infill**—averaged **83.666%** of container volume. The full-support CLTRS reference reported by Fanslau and Bortfeldt averaged **94.2%** on BR1–BR7: a gap of **10.534 percentage points**.
 
 The gap is real. This article does not turn it into a claim that KolliPack beats academic optimization. It asks a more useful engineering question: what does the gap mean, what did the benchmark teach us about KolliPack, and how should a container-loading engine be compared fairly?
 
@@ -103,7 +103,7 @@ The test matrix was deliberately narrow:
     <tr><td>Orientation permissions</td><td>Source vertical flags mapped to KolliPack R1/R2/R3 without adding orientations</td></tr>
     <tr><td>Product state</td><td>Stackable = true; weight = 0; sequence = 1</td></tr>
     <tr><td>Objective</td><td>Pure container-volume utilization</td></tr>
-    <tr><td>Modes</td><td>Space Evenly; Space Evenly – Mixed Cargo Infill; Front-to-Back; Front-to-Back – Mixed Cargo Infill</td></tr>
+    <tr><td>Modes</td><td>Balanced Spread; Balanced Spread – Mixed Cargo Infill; Progressive Fill; Progressive Fill – Mixed Cargo Infill</td></tr>
     <tr><td>Validation</td><td>Bounds, positive-volume overlap, and support of elevated placements</td></tr>
   </tbody>
 </table>
@@ -130,10 +130,10 @@ The complete suite produces a useful separation between a fast baseline, a more 
 <table class="table table-sm blog-result-table">
   <thead><tr><th>Mode</th><th>Average</th><th>Median</th><th>Minimum</th><th>Maximum</th></tr></thead>
   <tbody>
-    <tr><td>Space Evenly</td><td>76.203%</td><td>76.146%</td><td>53.409%</td><td>93.052%</td></tr>
-    <tr><td>Space Evenly – Mixed Cargo Infill</td><td><strong>83.666%</strong></td><td><strong>83.687%</strong></td><td>68.341%</td><td>93.052%</td></tr>
-    <tr><td>Front-to-Back</td><td>67.414%</td><td>67.522%</td><td>41.782%</td><td>91.918%</td></tr>
-    <tr><td>Front-to-Back – Mixed Cargo Infill</td><td><strong>82.541%</strong></td><td><strong>82.766%</strong></td><td>67.009%</td><td>92.660%</td></tr>
+    <tr><td>Balanced Spread</td><td>76.203%</td><td>76.146%</td><td>53.409%</td><td>93.052%</td></tr>
+    <tr><td>Balanced Spread – Mixed Cargo Infill</td><td><strong>83.666%</strong></td><td><strong>83.687%</strong></td><td>68.341%</td><td>93.052%</td></tr>
+    <tr><td>Progressive Fill</td><td>67.414%</td><td>67.522%</td><td>41.782%</td><td>91.918%</td></tr>
+    <tr><td>Progressive Fill – Mixed Cargo Infill</td><td><strong>82.541%</strong></td><td><strong>82.766%</strong></td><td>67.009%</td><td>92.660%</td></tr>
   </tbody>
 </table>
 </div>
@@ -152,15 +152,15 @@ Mixed Cargo Infill is the clearest internal result in the benchmark. In plain te
 <table class="table table-sm blog-result-table">
   <thead><tr><th>Mode family</th><th>Without infill</th><th>With infill</th><th>Change</th></tr></thead>
   <tbody>
-    <tr><td>Space Evenly</td><td>76.203%</td><td>83.666%</td><td><strong>+7.463 percentage points</strong></td></tr>
-    <tr><td>Front-to-Back</td><td>67.414%</td><td>82.541%</td><td><strong>+15.127 percentage points</strong></td></tr>
+    <tr><td>Balanced Spread</td><td>76.203%</td><td>83.666%</td><td><strong>+7.463 percentage points</strong></td></tr>
+    <tr><td>Progressive Fill</td><td>67.414%</td><td>82.541%</td><td><strong>+15.127 percentage points</strong></td></tr>
   </tbody>
 </table>
 </div>
 
 Across 700 independent cases, residual-space closure recovered a substantial amount of usable volume. That is an engineering result worth keeping separate from the broader question of whether the engine has enough global foresight.
 
-The two infill modes also show why a benchmark objective cannot be interpreted without a mode definition. Space Evenly Infill won **433** cases; Front-to-Back Infill won **257**; **10** were ties. Space Evenly has more geometric freedom. Front-to-Back deliberately loads longitudinally, from the back toward the doors, because an operationally understandable loading progression can matter even when the benchmark score does not measure it. It would be surprising if that additional operational structure automatically won a pure cube-utilization contest.
+The two infill modes also show why a benchmark objective cannot be interpreted without a mode definition. Balanced Spread Infill won **433** cases; Progressive Fill Infill won **257**; **10** were ties. Balanced Spread has more geometric freedom. Progressive Fill deliberately loads longitudinally, from the back toward the doors, because an operationally understandable loading progression can matter even when the benchmark score does not measure it. It would be surprising if that additional operational structure automatically won a pure cube-utilization contest.
 
 </section>
 
@@ -176,7 +176,7 @@ The paper reports these BR1–BR7 packing-variant averages for 100 cases per cla
 
 <div class="blog-table-wrap">
 <table class="table table-sm blog-result-table">
-  <thead><tr><th>Class</th><th>Box types</th><th>KolliPack Space Evenly Infill</th><th>CLTRS packing variant</th><th>Gap</th></tr></thead>
+  <thead><tr><th>Class</th><th>Box types</th><th>KolliPack Balanced Spread Infill</th><th>CLTRS packing variant</th><th>Gap</th></tr></thead>
   <tbody>
     <tr><td>BR1</td><td>3</td><td>84.952%</td><td>94.51%</td><td>9.558 pp</td></tr>
     <tr><td>BR2</td><td>5</td><td>85.096%</td><td>94.73%</td><td>9.634 pp</td></tr>
@@ -226,7 +226,7 @@ The point is not that one philosophy is universally superior. A shipping team ma
 
 ## More product types expose more internal loss
 
-The heterogeneity curve is one of the most useful diagnostic signals in the data. Space Evenly Infill rises slightly from BR1 to BR2, then declines from **84.952% in BR1** to **81.403% in BR7**. Front-to-Back Infill follows the same broad direction, ending at **80.394%** in BR7.
+The heterogeneity curve is one of the most useful diagnostic signals in the data. Balanced Spread Infill rises slightly from BR1 to BR2, then declines from **84.952% in BR1** to **81.403% in BR7**. Progressive Fill Infill follows the same broad direction, ending at **80.394%** in BR7.
 
 <figure class="blog-figure">
   <img src="static://img/blog/container-loading-benchmark-kollipack-br1-br7/figure-2-heterogeneity-curve.webp" alt="Line chart showing KolliPack infill utilization declining as BR1 to BR7 box-type heterogeneity increases, with the CLTRS reference remaining higher" loading="lazy">
@@ -248,11 +248,11 @@ LoadingMCP's **[public research and benchmarks page](https://loadingmcp.com/rese
 For the three classes LoadingMCP publishes explicitly, the numerical neighborhood looks like this:
 
 <figure class="blog-figure">
-  <img src="static://img/blog/container-loading-benchmark-kollipack-br1-br7/figure-3-commercial-reference.webp" alt="Comparison of KolliPack Space Evenly Infill with LoadingMCP vendor-published values for BR1, BR5, and BR7" loading="lazy">
+  <img src="static://img/blog/container-loading-benchmark-kollipack-br1-br7/figure-3-commercial-reference.webp" alt="Comparison of KolliPack Balanced Spread Infill with LoadingMCP vendor-published values for BR1, BR5, and BR7" loading="lazy">
   <figcaption>Figure 3. A limited class-by-class comparison using only the LoadingMCP values published on its research page. No values are interpolated for the missing classes.</figcaption>
 </figure>
 
-KolliPack's Space Evenly Infill values are approximately 1.45 points below LoadingMCP on BR1, 2.11 points below on BR5, and 1.20 points below on BR7. That places the two results in a similar numerical range on the published benchmark family, but it does **not** establish commercial parity, equal optimizer quality, equal constraints, equal runtime, or equal product capability.
+KolliPack's Balanced Spread Infill values are approximately 1.45 points below LoadingMCP on BR1, 2.11 points below on BR5, and 1.20 points below on BR7. That places the two results in a similar numerical range on the published benchmark family, but it does **not** establish commercial parity, equal optimizer quality, equal constraints, equal runtime, or equal product capability.
 
 LoadingMCP also associates its PackingSolver foundation with Florian Fontan and Luc Libralesso. The **[official ROADEF/EURO 2022 final results](https://roadef.org/challenge/2022/en/finalresult.php)** identify Fontan and Libralesso as the winning team in the final Renault truck-loading challenge. That confirms the competition result; it does not establish that LoadingMCP's production implementation is identical to that competition submission.
 
@@ -332,7 +332,7 @@ That is why one screenshot, one hand-picked shipment, or one “best case” is 
 
 The benchmark did not tell us that KolliPack is optimal. It gave us something more useful: a reproducible baseline, a quantified gap to a strong published full-support academic reference, clear evidence that Mixed Cargo Infill materially improves the constructive engine, and a disciplined way to investigate the remaining losses without overfitting to named cases.
 
-For the BR pure-volume objective, the fairest standalone KolliPack headline is **83.666% in Space Evenly – Mixed Cargo Infill**. The **84.453%** all-mode envelope is useful for understanding mode complementarity, but it is not a standalone configuration. LoadingMCP's **about 85%** figure is useful commercial context, but it remains vendor-published and scope-limited.
+For the BR pure-volume objective, the fairest standalone KolliPack headline is **83.666% in Balanced Spread – Mixed Cargo Infill**. The **84.453%** all-mode envelope is useful for understanding mode complementarity, but it is not a standalone configuration. LoadingMCP's **about 85%** figure is useful commercial context, but it remains vendor-published and scope-limited.
 
 The next engineering question is not “How do we make one benchmark row look better?” It is “Which general packing principle explains a cluster of weak cases, and can a bounded improvement raise the full distribution while preserving determinism, geometry validity, and operationally understandable loading?”
 

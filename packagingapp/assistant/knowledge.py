@@ -118,6 +118,8 @@ TOOL_ALIASES = {
         "transport loading",
         "transport selection",
         "transport",
+        "balanced spread",
+        "progressive fill",
         "space evenly",
         "front to back",
         "product block",

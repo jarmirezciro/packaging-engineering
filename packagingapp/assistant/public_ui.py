@@ -44,7 +44,7 @@ PUBLIC_EXPERT_SUGGESTIONS = {
     ),
     "transport": (
         "How does this tool work?",
-        "What does Space Evenly do?",
+        "What does Balanced Spread do?",
         "What is payload utilization?",
         "What loading limits should I check?",
     ),

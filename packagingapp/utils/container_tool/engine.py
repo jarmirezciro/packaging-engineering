@@ -1,7 +1,7 @@
 # packagingapp/utils/container_tool/engine.py
 """Deterministic block-based Transport Container packing engines.
 
-Space Evenly and Load Front-to-Back use the same normalized product and block
+Balanced Spread and Progressive Fill use the same normalized product and block
 mathematics.  Their orchestration is intentionally separate.  Historical
 algorithms are preserved in ``engine_legacy.py`` and are never imported here.
 """
@@ -37,7 +37,7 @@ SPACE_EVENLY_RESIDUAL_STRATEGIES = (
 )
 DGFE_POSITION_DIAGNOSTIC_LIMIT = 64
 UNSUPPORTED_MODE_MESSAGE = (
-    "Only Space Evenly and Load Front-to-Back are currently available."
+    "Only Balanced Spread and Progressive Fill are currently available."
 )
 
 
@@ -3372,7 +3372,7 @@ def _unplaced_reason(
         return "Container payload limit reached."
     if frontier >= container["L"] - TOLERANCE:
         return "No longitudinal container residual space remains."
-    return "No larger valid Space Evenly residual mini-block fits."
+    return "No larger valid Balanced Spread residual mini-block fits."
 
 
 def _frontier_rectangles_overlap(
@@ -5087,7 +5087,7 @@ def _evaluate_space_evenly_anchor_candidate(
     loaded_weight: float,
     preferred_orientations: Dict[int, Tuple[float, float, float]],
 ) -> Dict:
-    """Build, populate, settle, and validate one Space Evenly frontier trial."""
+    """Build, populate, settle, and validate one Balanced Spread frontier trial."""
     gravity_mode, residual_traversal = _dgfe_strategy_parts(strategy)
     reserved_or_bottom_up, loaded_after_anchor, reserved_qty = (
         _frontier_residual_candidate_placements(
@@ -5532,7 +5532,7 @@ def pack_space_evenly_residual_frontiers(
     top_infill_loaded: Optional[Dict[int, int]] = None,
     top_infill_stats: Optional[Dict] = None,
 ) -> Tuple[float, float, List[Dict], int, int, int]:
-    """Close deterministic whole-volume Space Evenly residual frontiers.
+    """Close deterministic whole-volume Balanced Spread residual frontiers.
 
     ``enable_side_infill`` and ``enable_top_infill`` are deliberately opt-in.
     Approved baseline calls retain the original frontier-only behavior;
@@ -6918,7 +6918,7 @@ def _pack_container_front_to_back(
             enable_infill
             and frontier_x > product_x_start + TOLERANCE
         ):
-            # Front-to-Back closes side space only after the complete current
+            # Progressive Fill closes side space only after the complete current
             # product phase and its Native/DGFE frontier have been committed.
             # This lets the envelope see stepped local geometry from both
             # products without reopening an earlier frontier.
@@ -7170,8 +7170,8 @@ def pack_container(
     requested_mode = _normalize_packing_mode(
         mode if mode is not None else (container or {}).get("packing_mode")
     )
-    # Sequence is a mode boundary policy: Space Evenly is neutral; both
-    # Front-to-Back variants preserve the caller's sequence values.
+    # Sequence is a mode boundary policy: Balanced Spread is neutral; both
+    # Progressive Fill variants preserve the caller's sequence values.
     normalized_input_products = products
     if requested_mode in {
         SPACE_EVENLY_MODE,

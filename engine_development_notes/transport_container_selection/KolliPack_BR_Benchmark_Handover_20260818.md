@@ -22,7 +22,7 @@ SHA-256:
 
 `73e18b73c63718828e7a45a7bf8a94da6ebc82e965215f86f1ffa7a3c224f758`
 
-The engine is the current deterministic block-based Transport Container engine with Space Evenly, Load Front-to-Back, Mixed Cargo side infill, supported top infill, Native/DGFE frontier handling, support validation, payload accounting, and deterministic candidate ranking.
+The engine is the current deterministic block-based Transport Container engine with Balanced Spread, Progressive Fill, Mixed Cargo side infill, supported top infill, Native/DGFE frontier handling, support validation, payload accounting, and deterministic candidate ranking.
 
 No benchmark-specific algorithm changes were made for the run.
 
@@ -80,10 +80,10 @@ Official files used:
 
 All four KolliPack modes were run for every instance:
 
-1. Space Evenly
-2. Space Evenly – Mixed Cargo Infill
-3. Load Front-to-Back
-4. Load Front-to-Back – Mixed Cargo Infill
+1. Balanced Spread
+2. Balanced Spread – Mixed Cargo Infill
+3. Progressive Fill
+4. Progressive Fill – Mixed Cargo Infill
 
 Total solves:
 
@@ -97,10 +97,10 @@ Every returned placement set was passed through the current engine global geomet
 
 Validation result:
 
-- Space Evenly: 700/700 valid
-- Space Evenly Infill: 700/700 valid
-- Front-to-Back: 700/700 valid
-- Front-to-Back Infill: 700/700 valid
+- Balanced Spread: 700/700 valid
+- Balanced Spread Infill: 700/700 valid
+- Progressive Fill: 700/700 valid
+- Progressive Fill Infill: 700/700 valid
 
 Total benchmark execution time in the test sandbox was approximately 648.9 seconds. Per-mode runtime numbers below are measurements from this environment only and must not be compared directly with historical academic CPU times.
 
@@ -110,24 +110,24 @@ Total benchmark execution time in the test sandbox was approximately 648.9 secon
 
 | Mode | Average utilization | Median | Minimum | Maximum | Avg runtime | Median runtime |
 |---|---:|---:|---:|---:|---:|---:|
-| Space Evenly | 76.203% | 76.146% | 53.409% | 93.052% | 0.302 s | 0.011 s |
-| Space Evenly – Infill | **83.666%** | **83.687%** | 68.341% | 93.052% | 0.349 s | 0.057 s |
-| Front-to-Back | 67.414% | 67.522% | 41.782% | 91.918% | 0.119 s | 0.084 s |
-| Front-to-Back – Infill | **82.541%** | **82.766%** | 67.009% | 92.660% | 0.152 s | 0.117 s |
+| Balanced Spread | 76.203% | 76.146% | 53.409% | 93.052% | 0.302 s | 0.011 s |
+| Balanced Spread – Infill | **83.666%** | **83.687%** | 68.341% | 93.052% | 0.349 s | 0.057 s |
+| Progressive Fill | 67.414% | 67.522% | 41.782% | 91.918% | 0.119 s | 0.084 s |
+| Progressive Fill – Infill | **82.541%** | **82.766%** | 67.009% | 92.660% | 0.152 s | 0.117 s |
 | Best KolliPack mode per instance | **84.453%** | **84.476%** | — | — | — | — |
 
 Mixed Cargo Infill provides a large measurable gain:
 
-- Space Evenly: +7.463 percentage points on average
-- Front-to-Back: +15.127 percentage points on average
+- Balanced Spread: +7.463 percentage points on average
+- Progressive Fill: +15.127 percentage points on average
 
 Among the two infill modes:
 
-- Space Evenly Infill wins 433 cases
-- Front-to-Back Infill wins 257 cases
+- Balanced Spread Infill wins 433 cases
+- Progressive Fill Infill wins 257 cases
 - 10 cases tie
 
-This is consistent with the benchmark objective: Space Evenly has more geometric freedom, while Front-to-Back intentionally preserves a longitudinal operational loading philosophy.
+This is consistent with the benchmark objective: Balanced Spread has more geometric freedom, while Progressive Fill intentionally preserves a longitudinal operational loading philosophy.
 
 ---
 
@@ -135,7 +135,7 @@ This is consistent with the benchmark objective: Space Evenly has more geometric
 
 Fanslau & Bortfeldt’s CLTRS packing variant guarantees full support from below and reports 94.2% average utilization over BR1–BR7.
 
-| Class | Box types | KolliPack Space Evenly Infill | KolliPack FTB Infill | CLTRS full-support packing | Gap: CLTRS vs SE Infill |
+| Class | Box types | KolliPack Balanced Spread Infill | KolliPack Progressive Fill Infill | CLTRS full-support packing | Gap: CLTRS vs Balanced Spread Infill |
 |---|---:|---:|---:|---:|---:|
 | BR1 | 3 | 84.952% | 83.335% | 94.51% | 9.558 pp |
 | BR2 | 5 | 85.096% | 83.678% | 94.73% | 9.634 pp |
@@ -223,7 +223,7 @@ LoadingMCP says its optimizer is built on PackingSolver. It also states that Pac
 
 This makes LoadingMCP a useful small-commercial-player reference, but its figures are vendor-published rather than an independent academic evaluation.
 
-Relative to the published LoadingMCP class figures, KolliPack Space Evenly Infill is approximately:
+Relative to the published LoadingMCP class figures, KolliPack Balanced Spread Infill is approximately:
 
 - BR1: 84.95% vs 86.4% -> 1.45 pp lower
 - BR5: 83.19% vs 85.3% -> 2.11 pp lower
@@ -239,7 +239,7 @@ Do NOT frame the result as academic state of the art.
 
 A defensible conclusion is:
 
-“KolliPack’s current deterministic mixed-cargo engine reaches 83.67% average volume utilization across the 700 Bischoff–Ratcliff BR1–BR7 instances in Space Evenly Infill mode, while preserving full physical support validation and deterministic constructive loading. A published high-performance full-support academic tree-search reference, CLTRS, reports 94.2% on the same BR1–BR7 family.”
+“KolliPack’s current deterministic mixed-cargo engine reaches 83.67% average volume utilization across the 700 Bischoff–Ratcliff BR1–BR7 instances in Balanced Spread Infill mode, while preserving full physical support validation and deterministic constructive loading. A published high-performance full-support academic tree-search reference, CLTRS, reports 94.2% on the same BR1–BR7 family.”
 
 Commercial interpretation:
 
@@ -252,7 +252,7 @@ Commercial interpretation:
 
 ## 9. Most important research signal
 
-KolliPack Space Evenly Infill falls from:
+KolliPack Balanced Spread Infill falls from:
 
 - BR1: 84.95%
 - BR2: 85.10%
@@ -274,18 +274,18 @@ Rank by the BEST of the two Mixed Cargo Infill modes, so cases are genuinely dif
 
 Top initial cases:
 
-| Rank | Case | Best infill utilization | Best mode | SE Infill | FTB Infill |
+| Rank | Case | Best infill utilization | Best mode | Balanced Spread Infill | Progressive Fill Infill |
 |---:|---|---:|---|---:|---:|
-| 1 | BR1-92 | 68.734% | SE Infill | 68.734% | 68.228% |
-| 2 | BR2-92 | 71.404% | SE Infill | 71.404% | 69.952% |
-| 3 | BR3-43 | 73.081% | FTB Infill | 68.341% | 73.081% |
-| 4 | BR1-44 | 73.473% | SE Infill | 73.473% | 72.987% |
-| 5 | BR7-20 | 74.926% | FTB Infill | 74.284% | 74.926% |
-| 6 | BR1-71 | 74.948% | SE Infill | 74.948% | 72.936% |
-| 7 | BR1-81 | 75.576% | FTB Infill | 71.091% | 75.576% |
-| 8 | BR1-9 | 75.644% | SE Infill | 75.644% | 72.806% |
-| 9 | BR1-88 | 75.906% | SE Infill | 75.906% | 75.674% |
-| 10 | BR7-31 | 76.247% | SE Infill | 76.247% | 67.009% |
+| 1 | BR1-92 | 68.734% | Balanced Spread Infill | 68.734% | 68.228% |
+| 2 | BR2-92 | 71.404% | Balanced Spread Infill | 71.404% | 69.952% |
+| 3 | BR3-43 | 73.081% | Progressive Fill Infill | 68.341% | 73.081% |
+| 4 | BR1-44 | 73.473% | Balanced Spread Infill | 73.473% | 72.987% |
+| 5 | BR7-20 | 74.926% | Progressive Fill Infill | 74.284% | 74.926% |
+| 6 | BR1-71 | 74.948% | Balanced Spread Infill | 74.948% | 72.936% |
+| 7 | BR1-81 | 75.576% | Progressive Fill Infill | 71.091% | 75.576% |
+| 8 | BR1-9 | 75.644% | Balanced Spread Infill | 75.644% | 72.806% |
+| 9 | BR1-88 | 75.906% | Balanced Spread Infill | 75.906% | 75.674% |
+| 10 | BR7-31 | 76.247% | Balanced Spread Infill | 76.247% | 67.009% |
 
 Do not implement fixes from this ranking alone. First render and inspect geometry/diagnostics.
 
@@ -427,7 +427,7 @@ We are continuing development and research of the KolliPack Transport Container 
 
 The latest benchmark baseline is `engine(20260817-215516).py`, SHA-256 `73e18b73c63718828e7a45a7bf8a94da6ebc82e965215f86f1ffa7a3c224f758`.
 
-The current engine is considered an approved strong commercial baseline. It is deterministic, fast, block-based, explainable, and physically validates bounds, overlaps and elevated support. It contains Space Evenly, Load Front-to-Back, Mixed Cargo Side Infill, Supported Top Infill, Native/DGFE frontier handling and deterministic residual closure. Protect these strengths.
+The current engine is considered an approved strong commercial baseline. It is deterministic, fast, block-based, explainable, and physically validates bounds, overlaps and elevated support. It contains Balanced Spread, Progressive Fill, Mixed Cargo Side Infill, Supported Top Infill, Native/DGFE frontier handling and deterministic residual closure. Protect these strengths.
 
 We have now run the complete Bischoff–Ratcliff BR1–BR7 OR-Library benchmark against this engine.
 
@@ -442,13 +442,13 @@ Dataset:
 We ran all four modes, total 2,800 solves, and globally validated every final placement set. All 2,800 were physically valid under the current engine validator.
 
 Verified full-suite averages:
-- Space Evenly = 76.203%
-- Space Evenly Infill = 83.666%
-- Front-to-Back = 67.414%
-- Front-to-Back Infill = 82.541%
+- Balanced Spread = 76.203%
+- Balanced Spread Infill = 83.666%
+- Progressive Fill = 67.414%
+- Progressive Fill Infill = 82.541%
 - best KolliPack mode per case = 84.453%
 
-Space Evenly Infill per class:
+Balanced Spread Infill per class:
 - BR1 84.952%
 - BR2 85.096%
 - BR3 84.711%
@@ -505,7 +505,7 @@ RE-RUN EVERYTHING
 
 START THE NEXT SESSION IN DIAGNOSIS MODE, NOT CODING MODE.
 
-First select approximately 10–20 of the genuinely worst cases, ranked by the BEST of Space Evenly Infill and Front-to-Back Infill, so we diagnose weaknesses shared by KolliPack rather than weaknesses of only one mode.
+First select approximately 10–20 of the genuinely worst cases, ranked by the BEST of Balanced Spread Infill and Progressive Fill Infill, so we diagnose weaknesses shared by KolliPack rather than weaknesses of only one mode.
 
 Initial worst cases include:
 BR1-92, BR2-92, BR3-43, BR1-44, BR7-20, BR1-71, BR1-81, BR1-9, BR1-88 and BR7-31.
