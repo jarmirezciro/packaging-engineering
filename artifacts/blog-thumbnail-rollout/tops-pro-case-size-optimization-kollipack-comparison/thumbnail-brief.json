@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "tops-pro-case-size-optimization-kollipack-comparison",
+  "composition": "comparison",
+  "hook_primary": "8 vs 16",
+  "hook_secondary": "PRODUCTS PER BOX",
+  "support_line": "More capacity. But is it worth it?",
+  "scene_subject": "two open natural-corrugated shipping boxes of different proportions containing the same kind of neutral product pack, communicating a smaller and larger case-pack decision without an exact visibly countable total",
+  "image_mode": "editorial_illustration",
+  "supported_claims": [
+    {
+      "text": "8 vs 16 products per box",
+      "evidence": "The approved article compares an 8-products-per-carton baseline with a 16-products-per-carton alternative and reports their matched pallet results.",
+      "source": "packagingapp/content/blog/articles/tops-pro-case-size-optimization-kollipack-comparison.md"
+    }
+  ],
+  "screenshots_allowed": false,
+  "reference_standard": "thumbnail-design-system-v1"
+}

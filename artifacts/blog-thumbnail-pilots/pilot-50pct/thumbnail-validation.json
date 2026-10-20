@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0",
+  "hard_status": "pass",
+  "visual_status": "approved",
+  "approval_status": "approved",
+  "hard_failures": [],
+  "warnings": [],
+  "visual_review_checklist": [
+    "Owner confirms family resemblance to the approved nine-tile board.",
+    "Subject is clear at 360 × 203 px and remains in the right-hand zone.",
+    "No stray text, fake labels, people, UI fragments, clutter, or misleading exact count appears.",
+    "Lighting, materials, perspective, and palette feel coherent with the approved studio reference."
+  ],
+  "file": {
+    "path": "artifacts/blog-thumbnail-pilots/pilot-50pct/thumbnail-v1.webp",
+    "dimensions": [
+      1280,
+      720
+    ],
+    "format": "WEBP",
+    "mode": "RGB",
+    "bytes": 79966,
+    "sha256": "b2294cdb53c741f00424123a0095425f7f1e1b43ab5ec44c498000d83c815307"
+  },
+  "layout": {
+    "canvas": [
+      1280,
+      720
+    ],
+    "text_zone": [
+      72,
+      48,
+      585,
+      592
+    ],
+    "illustration_zone": [
+      608,
+      42,
+      1260,
+      704
+    ],
+    "primary_box": [
+      72,
+      159,
+      466,
+      274
+    ],
+    "secondary_boxes": [
+      [
+        72,
+        296,
+        568,
+        338
+      ]
+    ],
+    "support_boxes": [
+      [
+        72,
+        369,
+        554,
+        391
+      ]
+    ],
+    "logo_box": [
+      72,
+      626,
+      298,
+      678
+    ],
+    "font_paths": {
+      "kicker": "C:/Windows/Fonts/arialbd.ttf",
+      "primary": "C:/Windows/Fonts/arialbd.ttf",
+      "secondary": "C:/Windows/Fonts/arialbd.ttf",
+      "support": "C:/Windows/Fonts/arial.ttf"
+    },
+    "illustration": {
+      "source_format": "PNG",
+      "source_size": [
+        1079,
+        798
+      ],
+      "has_transparency": true,
+      "placed_box": [
+        608,
+        132,
+        1260,
+        614
+      ]
+    },
+    "layout_sha256": "9d20cba47f9d875b30b6d1f41b53b6dd85011ba76db3d33fdc0f45c94fb854f2"
+  }
+}

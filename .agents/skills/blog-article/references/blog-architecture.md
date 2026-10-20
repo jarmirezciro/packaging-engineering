@@ -77,11 +77,12 @@ The article directory is the only content registry. The repository discovers pub
 
 ## Brand assets
 
-Use the existing canonical official KolliLabs/KolliPack logo and the real brand color source in the repository. Record the discovered canonical paths here during implementation:
+Use the existing canonical official KolliLabs/KolliPack logo and the real brand color source in the repository. The 2026-10-20 thumbnail audit found no standalone logo/wordmark file: the public header composes a Bootstrap icon and text in `packagingapp/templates/marketing_base.html`. Until an owner-approved standalone asset is supplied, thumbnail renderer v1 extracts the approved lockup from the canonical board without regenerating it.
 
 ```text
-Official logo: <fill from repository>
-Brand green source: <fill from repository CSS/settings>
+Approved thumbnail lockup source: docs/blog/assets/kollilabs-approved-thumbnail-board-v1.png
+Public-site brand treatment: packagingapp/templates/marketing_base.html
+Brand green source: static/css/app_theme.css (`--app-primary: #10a37f`)
 ```
 
 Do not redraw the logo with an image model.

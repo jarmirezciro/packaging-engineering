@@ -1,7 +1,7 @@
 +++
 schema_version = 1
 status = "published"
-title = "From 1,285 to 1,319: Testing a TOPS MaxLoad Case in KolliPack"
+title = "KolliPack vs TOPS MaxLoad: Can a Different Loading Strategy Fit More?"
 slug = "tops-maxload-kollipack-container-loading-benchmark"
 subtitle = "A bounded 40-ft high-cube benchmark that tests whether visible unused space can accept more cargo."
 excerpt = "We reconstructed a public TOPS MaxLoad high-cube case in KolliPack, matched its 1,285-unit manifest, then tested the remaining geometry with additional cargo."
@@ -16,15 +16,15 @@ read_time = "9 min read"
 published_at = 2026-10-20
 updated_at = 2026-10-20
 hero_icon = "bi-truck"
-featured_image = "img/blog/tops-maxload-kollipack-container-loading-benchmark/thumbnail.webp"
-thumbnail = "img/blog/tops-maxload-kollipack-container-loading-benchmark/thumbnail.webp"
-thumbnail_alt = "KolliPack high-cube result beside the headline 1,285 units, room still left, and 34 more in this case"
+featured_image = "img/blog/tops-maxload-kollipack-container-loading-benchmark/thumbnail-v1.webp"
+thumbnail = "img/blog/tops-maxload-kollipack-container-loading-benchmark/thumbnail-v1.webp"
+thumbnail_alt = "Open high-cube container and additional cargo beside the words 34 more units"
 primary_keyword = "TOPS MaxLoad container loading benchmark"
 tags = ["TOPS MaxLoad benchmark", "container loading benchmark", "40-ft high-cube", "mixed cargo loading", "KolliPack"]
 related_articles = ["container-loading-benchmark-kollipack-br1-br7"]
 related_tools = ["transport-container"]
 canonical_path = "/blog/tops-maxload-kollipack-container-loading-benchmark/"
-og_image = "img/blog/tops-maxload-kollipack-container-loading-benchmark/thumbnail.webp"
+og_image = "img/blog/tops-maxload-kollipack-container-loading-benchmark/thumbnail-v1.webp"
 takeaways = ["KolliPack reproduced all 1,285 load units in the optimized TOPS manifest.", "A separate Progressive Fill probe loaded 34 additional SKU302473 units, reaching 1,319.", "Another separate probe increased Case 1 from 32 to 40, reaching 1,293.", "The result is specific to this fixture and does not establish universal product superiority or physical load approval."]
 
 [cta]
@@ -174,7 +174,7 @@ The result does not establish universal KolliPack superiority, mathematical glob
 
 The calculated geometry is decision support. It does not certify physical load stability, compression performance, cargo restraint, transport safety, loading ergonomics, handling requirements, regulatory compliance, or a released logistics instruction. Those decisions require the actual load units, transport unit, operating method, and appropriate physical and safety review.
 
-Readers interested in broader algorithm evidence can also review [700 Container-Loading Tests: An Honest Benchmark of KolliPack](/blog/container-loading-benchmark-kollipack-br1-br7/), which asks a different question across a large public benchmark suite.
+Readers interested in broader algorithm evidence can also review [How Good Is KolliPack at Container Loading? An Honest Benchmark](/blog/container-loading-benchmark-kollipack-br1-br7/), which asks a different question across a large public benchmark suite.
 
 </section>
 

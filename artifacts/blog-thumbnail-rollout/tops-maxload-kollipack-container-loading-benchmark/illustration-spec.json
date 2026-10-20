@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "tops-maxload-kollipack-container-loading-benchmark",
+  "scene_family": "improvement",
+  "subjects": ["shipping_container", "cargo_module", "pallet"],
+  "camera": "three-quarter product-studio view looking along the open high-cube container and into its cargo",
+  "materials": "blue-grey painted steel container, warm corrugated cartons, muted blue, orange, white, and teal cargo modules, restrained timber pallets, realistic clean industrial surfaces",
+  "lighting": "cinematic soft key light from upper left, teal rim light, subtle warm cargo highlights, controlled contact shadows",
+  "reserved_blank_zones": ["left_text_zone", "lower_left_brand_zone"],
+  "blending_strategy": "transparent_alpha",
+  "exclusions": ["text", "letters", "numbers", "logos", "vendor branding", "people", "screenshots", "watermarks", "visible exact cargo count", "winner badges", "charts", "clutter"],
+  "image_mode": "editorial_illustration"
+}

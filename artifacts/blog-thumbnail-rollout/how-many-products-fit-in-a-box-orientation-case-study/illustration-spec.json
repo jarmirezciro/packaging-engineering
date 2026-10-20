@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "how-many-products-fit-in-a-box-orientation-case-study",
+  "scene_family": "improvement",
+  "subjects": ["corrugated_box", "product_pack", "abstract_geometry"],
+  "camera": "three-quarter product-studio view with a shallow overhead angle into the open box",
+  "materials": "warm natural corrugated board, matte white product modules, translucent teal orientation geometry, clean realistic packaging surfaces",
+  "lighting": "cinematic soft key light from upper left, teal rim light, warm cardboard highlights, controlled contact shadows",
+  "reserved_blank_zones": ["left_text_zone", "lower_left_brand_zone"],
+  "blending_strategy": "transparent_alpha",
+  "exclusions": ["text", "letters", "numbers", "logos", "people", "screenshots", "watermarks", "visible exact product count", "exact solver layout", "charts", "clutter"],
+  "image_mode": "editorial_illustration"
+}

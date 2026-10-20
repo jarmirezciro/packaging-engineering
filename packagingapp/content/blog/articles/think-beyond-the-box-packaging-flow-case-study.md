@@ -2,7 +2,7 @@
 schema_version = 1
 status = "published"
 display_order = 5
-title = "From 9,600 to 14,400: Why the First Box Was Not the Best Choice"
+title = "How Changing the Box Increased Container Capacity by 50%"
 slug = "think-beyond-the-box-packaging-flow-case-study"
 subtitle = "A KolliPack Packaging Flow case showing how box geometry changes pallet and container capacity."
 excerpt = "A neat 12-unit box carried 9,600 products per container. Better end-to-end alternatives carried 14,400."
@@ -17,15 +17,15 @@ read_time = "7 min read"
 published_at = 2026-07-27
 updated_at = 2026-07-29
 hero_icon = "bi-diagram-3"
-featured_image = "img/blog/think-beyond-the-box-packaging-flow-case-study/thumbnail.webp"
-thumbnail = "img/blog/think-beyond-the-box-packaging-flow-case-study/thumbnail.webp"
-thumbnail_alt = "KolliPack case thumbnail showing an increase from 9,600 to 14,400 products per container"
+featured_image = "img/blog/think-beyond-the-box-packaging-flow-case-study/thumbnail-v2.webp"
+thumbnail = "img/blog/think-beyond-the-box-packaging-flow-case-study/thumbnail-v2.webp"
+thumbnail_alt = "Open high-cube container beside the message 50% more products from one different box"
 primary_keyword = "how box design affects pallet capacity"
 tags = ["packaging flow optimization", "box pallet container optimization", "pallet capacity", "container loading", "corrugated packaging"]
 related_articles = ["why-packaging-flow-matters", "palletization-affects-transport-cost", "box-selection-3d-bin-packing-problem"]
 related_tools = ["packaging-flow"]
 canonical_path = "/blog/think-beyond-the-box-packaging-flow-case-study/"
-og_image = "img/blog/think-beyond-the-box-packaging-flow-case-study/thumbnail.webp"
+og_image = "img/blog/think-beyond-the-box-packaging-flow-case-study/thumbnail-v2.webp"
 takeaways = ["Evaluate a box through palletization and transport, not as an isolated result.", "The 14,400-product maximum creates a shortlist rather than a certified winner.", "Alternatives 7 and 23 are the strongest candidates for further testing.", "Material use, stability, handling, and physical testing still matter."]
 
 [[flow_steps]]

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "tops-pro-case-size-optimization-kollipack-comparison",
+  "scene_family": "comparison",
+  "subjects": ["corrugated_box", "product_pack"],
+  "camera": "matched three-quarter product-studio view with a shallow overhead angle into two side-by-side open boxes",
+  "materials": "warm natural corrugated board, matte white neutral product packs, clean realistic packaging surfaces",
+  "lighting": "cinematic soft key light from upper left, teal rim light, warm cardboard highlights, consistent controlled shadows",
+  "reserved_blank_zones": ["left_text_zone", "lower_left_brand_zone"],
+  "blending_strategy": "transparent_alpha",
+  "exclusions": ["text", "letters", "numbers", "logos", "vendor branding", "people", "screenshots", "watermarks", "visible exact product count", "winner badges", "charts", "clutter"],
+  "image_mode": "editorial_illustration"
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "container-loading-benchmark-kollipack-br1-br7",
+  "composition": "benchmark",
+  "hook_primary": "700",
+  "hook_secondary": "TESTS",
+  "support_line": "An honest benchmark of KolliPack.",
+  "scene_subject": "a tidy matrix of varied miniature cargo-loaded shipping-container cutaway motifs, clearly presented as a representative research pattern rather than every test case",
+  "image_mode": "editorial_illustration",
+  "supported_claims": [
+    {
+      "text": "700",
+      "evidence": "The approved article states that the frozen Bischoff-Ratcliff BR1-BR7 suite contains 700 public cases, 100 cases in each of seven classes.",
+      "source": "packagingapp/content/blog/articles/container-loading-benchmark-kollipack-br1-br7.md"
+    }
+  ],
+  "screenshots_allowed": false,
+  "reference_standard": "thumbnail-design-system-v1"
+}

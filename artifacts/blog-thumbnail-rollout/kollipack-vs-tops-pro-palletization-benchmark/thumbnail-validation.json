@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "hard_status": "pass",
+  "visual_status": "review_required",
+  "approval_status": "review_required",
+  "hard_failures": [],
+  "warnings": [],
+  "visual_review_checklist": [
+    "Owner confirms family resemblance to the approved nine-tile board.",
+    "Subject is clear at 360 × 203 px and remains in the right-hand zone.",
+    "No stray text, fake labels, people, UI fragments, clutter, or misleading exact count appears.",
+    "Lighting, materials, perspective, and palette feel coherent with the approved studio reference."
+  ],
+  "file": {
+    "path": "artifacts/blog-thumbnail-rollout/kollipack-vs-tops-pro-palletization-benchmark/thumbnail-v1.webp",
+    "dimensions": [
+      1280,
+      720
+    ],
+    "format": "WEBP",
+    "mode": "RGB",
+    "bytes": 63722,
+    "sha256": "7550e6757035452409637a4bd171745567bdcc248b8c5dff972a0e5a0ca88cb8"
+  },
+  "layout": {
+    "canvas": [
+      1280,
+      720
+    ],
+    "text_zone": [
+      72,
+      48,
+      585,
+      592
+    ],
+    "illustration_zone": [
+      608,
+      42,
+      1260,
+      704
+    ],
+    "primary_box": [
+      72,
+      160,
+      242,
+      272
+    ],
+    "secondary_boxes": [
+      [
+        72,
+        294,
+        267,
+        336
+      ]
+    ],
+    "support_boxes": [
+      [
+        72,
+        369,
+        409,
+        414
+      ],
+      [
+        72,
+        426,
+        533,
+        471
+      ]
+    ],
+    "logo_box": [
+      72,
+      626,
+      298,
+      678
+    ],
+    "font_paths": {
+      "kicker": "C:/Windows/Fonts/arialbd.ttf",
+      "primary": "C:/Windows/Fonts/arialbd.ttf",
+      "secondary": "C:/Windows/Fonts/arialbd.ttf",
+      "support": "C:/Windows/Fonts/arial.ttf"
+    },
+    "font_sizes": {
+      "kicker": 21,
+      "primary": 152,
+      "secondary": 56,
+      "support": 48
+    },
+    "illustration": {
+      "source_format": "PNG",
+      "source_size": [
+        1372,
+        721
+      ],
+      "has_transparency": true,
+      "placed_box": [
+        608,
+        201,
+        1260,
+        544
+      ]
+    },
+    "layout_sha256": "e4a235a61b151f87f05b181f7f02f0ee298c8280ac4aefead37fbbe6c7532f3b"
+  }
+}

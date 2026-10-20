@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "kollipack-vs-tops-pro-palletization-benchmark",
+  "composition": "comparison",
+  "hook_primary": "50",
+  "hook_secondary": "BOXES",
+  "support_line": "Two optimizers. Different approaches.",
+  "scene_subject": "two equally scaled timber pallets carrying tidy natural-corrugated carton loads of equal overall capacity but with visibly different plausible layer patterns; conceptual comparison with no exact visibly countable total",
+  "image_mode": "editorial_illustration",
+  "supported_claims": [
+    {
+      "text": "50 boxes",
+      "evidence": "The approved article states that both applications reach 50 cartons, arranged as 10 per layer across 5 layers, in the focused pallet case.",
+      "source": "packagingapp/content/blog/articles/kollipack-vs-tops-pro-palletization-benchmark.md"
+    }
+  ],
+  "screenshots_allowed": false,
+  "reference_standard": "thumbnail-design-system-v1"
+}

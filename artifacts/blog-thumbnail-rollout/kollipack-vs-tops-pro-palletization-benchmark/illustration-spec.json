@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "kollipack-vs-tops-pro-palletization-benchmark",
+  "scene_family": "comparison",
+  "subjects": ["pallet", "corrugated_box"],
+  "camera": "matched three-quarter isometric-like studio view of two side-by-side pallet loads",
+  "materials": "warm natural corrugated cartons, restrained timber pallets, clean premium miniature industrial finish",
+  "lighting": "one cinematic soft key light from upper left, teal rim light, subtle warm carton highlights, matching controlled shadows",
+  "reserved_blank_zones": ["left_text_zone", "lower_left_brand_zone"],
+  "blending_strategy": "transparent_alpha",
+  "exclusions": ["text", "letters", "numbers", "logos", "vendor branding", "people", "screenshots", "watermarks", "visible exact carton count", "winner badges", "charts", "clutter"],
+  "image_mode": "editorial_illustration"
+}

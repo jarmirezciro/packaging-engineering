@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "how-many-products-fit-in-a-box-orientation-case-study",
+  "composition": "improvement",
+  "hook_primary": "+20%",
+  "hook_secondary": "MORE PRODUCTS",
+  "support_line": "Same box. Different orientation.",
+  "scene_subject": "one open natural-corrugated shipping box containing neatly packed neutral product modules in mixed physically plausible orientations, with one restrained translucent teal rotation cue; no exact visibly countable total",
+  "image_mode": "editorial_illustration",
+  "supported_claims": [
+    {
+      "text": "+20% more products",
+      "evidence": "The approved article states that capacity rises from 15 products in the familiar orientation to 18 when all verified orientations are considered, a 20 percent increase.",
+      "source": "packagingapp/content/blog/articles/how-many-products-fit-in-a-box-orientation-case-study.md"
+    }
+  ],
+  "screenshots_allowed": false,
+  "reference_standard": "thumbnail-design-system-v1"
+}

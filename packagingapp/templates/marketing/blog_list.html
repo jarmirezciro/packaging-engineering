@@ -42,7 +42,7 @@
             <a href="{% url 'blog_detail' post.slug %}" class="blog-card h-100">
                 <div class="blog-card-visual {% if post.featured_image %}blog-card-visual--image{% endif %}">
                     {% if post.featured_image %}
-                    <img src="{% static post.featured_image %}" alt="{{ post.title }}">
+                    <img src="{% static post.featured_image %}" alt="{{ post.thumbnail_alt|default:post.title }}">
                     {% else %}
                     <i class="bi {{ post.hero_icon }}"></i>
                     {% endif %}

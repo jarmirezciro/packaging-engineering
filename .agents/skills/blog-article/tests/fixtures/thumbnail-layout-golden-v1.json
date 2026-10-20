@@ -1,0 +1,11 @@
+{
+  "canvas": [1280, 720],
+  "text_zone": [72, 48, 585, 592],
+  "illustration_zone": [608, 42, 1260, 704],
+  "primary_box": [72, 151, 582, 228],
+  "secondary_boxes": [[72, 250, 549, 292]],
+  "support_boxes": [[72, 325, 353, 367], [72, 382, 422, 427], [72, 448, 281, 484]],
+  "font_sizes": {"kicker": 21, "primary": 104, "secondary": 56, "support": 48},
+  "logo_box": [72, 626, 298, 678],
+  "illustration_placed_box": [608, 96, 1260, 650]
+}

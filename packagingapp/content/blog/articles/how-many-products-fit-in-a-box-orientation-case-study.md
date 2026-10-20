@@ -2,7 +2,7 @@
 schema_version = 1
 status = "published"
 display_order = 7
-title = "Same Box, 20% More Products: Why Orientation Matters"
+title = "How We Fit 20% More Products Without Changing the Box"
 slug = "how-many-products-fit-in-a-box-orientation-case-study"
 subtitle = "A practical KolliPack case showing how verified product orientations increased capacity from 15 to 18 units."
 excerpt = "How many products fit in a box? This case shows why testing permitted orientations raised capacity from 15 to 18 without changing the box or product."
@@ -17,15 +17,15 @@ read_time = "6 min read"
 published_at = 2026-07-28
 updated_at = 2026-07-29
 hero_icon = "bi-box-seam"
-featured_image = "img/blog/how-many-products-fit-in-a-box-orientation-case-study/thumbnail.webp"
-thumbnail = "img/blog/how-many-products-fit-in-a-box-orientation-case-study/thumbnail.webp"
-thumbnail_alt = "KolliPack case thumbnail showing capacity increasing from 15 to 18 products in the same box"
+featured_image = "img/blog/how-many-products-fit-in-a-box-orientation-case-study/thumbnail-v1.webp"
+thumbnail = "img/blog/how-many-products-fit-in-a-box-orientation-case-study/thumbnail-v1.webp"
+thumbnail_alt = "Open box with products in mixed orientations beside the words 20 percent more products"
 primary_keyword = "how many products fit in a box"
 tags = ["box packing calculator", "box size calculator", "product orientation", "box capacity", "packaging optimization"]
 related_articles = ["box-selection-3d-bin-packing-problem", "carton-selection-basics", "think-beyond-the-box-packaging-flow-case-study"]
 related_tools = ["container-selection"]
 canonical_path = "/blog/how-many-products-fit-in-a-box-orientation-case-study/"
-og_image = "img/blog/how-many-products-fit-in-a-box-orientation-case-study/thumbnail.webp"
+og_image = "img/blog/how-many-products-fit-in-a-box-orientation-case-study/thumbnail-v1.webp"
 takeaways = ["Test every product orientation that is genuinely permitted.", "The familiar upright arrangement is not always the highest-capacity arrangement.", "This case increases capacity from 15 to 18 products without changing the product or box.", "Check payload alongside geometry before selecting a pack."]
 
 [[flow_steps]]

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "rsc-material-optimization",
+  "composition": "comparison",
+  "hook_primary": "SAME",
+  "hook_secondary": "VOLUME DIFFERENT MATERIAL",
+  "support_line": "Why box geometry affects cardboard use.",
+  "scene_subject": "two closed natural-corrugated RSC shipping boxes representing equal internal volume but strongly different proportions, one compact and one tall and narrow, with restrained abstract corrugated-sheet footprint cues",
+  "image_mode": "editorial_illustration",
+  "supported_claims": [],
+  "screenshots_allowed": false,
+  "reference_standard": "thumbnail-design-system-v1"
+}

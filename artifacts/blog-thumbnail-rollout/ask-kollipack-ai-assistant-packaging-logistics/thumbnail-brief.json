@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "ask-kollipack-ai-assistant-packaging-logistics",
+  "composition": "product",
+  "hook_primary": "ASK",
+  "hook_secondary": "KOLLIPACK",
+  "support_line": "AI that understands packaging and logistics engineering.",
+  "scene_subject": "a premium physical packaging-technology sculpture: miniature corrugated box, pallet load, and shipping-container forms connected through one translucent teal reasoning core and a few restrained glowing paths",
+  "image_mode": "editorial_illustration",
+  "supported_claims": [],
+  "screenshots_allowed": false,
+  "reference_standard": "thumbnail-design-system-v1"
+}

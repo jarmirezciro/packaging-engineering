@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "think-beyond-the-box-packaging-flow-case-study",
+  "composition": "improvement",
+  "hook_primary": "+50%",
+  "hook_secondary": "MORE PRODUCTS",
+  "support_line": "Same container. One different box.",
+  "scene_subject": "an open shipping container holding a dense, orderly palletized load of natural corrugated cartons; conceptual cargo with no exact visibly countable total",
+  "image_mode": "editorial_illustration",
+  "supported_claims": [
+    {
+      "text": "+50%",
+      "evidence": "The approved article states 9,600 products for the first box and 14,400 for alternatives in the same high-cube container; 14,400 is 50% above 9,600.",
+      "source": "packagingapp/content/blog/articles/think-beyond-the-box-packaging-flow-case-study.md"
+    }
+  ],
+  "screenshots_allowed": false,
+  "reference_standard": "thumbnail-design-system-v1"
+}

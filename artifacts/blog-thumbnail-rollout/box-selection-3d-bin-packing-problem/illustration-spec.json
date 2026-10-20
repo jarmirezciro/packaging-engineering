@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "box-selection-3d-bin-packing-problem",
+  "scene_family": "hero",
+  "subjects": ["corrugated_box", "product_pack", "abstract_geometry"],
+  "camera": "three-quarter product-studio view with a shallow overhead angle into both open boxes",
+  "materials": "warm natural corrugated board, matte white product packs, restrained translucent teal wireframe geometry, clean realistic industrial surfaces",
+  "lighting": "cinematic soft key light from upper left, teal rim light, warm cardboard highlights, controlled contact shadows",
+  "reserved_blank_zones": ["left_text_zone", "lower_left_brand_zone"],
+  "blending_strategy": "transparent_alpha",
+  "exclusions": ["text", "letters", "numbers", "logos", "people", "screenshots", "watermarks", "charts", "exact solver layout", "loose clutter"],
+  "image_mode": "editorial_illustration"
+}

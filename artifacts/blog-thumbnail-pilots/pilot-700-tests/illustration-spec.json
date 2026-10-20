@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "container-loading-benchmark-kollipack-br1-br7",
+  "scene_family": "benchmark",
+  "subjects": ["shipping_container", "cargo_module", "abstract_geometry"],
+  "camera": "isometric-like three-quarter studio view with a shallow overhead angle across the matrix",
+  "materials": "small blue-grey steel container frames, warm corrugated and muted colored cargo modules, consistent premium miniature-model finish",
+  "lighting": "cinematic teal studio lighting with one controlled warm highlight direction and consistent soft shadows across the matrix",
+  "reserved_blank_zones": ["left_text_zone", "lower_left_brand_zone"],
+  "blending_strategy": "transparent_alpha",
+  "exclusions": ["text", "logos", "people", "screenshots", "watermarks", "bar charts", "winner badges", "superiority cues", "clutter"],
+  "image_mode": "editorial_illustration"
+}

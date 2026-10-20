@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "ask-kollipack-ai-assistant-packaging-logistics",
+  "scene_family": "product",
+  "subjects": ["packaging_device", "corrugated_box", "pallet", "shipping_container", "abstract_geometry"],
+  "camera": "three-quarter isometric-like premium product-studio view of one coherent physical technology sculpture",
+  "materials": "warm natural corrugated board, restrained timber, blue-grey painted steel, translucent teal glass-like reasoning core, clean premium industrial surfaces",
+  "lighting": "cinematic soft key light from upper left, teal rim and internal glow, subtle warm cardboard highlights, controlled contact shadows",
+  "reserved_blank_zones": ["left_text_zone", "lower_left_brand_zone"],
+  "blending_strategy": "transparent_alpha",
+  "exclusions": ["text", "letters", "numbers", "logos", "people", "faces", "screens", "chat bubbles", "user interface", "screenshots", "watermarks", "robots", "brains", "charts", "clutter"],
+  "image_mode": "editorial_illustration"
+}

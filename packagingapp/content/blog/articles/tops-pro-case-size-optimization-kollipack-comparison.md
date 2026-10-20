@@ -2,7 +2,7 @@
 schema_version = 1
 status = "published"
 display_order = 2
-title = "Can KolliPack Match TOPS Pro? The 8-Pack vs 16-Pack Case"
+title = "KolliPack vs TOPS Pro: Is a Bigger Case Pack Really Better?"
 slug = "tops-pro-case-size-optimization-kollipack-comparison"
 subtitle = "A focused case study on case-pack quantity, pallet yield, and the decision behind the number."
 excerpt = "In the supplied TOPS Pro case, 16 products per carton reach 1,232 units per pallet versus 1,152 for the current 8-pack. KolliPack reproduces both results and makes the next decision visible."
@@ -17,15 +17,15 @@ read_time = "6 min read"
 published_at = 2026-08-08
 updated_at = 2026-08-08
 hero_icon = "bi-box-seam"
-featured_image = "img/blog/tops-pro-case-size-optimization-kollipack-comparison/thumbnail.webp"
-thumbnail = "img/blog/tops-pro-case-size-optimization-kollipack-comparison/thumbnail.webp"
-thumbnail_alt = "TOPS Pro and KolliPack case-pack results comparing 8 products and 16 products per carton"
+featured_image = "img/blog/tops-pro-case-size-optimization-kollipack-comparison/thumbnail-v1.webp"
+thumbnail = "img/blog/tops-pro-case-size-optimization-kollipack-comparison/thumbnail-v1.webp"
+thumbnail_alt = "Two open shipping boxes beside the words 8 vs 16 products per box"
 primary_keyword = "KolliPack vs TOPS Pro"
 tags = ["KolliPack vs TOPS Pro", "case pack optimization", "pallet yield", "packaging engineering case study"]
 related_articles = ["kollipack-vs-tops-pro-palletization-benchmark", "think-beyond-the-box-packaging-flow-case-study"]
 related_tools = ["packaging-flow", "palletization"]
 canonical_path = "/blog/tops-pro-case-size-optimization-kollipack-comparison/"
-og_image = "img/blog/tops-pro-case-size-optimization-kollipack-comparison/thumbnail.webp"
+og_image = "img/blog/tops-pro-case-size-optimization-kollipack-comparison/thumbnail-v1.webp"
 takeaways = ["The supplied TOPS Pro case reports 1,152 units per pallet for the 8-pack and 1,232 for the 16-pack.", "KolliPack reproduces those headline pallet capacities with the stated metric inputs and the updated 127 mm pallet height.", "The 80-unit increase is a case-pack change with commercial and operational consequences, not only a pallet result.", "Changing overhang, carton caliper, or carton geometry may be worth exploring before changing an established shipping quantity."]
 
 [cta]

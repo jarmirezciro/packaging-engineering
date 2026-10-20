@@ -1,0 +1,16 @@
+Create one subject-only editorial illustration for a premium packaging-engineering article thumbnail.
+
+Visual language: cinematic three-dimensional industrial product rendering; physically plausible scale and perspective; clean corrugated cardboard, painted steel, timber pallet, and cargo materials where applicable; crisp controlled edges; realistic contact shadows; restrained glossy studio floor; directional key light with soft teal rim light; deep near-black and teal atmosphere compatible with later compositing.
+
+Composition: keep all meaningful subject matter in the right half of a 16:9 frame; preserve the entire left 46 percent as calm, dark negative space; use a three-quarter or isometric-like camera; one coherent scene; strong silhouette; readable at small card size.
+
+The final card renderer adds every word and all branding. Generate no text, letters, numbers, symbols, labels, logos, screens, watermarks, people, decorative infographic elements, charts, UI fragments, or clutter. Do not imply that an illustrative arrangement is an exact solver output.
+
+Scene-family direction: {family_clause}
+Article-specific subject: {scene_subject}
+Allowed physical subjects: {subjects}
+Camera: {camera}
+Materials: {materials}
+Lighting: {lighting}
+Blending strategy: {blending_strategy}
+Additional exclusions: {exclusions}

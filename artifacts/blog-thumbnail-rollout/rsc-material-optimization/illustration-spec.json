@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "rsc-material-optimization",
+  "scene_family": "comparison",
+  "subjects": ["corrugated_box", "abstract_geometry"],
+  "camera": "matched three-quarter isometric-like studio view of two side-by-side box forms",
+  "materials": "warm natural corrugated board with visible clean fluting at restrained cut edges, matte teal abstract footprint planes, realistic packaging surfaces",
+  "lighting": "cinematic soft key light from upper left, teal rim light, warm cardboard highlights, controlled contact shadows",
+  "reserved_blank_zones": ["left_text_zone", "lower_left_brand_zone"],
+  "blending_strategy": "transparent_alpha",
+  "exclusions": ["text", "letters", "numbers", "measurements", "logos", "people", "screenshots", "watermarks", "charts", "false technical diagrams", "clutter"],
+  "image_mode": "editorial_illustration"
+}

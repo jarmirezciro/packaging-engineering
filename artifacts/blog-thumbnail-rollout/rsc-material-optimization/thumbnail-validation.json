@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0",
+  "hard_status": "pass",
+  "visual_status": "review_required",
+  "approval_status": "review_required",
+  "hard_failures": [],
+  "warnings": [
+    "hook_secondary exceeds the preferred 24-character budget; renderer measurement is required"
+  ],
+  "visual_review_checklist": [
+    "Owner confirms family resemblance to the approved nine-tile board.",
+    "Subject is clear at 360 × 203 px and remains in the right-hand zone.",
+    "No stray text, fake labels, people, UI fragments, clutter, or misleading exact count appears.",
+    "Lighting, materials, perspective, and palette feel coherent with the approved studio reference."
+  ],
+  "file": {
+    "path": "artifacts/blog-thumbnail-rollout/rsc-material-optimization/thumbnail-v1.webp",
+    "dimensions": [
+      1280,
+      720
+    ],
+    "format": "WEBP",
+    "mode": "RGB",
+    "bytes": 70764,
+    "sha256": "ceb3bc5823cfd1a2a6104766f461f8ef72276e8e0e4eede7f03dddc57b9ea116"
+  },
+  "layout": {
+    "canvas": [
+      1280,
+      720
+    ],
+    "text_zone": [
+      72,
+      48,
+      585,
+      592
+    ],
+    "illustration_zone": [
+      608,
+      42,
+      1260,
+      704
+    ],
+    "primary_box": [
+      72,
+      159,
+      511,
+      272
+    ],
+    "secondary_boxes": [
+      [
+        71,
+        293,
+        581,
+        331
+      ],
+      [
+        72,
+        345,
+        331,
+        381
+      ]
+    ],
+    "support_boxes": [
+      [
+        72,
+        414,
+        473,
+        459
+      ],
+      [
+        72,
+        471,
+        548,
+        506
+      ]
+    ],
+    "logo_box": [
+      72,
+      626,
+      298,
+      678
+    ],
+    "font_paths": {
+      "kicker": "C:/Windows/Fonts/arialbd.ttf",
+      "primary": "C:/Windows/Fonts/arialbd.ttf",
+      "secondary": "C:/Windows/Fonts/arialbd.ttf",
+      "support": "C:/Windows/Fonts/arial.ttf"
+    },
+    "font_sizes": {
+      "kicker": 21,
+      "primary": 152,
+      "secondary": 50,
+      "support": 48
+    },
+    "illustration": {
+      "source_format": "PNG",
+      "source_size": [
+        1067,
+        816
+      ],
+      "has_transparency": true,
+      "placed_box": [
+        608,
+        123,
+        1260,
+        622
+      ]
+    },
+    "layout_sha256": "452ae5581d4c990f563065770a7f4a83dc6a0bb2563748b0c5f0745a514e70d7"
+  }
+}

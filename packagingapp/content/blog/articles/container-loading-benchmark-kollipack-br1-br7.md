@@ -1,7 +1,7 @@
 +++
 schema_version = 1
 status = "published"
-title = "700 Container-Loading Tests: An Honest Benchmark of KolliPack"
+title = "How Good Is KolliPack at Container Loading? An Honest Benchmark"
 slug = "container-loading-benchmark-kollipack-br1-br7"
 subtitle = "What a frozen 700-case Bischoff–Ratcliff benchmark reveals about utilization, constructive loading, and engineering trade-offs."
 excerpt = "KolliPack reaches 83.7% average utilization in its strongest standalone BR1–BR7 mode. A published full-support academic reference reaches 94.2%. The useful question is why."
@@ -16,15 +16,15 @@ read_time = "12 min read"
 published_at = 2026-08-20
 updated_at = 2026-10-20
 hero_icon = "bi-bar-chart-line"
-featured_image = "img/blog/container-loading-benchmark-kollipack-br1-br7/thumbnail.webp"
-thumbnail = "img/blog/container-loading-benchmark-kollipack-br1-br7/thumbnail.webp"
-thumbnail_alt = "700 cases honest benchmark graphic comparing KolliPack utilization with a published reference"
+featured_image = "img/blog/container-loading-benchmark-kollipack-br1-br7/thumbnail-v2.webp"
+thumbnail = "img/blog/container-loading-benchmark-kollipack-br1-br7/thumbnail-v2.webp"
+thumbnail_alt = "Matrix of container-loading motifs beside the words 700 tests and an honest benchmark of KolliPack"
 primary_keyword = "container loading benchmark"
 tags = ["container loading benchmark", "3D container loading", "Bischoff–Ratcliff benchmark", "packing optimization", "KolliPack"]
 related_articles = ["box-selection-3d-bin-packing-problem", "think-beyond-the-box-packaging-flow-case-study"]
 related_tools = ["transport-container"]
 canonical_path = "/blog/container-loading-benchmark-kollipack-br1-br7/"
-og_image = "img/blog/container-loading-benchmark-kollipack-br1-br7/thumbnail.webp"
+og_image = "img/blog/container-loading-benchmark-kollipack-br1-br7/thumbnail-v2.webp"
 takeaways = ["A fair comparison needs the same public instances, dimensions, orientations, support assumptions, objective, and metric.", "KolliPack Balanced Spread Infill averaged 83.666% across 700 cases in the frozen 2026-08-18 run.", "The CLTRS full-support academic reference reported 94.2% on BR1–BR7; the 10.534-point gap is real.", "Mixed Cargo Infill improved KolliPack materially, while the benchmark now serves as a diagnostic baseline rather than an overfitting target."]
 
 [cta]

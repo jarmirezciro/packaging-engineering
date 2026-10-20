@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "think-beyond-the-box-packaging-flow-case-study",
+  "scene_family": "improvement",
+  "subjects": ["shipping_container", "pallet", "cargo_module"],
+  "camera": "three-quarter product-studio view looking into the open container doors",
+  "materials": "blue-grey painted steel container, warm natural corrugated cartons, restrained timber pallets, realistic but clean industrial surfaces",
+  "lighting": "cinematic soft key light from upper left, teal rim light, subtle warm carton highlights, controlled contact shadows",
+  "reserved_blank_zones": ["left_text_zone", "lower_left_brand_zone"],
+  "blending_strategy": "transparent_alpha",
+  "exclusions": ["text", "logos", "people", "screenshots", "watermarks", "visible exact cargo count", "charts", "loose clutter"],
+  "image_mode": "editorial_illustration"
+}

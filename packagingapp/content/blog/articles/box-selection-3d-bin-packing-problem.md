@@ -2,7 +2,7 @@
 schema_version = 1
 status = "published"
 display_order = 1
-title = "Why Choosing the Right Box Is a 3D Bin Packing Problem"
+title = "The Box Fits. So Why Might It Still Be the Wrong Choice?"
 slug = "box-selection-3d-bin-packing-problem"
 subtitle = "A practical explanation of why box selection is more than checking if a product fits, and how KolliPack uses packing logic to optimize box space and catalogue decisions."
 excerpt = "Box selection is a 3D packing problem with many possible product orientations and leftover-space combinations. KolliPack helps evaluate these alternatives faster and more consistently than manual checks."
@@ -17,15 +17,15 @@ read_time = "9 min read"
 published_at = 2026-07-09
 updated_at = 2026-07-09
 hero_icon = "bi-box-seam"
-featured_image = "img/blog/box-selection-3d-bin-packing-problem/blog1_thumbnail_kollipack_box_selection.png"
-thumbnail = "img/blog/box-selection-3d-bin-packing-problem/blog1_thumbnail_kollipack_box_selection.png"
-thumbnail_alt = "Why Choosing the Right Box Is a 3D Bin Packing Problem"
+featured_image = "img/blog/box-selection-3d-bin-packing-problem/thumbnail-v1.webp"
+thumbnail = "img/blog/box-selection-3d-bin-packing-problem/thumbnail-v1.webp"
+thumbnail_alt = "Two open shipping boxes with different product arrangements beside the words The Right Fit"
 primary_keyword = "3D bin packing box selection"
 tags = ["box selection", "3D bin packing", "packaging optimization"]
 related_articles = ["carton-selection-basics", "why-packaging-flow-matters"]
 related_tools = ["container-selection"]
 canonical_path = "/blog/box-selection-3d-bin-packing-problem/"
-og_image = "img/blog/box-selection-3d-bin-packing-problem/blog1_thumbnail_kollipack_box_selection.png"
+og_image = "img/blog/box-selection-3d-bin-packing-problem/thumbnail-v1.webp"
 takeaways = ["Box selection is a 3D optimization problem, not only a fit check.", "The six uniform product orientations are only the first level of reasoning.", "KolliPack can analyze leftover rectangular zones to improve space utilization.", "The same logic can find the best catalogue box for a predefined quantity per carton.", "Better box selection can reduce material cost, empty space, transport waste, and CO₂ impact."]
 
 [[flow_steps]]

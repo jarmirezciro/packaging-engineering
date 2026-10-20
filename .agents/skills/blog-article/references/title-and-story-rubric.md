@@ -101,6 +101,8 @@ Select separate strings for:
 
 The visible title may be more engaging. The SEO title may be more descriptive. The thumbnail headline must be shorter.
 
+For the visible title, prefer an accessible business question or meaningful finding that a technically curious operations reader can understand without unexplained quantities. Preserve technical accuracy and keep the detailed engineering evidence in the article. Comparative titles should name an established comparator when that context is central to the story, while remaining bounded to the tested case. Avoid generic marketing claims and do not trade a faithful conclusion for curiosity.
+
 ## Opening hook
 
 The strongest result should appear in the first 100 words.

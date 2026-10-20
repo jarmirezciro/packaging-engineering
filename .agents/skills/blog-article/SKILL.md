@@ -221,6 +221,16 @@ Follow `references/image-style-guide.md`.
 For multi-tool or multi-result comparisons, also follow
 `references/comparative-figure-workflow.md`.
 
+For every new or regenerated blog thumbnail, also read and follow
+`references/thumbnail-workflow.md`. The owner-approved thumbnail board and
+`docs/blog/thumbnail-design-system-v1.md` are authoritative for thumbnails;
+the older light editorial figure style remains authoritative for non-thumbnail
+article figures. Normal article authoring must create a validated brief and
+illustration spec, generate subject-only art, render all typography/branding
+deterministically, and stop at `review_required` until the owner approves the
+actual candidate. A direct regeneration reuses the validated brief/spec and
+writes a new versioned candidate instead of overwriting an approved asset.
+
 Use the supplied real KolliPack screenshots and renders when claims depend on tool results.
 
 Prefer deterministic composition for:

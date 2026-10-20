@@ -2,7 +2,7 @@
 schema_version = 1
 status = "published"
 display_order = 1
-title = "One Pallet Case, Two Optimizers: Can KolliPack Match TOPS Pro?"
+title = "KolliPack vs TOPS Pro: Same Pallet Capacity, Different Approaches"
 slug = "kollipack-vs-tops-pro-palletization-benchmark"
 subtitle = "A focused 48 × 40 pallet benchmark comparing the same carton, height limit, and permitted overhang."
 excerpt = "In one reproducible 48 × 40 pallet case, KolliPack and TOPS Pro both find 50 cartons. The useful difference is the range of visible alternatives."
@@ -17,15 +17,15 @@ read_time = "7 min read"
 published_at = 2026-08-04
 updated_at = 2026-08-04
 hero_icon = "bi-grid-3x3-gap"
-featured_image = "img/blog/kollipack-vs-tops-pro-palletization-benchmark/thumbnail.webp"
-thumbnail = "img/blog/kollipack-vs-tops-pro-palletization-benchmark/thumbnail.webp"
-thumbnail_alt = "TOPS Pro and KolliPack pallet results shown side by side with a 50-carton result"
+featured_image = "img/blog/kollipack-vs-tops-pro-palletization-benchmark/thumbnail-v1.webp"
+thumbnail = "img/blog/kollipack-vs-tops-pro-palletization-benchmark/thumbnail-v1.webp"
+thumbnail_alt = "Two palletized carton loads beside the words 50 boxes and two optimizers, different approaches"
 primary_keyword = "TOPS Pro palletization comparison"
 tags = ["TOPS Pro palletization comparison", "palletization software comparison", "pallet pattern optimization", "48 × 40 pallet calculator", "palletization benchmark"]
 related_articles = ["think-beyond-the-box-packaging-flow-case-study"]
 related_tools = ["palletization"]
 canonical_path = "/blog/kollipack-vs-tops-pro-palletization-benchmark/"
-og_image = "img/blog/kollipack-vs-tops-pro-palletization-benchmark/thumbnail.webp"
+og_image = "img/blog/kollipack-vs-tops-pro-palletization-benchmark/thumbnail-v1.webp"
 takeaways = ["Both tools found 50 cartons in this one pallet case.", "The shared result is 10 cartons per layer across 5 layers.", "TOPS supplies more candidate rows while KolliPack presents a shorter interactive shortlist.", "Quantity is only one part of the final pallet decision."]
 
 [cta]

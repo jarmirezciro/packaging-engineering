@@ -1,7 +1,7 @@
 +++
 schema_version = 1
 status = "published"
-title = "Ask KolliPack: Bringing AI Into Packaging and Logistics Engineering"
+title = "Ask KolliPack: What Happens When AI Meets Logistics Software?"
 slug = "ask-kollipack-ai-assistant-packaging-logistics"
 subtitle = "KolliPack now lets users move from natural-language intent to reviewed engineering inputs—while its deterministic engines remain responsible for the calculation."
 excerpt = "Meet Ask KolliPack, a conversational layer that explains packaging concepts, reasons with bounded tool context, and turns natural-language intent into reviewed inputs."
@@ -16,15 +16,15 @@ read_time = "7 min read"
 published_at = 2026-10-19
 updated_at = 2026-10-19
 hero_icon = "bi-stars"
-featured_image = "img/blog/ask-kollipack-ai-assistant-packaging-logistics/thumbnail.webp"
-thumbnail = "img/blog/ask-kollipack-ai-assistant-packaging-logistics/thumbnail.webp"
-thumbnail_alt = "Ask KolliPack article graphic with the words Ask, Review and Apply"
+featured_image = "img/blog/ask-kollipack-ai-assistant-packaging-logistics/thumbnail-v1.webp"
+thumbnail = "img/blog/ask-kollipack-ai-assistant-packaging-logistics/thumbnail-v1.webp"
+thumbnail_alt = "Packaging, pallet and container forms linked by a teal AI concept beside the words Ask KolliPack"
 primary_keyword = "packaging AI assistant"
 tags = ["packaging AI assistant", "packaging engineering software", "logistics engineering", "KolliPack", "engineering workflow"]
 related_articles = ["box-selection-3d-bin-packing-problem", "how-many-products-fit-in-a-box-orientation-case-study", "think-beyond-the-box-packaging-flow-case-study"]
 related_tools = ["container-selection", "packaging-flow"]
 canonical_path = "/blog/ask-kollipack-ai-assistant-packaging-logistics/"
-og_image = "img/blog/ask-kollipack-ai-assistant-packaging-logistics/thumbnail.webp"
+og_image = "img/blog/ask-kollipack-ai-assistant-packaging-logistics/thumbnail-v1.webp"
 takeaways = ["Ask KolliPack adds a conversational layer without replacing deterministic engineering calculations.", "The Public Expert answers from approved public KolliPack knowledge but cannot inspect calculator state or perform actions.", "The tool Assistant can reason with bounded current context and prepare validated input-change proposals for explicit review.", "Applying a proposal updates inputs only; the user still runs KolliPack to calculate the result."]
 
 [[flow_steps]]

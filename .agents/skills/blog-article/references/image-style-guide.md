@@ -1,5 +1,12 @@
 # Image and Thumbnail Style Guide
 
+> **Thumbnail-specific v1 exception:** For new or regenerated blog thumbnails,
+> `references/thumbnail-workflow.md`, `docs/blog/thumbnail-design-system-v1.md`,
+> and its owner-approved nine-tile board are authoritative. The dark-teal
+> editorial-illustration system applies to thumbnails only. The evidence rules
+> in this guide still apply, and the light editorial system remains the default
+> for in-article figures.
+
 ## Brand principle
 
 KolliLabs images should feel modern, practical, technical, and clean. Packaging objects and comparisons must remain understandable at mobile and thumbnail size.
@@ -68,18 +75,15 @@ crop, align, label, and caption it without changing the underlying result.
 
 ## Thumbnail workflow
 
-1. Identify the single most important visual tension.
-2. Select one or two real KolliPack renders or comparison objects.
-3. Use one short headline.
-4. Use one important number or contrast when useful.
-5. Use the canonical official logo.
-6. Use the actual project brand colors.
-7. Compose deterministically using the existing script or equivalent project method.
-8. Export at the approved social-preview size.
-9. Check readability at small size.
-10. Optimize to WebP.
+1. Follow `references/thumbnail-workflow.md`.
+2. Identify one article-supported visual tension and validate every displayed number.
+3. Use `editorial_illustration` by default; use real verified geometry only for `evidence_derived` claims.
+4. Generate subject-only art with no words, logo, screenshot, or exact count implication.
+5. Compose the background, text, and approved lockup with the shared deterministic renderer.
+6. Export the full 1280×720 candidate and 360×203 preview.
+7. Persist validation and provenance, then stop at `review_required` for owner approval.
 
-The thumbnail should not be a miniature screenshot collage.
+The thumbnail should not be a miniature screenshot collage or a light presentation card.
 
 Examples:
 

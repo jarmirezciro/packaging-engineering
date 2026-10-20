@@ -3,7 +3,7 @@ schema_version = 1
 status = "published"
 display_order = 6
 math = true
-title = "Same Volume, Different Material: The Hidden Cost of Box Geometry"
+title = "Same Volume, Different Cardboard: Why Box Shape Matters"
 slug = "rsc-material-optimization"
 subtitle = "How box proportions and structural construction change corrugated-board demand—and why FEFCO 0201 reaches its simplified material minimum at 2:1:2."
 excerpt = "Equal volume does not mean equal corrugated-board consumption. See how box geometry changes material demand, purchasing cost and material-related carbon impact."
@@ -18,15 +18,15 @@ read_time = "12 min read"
 published_at = 2026-07-28
 updated_at = 2026-07-30
 hero_icon = "bi-rulers"
-featured_image = "img/blog/rsc-material-optimization/thumbnail.webp"
-thumbnail = "img/blog/rsc-material-optimization/thumbnail.webp"
-thumbnail_alt = "Two corrugated boxes with different proportions beside the headline Geometry has a cost"
+featured_image = "img/blog/rsc-material-optimization/thumbnail-v1.webp"
+thumbnail = "img/blog/rsc-material-optimization/thumbnail-v1.webp"
+thumbnail_alt = "Two equal-volume corrugated boxes with different proportions beside the words Same volume, different material"
 primary_keyword = "corrugated box material consumption"
 tags = ["corrugated box geometry", "material efficiency", "FEFCO 0201", "packaging cost", "packaging carbon impact", "box dimensions"]
 related_articles = ["box-selection-3d-bin-packing-problem", "think-beyond-the-box-packaging-flow-case-study", "palletization-affects-transport-cost"]
 related_tools = ["container-selection", "palletization-calculator", "packaging-flow"]
 canonical_path = "/blog/rsc-material-optimization/"
-og_image = "img/blog/rsc-material-optimization/thumbnail.webp"
+og_image = "img/blog/rsc-material-optimization/thumbnail-v1.webp"
 takeaways = ["Equal internal volume does not guarantee equal board consumption; proportions change the unfolded blank area.", "Identical internal dimensions do not guarantee equal board consumption; different structural constructions retain different panel and flap areas.", "For a simplified FEFCO 0201 blank at fixed volume, the theoretical minimum occurs at L:B:H = 2:1:2.", "Minimum board area is one objective inside a wider decision involving protection, strength, machinery, palletization and transport."]
 
 [[flow_steps]]

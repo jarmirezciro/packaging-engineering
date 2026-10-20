@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0",
+  "hard_status": "pass",
+  "visual_status": "approved",
+  "approval_status": "approved",
+  "approved_at": "2026-10-20",
+  "hard_failures": [],
+  "warnings": [],
+  "visual_review_checklist": [
+    "Owner confirms family resemblance to the approved nine-tile board.",
+    "Subject is clear at 360 × 203 px and remains in the right-hand zone.",
+    "No stray text, fake labels, people, UI fragments, clutter, or misleading exact count appears.",
+    "Lighting, materials, perspective, and palette feel coherent with the approved studio reference."
+  ],
+  "file": {
+    "path": "artifacts/blog-thumbnail-pilots/pilot-50pct/thumbnail-v2.webp",
+    "dimensions": [
+      1280,
+      720
+    ],
+    "format": "WEBP",
+    "mode": "RGB",
+    "bytes": 83492,
+    "sha256": "687413900fbb7bb39e1204ce231659ef33f35592186e763cc3e1ecbfbdbb858a"
+  },
+  "layout": {
+    "canvas": [
+      1280,
+      720
+    ],
+    "text_zone": [
+      72,
+      48,
+      585,
+      592
+    ],
+    "illustration_zone": [
+      608,
+      42,
+      1260,
+      704
+    ],
+    "primary_box": [
+      72,
+      159,
+      466,
+      274
+    ],
+    "secondary_boxes": [
+      [
+        72,
+        296,
+        568,
+        338
+      ]
+    ],
+    "support_boxes": [
+      [
+        72,
+        371,
+        527,
+        406
+      ],
+      [
+        72,
+        428,
+        350,
+        463
+      ]
+    ],
+    "logo_box": [
+      72,
+      626,
+      298,
+      678
+    ],
+    "font_paths": {
+      "kicker": "C:/Windows/Fonts/arialbd.ttf",
+      "primary": "C:/Windows/Fonts/arialbd.ttf",
+      "secondary": "C:/Windows/Fonts/arialbd.ttf",
+      "support": "C:/Windows/Fonts/arial.ttf"
+    },
+    "font_sizes": {
+      "kicker": 21,
+      "primary": 152,
+      "secondary": 56,
+      "support": 48
+    },
+    "illustration": {
+      "source_format": "PNG",
+      "source_size": [
+        1079,
+        798
+      ],
+      "has_transparency": true,
+      "placed_box": [
+        608,
+        132,
+        1260,
+        614
+      ]
+    },
+    "layout_sha256": "4ce7c962a2d04eae1d454bc10a8fa0d9709dee11a2a10f7b2b8332eb311f3737"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "design_standard_version": "1.0.0",
+  "renderer_template_version": "1.0.1",
+  "canvas": {
+    "width": 1280,
+    "height": 720,
+    "card_preview_width": 360,
+    "card_preview_height": 203
+  },
+  "palette": {
+    "near_black": "#031719",
+    "deep_teal": "#003B38",
+    "studio_teal": "#07514B",
+    "white": "#F7FAF9",
+    "mint": "#38E6B3",
+    "neutral": "#D6E1DF",
+    "cardboard": "#B9723F"
+  },
+  "layout": {
+    "margin_left": 72,
+    "margin_top": 48,
+    "margin_bottom": 42,
+    "text_zone_right": 585,
+    "illustration_zone": [608, 42, 1260, 704],
+    "kicker_size": 21,
+    "primary_size_max": 152,
+    "primary_size_min": 92,
+    "secondary_size_max": 56,
+    "secondary_size_min": 38,
+    "support_size_max": 48,
+    "support_size_min": 40,
+    "logo_width": 226,
+    "logo_bottom": 42
+  },
+  "fonts": {
+    "bold_candidates": [
+      "C:/Windows/Fonts/arialbd.ttf",
+      "C:/Windows/Fonts/seguisb.ttf",
+      "DejaVuSans-Bold.ttf"
+    ],
+    "regular_candidates": [
+      "C:/Windows/Fonts/arial.ttf",
+      "C:/Windows/Fonts/segoeui.ttf",
+      "DejaVuSans.ttf"
+    ]
+  },
+  "scene_families": {
+    "hero": "One primary packaging or logistics subject with a strong silhouette and restrained supporting geometry.",
+    "comparison": "Two clearly separated physical subjects with matching scale and one calm visual distinction; never use interface screenshots.",
+    "improvement": "One optimized logistics subject or a restrained physical before-and-after cue, with no visibly countable claim unless verified.",
+    "benchmark": "A tidy matrix or repeated series of container-loading motifs suggesting a study set without pretending to show every test.",
+    "product": "One coherent packaging-technology object scene in the same physical studio language; no generated interface text."
+  },
+  "allowed_subjects": [
+    "corrugated_box",
+    "pallet",
+    "shipping_container",
+    "cargo_module",
+    "product_pack",
+    "packaging_device",
+    "abstract_geometry"
+  ],
+  "reference": {
+    "path": "docs/blog/assets/kollilabs-approved-thumbnail-board-v1.png",
+    "sha256": "8cbfd1f852273f4a6b20c7e47abb25ffdbd675607fa88c03fa4dd48e46bb547b",
+    "logo_crop": [32, 264, 168, 298],
+    "nearby_crops": {
+      "improvement": [7, 317, 555, 621],
+      "benchmark": [7, 629, 555, 935]
+    }
+  },
+  "limits": {
+    "hook_primary_ideal_chars": 16,
+    "hook_primary_max_chars": 20,
+    "hook_secondary_ideal_chars": 24,
+    "hook_secondary_max_chars": 32,
+    "support_line_ideal_chars": 66,
+    "support_line_max_chars": 90,
+    "max_generation_attempts": 3,
+    "max_output_bytes": 1572864
+  }
+}

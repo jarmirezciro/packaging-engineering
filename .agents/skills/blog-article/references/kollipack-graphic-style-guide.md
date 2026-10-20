@@ -1,5 +1,11 @@
 # KolliPack Graphic Style Guide
 
+> **Scope note:** This guide remains authoritative for in-article figures.
+> New and regenerated blog thumbnails use the separately owner-approved dark
+> studio system in `references/thumbnail-workflow.md` and
+> `docs/blog/thumbnail-design-system-v1.md`. Statements below that avoid dark
+> backgrounds do not apply to those thumbnails.
+
 Use this guide when creating or revising article figures, case-study graphics, comparison panels, result summaries, and thumbnails for KolliPack blog content.
 
 This document defines the approved visual language that has already been established in the existing KolliPack article images. The objective is **consistency**, not reinvention.

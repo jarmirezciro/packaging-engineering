@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "tops-maxload-kollipack-container-loading-benchmark",
+  "composition": "improvement",
+  "hook_primary": "+34",
+  "hook_secondary": "MORE UNITS",
+  "support_line": "1,285 → 1,319 in this TOPS MaxLoad case.",
+  "scene_subject": "an open blue-grey high-cube shipping container with a dense orderly mixed-cargo load and a small additional group moving into plausible residual space; conceptual cargo with no exact visibly countable total",
+  "image_mode": "editorial_illustration",
+  "supported_claims": [
+    {
+      "text": "1,285 → 1,319",
+      "evidence": "The approved article states that KolliPack reproduced the 1,285-unit TOPS manifest and that a separate Progressive Fill probe reached 1,319 units.",
+      "source": "packagingapp/content/blog/articles/tops-maxload-kollipack-container-loading-benchmark.md"
+    },
+    {
+      "text": "+34 more units",
+      "evidence": "The approved article states that the strongest separate probe added 34 units of SKU302473 while preserving the original 1,285-unit manifest.",
+      "source": "packagingapp/content/blog/articles/tops-maxload-kollipack-container-loading-benchmark.md"
+    }
+  ],
+  "screenshots_allowed": false,
+  "reference_standard": "thumbnail-design-system-v1"
+}
