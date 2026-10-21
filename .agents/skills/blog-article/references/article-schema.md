@@ -64,7 +64,7 @@ Set the optional TOML field below only when an article contains TeX delimiters t
 math = true
 ```
 
-Math-enabled articles may use `\(...\)` for inline equations and `\[...\]` for display equations. The blog detail template loads the shared math renderer only for opted-in articles. Keep equations as text in the Markdown source; do not replace them with raster images. Code blocks are excluded from math processing.
+Math-enabled articles may use `\(...\)` for something inline equations and `\[...\]` for display equations. The blog detail template loads the shared math renderer only for opted-in articles. Keep equations as text in the Markdown source; do not replace them with raster images. Code blocks are excluded from math processing.
 
 ## Approved article types
 
