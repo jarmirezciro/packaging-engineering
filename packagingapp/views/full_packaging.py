@@ -159,6 +159,10 @@ def _init_workflow_session(request):
 def _get_workflow(request):
     _init_workflow_session(request)
     workflow = request.session[_workflow_session_key(request)]
+    if _case_slug_from_request(request):
+        # Case renders add view-only QuerySets and model instances to each
+        # step. Keep those transient values out of the JSON-backed session.
+        workflow = deepcopy(workflow)
     changed = ensure_workflow_step_refs(workflow)
     for step in workflow.get("steps", []):
         if step.get("type") != "transport":
