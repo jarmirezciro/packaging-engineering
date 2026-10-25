@@ -154,19 +154,19 @@
 
             <td class="text-center">
               <input type="hidden" name="item_r1[]" value="{% if row.r1 %}1{% else %}0{% endif %}">
-              <input type="checkbox" value="1" {% if row.r1 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" {% if not is_first_step %}disabled{% endif %}>
+              <input type="checkbox" value="1" {% if row.r1 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)">
             </td>
             <td class="text-center">
               <input type="hidden" name="item_r2[]" value="{% if row.r2 %}1{% else %}0{% endif %}">
-              <input type="checkbox" value="1" {% if row.r2 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" {% if not is_first_step %}disabled{% endif %}>
+              <input type="checkbox" value="1" {% if row.r2 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)">
             </td>
             <td class="text-center">
               <input type="hidden" name="item_r3[]" value="{% if row.r3 %}1{% else %}0{% endif %}">
-              <input type="checkbox" value="1" {% if row.r3 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" {% if not is_first_step %}disabled{% endif %}>
+              <input type="checkbox" value="1" {% if row.r3 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)">
             </td>
             <td class="text-center">
               <input type="hidden" name="item_stackable[]" value="{% if row.stackable != False %}1{% else %}0{% endif %}">
-              <input type="checkbox" value="1" {% if row.stackable != False %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" {% if not is_first_step %}disabled{% endif %} title="Allow other load units to be placed on top of this product.">
+              <input type="checkbox" value="1" {% if row.stackable != False %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" title="Allow other load units to be placed on top of this product.">
             </td>
 
             <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}"></td>

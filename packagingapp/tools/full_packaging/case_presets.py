@@ -34,8 +34,8 @@ _CASE_PRESETS = {
             "length": 1200,
             "width": 800,
             "max_stack_height": 1200,
-            "max_width_stickout": 0,
-            "max_length_stickout": 0,
+            "max_width_stickout": 25.4,
+            "max_length_stickout": 25.4,
         },
         "transport": {
             "length": 12032,
@@ -45,6 +45,10 @@ _CASE_PRESETS = {
             "tare_weight": "",
             "packing_mode": "front_to_back",
             "calculate_max_quantity": True,
+            "transport_r1": True,
+            "transport_r2": False,
+            "transport_r3": False,
+            "transport_stackable": True,
         },
     },
     "tops-product-pallet-optimization": {

@@ -405,6 +405,20 @@ def _build_pallet_workflow_payload(
     )
     if not payload:
         return None
+    pallet_l = _to_float(effective.get("pallet_l"), None)
+    pallet_w = _to_float(effective.get("pallet_w"), None)
+    length_overhang = max(
+        _to_float(effective.get("max_length_stickout"), 0) or 0,
+        0.0,
+    )
+    width_overhang = max(
+        _to_float(effective.get("max_width_stickout"), 0) or 0,
+        0.0,
+    )
+    if pallet_l is not None:
+        payload["length"] = round(pallet_l + length_overhang, 2)
+    if pallet_w is not None:
+        payload["width"] = round(pallet_w + width_overhang, 2)
     prev_weight_g = _to_float((upstream or {}).get("weight_g"), None)
     pallet_tare_g = _to_float(
         getattr(selected_pallet_material, "part_weight", None), None
@@ -417,6 +431,10 @@ def _build_pallet_workflow_payload(
         payload["weight_g"] = round(gross_weight_g, 3)
         payload["weight_kg"] = round(gross_weight_g / 1000.0, 3)
     payload.setdefault("transport_qty", 1)
+    payload["transport_r1"] = True
+    payload["transport_r2"] = False
+    payload["transport_r3"] = False
+    payload["transport_stackable"] = True
     payload["source_step_type"] = "pallet"
     payload["package_type"] = "pallet"
     payload["source_type"] = PALLETIZATION_VISUAL_SOURCE
@@ -613,11 +631,11 @@ def _build_case_workflow(case_slug):
         if rows:
             rows[0]["max_qty"] = bool(transport_preset.get("calculate_max_quantity"))
             rows[0]["qty"] = 1
-            rows[0]["stackable"] = True
             rows[0]["sequence"] = 1
-            rows[0]["r1"] = True
-            rows[0]["r2"] = True
-            rows[0]["r3"] = True
+            for field in ("r1", "r2", "r3", "stackable"):
+                preset_key = f"transport_{field}"
+                if preset_key in transport_preset:
+                    rows[0][field] = bool(transport_preset[preset_key])
         transport_cfg["product_rows"] = sanitize_transport_rows_for_session(rows)
         transport_step["analysis_ran"] = True
         _run_transport_analysis(transport_step, steps, 2)
@@ -1008,6 +1026,7 @@ def _transport_rows_from_selected(selected):
     if weight_kg is None:
         weight_kg = _to_float(selected.get("weight"), 0) or 0
 
+    is_palletized_load = selected.get("source_type") == PALLETIZATION_VISUAL_SOURCE
     return sanitize_transport_rows_for_session([
         {
             "name": selected.get("label") or "Previous workflow load unit",
@@ -1016,12 +1035,21 @@ def _transport_rows_from_selected(selected):
             "height": selected.get("height", ""),
             "qty": qty,
             "max_qty": bool(selected.get("transport_max_qty", False)),
-            "stackable": bool(selected.get("transport_stackable", True)),
+            "stackable": bool(
+                selected.get(
+                    "transport_stackable",
+                    True,
+                )
+            ),
             "weight": round(float(weight_kg), 3),
             "sequence": 1,
-            "r1": True,
-            "r2": True,
-            "r3": True,
+            "r1": bool(selected.get("transport_r1", True)),
+            "r2": bool(
+                selected.get("transport_r2", False if is_palletized_load else True)
+            ),
+            "r3": bool(
+                selected.get("transport_r3", False if is_palletized_load else True)
+            ),
         }
     ])
 
@@ -1060,9 +1088,10 @@ def _pallet_placement_orientation(item, source_bounds):
 def _normalize_pallet_visualization_for_transport(upstream):
     """Return a JSON-safe pallet scene aligned to the calculated load cuboid.
 
-    The pallet scene and its downstream cuboid share the same resolved pallet
-    height. Unsupported overhang or malformed scenes retain the generic load
-    cuboid instead of leaking outside the calculated placement.
+    The inherited transport row contains the palletized load's effective
+    footprint, including any configured overhang. The browser scene keeps the
+    pallet's own coordinate origin, so its center is carried explicitly while
+    the complete assembly is validated against the effective footprint.
     """
     if not upstream or upstream.get("source_type") != PALLETIZATION_VISUAL_SOURCE:
         return None
@@ -1089,23 +1118,83 @@ def _normalize_pallet_visualization_for_transport(upstream):
         return None
 
     try:
+        pallet_length = float(pallet.get("length") or 0)
+        pallet_width = float(pallet.get("width") or 0)
+        allowed = scene.get("allowed_footprint") or {}
+        footprint_length = float(allowed.get("length") or pallet_length)
+        footprint_width = float(allowed.get("width") or pallet_width)
+        footprint_x_value = allowed.get("x")
+        footprint_y_value = allowed.get("y")
+        footprint_x = (
+            float(footprint_x_value)
+            if footprint_x_value not in (None, "")
+            else (pallet_length - footprint_length) / 2.0
+        )
+        footprint_y = (
+            float(footprint_y_value)
+            if footprint_y_value not in (None, "")
+            else (pallet_width - footprint_width) / 2.0
+        )
         pallet_height = float(pallet.get("height") or 0)
+        center_x = footprint_x + footprint_length / 2.0
+        center_y = footprint_y + footprint_width / 2.0
     except (TypeError, ValueError):
         return None
-    if pallet_height <= 0:
+    if (
+        pallet_length <= 0
+        or pallet_width <= 0
+        or footprint_length <= 0
+        or footprint_width <= 0
+        or pallet_height <= 0
+    ):
         return None
 
+    try:
+        original_base_height = pallet_height
+        cargo_height = max(
+            float(placement.get("z") or 0) + float(placement.get("dz") or 0)
+            for placement in placements
+        ) - original_base_height
+        target_base_height = bounds["height"] - cargo_height
+        deck_thickness = min(
+            float(pallet.get("deck_thickness") or 0),
+            target_base_height,
+        )
+    except (TypeError, ValueError):
+        return None
+    if target_base_height <= 0 or deck_thickness <= 0:
+        return None
+
+    elevation_delta = target_base_height - original_base_height
+    for placement in placements:
+        placement["z"] = float(placement.get("z") or 0) + elevation_delta
+    pallet["height"] = target_base_height
+    pallet["deck_thickness"] = deck_thickness
+    pallet["runner_height"] = max(target_base_height - deck_thickness, 0.0)
+
     metadata = scene.setdefault("metadata", {})
-    metadata["transport_base_height_mm"] = pallet_height
+    metadata["total_render_height_mm"] = bounds["height"]
+    metadata["transport_base_height_mm"] = target_base_height
+
+    minimum_bounds = (
+        center_x - bounds["length"] / 2.0,
+        center_y - bounds["width"] / 2.0,
+        0.0,
+    )
+    maximum_bounds = (
+        center_x + bounds["length"] / 2.0,
+        center_y + bounds["width"] / 2.0,
+        bounds["height"],
+    )
 
     cuboids = [
         {
             "x": 0.0,
             "y": 0.0,
             "z": 0.0,
-            "dx": float(pallet.get("length") or 0),
-            "dy": float(pallet.get("width") or 0),
-            "dz": pallet_height,
+            "dx": pallet_length,
+            "dy": pallet_width,
+            "dz": target_base_height,
         },
         *placements,
     ]
@@ -1124,16 +1213,21 @@ def _normalize_pallet_visualization_for_transport(upstream):
             )
         except (TypeError, ValueError):
             return None
-        if any(value < -tolerance for value in minimums):
+        if any(
+            value < bound - tolerance
+            for value, bound in zip(minimums, minimum_bounds)
+        ):
             return None
-        if (
-            maximums[0] > bounds["length"] + tolerance
-            or maximums[1] > bounds["width"] + tolerance
-            or maximums[2] > bounds["height"] + tolerance
+        if any(
+            value > bound + tolerance
+            for value, bound in zip(maximums, maximum_bounds)
         ):
             return None
 
-    return {"bounds": bounds, "scene": scene}
+    render_bounds = dict(bounds)
+    render_bounds["center_x"] = center_x
+    render_bounds["center_y"] = center_y
+    return {"bounds": render_bounds, "scene": scene}
 
 
 def _decorate_transport_scene_with_pallet_visualization(transport_scene, upstream):
@@ -1192,9 +1286,17 @@ def _merge_transport_inherited_rows(existing_rows, inherited_rows):
     for row_index, inherited_row in enumerate(inherited):
         current = existing[row_index] if row_index < len(existing) else {}
         row = dict(inherited_row)
+        current_has_dimensions = any(
+            current.get(dimension) not in (None, "")
+            for dimension in ("length", "width", "height")
+        )
 
         for key in ("qty", "max_qty", "stackable", "sequence", "r1", "r2", "r3"):
-            if key in current and current.get(key) not in (None, ""):
+            if (
+                current_has_dimensions
+                and key in current
+                and current.get(key) not in (None, "")
+            ):
                 row[key] = current.get(key)
 
         merged.append(row)
