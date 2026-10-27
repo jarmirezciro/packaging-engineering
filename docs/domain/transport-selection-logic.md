@@ -118,6 +118,28 @@ separate algorithmic alternatives.
 The layout is a candidate engineering arrangement. It is not a cargo-securing
 plan and should not be read as proof of globally optimal utilization.
 
+## Single-product rectangular floor refinement
+
+For a complete request with exactly one positive-quantity row, every active
+mode also compares its finished result with the shared bounded mono-product
+lane-transition planner. This planner is based only on container dimensions,
+enabled rotations, item dimensions, quantity, weight, and stackability; names
+or packaging categories do not affect eligibility. It can exchange lane
+orientations once along container length with independent staggered endpoints,
+which covers arrangements that cannot be represented as one repeatable flat-
+front Product Block.
+
+The normal mode result remains available and wins a true tie. The refinement
+is selected only for more units, equal units in less X, or equal units/X with a
+tighter XY bounding envelope. For stackable products, one or two identical-
+footprint layers may be emitted with direct full-base support; deeper stacks
+stay on the established supported 3D path. One positive row plus zero-quantity
+rows is still a mono request; two positive rows remain mixed cargo even when
+their physical dimensions match. The implementation currently accepts an
+internal transition limit of zero or one and uses documented hard search caps.
+Results outside independently certified fixtures are best feasible layouts
+found by the bounded search, not universal optimum claims.
+
 ## How Progressive Fill behaves for users
 
 Progressive Fill keeps the shared product ordering and Product Block
@@ -170,16 +192,33 @@ The service:
 
 1. validates the entered rows;
 2. treats a checked row as an automatic quantity request;
-3. computes a practical geometry/weight upper bound;
-4. binary-searches quantities by repeatedly asking the real current transport
-   heuristic whether the fixed rows and the candidate row can be packed;
-5. resolves multiple Max qty rows in row order, with earlier resolved rows
+3. computes a necessary physical upper bound from enabled orientations,
+   container volume, and payload; a single non-stackable row also receives the
+   safe floor-area bound because no other requested row can provide support;
+4. tightens that bound by reserving the volume and payload requested by every
+   fixed row;
+5. searches candidate quantities downward from the bounded upper limit and
+   repeatedly asks the real current transport heuristic whether every fixed row
+   and the candidate row were fully packed;
+6. selects the first fully packed candidate, which is therefore the largest
+   heuristic-feasible quantity within the bound;
+7. resolves multiple Max qty rows in row order, with earlier resolved rows
    becoming fixed inputs for later rows;
-6. passes the resolved quantities into the normal Balanced Spread calculation.
+8. passes the resolved quantities into the selected normal packing mode.
+
+The descending search is deliberate. Packing feasibility is not monotonic in
+the requested quantity: completing one more synchronized Product Block can make
+a larger request fully packable even when the immediately smaller request leaves
+an incomplete block and one or more units unplaced. A binary search may therefore
+discard valid larger quantities. The solver does not assume monotonicity and does
+not contain dimension-, pallet-, or quantity-specific exceptions.
 
 The service caps the automatic search at 5,000 units to keep rendering
 responsive. A checked row can therefore resolve to zero when it cannot fit, or
-to a bounded practical maximum when the current heuristic and payload allow it.
+to an exact heuristic maximum within the physical/capped search bound when the
+current mode and payload allow it. In the worst case it evaluates every integer
+quantity in that bounded interval; the physical bound and fixed-row reservations
+normally make the interval substantially smaller.
 This is a service/preprocessing behavior; it must not be documented as an
 analytic capacity formula hidden inside the engine.
 

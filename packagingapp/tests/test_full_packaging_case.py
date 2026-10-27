@@ -50,7 +50,7 @@ class FullPackagingCaseTests(TestCase):
         self.assertTrue(transport_row["stackable"])
         self.assertEqual(
             workflow["steps"][2]["result"]["summary"]["placed_units"],
-            38,
+            48,
         )
         self.assertEqual(
             workflow["steps"][2]["result"]["summary"]["occupied_height"],

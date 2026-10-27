@@ -106,6 +106,28 @@ Before changing Transport Container packing behavior, run or establish a direct 
 
 For each protected mode fixture, record a deterministic geometry signature containing at least `row_index`, `x`, `y`, `z`, `l`, `w`, and `h`, plus loaded counts by row. Assert the shared physical invariants (bounds, no positive-volume overlap, allowed orientations, support/stackability, and payload).
 
+Max-quantity service regressions must test the service separately from direct
+engine geometry. Include at least one non-monotonic request sequence where a
+smaller quantity is not fully packed but a larger synchronized-block quantity
+is fully packed. Assert that all active modes return the largest fully packed
+quantity within the physical/capped bound, fixed rows and payload remain
+authoritative, multiple automatic rows retain row-order semantics, and the
+implementation contains no fixture-specific dimensions or quantities.
+
+Mono-product lane-transition regressions must exercise the same production
+entry point in all four active modes with transition limits zero and one. Use
+an independent rectangle oracle for any certified stepped arrangement, and run
+the shared physical validator over every engine result. Coverage must include
+multiple unrelated rectangle families, total-dimension perturbations, quantity
+sweeps, uniform scaling, swapped input axes, rotated containers, R1/R2/R3 and
+disabled rotations, payload, fractional dimensions, one-layer stackable parity,
+true multi-layer preservation, deterministic repeated signatures, zero-quantity
+rows, identical-but-distinct positive rows, narrow/short containers, and a
+thousands-of-units cap fallback. Assert candidate/configuration counts remain
+within the documented bounds and label non-certified results as best found.
+Mixed-cargo signatures, TOPS fixtures, DGFE, residual closure, and infill must
+remain unchanged because the mono whole-outcome pass is ineligible there.
+
 For a change scoped to one mode:
 
 - the changed mode receives explicit acceptance assertions;

@@ -26,6 +26,27 @@ strategy remains `front_to_back_blocks`. The transport service, forms, views, te
 serializers, and tests are supporting consumers and must be checked against
 the engine when behavior changes.
 
+### Max quantity service boundary
+
+The UI's **Max qty?** option is a service-level caller of the selected packing
+mode; it is not a fifth engine mode and does not alter Product Block or residual
+semantics. The service derives a safe physical upper bound from enabled
+orientations, volume, payload, and fixed-row reservations. A lone
+non-stackable row also uses the safe floor-area limit; that limit is not applied
+when another requested row could provide elevated support. The service then
+evaluates requested quantities in descending order with
+the real engine and selects the first request for which all required rows are
+fully packed. Multiple automatic rows remain ordered: each resolved row becomes
+fixed input to the next.
+
+This search must not use binary search. Engine feasibility can be non-monotonic
+with respect to the request because synchronized Product Blocks are committed as
+whole bounded constructions. For example, a partial request can leave a unit
+unplaced while the next complete block multiple fits. The service search is
+deterministic, capped at 5,000 candidate units, and contains no dimension- or
+quantity-specific fixture rules. The four packing modes and their isolated
+behavioral contracts remain unchanged.
+
 `packagingapp/utils/container_tool/engine_legacy.py` is retained historical code.
 It is not the current algorithm specification and is not imported by the active
 engine. A requested mode other than the four canonical modes or a recognized
@@ -360,11 +381,17 @@ A Product Block:
 - contains one SKU;
 - uses one orientation or at most two enabled orientations of that SKU;
 - is regular and explainable;
-- has a flat longitudinal frontier;
-- may contain mixed orientation lanes when their geometry can be synchronized.
+- has an explicit longitudinal envelope;
+- may contain exact synchronized mixed-orientation lanes with one flat frontier;
+- may contain an Adaptive Mixed-Lane Block (AMLB) whose populated lane tails
+  end at different exact X coordinates.
 
-Mixed orientation is not inherently undesirable. The block remains a regular
-module as long as its lanes share compatible height and a common X depth.
+Mixed orientation is not inherently undesirable. Exact synchronized blocks
+remain regular repeatable modules. AMLB is a quantity-aware, non-repeatable
+Product Block plan: compatible-height lanes use independent integral X
+repetition counts, and metadata records each populated lane's start Y, stack
+heights, unit count, and actual X end. Its overall `depth` is the maximum
+physical lane tail, not a fictitious synchronized boundary.
 
 ### Transverse pattern and capacity
 
@@ -429,23 +456,41 @@ The pair's lane counts and repetition counts determine its occupied width,
 transverse capacity, module capacity, and common depth. Non-stackable products
 still use only one vertical layer (`nz <= 1`) in a mixed block.
 
-### Quantity-independent candidate geometry
+### Candidate families and phase-aware AMLB geometry
 
-Candidate geometry is generated from product/container geometry and the current
-remaining length. It is not designed around the requested quantity. Quantity
-controls whether a candidate is eligible:
+Single-orientation and exact synchronized candidates remain
+quantity-independent repeatable modules. Quantity controls whether one of
+those modules is eligible:
 
 ```text
 module_capacity <= payload-feasible quantity
 module_depth    <= remaining container length
 ```
 
-This separation keeps the geometry structurally consistent across quantity
-scenarios while allowing a small request to defer to residual handling.
+AMLB candidates are phase-aware. For each compatible enabled orientation pair
+and bounded lane composition, the generator uses the current payload-feasible
+quantity and remaining X length. Exact rational integer bisection finds the
+smallest critical depth whose integral lane positions can hold the planned
+quantity. Every populated floor position stores its actual vertical stack
+height, so a partial last lane or layer does not occupy virtual cells.
+
+AMLB lane-count work is sampled only above 128 possible lanes and materialized
+candidate columns are capped at 4,096. Ordinary pallet-scale families are
+fully evaluated. These are search-complexity caps, not physical near-equality
+tolerances.
+
+Stacked phases continue to select the approved repeatable Product Block and
+residual-frontier orchestration. Stacked AMLB candidate geometry is still
+generated and materializable for validation, including partial vertical
+layers, while non-stackable AMLB is eligible in single- and multi-SKU phases.
+This boundary prevents quantity-aware stacked candidates from silently
+consuming the residual quantities that define the approved P4/P2 Native/DGFE,
+Balanced Spread, and existing single-SKU presentation contracts.
 
 ### Candidate ranking
 
-After invalid candidates are removed, the staged ranking is:
+After invalid repeatable candidates are removed, their established staged
+ranking remains:
 
 1. maximize YZ utilization;
 2. retain candidates within the YZ utilization equivalence tolerance;
@@ -464,9 +509,16 @@ This is an **absolute normalized-utilization fraction**, equal to 0.25
 percentage points. It is a ranking-equivalence tolerance, not a physical-fit
 tolerance.
 
+The best AMLB is ranked by maximum actual planned quantity, minimum actual X
+depth, actual occupied-envelope volume efficiency, effective container-prism
+utilization, and the stable geometry key. AMLB displaces the established
+repeatable winner only when it loads more units in the current phase or loads
+the same units in strictly less X. A true outcome tie retains the existing
+winner, especially an exact synchronized block.
+
 ### Complete repetition and residual definition
 
-For a selected candidate:
+For a selected repeatable candidate:
 
 ```text
 complete_blocks = min(
@@ -482,9 +534,60 @@ Phase 1 does not greedily fill partial module gaps. The deferred quantity is:
 residual_qty = requested_qty - regular_qty
 ```
 
+A selected AMLB is committed once with its exact `planned_quantity` and
+per-lane stack geometry. It is never repeated as though its unequal tails were
+a synchronized module. Side/top residual derivation continues to use the
+committed placement cuboids, so physical openings are not inferred from empty
+AMLB cells.
+
 Residuals for all products are collected before Phase 2. If payload prevents a
 positive-weight unit from being loaded, it remains unplaced even when geometric
 space is still visible.
+
+## Mono-product bounded lane-transition outcome
+
+After an active mode has produced its normal complete result, a separate
+floor-plan competitor is considered only when the complete request contains
+exactly one positive-quantity input row. Zero-quantity rows are ignored for
+eligibility, but distinct positive rows are never merged even when their
+dimensions are identical. Mixed-cargo Product Block, residual, DGFE, infill,
+and sequence orchestration therefore remains unchanged.
+
+The competitor enumerates enabled, physically fitting floor orientations and
+bounded Y-lane compositions. With `max_lane_transitions=1`, it pairs a
+left-anchored composition with a right-anchored composition. Each lane has an
+independent integral X endpoint: a right lane begins at its own furthest
+overlapping left-lane endpoint, rather than at one artificial full-width cut
+or the far container wall. Critical cuts come only from input dimensions and
+integral item boundaries. Every candidate that can become the incumbent is
+materialized as exact `Placement` cuboids and passed through the shared bounds,
+collision, and support validator; dominated candidates are rejected before the
+expensive full validation pass.
+
+The complete baseline and transition outcomes are compared in this order:
+
+1. more placed units;
+2. shorter actual occupied X extent;
+3. less unused area inside the placements' XY bounding envelope;
+4. the approved baseline on an effective tie.
+
+This comparison occurs after the normal mode has finished, so a local adaptive
+choice cannot suppress a stronger residual or stacked result. A stackable row
+is eligible when one or two identical-footprint Z layers fit; every upper unit
+is emitted directly above its own floor unit and validated for full support.
+When any fitting orientation permits more than two layers, the transition
+competitor is conservatively skipped and the established supported 3D path
+remains authoritative.
+
+The initial interface intentionally supports only transition limits `0` and
+`1`; `0` disables this candidate and another value raises an explicit error.
+Search work is capped at 128 physical lanes, 128 lane configurations, 256
+dimension-derived cuts per configuration, 4,096 materialized candidates, 512
+requested placements, and two supported Z layers for the transition extension.
+Above a cap the engine falls back to the approved baseline without
+materializing the unsupported transition search. These are complexity
+controls, not packing assumptions. The search is a bounded constructive
+optimizer, not a complete general rectangular bin-packing proof.
 
 ## Phase 2 — Residual Frontier Closure V2
 
@@ -578,7 +681,7 @@ fields are:
 | Diagnostic | Meaning |
 |---|---|
 | `space_evenly_product_order` | normalized product order and common sequence |
-| `space_evenly_product_blocks` | per-product requested, regular, residual, and selected-block summaries |
+| `space_evenly_product_blocks` | per-product requested, regular, residual, and selected-block summaries; AMLB blocks include planned quantity and physical lane tails |
 | `space_evenly_main_blocks` | materialized complete Product Block summaries |
 | `space_evenly_main_blocks_end_x` | complete-block frontier |
 | `space_evenly_residual_frontiers` | selected anchor, geometry, scores, physical validation, and JSON-safe candidate diagnostics for each closed frontier |
@@ -593,6 +696,7 @@ fields are:
 | `space_evenly_block_candidates_evaluated` | Phase 1 candidates evaluated |
 | `space_evenly_residual_candidates_evaluated` | Phase 2 candidates evaluated |
 | `space_evenly_x_used` | final occupied longitudinal frontier |
+| `mono_lane_transition` | additive mono-only diagnostics: eligibility, selection reason, 0/1 limit, realized transition count, exact lane tails, occupied X, compactness waste, search caps/counts, and a bounded placement sample |
 | `front_to_back_frontiers` | bounded transition diagnostics, all orientation/strategy/family outcomes, final physical state, and the selected winner |
 | `front_to_back_product_blocks` | per-product block, residual, and carry-forward summaries |
 | `front_to_back_frontier_candidates_evaluated` | next-product orientation evaluations across the isolated transition candidates |
@@ -655,6 +759,11 @@ Direct engine regression should check, at minimum:
 - sequence forcing to one for Balanced Spread;
 - regular-before-residual phase order;
 - synchronized mixed-block flat frontiers;
+- adaptive mixed-lane partial quantities, unequal physical lane tails, exact
+  enabled orientations, and true-tie preference for synchronized blocks;
+- mono-product 0/1 lane-transition monotonicity, independent stepped-transition
+  geometry, complete-outcome ranking, one-layer stackable parity, true stacked
+  baseline preservation, mixed-row exclusion, and bounded-search fallback;
 - ordered residual-anchor priority and quantity-agnostic compact Pi footprints;
 - whole-frontier floor/top-plane population and combined union support;
 - unsupported gaps, non-stackable foundations, and non-stackable upper cargo;
@@ -701,6 +810,8 @@ unsupported-mode result.
 | Module Capacity | Units in one complete longitudinal Product Block module. |
 | Transverse Capacity | Units represented in the Y × Z cross-section before X repetitions. |
 | Synchronized Depth | Common X depth satisfying `rA × dA = rB × dB` for mixed lanes. |
+| Adaptive Mixed-Lane Block (AMLB) | A quantity-aware, non-repeatable Product Block whose compatible-height mixed lanes have independent integral X repetitions and honest populated stack/tail metadata. |
+| Mono Lane Transition | A mono-request floor-plan competitor that may exchange bounded Y-lane compositions once along X while retaining independent physical lane endpoints. |
 | Residual Quantity | Requested units remaining after complete regular blocks. |
 | Residual Frontier | One bounded, physically validated local XYZ section established by the current residual anchor Pi. |
 | Native Frontier | The residual frontier ending at Pi's actual compact X footprint. |

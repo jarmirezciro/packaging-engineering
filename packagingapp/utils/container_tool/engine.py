@@ -36,6 +36,15 @@ SPACE_EVENLY_RESIDUAL_STRATEGIES = (
     "top_down_row_first",
 )
 DGFE_POSITION_DIAGNOSTIC_LIMIT = 64
+ADAPTIVE_MIXED_LANE_COUNT_CAP = 128
+ADAPTIVE_MIXED_COLUMN_CAP = 4096
+MONO_LANE_TRANSITION_MAX_SUPPORTED = 1
+MONO_LANE_CONFIGURATION_CAP = 128
+MONO_LANE_COUNT_CAP = 128
+MONO_LANE_CUT_COUNT_CAP = 256
+MONO_LANE_TRANSITION_DEFAULT_CANDIDATE_BUDGET = 4096
+MONO_LANE_TRANSITION_PLACEMENT_CAP = 512
+MONO_LANE_TRANSITION_STACK_LAYER_CAP = 2
 UNSUPPORTED_MODE_MESSAGE = (
     "Only Balanced Spread and Progressive Fill are currently available."
 )
@@ -119,6 +128,32 @@ class ProductBlockCandidate:
     module_capacity: int
     transverse_capacity: int
     transverse_utilization: float
+    lane_stack_heights: Tuple[Tuple[int, ...], ...] = ()
+    planned_quantity: int = 0
+    repeatable: bool = True
+    actual_volume_efficiency: float = 1.0
+    product_stackable: bool = True
+
+
+@dataclass(frozen=True)
+class MonoFloorLane:
+    orientation_index: int
+    orientation: Tuple[float, float, float]
+    y: float
+
+
+@dataclass(frozen=True)
+class MonoLaneTransitionPlan:
+    placements: Tuple[Placement, ...]
+    floor_quantity: int
+    occupied_length: float
+    compactness_waste_area: float
+    realized_transitions: int
+    candidate_count: int
+    configuration_count: int
+    budget_exhausted: bool
+    lane_metadata: Tuple[Dict, ...]
+    stable_key: Tuple
 
 
 @dataclass
@@ -312,6 +347,8 @@ def _candidate_stable_key(candidate: ProductBlockCandidate) -> Tuple:
         round(candidate.occupied_width, 9),
         round(candidate.occupied_height, 9),
         stable_orientations,
+        candidate.lane_stack_heights,
+        candidate.pattern,
     )
 
 
@@ -353,6 +390,7 @@ def _best_single_orientation_block(
             * occupied_height
             / (container["W"] * container["H"])
         ),
+        product_stackable=product.stackable,
     ), 1
 
 
@@ -435,9 +473,273 @@ def _mixed_orientation_blocks(
                         * occupied_height
                         / (container["W"] * container["H"])
                     ),
+                    product_stackable=product.stackable,
                 )
             )
             evaluated += 1
+    return candidates, evaluated
+
+
+def _bounded_adaptive_lane_counts(maximum: int) -> Tuple[int, ...]:
+    """Return deterministic lane counts without expanding very small widths."""
+    maximum = max(int(maximum), 0)
+    if maximum <= 0:
+        return ()
+    if maximum <= ADAPTIVE_MIXED_LANE_COUNT_CAP:
+        return tuple(range(1, maximum + 1))
+    return tuple(
+        sorted(
+            {
+                1,
+                maximum,
+                *(
+                    max(1, int(round(maximum * index / 64)))
+                    for index in range(1, 64)
+                ),
+            }
+        )
+    )
+
+
+def _adaptive_lane_compositions(
+    first_width: float,
+    second_width: float,
+    available_width: float,
+) -> Tuple[Tuple[int, int], ...]:
+    """Build a bounded, non-dominated family of two-orientation lane mixes."""
+    if min(first_width, second_width, available_width) <= TOLERANCE:
+        return ()
+    max_first = _fit_count(available_width - second_width, first_width)
+    compositions = set()
+    for first_count in _bounded_adaptive_lane_counts(max_first):
+        remaining_width = available_width - first_count * first_width
+        max_second = _fit_count(remaining_width, second_width)
+        if max_second <= 0:
+            continue
+        # The fullest second-orientation mix dominates intermediate counts for
+        # achievable quantity/depth.  Keep one second lane as well so small
+        # quantities never require populating artificial empty lanes.
+        compositions.add((first_count, 1))
+        compositions.add((first_count, max_second))
+    return tuple(
+        sorted(
+            compositions,
+            key=lambda counts: (
+                -(counts[0] * first_width + counts[1] * second_width),
+                -sum(counts),
+                counts,
+            ),
+        )
+    )
+
+
+def _adaptive_common_scale(
+    first_depth: float,
+    second_depth: float,
+    max_depth: float,
+) -> Tuple[int, int, int, int]:
+    """Represent decimal depths exactly enough for bounded integer bisection."""
+    first = Fraction(str(first_depth)).limit_denominator(1_000_000)
+    second = Fraction(str(second_depth)).limit_denominator(1_000_000)
+    available = Fraction(str(max_depth)).limit_denominator(1_000_000)
+    denominator = math.lcm(
+        first.denominator,
+        second.denominator,
+        available.denominator,
+    )
+    return (
+        first.numerator * (denominator // first.denominator),
+        second.numerator * (denominator // second.denominator),
+        available.numerator * (denominator // available.denominator),
+        denominator,
+    )
+
+
+def _adaptive_mixed_lane_blocks(
+    first: Tuple[float, float, float],
+    second: Tuple[float, float, float],
+    first_index: int,
+    second_index: int,
+    product: NormalizedProduct,
+    container: Dict,
+    max_depth: float,
+    feasible_qty: int,
+) -> Tuple[List[ProductBlockCandidate], int]:
+    """Plan exact, quantity-aware mixed lanes with independent X tails."""
+    if feasible_qty < 2 or abs(first[2] - second[2]) > TOLERANCE:
+        return [], 0
+    if (
+        first[0] > max_depth + TOLERANCE
+        or second[0] > max_depth + TOLERANCE
+    ):
+        return [], 0
+
+    max_nz = _fit_count(container["H"], first[2])
+    if not product.stackable:
+        max_nz = min(max_nz, 1)
+    if max_nz <= 0:
+        return [], 0
+
+    first_units, second_units, available_units, _scale = _adaptive_common_scale(
+        first[0],
+        second[0],
+        max_depth,
+    )
+    candidates: List[ProductBlockCandidate] = []
+    evaluated = 0
+    for first_lanes, second_lanes in _adaptive_lane_compositions(
+        first[1],
+        second[1],
+        container["W"],
+    ):
+        evaluated += 1
+        physical_lane_count = first_lanes + second_lanes
+        if physical_lane_count > ADAPTIVE_MIXED_LANE_COUNT_CAP:
+            continue
+        if feasible_qty < physical_lane_count:
+            continue
+
+        maximum_capacity = max_nz * (
+            first_lanes * (available_units // first_units)
+            + second_lanes * (available_units // second_units)
+        )
+        target_quantity = min(int(feasible_qty), int(maximum_capacity))
+        if target_quantity < physical_lane_count:
+            continue
+
+        # Both orientation families must be physically present; otherwise this
+        # is a disguised single-orientation plan rather than a mixed lane.
+        low = max(first_units, second_units)
+        high = available_units
+        while low < high:
+            middle = (low + high) // 2
+            capacity = max_nz * (
+                first_lanes * (middle // first_units)
+                + second_lanes * (middle // second_units)
+            )
+            if capacity >= target_quantity:
+                high = middle
+            else:
+                low = middle + 1
+        depth_units = low
+        first_repetitions = depth_units // first_units
+        second_repetitions = depth_units // second_units
+        total_columns = (
+            first_lanes * first_repetitions
+            + second_lanes * second_repetitions
+        )
+        if (
+            min(first_repetitions, second_repetitions) <= 0
+            or total_columns > ADAPTIVE_MIXED_COLUMN_CAP
+        ):
+            continue
+
+        lane_orientations = (
+            [(first_index, first)] * first_lanes
+            + [(second_index, second)] * second_lanes
+        )
+        stack_heights: List[List[int]] = []
+        for orientation_index, _orientation in lane_orientations:
+            repetitions = depth_units // (
+                first_units
+                if orientation_index == first_index
+                else second_units
+            )
+            heights = [0] * repetitions
+            heights[0] = 1
+            stack_heights.append(heights)
+
+        remaining = target_quantity - physical_lane_count
+        columns = []
+        for lane_index, (_orientation_index, orientation) in enumerate(
+            lane_orientations
+        ):
+            for x_index in range(len(stack_heights[lane_index])):
+                available_stack = max_nz - stack_heights[lane_index][x_index]
+                if available_stack <= 0:
+                    continue
+                columns.append(
+                    (
+                        round((x_index + 1) * orientation[0], 9),
+                        lane_index,
+                        x_index,
+                        available_stack,
+                    )
+                )
+        columns.sort()
+        for _x_end, lane_index, x_index, available_stack in columns:
+            if remaining <= 0:
+                break
+            committed = min(available_stack, remaining)
+            stack_heights[lane_index][x_index] += committed
+            remaining -= committed
+        if remaining > 0:
+            continue
+
+        trimmed_heights = []
+        x_repetitions = []
+        for heights in stack_heights:
+            last_used = max(
+                index for index, stack_height in enumerate(heights) if stack_height
+            )
+            trimmed = tuple(heights[: last_used + 1])
+            trimmed_heights.append(trimmed)
+            x_repetitions.append(len(trimmed))
+
+        actual_depth = max(
+            repetitions * orientation[0]
+            for repetitions, (_orientation_index, orientation) in zip(
+                x_repetitions,
+                lane_orientations,
+            )
+        )
+        occupied_width = sum(
+            orientation[1]
+            for _orientation_index, orientation in lane_orientations
+        )
+        actual_nz = max(max(heights) for heights in trimmed_heights)
+        occupied_height = actual_nz * first[2]
+        actual_volume = target_quantity * product.unit_volume
+        envelope_volume = actual_depth * occupied_width * occupied_height
+        candidates.append(
+            ProductBlockCandidate(
+                pattern="adaptive_mixed_lane",
+                orientations=tuple(
+                    orientation for _orientation_index, orientation in lane_orientations
+                ),
+                orientation_indices=tuple(
+                    orientation_index
+                    for orientation_index, _orientation in lane_orientations
+                ),
+                lane_counts=tuple(1 for _lane in lane_orientations),
+                x_repetitions=tuple(x_repetitions),
+                nz=actual_nz,
+                depth=float(actual_depth),
+                occupied_width=float(occupied_width),
+                occupied_height=float(occupied_height),
+                module_capacity=int(target_quantity),
+                transverse_capacity=sum(
+                    max(heights) for heights in trimmed_heights
+                ),
+                transverse_utilization=(
+                    actual_volume
+                    / (
+                        actual_depth
+                        * container["W"]
+                        * container["H"]
+                    )
+                ),
+                lane_stack_heights=tuple(trimmed_heights),
+                planned_quantity=int(target_quantity),
+                repeatable=False,
+                actual_volume_efficiency=(
+                    actual_volume / envelope_volume
+                    if envelope_volume > TOLERANCE
+                    else 0.0
+                ),
+                product_stackable=product.stackable,
+            )
+        )
     return candidates, evaluated
 
 
@@ -445,10 +747,16 @@ def build_product_block_candidates(
     product: NormalizedProduct,
     container: Dict,
     max_depth: float,
+    feasible_qty: Optional[int] = None,
 ) -> Tuple[List[ProductBlockCandidate], int]:
-    """Build quantity-independent YZ candidates for each orientation/pair."""
+    """Build regular and quantity-aware adaptive Product Block candidates."""
     candidates: List[ProductBlockCandidate] = []
     evaluated = 0
+    planned_qty = (
+        product.qty
+        if feasible_qty is None
+        else max(int(feasible_qty), 0)
+    )
 
     for index, orientation in enumerate(product.orientations):
         candidate, count = _best_single_orientation_block(
@@ -475,6 +783,18 @@ def build_product_block_candidates(
             )
             evaluated += count
             candidates.extend(mixed_candidates)
+            adaptive_candidates, count = _adaptive_mixed_lane_blocks(
+                product.orientations[first_index],
+                product.orientations[second_index],
+                first_index,
+                second_index,
+                product,
+                container,
+                max_depth,
+                planned_qty,
+            )
+            evaluated += count
+            candidates.extend(adaptive_candidates)
 
     candidates.sort(key=_candidate_stable_key)
     return candidates, evaluated
@@ -491,6 +811,53 @@ def _regular_candidate_is_eligible(
     )
 
 
+def _regular_candidate_plan(
+    candidate: ProductBlockCandidate,
+    feasible_qty: int,
+    remaining_length: float,
+) -> Tuple[int, int, float]:
+    """Return committed quantity, module count and depth for Phase 1."""
+    if not _regular_candidate_is_eligible(
+        candidate,
+        feasible_qty,
+        remaining_length,
+    ):
+        return 0, 0, 0.0
+    if not candidate.repeatable:
+        return candidate.module_capacity, 1, candidate.depth
+    module_count = min(
+        feasible_qty // candidate.module_capacity,
+        _fit_count(remaining_length, candidate.depth),
+    )
+    return (
+        module_count * candidate.module_capacity,
+        module_count,
+        module_count * candidate.depth,
+    )
+
+
+def _fill_candidate_plan(
+    candidate: ProductBlockCandidate,
+    feasible_qty: int,
+    remaining_length: float,
+) -> Tuple[int, int, float]:
+    """Return a bounded whole/adaptive plus optional legacy partial fill."""
+    if candidate.depth > remaining_length + TOLERANCE or feasible_qty <= 0:
+        return 0, 0, 0.0
+    if not candidate.repeatable:
+        if candidate.product_stackable:
+            return 0, 0, 0.0
+        if candidate.module_capacity > feasible_qty:
+            return 0, 0, 0.0
+        return candidate.module_capacity, 1, candidate.depth
+    maximum_modules = _fit_count(remaining_length, candidate.depth)
+    quantity = min(feasible_qty, maximum_modules * candidate.module_capacity)
+    if quantity <= 0:
+        return 0, 0, 0.0
+    module_count = int(math.ceil(quantity / candidate.module_capacity))
+    return quantity, module_count, module_count * candidate.depth
+
+
 def _geometrically_equivalent(
     first: ProductBlockCandidate,
     second: ProductBlockCandidate,
@@ -503,7 +870,7 @@ def _geometrically_equivalent(
     )
 
 
-def choose_product_block(
+def _choose_legacy_product_block(
     candidates: List[ProductBlockCandidate],
     feasible_qty: int,
     remaining_length: float,
@@ -511,6 +878,7 @@ def choose_product_block(
     eligible = [
         candidate
         for candidate in candidates
+        if candidate.repeatable
         if _regular_candidate_is_eligible(
             candidate,
             feasible_qty,
@@ -563,20 +931,99 @@ def choose_product_block(
     return min(shortlisted, key=_candidate_stable_key)
 
 
+def choose_product_block(
+    candidates: List[ProductBlockCandidate],
+    feasible_qty: int,
+    remaining_length: float,
+) -> Optional[ProductBlockCandidate]:
+    """Prefer AMLB only for more units or a strictly shorter equal outcome."""
+    legacy = _choose_legacy_product_block(
+        candidates,
+        feasible_qty,
+        remaining_length,
+    )
+    adaptive = [
+        candidate
+        for candidate in candidates
+        if not candidate.repeatable
+        and not candidate.product_stackable
+        and _regular_candidate_is_eligible(
+            candidate,
+            feasible_qty,
+            remaining_length,
+        )
+    ]
+    if not adaptive:
+        return legacy
+    adaptive_winner = min(
+        adaptive,
+        key=lambda candidate: (
+            -candidate.module_capacity,
+            round(candidate.depth, 9),
+            -round(candidate.actual_volume_efficiency, 12),
+            -round(candidate.transverse_utilization, 12),
+            _candidate_stable_key(candidate),
+        ),
+    )
+    if legacy is None:
+        return adaptive_winner
+
+    legacy_quantity, _legacy_modules, legacy_depth = _regular_candidate_plan(
+        legacy,
+        feasible_qty,
+        remaining_length,
+    )
+    adaptive_quantity, _adaptive_modules, adaptive_depth = _regular_candidate_plan(
+        adaptive_winner,
+        feasible_qty,
+        remaining_length,
+    )
+    if adaptive_quantity > legacy_quantity:
+        return adaptive_winner
+    if (
+        adaptive_quantity == legacy_quantity
+        and adaptive_depth < legacy_depth - TOLERANCE
+    ):
+        return adaptive_winner
+    # Existing exact synchronized/single-orientation plans stay preferred on a
+    # true outcome tie, preserving the approved Product Block construction.
+    return legacy
+
+
 def _candidate_metadata(candidate: ProductBlockCandidate) -> Dict:
     lanes = []
-    for orientation, lane_count, repetitions in zip(
+    y_start = 0.0
+    for lane_index, (orientation, orientation_index, lane_count, repetitions) in enumerate(zip(
         candidate.orientations,
+        candidate.orientation_indices,
         candidate.lane_counts,
         candidate.x_repetitions,
-    ):
-        lanes.append(
-            {
-                "orientation": [float(value) for value in orientation],
-                "lane_count": int(lane_count),
-                "x_repetitions": int(repetitions),
-            }
+    )):
+        stack_heights = (
+            candidate.lane_stack_heights[lane_index]
+            if candidate.lane_stack_heights
+            else ()
         )
+        unit_count = (
+            sum(stack_heights)
+            if stack_heights
+            else lane_count * repetitions * candidate.nz
+        )
+        lane_metadata = {
+            "orientation": [float(value) for value in orientation],
+            "orientation_index": int(orientation_index),
+            "lane_count": int(lane_count),
+            "start_y": float(y_start),
+            "x_repetitions": int(repetitions),
+            "unit_count": int(unit_count),
+            "actual_x_end": float(repetitions * orientation[0]),
+        }
+        if stack_heights:
+            lane_metadata["stack_heights"] = [
+                int(stack_height) for stack_height in stack_heights
+            ]
+        lanes.append(lane_metadata)
+        y_start += lane_count * orientation[1]
     return {
         "pattern": candidate.pattern,
         # Compatibility aliases retained for consumers that previously saw a
@@ -597,12 +1044,19 @@ def _candidate_metadata(candidate: ProductBlockCandidate) -> Dict:
         "ny": int(sum(candidate.lane_counts)),
         "nz": int(candidate.nz),
         "depth": float(candidate.depth),
+        "actual_depth": float(candidate.depth),
+        "block_envelope_depth": float(candidate.depth),
         "width": float(candidate.occupied_width),
         "height": float(candidate.occupied_height),
         "capacity": int(candidate.module_capacity),
         "module_capacity": int(candidate.module_capacity),
+        "planned_quantity": int(
+            candidate.planned_quantity or candidate.module_capacity
+        ),
+        "repeatable": bool(candidate.repeatable),
         "transverse_capacity": int(candidate.transverse_capacity),
         "transverse_utilization": float(candidate.transverse_utilization),
+        "actual_volume_efficiency": float(candidate.actual_volume_efficiency),
     }
 
 
@@ -625,8 +1079,13 @@ def _materialize_product_block(
         depth, lane_width, unit_height = orientation
         for lane_index in range(lane_count):
             y = y_start + lane_index * lane_width
-            for x_index in range(repetitions):
-                for z_index in range(candidate.nz):
+            stack_heights = (
+                candidate.lane_stack_heights[group_index]
+                if candidate.lane_stack_heights
+                else tuple(candidate.nz for _index in range(repetitions))
+            )
+            for x_index, stack_height in enumerate(stack_heights):
+                for z_index in range(stack_height):
                     cells.append(
                         (
                             x_index * depth,
@@ -675,7 +1134,11 @@ def _materialize_product_block_in_space(
     quantity: int,
 ) -> List[Placement]:
     """Materialize a Product Block at XYZ offsets with stable item ordering."""
-    maximum_modules = _fit_count(space.L, candidate.depth)
+    maximum_modules = (
+        _fit_count(space.L, candidate.depth)
+        if candidate.repeatable
+        else int(candidate.depth <= space.L + TOLERANCE)
+    )
     maximum_quantity = maximum_modules * candidate.module_capacity
     target_quantity = min(max(int(quantity), 0), maximum_quantity)
     placements: List[Placement] = []
@@ -2294,6 +2757,7 @@ def fill_side_residual_deterministically(
                 product,
                 bounded_container,
                 active_space.L,
+                payload_quantity,
             )
             generated_candidate_count += len(candidates)
             stats["infill_block_candidates_generated"] += len(candidates)
@@ -2303,18 +2767,14 @@ def fill_side_residual_deterministically(
                 bounded_container,
             )
             for candidate in candidates:
-                module_count = _fit_count(active_space.L, candidate.depth)
-                quantity = min(
+                quantity, _module_count, depth_required = _fill_candidate_plan(
+                    candidate,
                     payload_quantity,
-                    module_count * candidate.module_capacity,
+                    active_space.L,
                 )
                 if quantity <= 0:
                     continue
                 fit_candidate_count += 1
-                depth_required = (
-                    int(math.ceil(quantity / candidate.module_capacity))
-                    * candidate.depth
-                )
                 packed_volume = quantity * product.unit_volume
                 ranking_key = (
                     -round(packed_volume, 9),
@@ -3086,6 +3546,7 @@ def fill_top_residual_deterministically(
                 product,
                 bounded_container,
                 active_space.L,
+                payload_quantity,
             )
             generated_candidate_count += len(candidates)
             stats["top_infill_block_candidates_generated"] += len(candidates)
@@ -3095,18 +3556,14 @@ def fill_top_residual_deterministically(
                 bounded_container,
             )
             for candidate in candidates:
-                module_count = _fit_count(active_space.L, candidate.depth)
-                quantity = min(
+                quantity, _module_count, depth_required = _fill_candidate_plan(
+                    candidate,
                     payload_quantity,
-                    module_count * candidate.module_capacity,
+                    active_space.L,
                 )
                 if quantity <= 0:
                     continue
                 fit_candidate_count += 1
-                depth_required = (
-                    int(math.ceil(quantity / candidate.module_capacity))
-                    * candidate.depth
-                )
                 candidate_placements = _materialize_product_block_in_space(
                     product,
                     candidate,
@@ -4525,6 +4982,7 @@ def _frontier_regular_block_efficiency(
         product,
         container,
         remaining_length,
+        feasible_qty,
     )
     selected = choose_product_block(
         candidates,
@@ -6218,6 +6676,7 @@ def _pack_container_front_to_back(
             product,
             normalized_container,
             available_length,
+            payload_qty,
         )
         block_candidates_generated += len(candidates)
         block_candidates_evaluated += evaluated
@@ -6427,6 +6886,13 @@ def _pack_container_front_to_back(
                             next_product,
                             normalized_container,
                             available_length,
+                            _payload_units_available(
+                                normalized_container,
+                                loaded_weight
+                                + residual_qty * product.weight,
+                                next_product.weight,
+                                next_remaining,
+                            ),
                         )
                         preferred_block = choose_product_block(
                             preferred_candidates,
@@ -7160,12 +7626,780 @@ def _pack_container_front_to_back(
     }
 
 
+def _mono_lane_configuration_key(
+    configuration: Tuple[MonoFloorLane, ...],
+) -> Tuple:
+    return tuple(
+        (
+            lane.orientation_index,
+            round(lane.y, 9),
+            tuple(round(value, 9) for value in lane.orientation),
+        )
+        for lane in configuration
+    )
+
+
+def _mono_lane_configurations(
+    product: NormalizedProduct,
+    container: Dict,
+) -> List[Tuple[MonoFloorLane, ...]]:
+    """Enumerate bounded floor-lane configurations from enabled orientations."""
+    fitting = [
+        (orientation_index, orientation)
+        for orientation_index, orientation in enumerate(product.orientations)
+        if orientation[0] <= container["L"] + TOLERANCE
+        and orientation[1] <= container["W"] + TOLERANCE
+        and orientation[2] <= container["H"] + TOLERANCE
+    ]
+    if len(fitting) < 2:
+        return []
+    if product.stackable and any(
+        _fit_count(container["H"], orientation[2])
+        > MONO_LANE_TRANSITION_STACK_LAYER_CAP
+        for _orientation_index, orientation in fitting
+    ):
+        # Deep stacks remain on the established supported Product Block path.
+        # The irregular transition extension is intentionally bounded to a
+        # floor layer plus one identical, fully supported upper layer.
+        return []
+    configurations: Dict[Tuple, Tuple[MonoFloorLane, ...]] = {}
+
+    def add_configuration(groups: Tuple[Tuple[int, int], ...]) -> None:
+        lane_specs = []
+        used_width = 0.0
+        for orientation_index, count in groups:
+            orientation = product.orientations[orientation_index]
+            for _lane_index in range(count):
+                lane_specs.append((orientation_index, orientation, used_width))
+                used_width += orientation[1]
+        if (
+            not lane_specs
+            or len(lane_specs) > MONO_LANE_COUNT_CAP
+            or used_width > container["W"] + TOLERANCE
+        ):
+            return
+        offsets = {0.0, max(float(container["W"] - used_width), 0.0)}
+        for offset in sorted(offsets):
+            configuration = tuple(
+                MonoFloorLane(
+                    orientation_index=orientation_index,
+                    orientation=orientation,
+                    y=float(offset + y),
+                )
+                for orientation_index, orientation, y in lane_specs
+            )
+            configurations[_mono_lane_configuration_key(configuration)] = configuration
+
+    for orientation_index, orientation in fitting:
+        lane_count = _fit_count(container["W"], orientation[1])
+        if 0 < lane_count <= MONO_LANE_COUNT_CAP:
+            add_configuration(((orientation_index, lane_count),))
+
+    # Each enabled pair is considered in both Y orders. Counts are geometry-
+    # derived and may create any number of physical lanes up to the hard cap.
+    for first_index, first in fitting:
+        for second_index, second in fitting:
+            if first_index == second_index:
+                continue
+            maximum_first = _fit_count(
+                container["W"] - second[1],
+                first[1],
+            )
+            for first_count in _bounded_adaptive_lane_counts(maximum_first):
+                remaining_width = container["W"] - first_count * first[1]
+                maximum_second = _fit_count(remaining_width, second[1])
+                for second_count in sorted({1, maximum_second}):
+                    if second_count <= 0:
+                        continue
+                    add_configuration(
+                        (
+                            (first_index, first_count),
+                            (second_index, second_count),
+                        )
+                    )
+
+    ranked = sorted(
+        configurations.values(),
+        key=lambda configuration: (
+            -round(
+                max(lane.y + lane.orientation[1] for lane in configuration)
+                - min(lane.y for lane in configuration),
+                9,
+            ),
+            -len(configuration),
+            _mono_lane_configuration_key(configuration),
+        ),
+    )
+    return ranked[:MONO_LANE_CONFIGURATION_CAP]
+
+
+def _mono_transition_cut_coordinates(
+    configuration: Tuple[MonoFloorLane, ...],
+    container_length: float,
+) -> Tuple[float, ...]:
+    """Return stable dimension-derived X cuts within a bounded count."""
+    cuts = {0.0, float(container_length)}
+    unique_lengths = sorted({lane.orientation[0] for lane in configuration})
+    per_orientation_cap = max(
+        MONO_LANE_CUT_COUNT_CAP // max(len(unique_lengths), 1),
+        2,
+    )
+    for length in unique_lengths:
+        maximum = _fit_count(container_length, length)
+        if maximum <= per_orientation_cap:
+            counts = range(maximum + 1)
+        else:
+            counts = sorted(
+                {
+                    0,
+                    1,
+                    maximum,
+                    *(
+                        int(round(maximum * index / (per_orientation_cap - 1)))
+                        for index in range(1, per_orientation_cap - 1)
+                    ),
+                }
+            )
+        cuts.update(
+            float(count * length)
+            for count in counts
+            if count * length <= container_length + TOLERANCE
+        )
+    return tuple(sorted(cuts))
+
+
+def _mono_lanes_overlap(first: MonoFloorLane, second: MonoFloorLane) -> bool:
+    return (
+        min(
+            first.y + first.orientation[1],
+            second.y + second.orientation[1],
+        )
+        > max(first.y, second.y) + TOLERANCE
+    )
+
+
+def _floor_compactness_waste_area(placements: List[Placement]) -> float:
+    """Return unused area inside the placements' XY bounding envelope."""
+    if not placements:
+        return 0.0
+    x_start = min(placement.x for placement in placements)
+    x_end = max(placement.x + placement.l for placement in placements)
+    y_start = min(placement.y for placement in placements)
+    y_end = max(placement.y + placement.w for placement in placements)
+    envelope_area = max(x_end - x_start, 0.0) * max(y_end - y_start, 0.0)
+    occupied_area = sum(
+        placement.l * placement.w
+        for placement in placements
+        if placement.z <= TOLERANCE
+    )
+    return max(float(envelope_area - occupied_area), 0.0)
+
+
+def _mono_stack_layer_count(
+    product: NormalizedProduct,
+    container: Dict,
+    orientation: Tuple[float, float, float],
+) -> int:
+    """Return supported same-footprint layers for one transition floor cell."""
+    if not product.stackable:
+        return 1
+    return _fit_count(container["H"], orientation[2])
+
+
+def _mono_transition_candidate(
+    product: NormalizedProduct,
+    container: Dict,
+    left_configuration: Tuple[MonoFloorLane, ...],
+    right_configuration: Tuple[MonoFloorLane, ...],
+    cut: float,
+    feasible_qty: int,
+) -> Optional[MonoLaneTransitionPlan]:
+    left_counts = [
+        _fit_count(cut, lane.orientation[0])
+        for lane in left_configuration
+    ]
+    left_ends = [
+        count * lane.orientation[0]
+        for count, lane in zip(left_counts, left_configuration)
+    ]
+    right_counts = []
+    right_starts = []
+    for right_lane in right_configuration:
+        blocking_end = max(
+            (
+                left_end
+                for left_end, left_lane in zip(
+                    left_ends,
+                    left_configuration,
+                )
+                if _mono_lanes_overlap(left_lane, right_lane)
+            ),
+            default=0.0,
+        )
+        right_counts.append(
+            _fit_count(
+                max(container["L"] - blocking_end, 0.0),
+                right_lane.orientation[0],
+            )
+        )
+        right_starts.append(float(blocking_end))
+
+    floor_cells = []
+    for lane_index, (lane, count) in enumerate(
+        zip(left_configuration, left_counts)
+    ):
+        for x_index in range(count):
+            floor_cells.append(
+                (
+                    "left",
+                    lane_index,
+                    x_index * lane.orientation[0],
+                    lane,
+                )
+            )
+    for lane_index, (lane, count, lane_start) in enumerate(
+        zip(right_configuration, right_counts, right_starts)
+    ):
+        x_start = lane_start
+        for x_index in range(count):
+            floor_cells.append(
+                (
+                    "right",
+                    lane_index,
+                    x_start + x_index * lane.orientation[0],
+                    lane,
+                )
+            )
+
+    floor_cells.sort(
+        key=lambda cell: (
+            round(cell[2], 9),
+            round(cell[3].y, 9),
+            cell[0],
+            cell[1],
+        )
+    )
+    cells = []
+    for side, lane_index, x, lane in floor_cells:
+        for layer_index in range(
+            _mono_stack_layer_count(product, container, lane.orientation)
+        ):
+            cells.append((side, lane_index, x, lane, layer_index))
+
+    target_quantity = min(len(cells), feasible_qty)
+    cells = cells[:target_quantity]
+    if target_quantity <= 0:
+        return None
+    x_offset = min(cell[2] for cell in cells)
+    shifted_cells = [
+        (side, lane_index, x - x_offset, lane, layer_index)
+        for side, lane_index, x, lane, layer_index in cells
+    ]
+    shifted_cells.sort(
+        key=lambda cell: (
+            round(cell[2], 9),
+            round(cell[3].y, 9),
+            cell[4],
+            cell[0],
+            cell[1],
+        )
+    )
+
+    placements = tuple(
+        Placement(
+            product_name=product.name,
+            item_index=item_index,
+            row_index=product.row_index,
+            sequence=product.sequence,
+            weight=product.weight,
+            stackable=product.stackable,
+            x=float(x),
+            y=float(lane.y),
+            z=float(layer_index * lane.orientation[2]),
+            l=float(lane.orientation[0]),
+            w=float(lane.orientation[1]),
+            h=float(lane.orientation[2]),
+        )
+        for item_index, (
+            _side,
+            _lane_index,
+            x,
+            lane,
+            layer_index,
+        ) in enumerate(shifted_cells)
+    )
+    occupied_length = max(
+        placement.x + placement.l for placement in placements
+    )
+    floor_quantity = sum(
+        placement.z <= TOLERANCE for placement in placements
+    )
+    used_sides = {
+        side for side, _lane_index, _x, _lane, _layer_index in shifted_cells
+    }
+    realized_transitions = int(
+        used_sides == {"left", "right"}
+        and _mono_lane_configuration_key(left_configuration)
+        != _mono_lane_configuration_key(right_configuration)
+    )
+    lane_metadata = []
+    for side, configuration in (
+        ("left", left_configuration),
+        ("right", right_configuration),
+    ):
+        for lane_index, lane in enumerate(configuration):
+            lane_placements = [
+                placement
+                for placement, cell in zip(placements, shifted_cells)
+                if cell[0] == side and cell[1] == lane_index
+            ]
+            if not lane_placements:
+                continue
+            lane_metadata.append(
+                {
+                    "side": side,
+                    "lane_index": int(lane_index),
+                    "orientation_index": int(lane.orientation_index),
+                    "orientation": [float(value) for value in lane.orientation],
+                    "y_start": float(lane.y),
+                    "quantity": len(lane_placements),
+                    "floor_quantity": sum(
+                        item.z <= TOLERANCE for item in lane_placements
+                    ),
+                    "layer_count": max(
+                        int(round(item.z / item.h)) + 1
+                        for item in lane_placements
+                    ),
+                    "x_start": float(min(item.x for item in lane_placements)),
+                    "x_end": float(
+                        max(item.x + item.l for item in lane_placements)
+                    ),
+                }
+            )
+
+    stable_key = tuple(
+        (
+            round(placement.x, 9),
+            round(placement.y, 9),
+            round(placement.z, 9),
+            round(placement.l, 9),
+            round(placement.w, 9),
+            round(placement.h, 9),
+        )
+        for placement in placements
+    )
+    return MonoLaneTransitionPlan(
+        placements=placements,
+        floor_quantity=int(floor_quantity),
+        occupied_length=float(occupied_length),
+        compactness_waste_area=_floor_compactness_waste_area(list(placements)),
+        realized_transitions=realized_transitions,
+        candidate_count=0,
+        configuration_count=0,
+        budget_exhausted=False,
+        lane_metadata=tuple(lane_metadata),
+        stable_key=stable_key,
+    )
+
+
+def _best_mono_lane_transition_plan(
+    product: NormalizedProduct,
+    container: Dict,
+    candidate_budget: int,
+) -> Tuple[Optional[MonoLaneTransitionPlan], Dict]:
+    configurations = _mono_lane_configurations(product, container)
+    feasible_qty = _payload_units_available(
+        container,
+        0.0,
+        product.weight,
+        product.qty,
+    )
+    budget = max(int(candidate_budget), 0)
+    diagnostics = {
+        "configuration_count": len(configurations),
+        "candidate_budget": budget,
+        "candidate_count": 0,
+        "budget_exhausted": False,
+        "placement_cap": MONO_LANE_TRANSITION_PLACEMENT_CAP,
+        "stack_layer_cap": MONO_LANE_TRANSITION_STACK_LAYER_CAP,
+    }
+    if (
+        len(configurations) < 2
+        or feasible_qty <= 0
+        or feasible_qty > MONO_LANE_TRANSITION_PLACEMENT_CAP
+        or budget <= 0
+    ):
+        return None, diagnostics
+
+    best = None
+    evaluated = 0
+    budget_exhausted = False
+    for left_configuration in configurations:
+        cuts = _mono_transition_cut_coordinates(
+            left_configuration,
+            container["L"],
+        )
+        for right_configuration in configurations:
+            for cut in cuts:
+                if evaluated >= budget:
+                    budget_exhausted = True
+                    break
+                evaluated += 1
+                candidate = _mono_transition_candidate(
+                    product,
+                    container,
+                    left_configuration,
+                    right_configuration,
+                    cut,
+                    feasible_qty,
+                )
+                if candidate is None:
+                    continue
+                candidate_key = (
+                    -len(candidate.placements),
+                    round(candidate.occupied_length, 9),
+                    round(candidate.compactness_waste_area, 9),
+                    candidate.realized_transitions,
+                    candidate.stable_key,
+                )
+                if best is None or candidate_key < best[0]:
+                    # The construction already enforces lane separation and
+                    # same-footprint bottom-up support. Run the shared full 3D
+                    # validator before a candidate is allowed to become the
+                    # incumbent, avoiding repeated validation of dominated
+                    # layouts during Auto max trials.
+                    valid, _reason = _validate_frontier_geometry(
+                        list(candidate.placements),
+                        container,
+                    )
+                    if valid:
+                        best = (candidate_key, candidate)
+            if budget_exhausted:
+                break
+        if budget_exhausted:
+            break
+
+    diagnostics.update(
+        {
+            "candidate_count": evaluated,
+            "budget_exhausted": budget_exhausted,
+        }
+    )
+    if best is None:
+        return None, diagnostics
+    selected = best[1]
+    return (
+        MonoLaneTransitionPlan(
+            placements=selected.placements,
+            floor_quantity=selected.floor_quantity,
+            occupied_length=selected.occupied_length,
+            compactness_waste_area=selected.compactness_waste_area,
+            realized_transitions=selected.realized_transitions,
+            candidate_count=evaluated,
+            configuration_count=len(configurations),
+            budget_exhausted=budget_exhausted,
+            lane_metadata=selected.lane_metadata,
+            stable_key=selected.stable_key,
+        ),
+        diagnostics,
+    )
+
+
+def _mono_transition_metadata(
+    plan: Optional[MonoLaneTransitionPlan],
+    diagnostics: Dict,
+    *,
+    selected: bool,
+    reason: str,
+    transition_limit: int,
+) -> Dict:
+    return {
+        "eligible": True,
+        "selected": bool(selected),
+        "selection_reason": reason,
+        "transition_limit": int(transition_limit),
+        "realized_transitions": int(plan.realized_transitions if plan else 0),
+        "packed_quantity": int(len(plan.placements) if plan else 0),
+        "floor_quantity": int(plan.floor_quantity if plan else 0),
+        "occupied_length": float(plan.occupied_length if plan else 0.0),
+        "compactness_waste_area": float(
+            plan.compactness_waste_area if plan else 0.0
+        ),
+        "configuration_count": int(diagnostics.get("configuration_count", 0)),
+        "candidate_budget": int(diagnostics.get("candidate_budget", 0)),
+        "candidate_count": int(diagnostics.get("candidate_count", 0)),
+        "budget_exhausted": bool(diagnostics.get("budget_exhausted", False)),
+        "lane_count_cap": MONO_LANE_COUNT_CAP,
+        "configuration_cap": MONO_LANE_CONFIGURATION_CAP,
+        "cut_count_cap": MONO_LANE_CUT_COUNT_CAP,
+        "placement_cap": MONO_LANE_TRANSITION_PLACEMENT_CAP,
+        "stack_layer_cap": int(
+            diagnostics.get(
+                "stack_layer_cap",
+                MONO_LANE_TRANSITION_STACK_LAYER_CAP,
+            )
+        ),
+        "lanes": list(plan.lane_metadata if plan else ()),
+        "placement_sample": [
+            {
+                "x": float(placement.x),
+                "y": float(placement.y),
+                "z": float(placement.z),
+                "l": float(placement.l),
+                "w": float(placement.w),
+                "h": float(placement.h),
+            }
+            for placement in (plan.placements if plan else ())[
+                :DGFE_POSITION_DIAGNOSTIC_LIMIT
+            ]
+        ],
+    }
+
+
+def _select_mono_lane_transition_outcome(
+    baseline: Dict,
+    container: Dict,
+    products: List[NormalizedProduct],
+    max_lane_transitions: int,
+    candidate_budget: int,
+) -> Dict:
+    positive_products = [product for product in products if product.qty > 0]
+    if len(positive_products) != 1:
+        return baseline
+
+    product = positive_products[0]
+    diagnostics = {
+        "configuration_count": 0,
+        "candidate_budget": max(int(candidate_budget), 0),
+        "candidate_count": 0,
+        "budget_exhausted": False,
+    }
+    if max_lane_transitions == 0:
+        result = dict(baseline)
+        result["mono_lane_transition"] = _mono_transition_metadata(
+            None,
+            diagnostics,
+            selected=False,
+            reason="disabled",
+            transition_limit=0,
+        )
+        return result
+
+    plan, diagnostics = _best_mono_lane_transition_plan(
+        product,
+        container,
+        candidate_budget,
+    )
+    baseline_count = len(baseline.get("placements") or [])
+    baseline_occupied_length = max(
+        (
+            placement.x + placement.l
+            for placement in baseline.get("placements") or []
+        ),
+        default=0.0,
+    )
+    baseline_compactness = _floor_compactness_waste_area(
+        list(baseline.get("placements") or [])
+    )
+    candidate_count = len(plan.placements) if plan else 0
+    candidate_depth = plan.occupied_length if plan else 0.0
+    candidate_compactness = plan.compactness_waste_area if plan else 0.0
+    selected = bool(
+        plan
+        and (
+            candidate_count > baseline_count
+            or (
+                candidate_count == baseline_count
+                and (
+                    candidate_depth < baseline_occupied_length - TOLERANCE
+                    or (
+                        abs(candidate_depth - baseline_occupied_length)
+                        <= TOLERANCE
+                        and candidate_compactness
+                        < baseline_compactness - TOLERANCE
+                    )
+                )
+            )
+        )
+    )
+    if not selected:
+        result = dict(baseline)
+        result["mono_lane_transition"] = _mono_transition_metadata(
+            plan,
+            diagnostics,
+            selected=False,
+            reason="baseline_preferred" if plan else "no_valid_candidate",
+            transition_limit=max_lane_transitions,
+        )
+        return result
+
+    placements = list(plan.placements)
+    if candidate_count > baseline_count:
+        selection_reason = "more_units"
+    elif candidate_depth < baseline_occupied_length - TOLERANCE:
+        selection_reason = "shorter_occupied_length"
+    else:
+        selection_reason = "less_trapped_floor_envelope_area"
+    loaded_weight = sum(placement.weight for placement in placements)
+    unplaced_reason = _unplaced_reason(
+        product,
+        container,
+        loaded_weight,
+        plan.occupied_length,
+    )
+    unplaced = [
+        _unplaced_item(product, item_index, unplaced_reason)
+        for item_index in range(len(placements), product.qty)
+    ]
+    remaining_length = max(container["L"] - plan.occupied_length, 0.0)
+    result = dict(baseline)
+    result.update(
+        {
+            "placements": placements,
+            "unplaced": unplaced,
+            "spaces": (
+                [
+                    Space(
+                        plan.occupied_length,
+                        0.0,
+                        0.0,
+                        remaining_length,
+                        container["W"],
+                        container["H"],
+                    )
+                ]
+                if remaining_length > TOLERANCE
+                else []
+            ),
+            "loaded_weight": float(loaded_weight),
+            "strategy": f'{baseline.get("strategy", "")}_mono_lane_transition',
+            "main_blocks": [],
+            "main_block_units": 0,
+            "main_blocks_end_x": 0.0,
+            "leftover_units_requested": int(product.qty),
+            "leftover_units_packed": len(placements),
+            "mono_lane_transition": _mono_transition_metadata(
+                plan,
+                diagnostics,
+                selected=True,
+                reason=selection_reason,
+                transition_limit=max_lane_transitions,
+            ),
+        }
+    )
+
+    if str(result.get("packing_mode", "")).startswith("front_to_back"):
+        result.update(
+            {
+                "front_to_back_product_blocks": [
+                    {
+                        "row_index": product.row_index,
+                        "product_name": product.name,
+                        "requested_qty": int(product.qty),
+                        "regular_qty": 0,
+                        "residual_qty": int(product.qty - len(placements)),
+                        "mono_lane_transition_qty": len(placements),
+                        "block": None,
+                    }
+                ],
+                "front_to_back_main_blocks": [],
+                "front_to_back_main_block_count": 0,
+                "front_to_back_block_packed_units": 0,
+                "front_to_back_frontiers": [],
+                "front_to_back_frontier_count": 0,
+                "front_to_back_phase_order": [
+                    {
+                        "phase": "mono_lane_transition",
+                        "row_index": product.row_index,
+                        "product_name": product.name,
+                        "quantity": len(placements),
+                        "x_start": 0.0,
+                        "x_end": float(plan.occupied_length),
+                    }
+                ],
+                "front_to_back_total_packed_units": len(placements),
+                "front_to_back_total_unplaced_units": len(unplaced),
+                "front_to_back_x_used": float(plan.occupied_length),
+                "front_to_back_clean_frontier_x": float(plan.occupied_length),
+                "floor_first_main_blocks": [],
+                "floor_first_candidate_selected": True,
+                "floor_first_candidate_source": "mono_lane_transition",
+                "floor_first_frontier_evaluations": [],
+                "floor_first_frontiers_evaluated": 0,
+                "floor_first_residual_units": int(product.qty),
+                "floor_first_residual_packed_units": len(placements),
+                "floor_first_residual_unplaced_units": len(unplaced),
+            }
+        )
+    else:
+        packed_volume = sum(
+            placement.l * placement.w * placement.h for placement in placements
+        )
+        result.update(
+            {
+                "space_evenly_product_blocks": [
+                    {
+                        "row_index": product.row_index,
+                        "product_name": product.name,
+                        "requested_qty": int(product.qty),
+                        "complete_blocks": 0,
+                        "regular_qty": 0,
+                        "residual_qty": int(product.qty - len(placements)),
+                        "mono_lane_transition_qty": len(placements),
+                        "x_start": 0.0,
+                        "x_end": float(plan.occupied_length),
+                        "block": None,
+                    }
+                ],
+                "space_evenly_main_blocks": [],
+                "space_evenly_main_block_count": 0,
+                "space_evenly_block_count": 0,
+                "space_evenly_main_block_units": 0,
+                "space_evenly_block_packed_units": 0,
+                "space_evenly_main_blocks_end_x": 0.0,
+                "space_evenly_residual_miniblocks": [],
+                "space_evenly_residual_bands": [],
+                "space_evenly_residual_frontiers": [],
+                "space_evenly_residual_band_count": 0,
+                "space_evenly_residual_frontier_count": 0,
+                "space_evenly_residual_units": 0,
+                "space_evenly_residual_packed_units": 0,
+                "space_evenly_residual_unplaced_units": 0,
+                "space_evenly_phase_order": [
+                    {
+                        "phase": "mono_lane_transition",
+                        "row_index": product.row_index,
+                        "product_name": product.name,
+                        "quantity": len(placements),
+                        "x_start": 0.0,
+                        "x_end": float(plan.occupied_length),
+                    }
+                ],
+                "space_evenly_complete_placement_count": len(placements),
+                "space_evenly_target_counts": {
+                    str(product.row_index): len(placements)
+                },
+                "space_evenly_target_total_units": len(placements),
+                "space_evenly_target_packed_volume": float(packed_volume),
+                "space_evenly_x_used": float(plan.occupied_length),
+            }
+        )
+    return result
+
+
 def pack_container(
     container: Dict,
     products: List[Dict],
     mode: Optional[str] = None,
+    *,
+    max_lane_transitions: int = MONO_LANE_TRANSITION_MAX_SUPPORTED,
+    mono_transition_candidate_budget: int = (
+        MONO_LANE_TRANSITION_DEFAULT_CANDIDATE_BUDGET
+    ),
 ) -> Dict:
     """Pack with an active mode or return a graceful unsupported-mode result."""
+    if max_lane_transitions not in {0, 1}:
+        raise ValueError("max_lane_transitions currently supports only 0 or 1.")
     normalized_container = _normalize_container(container)
     requested_mode = _normalize_packing_mode(
         mode if mode is not None else (container or {}).get("packing_mode")
@@ -7182,10 +8416,17 @@ def pack_container(
         ]
     normalized_products = normalize_products(normalized_input_products)
     if requested_mode in {FRONT_TO_BACK_MODE, FRONT_TO_BACK_INFILL_MODE}:
-        return _pack_container_front_to_back(
+        baseline = _pack_container_front_to_back(
             normalized_container,
             normalized_input_products,
             requested_mode,
+        )
+        return _select_mono_lane_transition_outcome(
+            baseline,
+            normalized_container,
+            normalized_products,
+            max_lane_transitions,
+            mono_transition_candidate_budget,
         )
     if requested_mode not in {SPACE_EVENLY_MODE, SPACE_EVENLY_INFILL_MODE}:
         return _unsupported_mode_result(
@@ -7236,6 +8477,7 @@ def pack_container(
             product,
             normalized_container,
             available_length,
+            payload_qty,
         )
         generated_candidates += len(candidates)
         evaluated_candidates += evaluated
@@ -7686,7 +8928,13 @@ def pack_container(
             else {}
         ),
     }
-    return result
+    return _select_mono_lane_transition_outcome(
+        result,
+        normalized_container,
+        normalized_products,
+        max_lane_transitions,
+        mono_transition_candidate_budget,
+    )
 
 
 def pack_container_sequence_loading(container: Dict, products: List[Dict]) -> Dict:

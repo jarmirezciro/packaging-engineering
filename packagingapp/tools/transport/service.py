@@ -1,3 +1,5 @@
+import math
+
 from django.conf import settings
 
 from .state import default_product_rows
@@ -230,6 +232,15 @@ def build_container_from_config(cfg, selected_material=None):
 MAX_AUTO_QTY_FOR_RENDER = 5000
 
 
+def _safe_floor_ratio(numerator, denominator):
+    """Floor a positive float ratio without losing an exact integer to noise."""
+    numerator = float(numerator)
+    denominator = float(denominator)
+    if numerator <= 0 or denominator <= 0:
+        return 0
+    return max(0, int(math.floor((numerator / denominator) + 1e-9)))
+
+
 def _allowed_orientation_count(product):
     try:
         from ...utils.container_tool.engine import allowed_orientations
@@ -245,59 +256,164 @@ def _allowed_orientation_count(product):
 
 def _theoretical_auto_qty_upper(container, product):
     """
-    Practical upper bound used for binary search.
-    The final quantity is still confirmed with the real packing heuristic.
+    Return a physical upper bound for one product row.
+
+    Volume and payload are necessary conditions only. The final
+    quantity is confirmed with the real packing heuristic.
     """
     item_volume = float(product["length"] * product["width"] * product["height"])
     container_volume = float(container["L"] * container["W"] * container["H"])
     if item_volume <= 0 or container_volume <= 0:
         return 0
 
-    volume_upper = int(container_volume // item_volume)
-    weight_upper = volume_upper
+    orientations = [
+        (l, w, h)
+        for l, w, h in _allowed_orientation_count(product)
+        if l > 0
+        and w > 0
+        and h > 0
+        and l <= float(container["L"])
+        and w <= float(container["W"])
+        and h <= float(container["H"])
+    ]
+    if not orientations:
+        return 0
+
+    geometry_upper = _safe_floor_ratio(container_volume, item_volume)
+
+    weight_upper = geometry_upper
     try:
         max_weight = container.get("max_weight")
         item_weight = float(product.get("weight", 0) or 0)
         if max_weight is not None and float(max_weight) > 0 and item_weight > 0:
-            weight_upper = int(float(max_weight) // item_weight)
+            weight_upper = _safe_floor_ratio(max_weight, item_weight)
     except Exception:
-        weight_upper = volume_upper
+        weight_upper = geometry_upper
 
-    grid_upper = 0
-    for l, w, h in _allowed_orientation_count(product):
-        if l <= 0 or w <= 0 or h <= 0:
-            continue
-        vertical_layers = int(container["H"] // h)
-        if not bool(product.get("stackable", True)):
-            vertical_layers = min(vertical_layers, 1)
-        grid_upper = max(
-            grid_upper,
-            int(container["L"] // l) * int(container["W"] // w) * vertical_layers,
-        )
+    return max(0, min(geometry_upper, weight_upper))
 
-    candidates = [value for value in (volume_upper, weight_upper) if value is not None and value > 0]
-    if grid_upper > 0:
-        # Use a little headroom above uniform-grid capacity in case mixed rotations help.
-        candidates.append(max(grid_upper * 2, grid_upper + 25))
 
-    upper = min(candidates) if candidates else 0
+def _remaining_auto_qty_upper(container, products, row_index, upper):
+    """Tighten an upper bound by reserving fixed-row volume and payload."""
+    candidate = products[row_index]
+    item_volume = float(
+        candidate["length"] * candidate["width"] * candidate["height"]
+    )
+    fixed_volume = sum(
+        float(product["length"] * product["width"] * product["height"])
+        * int(product.get("qty", 0) or 0)
+        for index, product in enumerate(products)
+        if index != row_index
+    )
+    remaining_volume = max(
+        0.0,
+        float(container["L"] * container["W"] * container["H"]) - fixed_volume,
+    )
+    if item_volume > 0:
+        upper = min(upper, _safe_floor_ratio(remaining_volume, item_volume))
+
+    other_requested_rows = [
+        product
+        for index, product in enumerate(products)
+        if index != row_index and int(product.get("qty", 0) or 0) > 0
+    ]
+    if not bool(candidate.get("stackable", True)) and not other_requested_rows:
+        fitting_orientations = [
+            (l, w, h)
+            for l, w, h in _allowed_orientation_count(candidate)
+            if l > 0
+            and w > 0
+            and h > 0
+            and l <= float(container["L"])
+            and w <= float(container["W"])
+            and h <= float(container["H"])
+        ]
+        if fitting_orientations:
+            minimum_floor_area = min(
+                float(l * w) for l, w, _h in fitting_orientations
+            )
+            upper = min(
+                upper,
+                _safe_floor_ratio(
+                    float(container["L"] * container["W"]), minimum_floor_area
+                ),
+            )
+
+    try:
+        max_weight = container.get("max_weight")
+        item_weight = float(candidate.get("weight", 0) or 0)
+        if max_weight is not None and float(max_weight) > 0 and item_weight > 0:
+            fixed_weight = sum(
+                float(product.get("weight", 0) or 0)
+                * int(product.get("qty", 0) or 0)
+                for index, product in enumerate(products)
+                if index != row_index
+            )
+            remaining_payload = max(0.0, float(max_weight) - fixed_weight)
+            upper = min(upper, _safe_floor_ratio(remaining_payload, item_weight))
+    except Exception:
+        pass
+
     return max(0, int(upper))
 
 
-def _pack_count_by_marker(container, products):
-    pack_result = pack_container(container, products)
+def _pack_count_by_marker(
+    container,
+    products,
+    *,
+    max_lane_transitions=None,
+):
+    kwargs = {}
+    if max_lane_transitions is not None:
+        kwargs["max_lane_transitions"] = max_lane_transitions
+    pack_result = pack_container(container, products, **kwargs)
     counts = {}
     for placement in pack_result.get("placements", []):
         counts[placement.product_name] = counts.get(placement.product_name, 0) + 1
     return counts
 
 
-def _can_pack_requested_quantities(container, products, required_counts):
-    counts = _pack_count_by_marker(container, products)
+def _can_pack_requested_quantities(
+    container,
+    products,
+    required_counts,
+    *,
+    max_lane_transitions=None,
+):
+    counts = _pack_count_by_marker(
+        container,
+        products,
+        max_lane_transitions=max_lane_transitions,
+    )
     for marker, qty in required_counts.items():
         if counts.get(marker, 0) < int(qty or 0):
             return False
     return True
+
+
+def _mono_transition_feasible_lower_bound(container, products, row_index, upper):
+    """Return a validated mono-plan count reusable by the descending search."""
+    if any(
+        index != row_index and int(product.get("qty", 0) or 0) > 0
+        for index, product in enumerate(products)
+    ):
+        return 0
+    def probe_quantity(quantity):
+        probe = [dict(product) for product in products]
+        probe[row_index]["qty"] = int(quantity)
+        result = pack_container(container, probe)
+        metadata = result.get("mono_lane_transition") or {}
+        return metadata
+
+    metadata = probe_quantity(upper)
+    if not metadata.get("eligible"):
+        return 0
+    packed_quantity = int(metadata.get("packed_quantity", 0) or 0)
+    placement_cap = int(metadata.get("placement_cap", 0) or 0)
+    if packed_quantity <= 0 and 0 < placement_cap < int(upper):
+        metadata = probe_quantity(placement_cap)
+        packed_quantity = int(metadata.get("packed_quantity", 0) or 0)
+    return max(0, min(packed_quantity, int(upper)))
 
 
 def _with_internal_markers(products):
@@ -343,6 +459,8 @@ def _resolve_auto_max_quantities(container, products):
             upper = MAX_AUTO_QTY_FOR_RENDER
             capped = True
 
+        upper = _remaining_auto_qty_upper(container, resolved, row_index, upper)
+
         marked, marker_by_row = _with_internal_markers(resolved)
         required_counts = {
             marker_by_row[i]: int(p.get("qty", 0) or 0)
@@ -351,32 +469,60 @@ def _resolve_auto_max_quantities(container, products):
         }
         candidate_marker = marker_by_row[row_index]
 
-        low = 0
-        high = upper
         best = 0
+        mono_lower_bound = _mono_transition_feasible_lower_bound(
+            container,
+            marked,
+            row_index,
+            upper,
+        )
 
-        while low <= high:
-            mid = (low + high) // 2
+        # Packing feasibility is not monotonic in the requested quantity. A
+        # synchronized block can be incomplete at q and complete at q + 1, so
+        # binary search can discard a larger feasible result. Search downward
+        # from the bounded physical upper instead; the first fully packed trial
+        # is the exact maximum produced by the current deterministic heuristic.
+        search_floor = mono_lower_bound if mono_lower_bound > 0 else 0
+        for quantity in range(upper, search_floor, -1):
             trial = []
             for i, product in enumerate(marked):
                 clone = dict(product)
-                clone["qty"] = mid if i == row_index else int(clone.get("qty", 0) or 0)
+                clone["qty"] = (
+                    quantity if i == row_index else int(clone.get("qty", 0) or 0)
+                )
                 trial.append(clone)
 
             required = dict(required_counts)
-            required[candidate_marker] = mid
+            required[candidate_marker] = quantity
 
-            if _can_pack_requested_quantities(container, trial, required):
-                best = mid
-                low = mid + 1
+            if mono_lower_bound > 0:
+                feasible = _can_pack_requested_quantities(
+                    container,
+                    trial,
+                    required,
+                    max_lane_transitions=0,
+                )
             else:
-                high = mid - 1
+                feasible = _can_pack_requested_quantities(
+                    container,
+                    trial,
+                    required,
+                )
+            if feasible:
+                best = quantity
+                break
+
+        if best <= 0 and mono_lower_bound > 0:
+            # The mono plan at the original upper request was fully validated
+            # and materialized with this many units. Candidate feasibility is
+            # prefix-closed because each support column is emitted bottom-up.
+            best = mono_lower_bound
 
         candidate["qty"] = max(best, 0)
         if best <= 0:
             messages.append(f"Row {row_index + 1}: no additional units fit after respecting the other rows.")
         else:
-            if capped and best >= upper:
+            if capped and best >= MAX_AUTO_QTY_FOR_RENDER:
                 messages.append(
                     f"Row {row_index + 1}: automatic max quantity was capped at {MAX_AUTO_QTY_FOR_RENDER:,} units to keep the render responsive."
                 )
