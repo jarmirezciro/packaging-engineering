@@ -43,6 +43,8 @@ class FullPackagingCaseTests(TestCase):
         )
         self.assertEqual(pallet_step["pending_result"]["length"], 1225.4)
         self.assertEqual(pallet_step["pending_result"]["width"], 825.4)
+        self.assertEqual(pallet_step["config"]["pallet_height"], 80.0)
+        self.assertEqual(pallet_step["config"]["max_stack_height"], 1350)
         transport_row = workflow["steps"][2]["config"]["product_rows"][0]
         self.assertTrue(transport_row["r1"])
         self.assertFalse(transport_row["r2"])
@@ -54,7 +56,7 @@ class FullPackagingCaseTests(TestCase):
         )
         self.assertEqual(
             workflow["steps"][2]["result"]["summary"]["occupied_height"],
-            2196.0,
+            2688.0,
         )
         self.assertEqual(
             transport_scene["metadata"]["detailed_pallet_items"],

@@ -33,7 +33,8 @@ _CASE_PRESETS = {
         "pallet": {
             "length": 1200,
             "width": 800,
-            "max_stack_height": 1200,
+            "height": 80,
+            "max_stack_height": 1350,
             "max_width_stickout": 25.4,
             "max_length_stickout": 25.4,
         },
