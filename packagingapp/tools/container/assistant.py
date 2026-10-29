@@ -24,6 +24,7 @@ from ...assistant.contracts import (
     validate_tool_context,
 )
 from ...forms import ContainerSelectionMode1Form
+from ...units import kg_to_g
 from ...utils.box_selection.box_selection_tool_arrays_2_origin_coordinates import (
     allowed_product_orientations,
 )
@@ -195,7 +196,11 @@ def _effective_product_values(form, selected_product, readiness):
             _finite_number(getattr(selected_product, "product_length", None)),
             _finite_number(getattr(selected_product, "product_width", None)),
             _finite_number(getattr(selected_product, "product_height", None)),
-            _finite_number(getattr(selected_product, "weight", None)),
+            _finite_number(
+                kg_to_g(selected_product.weight)
+                if getattr(selected_product, "weight", None) is not None
+                else None
+            ),
         )
     return (
         _finite_number(form.cleaned_data.get("product_l")),
@@ -519,28 +524,25 @@ def _selection_result(report, mode, container_source):
     if net_weight is not None:
         result["net_weight"] = {"value": net_weight, "unit": "g"}
 
-    # PackagingMaterial.part_weight is intentionally withheld for catalogue
-    # containers because its stored unit is inconsistent across the repository.
-    if container_source == "manual":
-        for source_key, output_key in (
-            ("container_tare", "container_tare"),
-            ("payload_capacity", "payload_capacity"),
-            ("total_weight_current", "total_weight"),
-        ):
-            number = _finite_number(report.get(source_key))
-            if number is not None:
-                result[output_key] = {
-                    "value": number,
-                    "unit": "g",
-                    "status": "informational",
-                }
-        payload_usage = _finite_number(report.get("payload_usage_pct"))
-        if payload_usage is not None:
-            result["payload_usage"] = {
-                "value": payload_usage / 100.0,
-                "scale": "ratio",
+    for source_key, output_key in (
+        ("container_tare", "container_tare"),
+        ("payload_capacity", "payload_capacity"),
+        ("total_weight_current", "total_weight"),
+    ):
+        number = _finite_number(report.get(source_key))
+        if number is not None:
+            result[output_key] = {
+                "value": number,
+                "unit": "g",
                 "status": "informational",
             }
+    payload_usage = _finite_number(report.get("payload_usage_pct"))
+    if payload_usage is not None:
+        result["payload_usage"] = {
+            "value": payload_usage / 100.0,
+            "scale": "ratio",
+            "status": "informational",
+        }
     return result
 
 
@@ -1074,17 +1076,6 @@ def build_container_tool_context(
     )
 
     warnings = []
-    if (
-        readiness["container_source"] == "catalogue"
-        and selected_material is not None
-        and getattr(selected_material, "part_weight", None) is not None
-    ):
-        warnings.append(
-            {
-                "code": "catalogue_container_weight_unit_ambiguous",
-                "message": "Catalogue container weight is withheld because its unit is not authoritative.",
-            }
-        )
     if alternatives_truncated:
         warnings.append(
             {

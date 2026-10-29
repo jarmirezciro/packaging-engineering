@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ catalogue.name }}{% endblock %}
 
@@ -36,7 +37,7 @@
                     <i class="bi bi-pencil-square me-2"></i>Edit Catalogue
                 </a>
 
-                <a href="{% url 'add_material' catalogue.pk %}" class="btn btn-light btn-sm">
+                <a href="{% url 'add_material' catalogue.pk %}" data-preserve-catalogue-units class="btn btn-light btn-sm">
                     <i class="bi bi-plus-circle me-2"></i>Add Item
                 </a>
 
@@ -94,6 +95,8 @@
                 </div>
 
                 <form method="get" class="row g-3">
+                    {{ form.catalogue_length_unit }}
+                    {{ form.catalogue_mass_unit }}
                     <div class="col-md-3">
                         <label class="form-label">Part Number</label>
                         {{ form.part_number }}
@@ -115,38 +118,63 @@
                     </div>
 
                     <div class="col-md-2">
-                        <label class="form-label">Min L</label>
+                        <label class="form-label">Min L ({{ catalogue_length_unit }})</label>
                         {{ form.min_length }}
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Max L</label>
+                        <label class="form-label">Max L ({{ catalogue_length_unit }})</label>
                         {{ form.max_length }}
                     </div>
 
                     <div class="col-md-2">
-                        <label class="form-label">Min W</label>
+                        <label class="form-label">Min W ({{ catalogue_length_unit }})</label>
                         {{ form.min_width }}
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Max W</label>
+                        <label class="form-label">Max W ({{ catalogue_length_unit }})</label>
                         {{ form.max_width }}
                     </div>
 
                     <div class="col-md-2">
-                        <label class="form-label">Min H</label>
+                        <label class="form-label">Min H ({{ catalogue_length_unit }})</label>
                         {{ form.min_height }}
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Max H</label>
+                        <label class="form-label">Max H ({{ catalogue_length_unit }})</label>
                         {{ form.max_height }}
                     </div>
 
+                    <div class="col-md-2">
+                        <label class="form-label">Min ext. L ({{ catalogue_length_unit }})</label>
+                        {{ form.min_ext_length }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max ext. L ({{ catalogue_length_unit }})</label>
+                        {{ form.max_ext_length }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Min ext. W ({{ catalogue_length_unit }})</label>
+                        {{ form.min_ext_width }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max ext. W ({{ catalogue_length_unit }})</label>
+                        {{ form.max_ext_width }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Min ext. H ({{ catalogue_length_unit }})</label>
+                        {{ form.min_ext_height }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max ext. H ({{ catalogue_length_unit }})</label>
+                        {{ form.max_ext_height }}
+                    </div>
+
                     <div class="col-md-3">
-                        <label class="form-label">Min Weight</label>
+                        <label class="form-label">Min Weight ({{ catalogue_mass_unit }})</label>
                         {{ form.min_weight }}
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Max Weight</label>
+                        <label class="form-label">Max Weight ({{ catalogue_mass_unit }})</label>
                         {{ form.max_weight }}
                     </div>
 
@@ -172,9 +200,17 @@
 
     <div class="app-card">
         <div class="app-card-body">
-            <div class="app-section-title">Catalogue Materials</div>
+            <div class="app-section-title d-flex align-items-center gap-3 flex-wrap">
+                <span>Catalogue Materials</span>
+                <span class="catalogue-unit-heading">
+                    Dimensions {% include "shared/_unit_selector.html" with unit_selector=catalogue_display_selectors.length current_unit=catalogue_length_unit selector_key="material-display-length" %}
+                </span>
+                <span class="catalogue-unit-heading">
+                    Weight {% include "shared/_unit_selector.html" with unit_selector=catalogue_display_selectors.mass current_unit=catalogue_mass_unit selector_key="material-display-mass" %}
+                </span>
+            </div>
             <div class="app-section-subtitle">
-                Internal and external dimensions are shown in mm. Weight is shown in kg.
+                Internal and external dimensions, including thickness, are shown in {{ catalogue_length_unit }}. Weight is shown in {{ catalogue_mass_unit }}.
             </div>
 
             <div class="app-table-wrap">
@@ -187,14 +223,14 @@
                             <th>Type</th>
                             <th>Brand</th>
                             <th>Materials</th>
-                            <th>Int. L (mm)</th>
-                            <th>Int. W (mm)</th>
-                            <th>Int. H (mm)</th>
-                            <th>Ext. L (mm)</th>
-                            <th>Ext. W (mm)</th>
-                            <th>Ext. H (mm)</th>
-                            <th>Box thickness (mm)</th>
-                            <th>Weight (kg)</th>
+                            <th>Int. L ({{ catalogue_length_unit }})</th>
+                            <th>Int. W ({{ catalogue_length_unit }})</th>
+                            <th>Int. H ({{ catalogue_length_unit }})</th>
+                            <th>Ext. L ({{ catalogue_length_unit }})</th>
+                            <th>Ext. W ({{ catalogue_length_unit }})</th>
+                            <th>Ext. H ({{ catalogue_length_unit }})</th>
+                            <th>Box thickness ({{ catalogue_length_unit }})</th>
+                            <th>Weight ({{ catalogue_mass_unit }})</th>
                             <th>Volume</th>
                             <th>Drawing</th>
                             {% if can_manage_catalogue %}
@@ -219,14 +255,14 @@
                             <td>{{ material.packaging_type }}</td>
                             <td>{{ material.branding }}</td>
                             <td>{{ material.packaging_materials }}</td>
-                            <td>{{ material.part_length }}</td>
-                            <td>{{ material.part_width }}</td>
-                            <td>{{ material.part_height }}</td>
-                            <td>{{ material.external_length|default:"—" }}</td>
-                            <td>{{ material.external_width|default:"—" }}</td>
-                            <td>{{ material.external_height|default:"—" }}</td>
-                            <td>{{ material.box_thickness_mm|default:"—" }}</td>
-                            <td>{{ material.part_weight|default:"—" }}</td>
+                            <td><span data-unit-display data-unit-group="{{ catalogue_display_selectors.length.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.part_length }}">{{ material.catalogue_display_part_length }}</span></td>
+                            <td><span data-unit-display data-unit-group="{{ catalogue_display_selectors.length.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.part_width }}">{{ material.catalogue_display_part_width }}</span></td>
+                            <td><span data-unit-display data-unit-group="{{ catalogue_display_selectors.length.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.part_height }}">{{ material.catalogue_display_part_height }}</span></td>
+                            <td>{% if material.external_length is not None %}<span data-unit-display data-unit-group="{{ catalogue_display_selectors.length.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.external_length }}">{{ material.catalogue_display_external_length }}</span>{% else %}—{% endif %}</td>
+                            <td>{% if material.external_width is not None %}<span data-unit-display data-unit-group="{{ catalogue_display_selectors.length.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.external_width }}">{{ material.catalogue_display_external_width }}</span>{% else %}—{% endif %}</td>
+                            <td>{% if material.external_height is not None %}<span data-unit-display data-unit-group="{{ catalogue_display_selectors.length.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.external_height }}">{{ material.catalogue_display_external_height }}</span>{% else %}—{% endif %}</td>
+                            <td>{% if material.box_thickness_mm is not None %}<span data-unit-display data-unit-group="{{ catalogue_display_selectors.length.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.box_thickness_mm }}">{{ material.catalogue_display_box_thickness_mm }}</span>{% else %}—{% endif %}</td>
+                            <td>{% if material.part_weight is not None %}<span data-unit-display data-unit-group="{{ catalogue_display_selectors.mass.group }}" data-unit-quantity="mass" data-unit-canonical-unit="kg" data-unit-canonical="{{ material.part_weight }}">{{ material.catalogue_display_part_weight }}</span>{% else %}—{% endif %}</td>
                             <td>{{ material.part_volume }}</td>
                             <td>
                                 {% if material.drawing %}
@@ -239,7 +275,7 @@
                             </td>
                             {% if can_manage_catalogue %}
                             <td>
-                                <a href="{% url 'edit_material' catalogue.pk material.pk %}" class="btn btn-sm btn-app-outline me-1">
+                                <a href="{% url 'edit_material' catalogue.pk material.pk %}" data-preserve-catalogue-units class="btn btn-sm btn-app-outline me-1">
                                     <i class="bi bi-pencil-square me-1"></i>Edit
                                 </a>
                                 <form method="post"
@@ -270,7 +306,7 @@
         <ul class="pagination justify-content-center">
             {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                <a class="page-link" data-preserve-catalogue-units href="?page={{ page_obj.previous_page_number }}&catalogue_length_unit={{ catalogue_length_unit }}&catalogue_mass_unit={{ catalogue_mass_unit }}">Previous</a>
             </li>
             {% endif %}
 
@@ -280,7 +316,7 @@
 
             {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                <a class="page-link" data-preserve-catalogue-units href="?page={{ page_obj.next_page_number }}&catalogue_length_unit={{ catalogue_length_unit }}&catalogue_mass_unit={{ catalogue_mass_unit }}">Next</a>
             </li>
             {% endif %}
         </ul>
@@ -288,4 +324,8 @@
     {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/unit_selector.js' %}"></script>
 {% endblock %}

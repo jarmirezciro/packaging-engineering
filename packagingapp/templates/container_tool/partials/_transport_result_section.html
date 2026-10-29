@@ -19,7 +19,7 @@
             <span class="transport-product-swatch" style="--transport-product-color: {{ product.color }}" aria-hidden="true"></span>
             <span class="transport-product-legend-copy">
               <span class="transport-product-legend-name"><strong>{{ product.product_id }}</strong>{% if product.name %} &mdash; {{ product.name }}{% endif %}</span>
-              <span>{{ product.length|floatformat:0 }} &times; {{ product.width|floatformat:0 }} &times; {{ product.height|floatformat:0 }} mm</span>
+              <span>{{ product.display_dimensions|default:"Dimensions unavailable" }}</span>
               <span>Loaded: {{ product.qty_loaded }}{% if product.qty_requested is not None %} / {{ product.qty_requested }}{% endif %}</span>
             </span>
           </div>
@@ -72,12 +72,12 @@
         <div class="tool-summary-meta">Packing mode: {{ result.packing_mode_label }}</div>
         <div class="tool-summary-meta">Loaded volume (m³): {{ result.summary.packed_volume_m3|floatformat:3 }}</div>
         <div class="tool-summary-meta">Transport unit volume (m³): {{ result.summary.container_volume_m3|floatformat:3 }}</div>
-        <div class="tool-summary-meta">Loaded product weight (kg): {{ result.summary.loaded_weight|floatformat:2 }}</div>
-        <div class="tool-summary-meta">Tare weight (kg): {% if result.summary.tare_weight is not None %}{{ result.summary.tare_weight|floatformat:2 }}{% else %}Not set{% endif %}</div>
-        <div class="tool-summary-meta">Gross loaded weight (kg): {{ result.summary.gross_weight|floatformat:2 }}</div>
-        <div class="tool-summary-meta">Max payload (kg): {% if result.summary.container_max_weight is not None %}{{ result.summary.container_max_weight|floatformat:2 }}{% else %}Not set{% endif %}</div>
-        <div class="tool-summary-meta mt-2">Occupied L × W × H (mm): {{ result.summary.occupied_length|floatformat:2 }} × {{ result.summary.occupied_width|floatformat:2 }} × {{ result.summary.occupied_height|floatformat:2 }}</div>
-        <div class="tool-summary-meta">Residual L × W × H (mm): {{ result.summary.residual_length|floatformat:2 }} × {{ result.summary.residual_width|floatformat:2 }} × {{ result.summary.residual_height|floatformat:2 }}</div>
+        <div class="tool-summary-meta">Loaded product weight: {{ result.display.loaded_weight }}</div>
+        <div class="tool-summary-meta">Tare weight: {% if result.summary.tare_weight is not None %}{{ result.display.tare_weight }}{% else %}Not set{% endif %}</div>
+        <div class="tool-summary-meta">Gross loaded weight: {{ result.display.gross_weight }}</div>
+        <div class="tool-summary-meta">Max payload: {% if result.summary.container_max_weight is not None %}{{ result.display.max_payload }}{% else %}Not set{% endif %}</div>
+        <div class="tool-summary-meta mt-2">Occupied L × W × H: {{ result.display.occupied_dimensions }}</div>
+        <div class="tool-summary-meta">Residual L × W × H: {{ result.display.residual_dimensions }}</div>
       </div>
       {% else %}<div class="app-empty-state container-tool-empty"><i class="bi bi-bar-chart-line fs-2 d-block mb-2"></i><div>Summary will appear here after running the analysis.</div></div>{% endif %}
     </div>

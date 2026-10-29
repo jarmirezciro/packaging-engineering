@@ -20,6 +20,23 @@
        id="{{ bag_ui.ids.selected_design_candidate_id }}"
        value="{{ selected_design_candidate_id|default:bag_values.selected_design_candidate_id|default:'' }}">
 
+<input type="hidden" name="{{ bag_ui.names.product_dimension_unit }}"
+       id="{{ bag_ui.unit_selectors.product_dimensions.hidden_id }}"
+       value="{{ bag_values.product_dimension_unit|default:'mm' }}"
+       data-unit-hidden data-unit-group="{{ bag_ui.unit_selectors.product_dimensions.group }}">
+<input type="hidden" name="{{ bag_ui.names.product_mass_unit }}"
+       id="{{ bag_ui.unit_selectors.product_mass.hidden_id }}"
+       value="{{ bag_values.product_mass_unit|default:'g' }}"
+       data-unit-hidden data-unit-group="{{ bag_ui.unit_selectors.product_mass.group }}">
+<input type="hidden" name="{{ bag_ui.names.bag_dimension_unit }}"
+       id="{{ bag_ui.unit_selectors.bag_dimensions.hidden_id }}"
+       value="{{ bag_values.bag_dimension_unit|default:'mm' }}"
+       data-unit-hidden data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}">
+<input type="hidden" name="{{ bag_ui.names.bag_mass_unit }}"
+       id="{{ bag_ui.unit_selectors.bag_mass.hidden_id }}"
+       value="{{ bag_values.bag_mass_unit|default:'g' }}"
+       data-unit-hidden data-unit-group="{{ bag_ui.unit_selectors.bag_mass.group }}">
+
 {% if form and form.errors %}
     <div class="alert alert-danger mb-0" role="alert" tabindex="-1" data-tool-validation-errors>
         {% for field_name, field_errors in form.errors.items %}

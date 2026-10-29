@@ -21,14 +21,18 @@ def sanitize_palletization_config_for_session(cfg):
         "box_l": _json_safe_scalar(cfg.get("box_l", "")),
         "box_w": _json_safe_scalar(cfg.get("box_w", "")),
         "box_h": _json_safe_scalar(cfg.get("box_h", "")),
+        # Missing unit metadata is intentionally metric for legacy sessions.
+        "box_dimension_unit": str(cfg.get("box_dimension_unit", "mm") or "mm"),
         "box_weight": _json_safe_scalar(cfg.get("box_weight", "")),
         "max_weight_on_bottom_box": _json_safe_scalar(cfg.get("max_weight_on_bottom_box", "")),
+        "mass_unit": str(cfg.get("mass_unit", "g") or "g"),
         "pallet_source": str(cfg.get("pallet_source", "manual") or "manual"),
         "pallet_catalogue_id": str(cfg.get("pallet_catalogue_id", "") or ""),
         "pallet_id": str(cfg.get("pallet_id", "") or ""),
         "pallet_l": _json_safe_scalar(cfg.get("pallet_l", "")),
         "pallet_w": _json_safe_scalar(cfg.get("pallet_w", "")),
         "pallet_height": _json_safe_scalar(cfg.get("pallet_height", "")),
+        "pallet_dimension_unit": str(cfg.get("pallet_dimension_unit", "mm") or "mm"),
         "max_stack_height": _json_safe_scalar(cfg.get("max_stack_height", "")),
         "max_width_stickout": _json_safe_scalar(cfg.get("max_width_stickout", 0)),
         "max_length_stickout": _json_safe_scalar(cfg.get("max_length_stickout", 0)),
@@ -42,6 +46,12 @@ def serialize_pallet_row(row, pallet_height_mm=0.0):
     base_result_key = f"{pattern}__{stacking}"
     arrangement_height_mm = float(row["used_height_mm"])
     pallet_height_mm = float(pallet_height_mm or 0.0)
+    max_bottom_load_g = row.get("max_bottom_load_g", row.get("max_bottom_load_kg"))
+    avg_bottom_load_g = row.get("avg_bottom_load_g", row.get("avg_bottom_load_kg"))
+    weight_limit_g = row.get("weight_limit_g", row.get("weight_limit_kg"))
+    max_bottom_load_g = None if max_bottom_load_g is None else float(max_bottom_load_g)
+    avg_bottom_load_g = None if avg_bottom_load_g is None else float(avg_bottom_load_g)
+    weight_limit_g = None if weight_limit_g is None else float(weight_limit_g)
     return {
         "pattern": pattern,
         "stacking": stacking,
@@ -58,9 +68,13 @@ def serialize_pallet_row(row, pallet_height_mm=0.0):
         "layer_footprint_util_pct": float(row["layer_footprint_util_pct"]),
         "volumetric_util_pct": float(row["volumetric_util_pct"]),
         "feasible_weight": bool(row["feasible_weight"]),
-        "max_bottom_load_kg": None if row.get("max_bottom_load_kg") is None else float(row.get("max_bottom_load_kg")),
-        "avg_bottom_load_kg": None if row.get("avg_bottom_load_kg") is None else float(row.get("avg_bottom_load_kg")),
-        "weight_limit_kg": None if row.get("weight_limit_kg") is None else float(row.get("weight_limit_kg")),
+        "max_bottom_load_g": max_bottom_load_g,
+        "avg_bottom_load_g": avg_bottom_load_g,
+        "weight_limit_g": weight_limit_g,
+        # Temporary compatibility aliases; values are grams.
+        "max_bottom_load_kg": max_bottom_load_g,
+        "avg_bottom_load_kg": avg_bottom_load_g,
+        "weight_limit_kg": weight_limit_g,
         "interlock_relation": str(row.get("interlock_relation", "") or ""),
         "interlock_possible": bool(row.get("interlock_possible", False)),
         "interlock_possible_relation": str(row.get("interlock_possible_relation", "") or ""),
@@ -102,6 +116,7 @@ def serialize_pallet_threejs_scene(render_row, effective_config, selected_row=No
         })
 
     return {
+        "units": "mm",
         "coordinate_system": {
             "python": "X=length, Y=width, Z=height",
             "threejs": "X=length, Y=height, Z=width",

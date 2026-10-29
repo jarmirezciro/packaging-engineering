@@ -39,6 +39,9 @@ from ..tools.container.export import build_container_selection_pdf
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 from ..assistant.contracts import ToolContextValidationError
 from ..entitlements import AI_ASSISTANT, PDF_REPORTS, feature_required, has_feature
+from ..units import format_dimensions, format_mass, kg_to_g
+from ..units.ui import build_unit_selector_contract
+from ..user_preferences import apply_user_unit_defaults
 
 
 logger = logging.getLogger(__name__)
@@ -69,10 +72,20 @@ def _as_bool(value):
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
-def _read_raw_container_config(request, *, initial_config=None):
+def _read_raw_container_config(
+    request,
+    *,
+    initial_config=None,
+    user=None,
+    initialize_user_units=False,
+):
     cfg = default_container_config()
     if initial_config:
         cfg.update(initial_config)
+    if initialize_user_units:
+        apply_user_unit_defaults(
+            cfg, user, "container", replace_legacy=True
+        )
 
     if request.method == "POST":
         source = request.POST
@@ -92,7 +105,9 @@ def _read_raw_container_config(request, *, initial_config=None):
         "product_l": source.get("product_l", cfg["product_l"]),
         "product_w": source.get("product_w", cfg["product_w"]),
         "product_h": source.get("product_h", cfg["product_h"]),
+        "product_dimension_unit": source.get("product_dimension_unit", cfg["product_dimension_unit"]),
         "product_weight": source.get("product_weight", cfg["product_weight"]),
+        "product_mass_unit": source.get("product_mass_unit", cfg["product_mass_unit"]),
         "desired_qty": source.get("desired_qty", cfg["desired_qty"]),
         "product_shape": source.get("product_shape", cfg["product_shape"]),
         "r1": _as_bool(source.get("r1", cfg["r1"])),
@@ -106,8 +121,10 @@ def _read_raw_container_config(request, *, initial_config=None):
         "box_w": source.get("box_w", cfg["box_w"]),
         "box_h": source.get("box_h", cfg["box_h"]),
         "box_thickness_mm": source.get("box_thickness_mm", cfg["box_thickness_mm"]),
+        "container_dimension_unit": source.get("container_dimension_unit", cfg["container_dimension_unit"]),
         "box_weight": source.get("box_weight", cfg["box_weight"]),
         "box_max_payload": source.get("box_max_payload", cfg["box_max_payload"]),
+        "container_mass_unit": source.get("container_mass_unit", cfg["container_mass_unit"]),
         "selected_design_candidate_id": source.get("selected_design_candidate_id", cfg["selected_design_candidate_id"]),
     })
 
@@ -126,7 +143,9 @@ def _build_shared_container_ui_contract(prefix=""):
         "product_l": f"product_l{suffix}",
         "product_w": f"product_w{suffix}",
         "product_h": f"product_h{suffix}",
+        "product_dimension_unit": f"product_dimension_unit{suffix}",
         "product_weight": f"product_weight{suffix}",
+        "product_mass_unit": f"product_mass_unit{suffix}",
         "desired_qty": f"desired_qty{suffix}",
         "product_shape": f"product_shape{suffix}",
         "r1": f"r1{suffix}",
@@ -139,8 +158,10 @@ def _build_shared_container_ui_contract(prefix=""):
         "box_w": f"box_w{suffix}",
         "box_h": f"box_h{suffix}",
         "box_thickness_mm": f"box_thickness_mm{suffix}",
+        "container_dimension_unit": f"container_dimension_unit{suffix}",
         "box_weight": f"box_weight{suffix}",
         "box_max_payload": f"box_max_payload{suffix}",
+        "container_mass_unit": f"container_mass_unit{suffix}",
         "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
     }
     assistant_state_fields = [
@@ -153,9 +174,45 @@ def _build_shared_container_ui_contract(prefix=""):
         if key != "action"
     ]
 
+    unit_selectors = {
+        "product_dimensions": build_unit_selector_contract(
+            quantity="length",
+            label="product dimension",
+            group=f"container-product-dimensions{suffix}",
+            hidden_name=names["product_dimension_unit"],
+            hidden_id=f"containerProductDimensionUnit{suffix}",
+            menu_id=f"containerProductDimensionUnitMenu{suffix}",
+        ),
+        "container_dimensions": build_unit_selector_contract(
+            quantity="length",
+            label="container dimension",
+            group=f"container-packaging-dimensions{suffix}",
+            hidden_name=names["container_dimension_unit"],
+            hidden_id=f"containerPackagingDimensionUnit{suffix}",
+            menu_id=f"containerPackagingDimensionUnitMenu{suffix}",
+        ),
+        "product_mass": build_unit_selector_contract(
+            quantity="mass",
+            label="product mass",
+            group=f"container-product-mass{suffix}",
+            hidden_name=names["product_mass_unit"],
+            hidden_id=f"containerProductMassUnit{suffix}",
+            menu_id=f"containerProductMassUnitMenu{suffix}",
+        ),
+        "container_mass": build_unit_selector_contract(
+            quantity="mass",
+            label="container mass",
+            group=f"container-packaging-mass{suffix}",
+            hidden_name=names["container_mass_unit"],
+            hidden_id=f"containerPackagingMassUnit{suffix}",
+            menu_id=f"containerPackagingMassUnitMenu{suffix}",
+        ),
+    }
+
     return {
         "prefix": prefix,
         "names": names,
+        "unit_selectors": unit_selectors,
         "assistant_state_fields": assistant_state_fields,
         "ids": {
             "root": f"containerSelectionRoot{suffix}",
@@ -188,22 +245,6 @@ def _build_shared_container_ui_contract(prefix=""):
 
 
 
-def _format_dims(length, width, height):
-    return f"{length} × {width} × {height} mm"
-
-
-def _format_optional_weight(value, default="Not available"):
-    if value in (None, "", "None"):
-        return default
-    try:
-        numeric = float(value)
-    except (TypeError, ValueError):
-        return default
-    if abs(numeric) >= 1000:
-        return f"{int(round(numeric / 1000))} kg"
-    return f"{int(round(numeric))} g"
-
-
 def _rotation_display(r1, r2, r3):
     rotations = []
     if r1:
@@ -231,7 +272,8 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
         product_l = selected_product.product_length
         product_w = selected_product.product_width
         product_h = selected_product.product_height
-        product_weight = getattr(selected_product, "weight", None)
+        product_weight_kg = getattr(selected_product, "weight", None)
+        product_weight = kg_to_g(product_weight_kg) if product_weight_kg is not None else None
         r1 = bool(getattr(selected_product, "rotation_1", False))
         r2 = bool(getattr(selected_product, "rotation_2", False))
         r3 = bool(getattr(selected_product, "rotation_3", False))
@@ -254,7 +296,8 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
         container_l = selected_material.part_length
         container_w = selected_material.part_width
         container_h = selected_material.part_height
-        container_tare = getattr(selected_material, "part_weight", None)
+        container_tare_kg = getattr(selected_material, "part_weight", None)
+        container_tare = kg_to_g(container_tare_kg) if container_tare_kg is not None else None
         payload_capacity = analysis_report.get("payload_capacity")
     else:
         container_part_number = "Manual packaging"
@@ -274,8 +317,8 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
             "source": "Catalogue" if product_source == "catalogue" else "Manual",
             "id": product_id,
             "name": product_name or "—",
-            "dimensions": _format_dims(product_l, product_w, product_h),
-            "weight": _format_optional_weight(product_weight),
+            "dimensions": analysis_report.get("product_dimensions_display"),
+            "weight": analysis_report.get("product_weight_display"),
             "desired_qty": f"{form.cleaned_data.get('desired_qty') or 1} pcs",
             "rotations": _rotation_display(r1, r2, r3),
         },
@@ -285,16 +328,13 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
             "description": container_description or "—",
             "type": container_type or "—",
             "material": container_material or "—",
-            "dimensions": _format_dims(container_l, container_w, container_h),
-            "external_dimensions": _format_dims(
-                analysis_report.get("external_length"),
-                analysis_report.get("external_width"),
-                analysis_report.get("external_height"),
-            ),
+            "dimensions": analysis_report.get("internal_dimensions_display"),
+            "external_dimensions": analysis_report.get("external_dimensions_display"),
             "box_thickness_mm": analysis_report.get("box_thickness_mm"),
+            "box_thickness_display": analysis_report.get("box_thickness_display"),
             "box_thickness_assumed": analysis_report.get("box_thickness_assumed", False),
-            "tare": _format_optional_weight(container_tare),
-            "payload_capacity": _format_optional_weight(payload_capacity),
+            "tare": analysis_report.get("container_tare_display"),
+            "payload_capacity": analysis_report.get("payload_capacity_display"),
         },
         "analysis_report": analysis_report,
         "image_rel_path": getattr(result, "image_rel_path", ""),
@@ -329,7 +369,7 @@ def _catalogue_name_from_choice(form, field_name):
     return "Selected catalogue"
 
 
-def _top5_export_rows(top5):
+def _top5_export_rows(top5, *, dimension_unit="mm", mass_unit="g"):
     rows = []
     for idx, row in enumerate(top5 or [], start=1):
         material = row.get("material")
@@ -353,13 +393,23 @@ def _top5_export_rows(top5):
             "type": material.packaging_type,
             "brand": material.branding,
             "material": material.packaging_materials,
-            "dimensions": _format_dims(material.part_length, material.part_width, material.part_height),
-            "external_dimensions": _format_dims(
+            "dimensions": format_dimensions(
+                material.part_length, material.part_width, material.part_height,
+                display_unit=dimension_unit,
+            ),
+            "external_dimensions": format_dimensions(
                 dimensions["external_length"],
                 dimensions["external_width"],
                 dimensions["external_height"],
+                display_unit=dimension_unit,
             ),
-            "weight": _format_optional_weight(getattr(material, "part_weight", None)),
+            "weight": format_mass(
+                kg_to_g(material.part_weight)
+                if getattr(material, "part_weight", None) is not None
+                else None,
+                canonical_unit="g",
+                display_unit=mass_unit,
+            ),
             "volume": _format_part_volume(getattr(material, "part_volume", None)),
             "max_qty": row.get("max_qty"),
             "usage_display": _format_usage(row.get("usage")),
@@ -380,7 +430,8 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
         product_l = selected_product.product_length
         product_w = selected_product.product_width
         product_h = selected_product.product_height
-        product_weight = getattr(selected_product, "weight", None)
+        product_weight_kg = getattr(selected_product, "weight", None)
+        product_weight = kg_to_g(product_weight_kg) if product_weight_kg is not None else None
         r1 = bool(getattr(selected_product, "rotation_1", False))
         r2 = bool(getattr(selected_product, "rotation_2", False))
         r3 = bool(getattr(selected_product, "rotation_3", False))
@@ -416,11 +467,17 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
             "part_number": selected_material.part_number,
             "description": selected_material.part_description,
             "type": selected_material.packaging_type,
-            "dimensions": _format_dims(selected_material.part_length, selected_material.part_width, selected_material.part_height),
-            "external_dimensions": _format_dims(
+            "dimensions": format_dimensions(
+                selected_material.part_length,
+                selected_material.part_width,
+                selected_material.part_height,
+                display_unit=form.cleaned_data.get("container_dimension_unit") or "mm",
+            ),
+            "external_dimensions": format_dimensions(
                 selected_dimensions["external_length"],
                 selected_dimensions["external_width"],
                 selected_dimensions["external_height"],
+                display_unit=form.cleaned_data.get("container_dimension_unit") or "mm",
             ),
         }
 
@@ -436,12 +493,29 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
             "source": "Catalogue" if product_source == "catalogue" else "Manual",
             "id": product_id,
             "name": product_name or "-",
-            "dimensions": _format_dims(product_l, product_w, product_h),
-            "weight": _format_optional_weight(product_weight),
+            "dimensions": (
+                analysis_report.get("product_dimensions_display")
+                or format_dimensions(
+                    product_l, product_w, product_h,
+                    display_unit=form.cleaned_data.get("product_dimension_unit") or "mm",
+                )
+            ),
+            "weight": (
+                analysis_report.get("product_weight_display")
+                or format_mass(
+                    product_weight,
+                    canonical_unit="g",
+                    display_unit=form.cleaned_data.get("product_mass_unit") or "g",
+                )
+            ),
             "desired_qty": f"{desired_qty} pcs",
             "rotations": _rotation_display(r1, r2, r3),
         },
-        "top5": _top5_export_rows(top5),
+        "top5": _top5_export_rows(
+            top5,
+            dimension_unit=form.cleaned_data.get("container_dimension_unit") or "mm",
+            mass_unit=form.cleaned_data.get("container_mass_unit") or "g",
+        ),
     }
 
 
@@ -454,8 +528,25 @@ def _build_design_export_payload(*, form, analysis, selected_product):
         "source": "Catalogue" if selected_product else "Manual",
         "id": selected_product.product_id if selected_product else "Manual product",
         "name": selected_product.product_name if selected_product else "Manual input",
-        "dimensions": _format_dims(*(float(value) for value in (form.cleaned_data.get("product_l"), form.cleaned_data.get("product_w"), form.cleaned_data.get("product_h")))),
-        "weight": _format_optional_weight(form.cleaned_data.get("product_weight")),
+        "dimensions": (
+            format_dimensions(
+                selected_product.product_length,
+                selected_product.product_width,
+                selected_product.product_height,
+                display_unit=form.cleaned_data.get("product_dimension_unit") or "mm",
+            )
+            if selected_product
+            else f"{form.cleaned_data.get('product_l')} × {form.cleaned_data.get('product_w')} × {form.cleaned_data.get('product_h')} {form.cleaned_data.get('product_dimension_unit') or 'mm'}"
+        ),
+        "weight": (
+            format_mass(
+                selected_product.weight,
+                canonical_unit="kg",
+                display_unit=form.cleaned_data.get("product_mass_unit") or "g",
+            )
+            if selected_product and getattr(selected_product, "weight", None) is not None
+            else f"{form.cleaned_data.get('product_weight')} {form.cleaned_data.get('product_mass_unit') or 'g'}"
+        ),
         "desired_qty": f"{selected['desired_quantity']} pcs",
         "rotations": _rotation_display(bool(form.cleaned_data.get("r1")), bool(form.cleaned_data.get("r2")), bool(form.cleaned_data.get("r3"))),
     }
@@ -477,13 +568,10 @@ def _build_design_export_payload(*, form, analysis, selected_product):
             "description": f"Arrangement {selected['arrangement']} · {selected['product_orientation']}",
             "type": "Regular Slotted Container visualization",
             "material": "To be specified",
-            "dimensions": _format_dims(selected["container_length"], selected["container_width"], selected["container_height"]),
-            "external_dimensions": _format_dims(
-                selected["external_length"],
-                selected["external_width"],
-                selected["external_height"],
-            ),
+            "dimensions": selected.get("container_dimensions_display"),
+            "external_dimensions": selected.get("external_dimensions_display"),
             "box_thickness_mm": selected.get("box_thickness_mm"),
+            "box_thickness_display": selected.get("box_thickness_display"),
             "box_thickness_assumed": selected.get("box_thickness_assumed", False),
         },
         "analysis_report": analysis_payload,
@@ -528,7 +616,16 @@ def _build_container_selection_page_context(
     packaging_catalogues = get_packaging_catalogues(catalogue_user)
     product_catalogues = get_product_catalogues(catalogue_user)
 
-    config = _read_raw_container_config(request, initial_config=initial_config)
+    config = _read_raw_container_config(
+        request,
+        initial_config=initial_config,
+        user=request.user,
+        initialize_user_units=(
+            mode == "standalone"
+            and initial_config is None
+            and request.method == "GET"
+        ),
+    )
 
     selected_product = get_selected_product(config, user=catalogue_user)
     selected_material = get_selected_material(config, user=catalogue_user)
@@ -621,6 +718,40 @@ def _build_container_selection_page_context(
             if design_export:
                 request.session["container_selection_design_export"] = design_export
                 request.session.modified = True
+
+    container_display_unit = config.get("container_dimension_unit") or "mm"
+    container_mass_unit = config.get("container_mass_unit") or "g"
+    for row in top5 or []:
+        material = row.get("material")
+        if material is None:
+            continue
+        dims = resolve_external_carton_dimensions(
+            material.part_length,
+            material.part_width,
+            material.part_height,
+            external_length=material.external_length,
+            external_width=material.external_width,
+            external_height=material.external_height,
+            thickness_mm=getattr(material, "box_thickness_mm", None),
+            thickness_source=EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
+        )
+        row["internal_dimensions_display"] = format_dimensions(
+            material.part_length,
+            material.part_width,
+            material.part_height,
+            display_unit=container_display_unit,
+        )
+        row["external_dimensions_display"] = format_dimensions(
+            dims["external_length"],
+            dims["external_width"],
+            dims["external_height"],
+            display_unit=container_display_unit,
+        )
+        row["weight_display"] = format_mass(
+            getattr(material, "part_weight", None),
+            canonical_unit="kg",
+            display_unit=container_mass_unit,
+        )
 
     product_summary = selected_product_summary(
         selected_product=selected_product,

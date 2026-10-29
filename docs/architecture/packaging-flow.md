@@ -77,6 +77,33 @@ Serialize or flatten:
 
 Past failures included `TypeError: Object of type PackagingMaterial is not JSON serializable`. The prevention belongs in shared serializers, not ad hoc workflow patches.
 
+## Physical mass contract
+
+Packaging Flow uses kilograms as the authoritative physical-mass value in a
+selected/pending output (`weight_kg`). A JSON-safe `weight_g` value is derived
+from the same physical value only for downstream gram-based tools such as
+Container Selection, Bag Selection, and Palletization. Transport consumes
+`weight_kg` directly. Catalogue `Product.weight` and
+`PackagingMaterial.part_weight` are kilograms; manual Container/Bag/Pallet
+inputs are converted from grams once at the workflow boundary. See
+`../UNIT_SYSTEM_AUDIT.md` for the complete contract and compatibility rules.
+
+## Manual unit display state
+
+Each embedded shared tool keeps its own prefixed, JSON-safe manual unit tokens
+in the existing step config. These tokens are presentation/input state only.
+Selected and pending workflow payloads continue to carry canonical physical
+geometry and authoritative `weight_kg` (with derived `weight_g` for gram
+consumers).
+
+When canonical upstream values populate a downstream manual form, Flow adapts
+them to that form's selected display unit before rendering. Transport retains
+exact canonical scalars for inherited load rows and converts those scalars only
+for the visible multi-row inputs. Server normalization then restores the same
+`mm`/`kg` Transport contract before the shared service runs. Returning to a
+step or accepting its result therefore cannot relabel a canonical millimetre
+or kilogram value as inches, feet, ounces, or pounds.
+
 ## Upstream inheritance
 
 A downstream tool must know whether an input was:
@@ -166,6 +193,12 @@ back to the explicitly selected result, and fails closed after an incomplete or
 inconsistent stage. Existing collapsed-step summaries remain unchanged. Desktop
 uses a compact horizontal chain; mobile uses a collapsed summary row that can be
 expanded into a stacked chain.
+
+Physical text in the compact summary and combined report is also
+presentation-only. Each stage decorates its canonical `length`/`width`/`height`
+and authoritative `weight_kg` with that stage's local input/output unit context.
+The stored workflow payload is not mutated. Legacy steps without unit metadata
+use Container/Bag/Palletization `mm`/`g` or Transport `mm`/`kg` defaults.
 
 ## Design final-capacity ranking
 

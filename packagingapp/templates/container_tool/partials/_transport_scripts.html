@@ -57,6 +57,16 @@
       transportPrepareMaxQtyFields(root);
     }
 
+    function transportMarkRowManual(input) {
+      const row = input ? input.closest('tr') : null;
+      if (!row) return;
+      const source = row.querySelector('[data-transport-row-source]');
+      if (source) source.value = 'manual';
+      row.querySelectorAll('[data-transport-row-canonical]').forEach(function(field) {
+        field.value = '';
+      });
+    }
+
     function transportPackingMode(root) {
       if (!root) return '';
       const selected = root.querySelector(
@@ -122,6 +132,7 @@
         newRow.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
         transportSyncMaxQtyRows(newRow);
         transportSyncSequenceInputs(newRow.closest('[data-transport-tool-root]'));
+        window.KolliPackUnitSelector?.init();
       }
     }
     
@@ -271,6 +282,7 @@
         newRow.querySelectorAll('input[type="checkbox"]').forEach(cb => syncCheckboxHidden(cb));
         transportSyncMaxQtyRows(newRow);
         transportSyncSequenceInputs(newRow.closest('[data-transport-tool-root]'));
+        window.KolliPackUnitSelector?.init();
       }
     }
     
@@ -447,4 +459,5 @@
       });
     });
     </script>
+<script src="{% static 'js/unit_selector.js' %}"></script>
 <script type="module" src="{% static 'js/transport_container_threejs_viewer.js' %}?v=20260731-transport-views"></script>

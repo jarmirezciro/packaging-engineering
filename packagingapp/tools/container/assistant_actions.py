@@ -18,6 +18,7 @@ from ...assistant.actions import (
     validate_proposal_state_fingerprint,
 )
 from ...assistant.contracts import ToolContext, canonical_json
+from ...units import convert_length, convert_mass
 from .serializers import sanitize_container_config_for_session
 from .service import build_container_form, inspect_container_readiness
 
@@ -27,84 +28,94 @@ _FIELD_SPECS = {
         "config_key": "product_l",
         "kind": "number",
         "unit": "mm",
-        "units": {"mm": Decimal("1"), "cm": Decimal("10"), "m": Decimal("1000")},
+        "units": ("mm", "cm", "m"),
+        "quantity": "length",
         "input_path": ("product", "dimensions", "length"),
     },
     "product.dimensions.width": {
         "config_key": "product_w",
         "kind": "number",
         "unit": "mm",
-        "units": {"mm": Decimal("1"), "cm": Decimal("10"), "m": Decimal("1000")},
+        "units": ("mm", "cm", "m"),
+        "quantity": "length",
         "input_path": ("product", "dimensions", "width"),
     },
     "product.dimensions.height": {
         "config_key": "product_h",
         "kind": "number",
         "unit": "mm",
-        "units": {"mm": Decimal("1"), "cm": Decimal("10"), "m": Decimal("1000")},
+        "units": ("mm", "cm", "m"),
+        "quantity": "length",
         "input_path": ("product", "dimensions", "height"),
     },
     "product.weight": {
         "config_key": "product_weight",
         "kind": "number",
         "unit": "g",
-        "units": {"g": Decimal("1"), "kg": Decimal("1000")},
+        "units": ("g", "kg"),
+        "quantity": "mass",
         "input_path": ("product", "weight"),
     },
     "request.desired_quantity": {
         "config_key": "desired_qty",
         "kind": "integer",
         "unit": "pcs",
-        "units": {"pcs": Decimal("1")},
+        "units": ("pcs",),
         "input_path": ("request", "desired_quantity"),
     },
     "product.allowed_vertical_axes": {
         "config_key": None,
         "kind": "axes",
         "unit": None,
-        "units": {"none": None},
+        "units": ("none",),
         "input_path": ("product", "allowed_vertical_axes"),
     },
     "container.internal_dimensions.length": {
         "config_key": "box_l",
         "kind": "number",
         "unit": "mm",
-        "units": {"mm": Decimal("1"), "cm": Decimal("10"), "m": Decimal("1000")},
+        "units": ("mm", "cm", "m"),
+        "quantity": "length",
         "input_path": ("container", "internal_dimensions", "length"),
     },
     "container.internal_dimensions.width": {
         "config_key": "box_w",
         "kind": "number",
         "unit": "mm",
-        "units": {"mm": Decimal("1"), "cm": Decimal("10"), "m": Decimal("1000")},
+        "units": ("mm", "cm", "m"),
+        "quantity": "length",
         "input_path": ("container", "internal_dimensions", "width"),
     },
     "container.internal_dimensions.height": {
         "config_key": "box_h",
         "kind": "number",
         "unit": "mm",
-        "units": {"mm": Decimal("1"), "cm": Decimal("10"), "m": Decimal("1000")},
+        "units": ("mm", "cm", "m"),
+        "quantity": "length",
         "input_path": ("container", "internal_dimensions", "height"),
     },
     "container.thickness": {
         "config_key": "box_thickness_mm",
         "kind": "number",
         "unit": "mm",
-        "units": {"mm": Decimal("1"), "cm": Decimal("10"), "m": Decimal("1000")},
+        "units": ("mm", "cm", "m"),
+        "quantity": "length",
         "input_path": ("container", "thickness"),
     },
     "container.tare_weight": {
         "config_key": "box_weight",
         "kind": "number",
         "unit": "g",
-        "units": {"g": Decimal("1"), "kg": Decimal("1000")},
+        "units": ("g", "kg"),
+        "quantity": "mass",
         "input_path": ("container", "tare_weight"),
     },
     "container.max_payload": {
         "config_key": "box_max_payload",
         "kind": "number",
         "unit": "g",
-        "units": {"g": Decimal("1"), "kg": Decimal("1000")},
+        "units": ("g", "kg"),
+        "quantity": "mass",
         "input_path": ("container", "max_payload"),
     },
 }
@@ -161,7 +172,15 @@ def _normalize_value(change, spec):
         expected = "a whole number" if spec["kind"] == "integer" else "a number"
         return None, "invalid", f"This input must be {expected}."
     try:
-        normalized_decimal = Decimal(str(value)) * spec["units"][unit]
+        normalized_decimal = Decimal(str(value))
+        if spec.get("quantity") == "length":
+            normalized_decimal = convert_length(
+                normalized_decimal, unit, spec["unit"]
+            )
+        elif spec.get("quantity") == "mass":
+            normalized_decimal = convert_mass(
+                normalized_decimal, unit, spec["unit"]
+            )
     except (InvalidOperation, ValueError, TypeError):
         return None, "invalid", "This input must be a finite number."
     normalized = float(normalized_decimal)

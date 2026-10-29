@@ -77,6 +77,18 @@
                         <table class="table table-sm mb-0 align-middle">
                             <tbody>
                                 <tr>
+                                    <th scope="row" class="fw-normal text-muted">Product dimensions</th>
+                                    <td class="text-end">{{ analysis_report.product_dimensions_display }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Bag dimensions</th>
+                                    <td class="text-end">{{ analysis_report.bag_dimensions_display }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Required flat dimensions</th>
+                                    <td class="text-end">{{ analysis_report.required_dimensions_display }}</td>
+                                </tr>
+                                <tr>
                                     <th scope="row" class="fw-normal text-muted">Current quantity</th>
                                     <td class="text-end">{{ analysis_report.current_quantity }} pcs</td>
                                 </tr>

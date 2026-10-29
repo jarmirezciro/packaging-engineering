@@ -165,15 +165,15 @@
                             <tbody>
                                 <tr>
                                     <th scope="row" class="fw-normal text-muted">Internal dimensions</th>
-                                    <td class="text-end">{{ analysis_report.internal_length|floatformat:-3 }} × {{ analysis_report.internal_width|floatformat:-3 }} × {{ analysis_report.internal_height|floatformat:-3 }} mm</td>
+                                    <td class="text-end">{{ analysis_report.internal_dimensions_display }}</td>
                                 </tr>
                                 <tr>
                                     <th scope="row" class="fw-normal text-muted">External dimensions</th>
-                                    <td class="text-end">{{ analysis_report.external_length|floatformat:-3 }} × {{ analysis_report.external_width|floatformat:-3 }} × {{ analysis_report.external_height|floatformat:-3 }} mm</td>
+                                    <td class="text-end">{{ analysis_report.external_dimensions_display }}</td>
                                 </tr>
                                 <tr>
                                     <th scope="row" class="fw-normal text-muted">Box thickness</th>
-                                    <td class="text-end">{% if analysis_report.box_thickness_mm is not None %}{{ analysis_report.box_thickness_mm|floatformat:-3 }} mm{% else %}<span class="text-muted">Not available</span>{% endif %}</td>
+                                    <td class="text-end">{% if analysis_report.box_thickness_mm is not None %}{{ analysis_report.box_thickness_display }}{% else %}<span class="text-muted">Not available</span>{% endif %}</td>
                                 </tr>
                                 <tr>
                                     <th scope="row" class="fw-normal text-muted">Current quantity</th>

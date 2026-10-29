@@ -4,6 +4,7 @@ from copy import deepcopy
 import json
 import logging
 
+from ...units import g_to_kg
 from ..container.dimensions import (
     EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
     EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
@@ -121,7 +122,10 @@ def build_design_candidate_payload(source_type, candidate, upstream=None):
         })
 
     if candidate.get("net_content_weight") is not None:
-        common["net_content_weight_g"] = candidate.get("net_content_weight")
+        net_content_weight_g = float(candidate.get("net_content_weight"))
+        common["net_content_weight_g"] = net_content_weight_g
+        common["weight_g"] = net_content_weight_g
+        common["weight_kg"] = float(g_to_kg(net_content_weight_g))
     return common
 
 

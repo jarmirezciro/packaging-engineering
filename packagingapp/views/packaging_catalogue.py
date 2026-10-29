@@ -30,6 +30,14 @@ from packagingapp.services.drawing_import import import_drawings_zip
 from packagingapp.services.material_image_import import import_material_images_zip
 from packagingapp.services.catalogue_media import CatalogueMediaError, catalogue_storage_summary
 from packagingapp.models import PackagingMaterial
+from packagingapp.catalogue_units import (
+    catalogue_display_selectors,
+    catalogue_units_from_request,
+    convert_catalogue_filter,
+    format_catalogue_value,
+    remember_catalogue_units,
+    catalogue_unit_selectors,
+)
 
 
 def catalogue_list(request):
@@ -85,9 +93,18 @@ def create_catalogue(request):
 
 def catalogue_detail(request, pk):
     catalogue = get_visible_packaging_catalogue_or_404(request.user, pk=pk)
+    catalogue_units, unit_error = catalogue_units_from_request(request)
+    if unit_error:
+        return unit_error
     materials = catalogue.materials.all().order_by("part_number")
 
-    form = PackagingMaterialFilterForm(request.GET or None)
+    form = PackagingMaterialFilterForm(
+        request.GET or None,
+        initial={
+            "catalogue_length_unit": catalogue_units["length"],
+            "catalogue_mass_unit": catalogue_units["mass"],
+        },
+    )
 
     if form.is_valid():
         if form.cleaned_data.get("part_number"):
@@ -102,25 +119,36 @@ def catalogue_detail(request, pk):
         if form.cleaned_data.get("branding"):
             materials = materials.filter(branding__icontains=form.cleaned_data["branding"])
 
-        if form.cleaned_data.get("min_length"):
-            materials = materials.filter(part_length__gte=form.cleaned_data["min_length"])
-        if form.cleaned_data.get("max_length"):
-            materials = materials.filter(part_length__lte=form.cleaned_data["max_length"])
+        length_unit = form.cleaned_data.get("catalogue_length_unit") or catalogue_units["length"]
+        mass_unit = form.cleaned_data.get("catalogue_mass_unit") or catalogue_units["mass"]
+        for field_name, lookup, model_field in (
+            ("min_length", "gte", "part_length"),
+            ("max_length", "lte", "part_length"),
+            ("min_width", "gte", "part_width"),
+            ("max_width", "lte", "part_width"),
+            ("min_height", "gte", "part_height"),
+            ("max_height", "lte", "part_height"),
+            ("min_ext_length", "gte", "external_length"),
+            ("max_ext_length", "lte", "external_length"),
+            ("min_ext_width", "gte", "external_width"),
+            ("max_ext_width", "lte", "external_width"),
+            ("min_ext_height", "gte", "external_height"),
+            ("max_ext_height", "lte", "external_height"),
+        ):
+            if form.cleaned_data.get(field_name) is not None:
+                materials = materials.filter(**{
+                    f"{model_field}__{lookup}": convert_catalogue_filter(
+                        form.cleaned_data[field_name], quantity="length", display_unit=length_unit
+                    )
+                })
 
-        if form.cleaned_data.get("min_width"):
-            materials = materials.filter(part_width__gte=form.cleaned_data["min_width"])
-        if form.cleaned_data.get("max_width"):
-            materials = materials.filter(part_width__lte=form.cleaned_data["max_width"])
-
-        if form.cleaned_data.get("min_height"):
-            materials = materials.filter(part_height__gte=form.cleaned_data["min_height"])
-        if form.cleaned_data.get("max_height"):
-            materials = materials.filter(part_height__lte=form.cleaned_data["max_height"])
-
-        if form.cleaned_data.get("min_weight"):
-            materials = materials.filter(part_weight__gte=form.cleaned_data["min_weight"])
-        if form.cleaned_data.get("max_weight"):
-            materials = materials.filter(part_weight__lte=form.cleaned_data["max_weight"])
+        for field_name, lookup in (("min_weight", "gte"), ("max_weight", "lte")):
+            if form.cleaned_data.get(field_name) is not None:
+                materials = materials.filter(**{
+                    f"part_weight__{lookup}": convert_catalogue_filter(
+                        form.cleaned_data[field_name], quantity="mass", display_unit=mass_unit
+                    )
+                })
 
         if form.cleaned_data.get("min_volume"):
             materials = materials.filter(part_volume__gte=form.cleaned_data["min_volume"])
@@ -130,6 +158,24 @@ def catalogue_detail(request, pk):
     paginator = Paginator(materials, 25)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
+    for material in page_obj.object_list:
+        for field_name in (
+            "part_length", "part_width", "part_height",
+            "external_length", "external_width", "external_height",
+            "box_thickness_mm",
+        ):
+            setattr(
+                material,
+                f"catalogue_display_{field_name}",
+                format_catalogue_value(
+                    getattr(material, field_name),
+                    quantity="length",
+                    display_unit=catalogue_units["length"],
+                ),
+            )
+        material.catalogue_display_part_weight = format_catalogue_value(
+            material.part_weight, quantity="mass", display_unit=catalogue_units["mass"]
+        )
     can_manage = can_manage_packaging_catalogue(request.user, catalogue)
 
     return render(
@@ -147,6 +193,11 @@ def catalogue_detail(request, pk):
                 and not can_manage
             ),
             "catalogue_storage": catalogue_storage_summary(request.user) if can_manage else None,
+            "catalogue_length_unit": catalogue_units["length"],
+            "catalogue_mass_unit": catalogue_units["mass"],
+            "catalogue_display_selectors": catalogue_display_selectors(
+                length_unit=catalogue_units["length"], mass_unit=catalogue_units["mass"]
+            ),
         },
     )
 
@@ -165,22 +216,48 @@ def delete_catalogue(request, pk):
 @login_required
 def add_material(request, pk):
     catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
+    catalogue_units, unit_error = catalogue_units_from_request(request)
+    if unit_error:
+        return unit_error
 
     if request.method == "POST":
-        form = PackagingMaterialForm(request.POST, request.FILES, user=request.user)
+        form = PackagingMaterialForm(
+            request.POST,
+            request.FILES,
+            user=request.user,
+            catalogue_length_unit=catalogue_units["length"],
+            catalogue_mass_unit=catalogue_units["mass"],
+        )
         if form.is_valid():
             material = form.save(commit=False)
             material.catalogue = catalogue
             material.save()
+            remember_catalogue_units(
+                request,
+                length_unit=form.cleaned_data.get("catalogue_length_unit"),
+                mass_unit=form.cleaned_data.get("catalogue_mass_unit"),
+            )
             messages.success(request, "Item added successfully.")
             return redirect("catalogue_detail", pk=catalogue.pk)
     else:
-        form = PackagingMaterialForm(user=request.user)
+        form = PackagingMaterialForm(
+            user=request.user,
+            catalogue_length_unit=catalogue_units["length"],
+            catalogue_mass_unit=catalogue_units["mass"],
+        )
 
     return render(
         request,
         "packaging_catalogue/add_material.html",
-        {"catalogue": catalogue, "form": form},
+        {
+            "catalogue": catalogue,
+            "form": form,
+            "catalogue_length_unit": catalogue_units["length"],
+            "catalogue_mass_unit": catalogue_units["mass"],
+            "catalogue_unit_selectors": catalogue_unit_selectors(
+                length_unit=catalogue_units["length"], mass_unit=catalogue_units["mass"]
+            ),
+        },
     )
 
 
@@ -189,20 +266,49 @@ def add_material(request, pk):
 def edit_material(request, pk, material_id):
     catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
     material = get_object_or_404(PackagingMaterial, pk=material_id, catalogue=catalogue)
+    catalogue_units, unit_error = catalogue_units_from_request(request)
+    if unit_error:
+        return unit_error
 
     if request.method == "POST":
-        form = PackagingMaterialForm(request.POST, request.FILES, instance=material, user=request.user)
+        form = PackagingMaterialForm(
+            request.POST,
+            request.FILES,
+            instance=material,
+            user=request.user,
+            catalogue_length_unit=catalogue_units["length"],
+            catalogue_mass_unit=catalogue_units["mass"],
+        )
         if form.is_valid():
             form.save()
+            remember_catalogue_units(
+                request,
+                length_unit=form.cleaned_data.get("catalogue_length_unit"),
+                mass_unit=form.cleaned_data.get("catalogue_mass_unit"),
+            )
             messages.success(request, "Packaging material updated successfully.")
             return redirect("catalogue_detail", pk=catalogue.pk)
     else:
-        form = PackagingMaterialForm(instance=material, user=request.user)
+        form = PackagingMaterialForm(
+            instance=material,
+            user=request.user,
+            catalogue_length_unit=catalogue_units["length"],
+            catalogue_mass_unit=catalogue_units["mass"],
+        )
 
     return render(
         request,
         "packaging_catalogue/edit_material.html",
-        {"catalogue": catalogue, "material": material, "form": form},
+        {
+            "catalogue": catalogue,
+            "material": material,
+            "form": form,
+            "catalogue_length_unit": catalogue_units["length"],
+            "catalogue_mass_unit": catalogue_units["mass"],
+            "catalogue_unit_selectors": catalogue_unit_selectors(
+                length_unit=catalogue_units["length"], mass_unit=catalogue_units["mass"]
+            ),
+        },
     )
 
 

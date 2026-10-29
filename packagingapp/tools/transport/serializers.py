@@ -19,6 +19,9 @@ def _json_safe_scalar(value):
 def sanitize_transport_rows_for_session(rows):
     safe_rows = []
     for row in rows or []:
+        physical_source = str(row.get("physical_source", "manual") or "manual")
+        if physical_source not in {"manual", "catalogue", "inherited"}:
+            physical_source = "manual"
         safe_rows.append({
             "name": str(row.get("name", "")),
             "length": _json_safe_scalar(row.get("length", "")),
@@ -32,6 +35,12 @@ def sanitize_transport_rows_for_session(rows):
             "r1": bool(row.get("r1", False)),
             "r2": bool(row.get("r2", False)),
             "r3": bool(row.get("r3", False)),
+            "physical_source": physical_source,
+            "canonical_length": _json_safe_scalar(row.get("canonical_length", "")),
+            "canonical_width": _json_safe_scalar(row.get("canonical_width", "")),
+            "canonical_height": _json_safe_scalar(row.get("canonical_height", "")),
+            "canonical_weight": _json_safe_scalar(row.get("canonical_weight", "")),
+            "canonicalized": bool(row.get("canonicalized", False)),
         })
     return safe_rows
 

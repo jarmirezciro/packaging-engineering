@@ -172,6 +172,14 @@ Reference tools use ReportLab PDFs. Reports should:
 - not rely on the browser’s accidental current camera state unless the product specification explicitly says so;
 - use the same normalized data as the web result.
 
+Human-facing physical values are prepared by the shared tool presenter from a
+canonical result plus the tool's selected unit metadata. Container, Bag,
+Palletization, Transport, Corrugated, and the combined Packaging Flow report
+therefore use the same display strings as their web results. A legacy result
+without unit metadata uses that tool's historical metric defaults. ReportLab
+layout units and Three.js/snapshot geometry remain internal metric contracts;
+they are not presentation-unit state.
+
 The Palletization report is an explicit exception to the fixed-camera guidance:
 the user-selected Three.js camera is part of the report specification. Its PDF
 button captures a bounded JPEG canvas data URL, the server validates and stores

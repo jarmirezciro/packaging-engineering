@@ -28,6 +28,14 @@ from packagingapp.models import Product
 from packagingapp.services.catalogue_media import CatalogueMediaError, catalogue_storage_summary
 from packagingapp.services.product_excel_import import import_product_excel
 from packagingapp.services.product_image_import import import_product_images_zip
+from packagingapp.catalogue_units import (
+    catalogue_display_selectors,
+    catalogue_unit_selectors,
+    catalogue_units_from_request,
+    convert_catalogue_filter,
+    remember_catalogue_units,
+    format_catalogue_value,
+)
 
 
 def product_catalogues(request):
@@ -139,9 +147,18 @@ def delete_product_catalogue(request, catalogue_id):
 
 def product_catalogue_detail(request, catalogue_id):
     catalogue = get_visible_product_catalogue_or_404(request.user, pk=catalogue_id)
+    catalogue_units, unit_error = catalogue_units_from_request(request)
+    if unit_error:
+        return unit_error
     products = catalogue.products.all().order_by("product_id")
 
-    form = ProductFilterForm(request.GET or None)
+    form = ProductFilterForm(
+        request.GET or None,
+        initial={
+            "catalogue_length_unit": catalogue_units["length"],
+            "catalogue_mass_unit": catalogue_units["mass"],
+        },
+    )
 
     if form.is_valid():
         cd = form.cleaned_data
@@ -152,25 +169,31 @@ def product_catalogue_detail(request, catalogue_id):
         if cd.get("product_name"):
             products = products.filter(product_name__icontains=cd["product_name"])
 
-        if cd.get("min_length"):
-            products = products.filter(product_length__gte=cd["min_length"])
-        if cd.get("max_length"):
-            products = products.filter(product_length__lte=cd["max_length"])
+        length_unit = cd.get("catalogue_length_unit") or catalogue_units["length"]
+        mass_unit = cd.get("catalogue_mass_unit") or catalogue_units["mass"]
 
-        if cd.get("min_width"):
-            products = products.filter(product_width__gte=cd["min_width"])
-        if cd.get("max_width"):
-            products = products.filter(product_width__lte=cd["max_width"])
+        for field_name, lookup, model_field in (
+            ("min_length", "gte", "product_length"),
+            ("max_length", "lte", "product_length"),
+            ("min_width", "gte", "product_width"),
+            ("max_width", "lte", "product_width"),
+            ("min_height", "gte", "product_height"),
+            ("max_height", "lte", "product_height"),
+        ):
+            if cd.get(field_name) is not None:
+                products = products.filter(**{
+                    f"{model_field}__{lookup}": convert_catalogue_filter(
+                        cd[field_name], quantity="length", display_unit=length_unit
+                    )
+                })
 
-        if cd.get("min_height"):
-            products = products.filter(product_height__gte=cd["min_height"])
-        if cd.get("max_height"):
-            products = products.filter(product_height__lte=cd["max_height"])
-
-        if cd.get("min_weight"):
-            products = products.filter(weight__gte=cd["min_weight"])
-        if cd.get("max_weight"):
-            products = products.filter(weight__lte=cd["max_weight"])
+        for field_name, lookup in (("min_weight", "gte"), ("max_weight", "lte")):
+            if cd.get(field_name) is not None:
+                products = products.filter(**{
+                    f"weight__{lookup}": convert_catalogue_filter(
+                        cd[field_name], quantity="mass", display_unit=mass_unit
+                    )
+                })
 
         if cd.get("min_desired_qty"):
             products = products.filter(desired_qty__gte=cd["min_desired_qty"])
@@ -184,6 +207,19 @@ def product_catalogue_detail(request, catalogue_id):
 
     paginator = Paginator(products, 25)
     page_obj = paginator.get_page(request.GET.get("page"))
+    for product in page_obj.object_list:
+        product.catalogue_display_length = format_catalogue_value(
+            product.product_length, quantity="length", display_unit=catalogue_units["length"]
+        )
+        product.catalogue_display_width = format_catalogue_value(
+            product.product_width, quantity="length", display_unit=catalogue_units["length"]
+        )
+        product.catalogue_display_height = format_catalogue_value(
+            product.product_height, quantity="length", display_unit=catalogue_units["length"]
+        )
+        product.catalogue_display_weight = format_catalogue_value(
+            product.weight, quantity="mass", display_unit=catalogue_units["mass"]
+        )
     can_manage = can_manage_product_catalogue(request.user, catalogue)
 
     return render(
@@ -201,6 +237,11 @@ def product_catalogue_detail(request, catalogue_id):
                 and not can_manage
             ),
             "catalogue_storage": catalogue_storage_summary(request.user) if can_manage else None,
+            "catalogue_length_unit": catalogue_units["length"],
+            "catalogue_mass_unit": catalogue_units["mass"],
+            "catalogue_display_selectors": catalogue_display_selectors(
+                length_unit=catalogue_units["length"], mass_unit=catalogue_units["mass"]
+            ),
         },
     )
 
@@ -209,22 +250,48 @@ def product_catalogue_detail(request, catalogue_id):
 @login_required
 def add_product(request, catalogue_id):
     catalogue = get_manageable_product_catalogue_or_404(request.user, pk=catalogue_id)
+    catalogue_units, unit_error = catalogue_units_from_request(request)
+    if unit_error:
+        return unit_error
 
     if request.method == "POST":
-        form = ProductForm(request.POST, request.FILES, user=request.user)
+        form = ProductForm(
+            request.POST,
+            request.FILES,
+            user=request.user,
+            catalogue_length_unit=catalogue_units["length"],
+            catalogue_mass_unit=catalogue_units["mass"],
+        )
         if form.is_valid():
             product = form.save(commit=False)
             product.catalogue = catalogue
             product.save()
+            remember_catalogue_units(
+                request,
+                length_unit=form.cleaned_data.get("catalogue_length_unit"),
+                mass_unit=form.cleaned_data.get("catalogue_mass_unit"),
+            )
             messages.success(request, "Product added successfully.")
             return redirect("product_catalogue_detail", catalogue_id=catalogue.id)
     else:
-        form = ProductForm(user=request.user)
+        form = ProductForm(
+            user=request.user,
+            catalogue_length_unit=catalogue_units["length"],
+            catalogue_mass_unit=catalogue_units["mass"],
+        )
 
     return render(
         request,
         "product_catalogue/add_product.html",
-        {"catalogue": catalogue, "form": form},
+        {
+            "catalogue": catalogue,
+            "form": form,
+            "catalogue_length_unit": catalogue_units["length"],
+            "catalogue_mass_unit": catalogue_units["mass"],
+            "catalogue_unit_selectors": catalogue_unit_selectors(
+                length_unit=catalogue_units["length"], mass_unit=catalogue_units["mass"]
+            ),
+        },
     )
 
 
@@ -233,20 +300,49 @@ def add_product(request, catalogue_id):
 def edit_product(request, catalogue_id, product_id):
     catalogue = get_manageable_product_catalogue_or_404(request.user, pk=catalogue_id)
     product = get_object_or_404(Product, pk=product_id, catalogue=catalogue)
+    catalogue_units, unit_error = catalogue_units_from_request(request)
+    if unit_error:
+        return unit_error
 
     if request.method == "POST":
-        form = ProductForm(request.POST, request.FILES, instance=product, user=request.user)
+        form = ProductForm(
+            request.POST,
+            request.FILES,
+            instance=product,
+            user=request.user,
+            catalogue_length_unit=catalogue_units["length"],
+            catalogue_mass_unit=catalogue_units["mass"],
+        )
         if form.is_valid():
             form.save()
+            remember_catalogue_units(
+                request,
+                length_unit=form.cleaned_data.get("catalogue_length_unit"),
+                mass_unit=form.cleaned_data.get("catalogue_mass_unit"),
+            )
             messages.success(request, "Product updated successfully.")
             return redirect("product_catalogue_detail", catalogue_id=catalogue.pk)
     else:
-        form = ProductForm(instance=product, user=request.user)
+        form = ProductForm(
+            instance=product,
+            user=request.user,
+            catalogue_length_unit=catalogue_units["length"],
+            catalogue_mass_unit=catalogue_units["mass"],
+        )
 
     return render(
         request,
         "product_catalogue/edit_product.html",
-        {"catalogue": catalogue, "product": product, "form": form},
+        {
+            "catalogue": catalogue,
+            "product": product,
+            "form": form,
+            "catalogue_length_unit": catalogue_units["length"],
+            "catalogue_mass_unit": catalogue_units["mass"],
+            "catalogue_unit_selectors": catalogue_unit_selectors(
+                length_unit=catalogue_units["length"], mass_unit=catalogue_units["mass"]
+            ),
+        },
     )
 
 

@@ -58,17 +58,17 @@
 
       <div id="{% if is_workflow %}fpTransportManualContainerFields_{{ step_index }}{% else %}manualContainerFields{% endif %}">
         <div class="container-tool-fields-3">
-          <div class="tool-field-group mb-0"><label class="form-label">Internal length <span class="text-muted">(mm)</span></label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_l_{{ step_index }}" value="{{ step.config.container_l|default:'' }}">{% else %}{{ form.container_l }}{% endif %}</div>
-          <div class="tool-field-group mb-0"><label class="form-label">Internal width <span class="text-muted">(mm)</span></label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_w_{{ step_index }}" value="{{ step.config.container_w|default:'' }}">{% else %}{{ form.container_w }}{% endif %}</div>
-          <div class="tool-field-group mb-0"><label class="form-label">Internal height <span class="text-muted">(mm)</span></label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_h_{{ step_index }}" value="{{ step.config.container_h|default:'' }}">{% else %}{{ form.container_h }}{% endif %}</div>
+          <div class="tool-field-group mb-0"><label class="form-label">Internal length {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_dimensions current_unit=transport_values.transport_dimension_unit|default:'mm' selector_key='length' %}</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_l_{{ step_index }}" value="{{ step.config.container_l|default:'' }}" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.transport_dimensions.group }}">{% else %}{{ form.container_l }}{% endif %}</div>
+          <div class="tool-field-group mb-0"><label class="form-label">Internal width {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_dimensions current_unit=transport_values.transport_dimension_unit|default:'mm' selector_key='width' %}</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_w_{{ step_index }}" value="{{ step.config.container_w|default:'' }}" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.transport_dimensions.group }}">{% else %}{{ form.container_w }}{% endif %}</div>
+          <div class="tool-field-group mb-0"><label class="form-label">Internal height {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_dimensions current_unit=transport_values.transport_dimension_unit|default:'mm' selector_key='height' %}</label>{% if is_workflow %}<input type="number" step="any" class="form-control" name="container_h_{{ step_index }}" value="{{ step.config.container_h|default:'' }}" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.transport_dimensions.group }}">{% else %}{{ form.container_h }}{% endif %}</div>
         </div>
       </div>
 
       <div class="container-tool-fields-2 mt-3">
         <div class="tool-field-group mb-0">
-          <label class="form-label">Max payload <span class="text-muted">(kg)</span> <span class="text-muted">— optional</span></label>
+          <label class="form-label">Max payload {% if current_container_source == 'manual' %}{% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_mass current_unit=transport_values.transport_mass_unit|default:'kg' selector_key='payload' %}{% else %}<span class="text-muted">(kg)</span>{% endif %} <span class="text-muted">— optional</span></label>
           {% if is_workflow %}
-          <input type="number" step="any" min="0" class="form-control" name="max_weight_{{ step_index }}" value="{{ step.config.max_weight|default:'' }}">
+          <input type="number" step="any" min="0" class="form-control" name="max_weight_{{ step_index }}" value="{{ step.config.max_weight|default:'' }}"{% if current_container_source == 'manual' %} data-unit-input data-unit-group="{{ transport_ui.unit_selectors.transport_mass.group }}"{% endif %}>
           {% else %}
           {{ form.max_weight }}
           {% endif %}
@@ -76,14 +76,14 @@
         </div>
 
         <div class="tool-field-group mb-0">
-          <label class="form-label">Tare weight <span class="text-muted">(kg)</span> <span class="text-muted">— optional</span></label>
+          <label class="form-label">Tare weight {% if current_container_source == 'manual' %}{% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_mass current_unit=transport_values.transport_mass_unit|default:'kg' selector_key='tare' %}{% else %}<span class="text-muted">(kg)</span>{% endif %} <span class="text-muted">— optional</span></label>
           {% if is_workflow %}
             {% if step.config.tare_weight %}
-              <input type="number" step="any" min="0" class="form-control" name="tare_weight_{{ step_index }}" value="{{ step.config.tare_weight }}">
+              <input type="number" step="any" min="0" class="form-control" name="tare_weight_{{ step_index }}" value="{{ step.config.tare_weight }}"{% if current_container_source == 'manual' %} data-unit-input data-unit-group="{{ transport_ui.unit_selectors.transport_mass.group }}"{% endif %}>
             {% elif selected_material and selected_material.part_weight %}
-              <input type="number" step="any" min="0" class="form-control" name="tare_weight_{{ step_index }}" value="{{ selected_material.part_weight }}">
+              <input type="number" step="any" min="0" class="form-control" name="tare_weight_{{ step_index }}" value="{{ selected_material.part_weight }}"{% if current_container_source == 'manual' %} data-unit-input data-unit-group="{{ transport_ui.unit_selectors.transport_mass.group }}"{% endif %}>
             {% else %}
-              <input type="number" step="any" min="0" class="form-control" name="tare_weight_{{ step_index }}" value="">
+              <input type="number" step="any" min="0" class="form-control" name="tare_weight_{{ step_index }}" value=""{% if current_container_source == 'manual' %} data-unit-input data-unit-group="{{ transport_ui.unit_selectors.transport_mass.group }}"{% endif %}>
             {% endif %}
           {% else %}
           {{ form.tare_weight }}

@@ -19,6 +19,7 @@ from .tools.corrugated_material_strength.constants import (
     WALL_SINGLE,
 )
 from .tools.corrugated_material_strength.flute_profiles import nominal_height_for
+from .units import LENGTH_UNIT_OPTIONS, MASS_UNIT_OPTIONS
 
 
 # Create your models here.
@@ -53,6 +54,62 @@ class UserSubscription(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.get_plan_display()} ({self.get_status_display()})"
+
+
+class UserPreferences(models.Model):
+    """Account-level presentation defaults for newly initialized tool state."""
+
+    LENGTH_CHOICES = tuple(
+        (item["value"], f'{item["label"]} ({item["symbol"]})')
+        for item in LENGTH_UNIT_OPTIONS
+    )
+    MASS_CHOICES = tuple(
+        (item["value"], f'{item["label"]} ({item["symbol"]})')
+        for item in MASS_UNIT_OPTIONS
+    )
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="unit_preferences",
+    )
+    default_length_unit = models.CharField(
+        max_length=4,
+        choices=LENGTH_CHOICES,
+        default="mm",
+    )
+    default_small_mass_unit = models.CharField(
+        max_length=3,
+        choices=MASS_CHOICES,
+        default="g",
+    )
+    default_large_mass_unit = models.CharField(
+        max_length=3,
+        choices=MASS_CHOICES,
+        default="kg",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "user preference"
+        verbose_name_plural = "user preferences"
+
+    def clean(self):
+        errors = {}
+        length_values = {value for value, _label in self.LENGTH_CHOICES}
+        mass_values = {value for value, _label in self.MASS_CHOICES}
+        if self.default_length_unit not in length_values:
+            errors["default_length_unit"] = "Select a supported length unit."
+        if self.default_small_mass_unit not in mass_values:
+            errors["default_small_mass_unit"] = "Select a supported mass unit."
+        if self.default_large_mass_unit not in mass_values:
+            errors["default_large_mass_unit"] = "Select a supported mass unit."
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return f"Unit preferences for {self.user}"
 
 
 class AIKnowledgeGap(models.Model):

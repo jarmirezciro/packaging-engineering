@@ -1,4 +1,12 @@
 from ...models import PackagingMaterial
+from ...units import (
+    LENGTH_UNITS,
+    MASS_UNITS,
+    UnsupportedUnitError,
+    convert_length,
+    convert_mass,
+    kg_to_g,
+)
 from ...utils.palletization.engine import (
     run_palletization_analysis,
     selected_result_for_render,
@@ -10,6 +18,7 @@ from .serializers import (
 )
 from .state import default_palletization_config
 from .height import resolve_pallet_height
+from .presenter import attach_pallet_result_presentation
 
 
 INTERLOCK_RENDER_SUFFIX = "__interlock_preview"
@@ -29,6 +38,32 @@ def _to_float(value, default=None):
         return float(value)
     except Exception:
         return default
+
+
+def _validate_unit(unit, definitions, label, messages):
+    """Validate an explicit unit token without changing legacy defaults."""
+    token = str(unit or "").strip().lower()
+    if token not in definitions:
+        messages.append(
+            f"Unsupported {label} unit {unit!r}. "
+            f"Use one of: {', '.join(definitions)}."
+        )
+        return None
+    return token
+
+
+def _convert_manual_value(value, unit, converter, canonical_unit, label, messages):
+    numeric = _to_float(value)
+    if numeric is None:
+        return None
+    try:
+        return float(converter(numeric, unit, canonical_unit))
+    except (UnsupportedUnitError, TypeError, ValueError):
+        # Unit state validation adds the user-facing error. Keep this helper
+        # safe for direct service callers that bypass the validation step.
+        if not any(label in message for message in messages):
+            messages.append(f"Unsupported {label} unit {unit!r}.")
+        return None
 
 
 def _dimension_from_material(material, *attrs):
@@ -117,6 +152,20 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
 
     messages = []
 
+    box_dimension_unit = _validate_unit(
+        cfg.get("box_dimension_unit"),
+        LENGTH_UNITS,
+        "carton dimension",
+        messages,
+    )
+    pallet_dimension_unit = _validate_unit(
+        cfg.get("pallet_dimension_unit"),
+        LENGTH_UNITS,
+        "pallet/layout dimension",
+        messages,
+    )
+    mass_unit = _validate_unit(cfg.get("mass_unit"), MASS_UNITS, "mass", messages)
+
     box_source = cfg.get("box_source") or "manual"
     pallet_source = cfg.get("pallet_source") or "manual"
 
@@ -128,14 +177,25 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
         else:
             box_dims = dims_from_material(selected_box_material, prefer_external=True)
             box_l, box_w, box_h = box_dims
-            inferred_box_weight = _to_float(getattr(selected_box_material, "part_weight", None))
-            manual_box_weight = _to_float(cfg.get("box_weight"))
-            box_weight = manual_box_weight if manual_box_weight is not None else inferred_box_weight
+            catalogue_weight_kg = getattr(selected_box_material, "part_weight", None)
+            box_weight = (
+                _to_float(kg_to_g(catalogue_weight_kg))
+                if catalogue_weight_kg is not None
+                else None
+            )
     else:
-        box_l = _to_float(cfg.get("box_l"))
-        box_w = _to_float(cfg.get("box_w"))
-        box_h = _to_float(cfg.get("box_h"))
-        box_weight = _to_float(cfg.get("box_weight"))
+        box_l = _convert_manual_value(
+            cfg.get("box_l"), box_dimension_unit, convert_length, "mm", "carton dimension", messages
+        )
+        box_w = _convert_manual_value(
+            cfg.get("box_w"), box_dimension_unit, convert_length, "mm", "carton dimension", messages
+        )
+        box_h = _convert_manual_value(
+            cfg.get("box_h"), box_dimension_unit, convert_length, "mm", "carton dimension", messages
+        )
+        box_weight = _convert_manual_value(
+            cfg.get("box_weight"), mass_unit, convert_mass, "g", "mass", messages
+        )
         if None in (box_l, box_w, box_h):
             messages.append("Please enter all manual box dimensions.")
 
@@ -151,25 +211,65 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
                 fallback_on_invalid=True,
             )
     else:
-        pallet_l = _to_float(cfg.get("pallet_l"))
-        pallet_w = _to_float(cfg.get("pallet_w"))
+        pallet_l = _convert_manual_value(
+            cfg.get("pallet_l"), pallet_dimension_unit, convert_length, "mm", "pallet/layout dimension", messages
+        )
+        pallet_w = _convert_manual_value(
+            cfg.get("pallet_w"), pallet_dimension_unit, convert_length, "mm", "pallet/layout dimension", messages
+        )
         try:
-            pallet_height = resolve_pallet_height(cfg.get("pallet_height"))
+            raw_pallet_height = _convert_manual_value(
+                cfg.get("pallet_height"),
+                pallet_dimension_unit,
+                convert_length,
+                "mm",
+                "pallet/layout dimension",
+                messages,
+            )
+            pallet_height = resolve_pallet_height(raw_pallet_height)
         except ValueError as exc:
             pallet_height = None
             messages.append(str(exc))
         if pallet_l is None or pallet_w is None:
             messages.append("Please enter pallet length and pallet width.")
 
-    max_stack_height = _to_float(cfg.get("max_stack_height"))
+    max_stack_height = _convert_manual_value(
+        cfg.get("max_stack_height"),
+        pallet_dimension_unit,
+        convert_length,
+        "mm",
+        "pallet/layout dimension",
+        messages,
+    )
     if max_stack_height is None:
         messages.append("Please enter max stack height.")
     elif pallet_height is not None and max_stack_height <= pallet_height:
         messages.append("Max stack height must be greater than pallet height.")
 
-    max_weight_on_bottom_box = _to_float(cfg.get("max_weight_on_bottom_box"))
-    max_width_stickout = _to_float(cfg.get("max_width_stickout"), 0) or 0
-    max_length_stickout = _to_float(cfg.get("max_length_stickout"), 0) or 0
+    max_weight_on_bottom_box = _convert_manual_value(
+        cfg.get("max_weight_on_bottom_box"),
+        mass_unit,
+        convert_mass,
+        "g",
+        "mass",
+        messages,
+    )
+    max_width_stickout = _convert_manual_value(
+        cfg.get("max_width_stickout"),
+        pallet_dimension_unit,
+        convert_length,
+        "mm",
+        "pallet/layout dimension",
+        messages,
+    )
+    max_length_stickout = _convert_manual_value(
+        cfg.get("max_length_stickout"),
+        pallet_dimension_unit,
+        convert_length,
+        "mm",
+        "pallet/layout dimension",
+        messages,
+    )
 
     for label, value in [
         ("box length", box_l),
@@ -345,6 +445,11 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
         selected_result_key=active_selected_result_key,
         threejs_scene=threejs_scene,
         pallet_height_mm=float(eff["pallet_height"]),
+    )
+    serialized_result = attach_pallet_result_presentation(
+        serialized_result,
+        config,
+        eff,
     )
 
     return {

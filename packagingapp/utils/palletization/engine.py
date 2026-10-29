@@ -2634,6 +2634,12 @@ def result_metrics(
         "layer_footprint_util_pct": round(layer_footprint_util * 100, 2),
         "volumetric_util_pct": round(volumetric_util * 100, 2),
         "feasible_weight": feasible,
+        "max_bottom_load_g": round(max_bottom_load, 2),
+        "avg_bottom_load_g": round(avg_bottom_load, 2),
+        "weight_limit_g": max_weight_on_bottom_box,
+        # Compatibility aliases retained for stored/session/report consumers.
+        # The values have always followed the caller's gram contract despite
+        # the historical and misleading ``_kg`` suffix.
         "max_bottom_load_kg": round(max_bottom_load, 2),
         "avg_bottom_load_kg": round(avg_bottom_load, 2),
         "weight_limit_kg": max_weight_on_bottom_box,

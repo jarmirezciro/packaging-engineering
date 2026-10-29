@@ -653,7 +653,7 @@ class ContainerAssistantCataloguePrivacyTests(TestCase):
             product_length=10,
             product_width=12,
             product_height=8,
-            weight=100,
+            weight=Decimal("0.100"),
             desired_qty=4,
             rotation_1=True,
             rotation_2=False,
@@ -742,7 +742,7 @@ class ContainerAssistantCataloguePrivacyTests(TestCase):
             config=config,
             form=form,
             analysis=selection_analysis(
-                analysis_report=selection_report(container_tare=0.05)
+                analysis_report=selection_report(container_tare=50.0)
             ),
             selected_product=self.public_product,
             selected_material=self.public_material,
@@ -763,8 +763,15 @@ class ContainerAssistantCataloguePrivacyTests(TestCase):
         )
         self.assertNotIn("tare_weight", context["inputs"]["container"])
         self.assertNotIn("container.tare_weight", context["input_definitions"])
-        self.assertNotIn("container_tare", context["result"])
-        self.assertIn(
+        self.assertEqual(
+            context["inputs"]["product"]["weight"],
+            {"value": 100.0, "unit": "g", "status": "valid"},
+        )
+        self.assertEqual(
+            context["result"]["container_tare"],
+            {"value": 50.0, "unit": "g", "status": "informational"},
+        )
+        self.assertNotIn(
             "catalogue_container_weight_unit_ambiguous",
             {warning["code"] for warning in context["warnings"]},
         )

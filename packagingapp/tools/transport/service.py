@@ -13,6 +13,15 @@ from .serializers import (
     serialize_transport_result,
     serialize_transport_threejs_scene,
 )
+from .presenter import attach_transport_result_presentation
+from ...units import (
+    LENGTH_UNITS,
+    MASS_UNITS,
+    UnsupportedUnitError,
+    convert_length,
+    convert_mass,
+)
+from ...units.input import convert_optional, validate_unit
 from ...utils.container_tool.engine import pack_container, run_container_tool, summarize
 
 
@@ -35,6 +44,11 @@ def read_product_rows_raw(post_data):
     r1_vals = post_data.getlist("item_r1[]")
     r2_vals = post_data.getlist("item_r2[]")
     r3_vals = post_data.getlist("item_r3[]")
+    physical_sources = post_data.getlist("item_physical_source[]")
+    canonical_lengths = post_data.getlist("item_canonical_length[]")
+    canonical_widths = post_data.getlist("item_canonical_width[]")
+    canonical_heights = post_data.getlist("item_canonical_height[]")
+    canonical_weights = post_data.getlist("item_canonical_weight[]")
 
     row_count = max(
         len(names),
@@ -49,6 +63,11 @@ def read_product_rows_raw(post_data):
         len(r1_vals),
         len(r2_vals),
         len(r3_vals),
+        len(physical_sources),
+        len(canonical_lengths),
+        len(canonical_widths),
+        len(canonical_heights),
+        len(canonical_weights),
     )
 
     rows = []
@@ -80,6 +99,31 @@ def read_product_rows_raw(post_data):
                 "r1": checked(r1_vals[i]) if i < len(r1_vals) else False,
                 "r2": checked(r2_vals[i]) if i < len(r2_vals) else False,
                 "r3": checked(r3_vals[i]) if i < len(r3_vals) else False,
+                "physical_source": (
+                    physical_sources[i].strip()
+                    if i < len(physical_sources)
+                    else "manual"
+                ) or "manual",
+                "canonical_length": (
+                    canonical_lengths[i].strip()
+                    if i < len(canonical_lengths)
+                    else ""
+                ),
+                "canonical_width": (
+                    canonical_widths[i].strip()
+                    if i < len(canonical_widths)
+                    else ""
+                ),
+                "canonical_height": (
+                    canonical_heights[i].strip()
+                    if i < len(canonical_heights)
+                    else ""
+                ),
+                "canonical_weight": (
+                    canonical_weights[i].strip()
+                    if i < len(canonical_weights)
+                    else ""
+                ),
             }
         )
 
@@ -143,6 +187,12 @@ def validate_transport_rows(raw_rows):
                 "r1": r1,
                 "r2": r2,
                 "r3": r3,
+                "physical_source": raw.get("physical_source", "manual"),
+                "canonical_length": raw.get("canonical_length", ""),
+                "canonical_width": raw.get("canonical_width", ""),
+                "canonical_height": raw.get("canonical_height", ""),
+                "canonical_weight": raw.get("canonical_weight", ""),
+                "canonicalized": bool(raw.get("canonicalized", False)),
             }
         )
 
@@ -167,13 +217,157 @@ def _parse_optional_non_negative(value, label, messages):
     return parsed
 
 
-def build_container_from_config(cfg, selected_material=None):
+_TRANSPORT_UNIT_FIELDS = (
+    ("load_unit_dimension_unit", LENGTH_UNITS, "mm", "load-unit dimension"),
+    ("load_unit_mass_unit", MASS_UNITS, "kg", "load-unit mass"),
+    ("transport_dimension_unit", LENGTH_UNITS, "mm", "transport-unit dimension"),
+    ("transport_mass_unit", MASS_UNITS, "kg", "transport-unit mass"),
+)
+
+
+def validate_transport_unit_state(cfg):
+    """Validate explicit unit metadata while retaining legacy metric defaults."""
+    state = {}
+    messages = []
+    for key, definitions, default, label in _TRANSPORT_UNIT_FIELDS:
+        try:
+            state[key] = validate_unit(
+                (cfg or {}).get(key), definitions, default, label
+            )
+        except UnsupportedUnitError as exc:
+            state[key] = None
+            messages.append(str(exc))
+    return state, messages
+
+
+def _canonical_row_quantity(row, key, unit, converter, canonical_unit):
+    if row.get("canonicalized") and row.get(key) not in (None, "", "None"):
+        return float(row[key])
+    source = row.get("physical_source")
+    canonical_key = f"canonical_{key}"
+    if source in {"catalogue", "inherited"} and row.get(canonical_key) not in (
+        None,
+        "",
+        "None",
+    ):
+        return float(row[canonical_key])
+    return convert_optional(row.get(key), unit, converter, canonical_unit)
+
+
+def normalize_transport_rows_for_calculation(raw_rows, unit_state):
+    """Convert editable row values to engine mm/kg before row validation.
+
+    Catalogue and inherited rows may carry exact canonical scalars.  Those
+    values remain authoritative while the visible inputs change units.
+    """
+    safe_rows = sanitize_transport_rows_for_session(raw_rows or [])
+    messages = []
+    if not safe_rows:
+        return safe_rows, messages
+
+    dimension_unit = unit_state.get("load_unit_dimension_unit")
+    mass_unit = unit_state.get("load_unit_mass_unit")
+    if dimension_unit is None or mass_unit is None:
+        return safe_rows, messages
+
+    normalized = []
+    for index, row in enumerate(safe_rows):
+        converted = dict(row)
+        try:
+            converted["length"] = _canonical_row_quantity(
+                row, "length", dimension_unit, convert_length, "mm"
+            )
+            converted["width"] = _canonical_row_quantity(
+                row, "width", dimension_unit, convert_length, "mm"
+            )
+            converted["height"] = _canonical_row_quantity(
+                row, "height", dimension_unit, convert_length, "mm"
+            )
+            converted["weight"] = _canonical_row_quantity(
+                row, "weight", mass_unit, convert_mass, "kg"
+            )
+            converted["canonicalized"] = True
+        except (TypeError, ValueError, UnsupportedUnitError):
+            messages.append(f"Row {index + 1}: invalid numeric values.")
+        normalized.append(converted)
+    return sanitize_transport_rows_for_session(normalized), messages
+
+
+def transport_rows_for_display(rows, dimension_unit="mm", mass_unit="kg"):
+    """Adapt canonical session rows to one coherent editable display context."""
+    try:
+        display_dimension_unit = validate_unit(
+            dimension_unit, LENGTH_UNITS, "mm", "load-unit dimension"
+        )
+    except UnsupportedUnitError:
+        display_dimension_unit = "mm"
+    try:
+        display_mass_unit = validate_unit(
+            mass_unit, MASS_UNITS, "kg", "load-unit mass"
+        )
+    except UnsupportedUnitError:
+        display_mass_unit = "kg"
+
+    display_rows = []
+    for row in sanitize_transport_rows_for_session(rows or []):
+        display = dict(row)
+        if row.get("canonicalized"):
+            for key in ("length", "width", "height"):
+                if row.get(key) not in (None, "", "None"):
+                    display[key] = float(
+                        convert_length(
+                            float(row[key]), "mm", display_dimension_unit
+                        )
+                    )
+            if row.get("weight") not in (None, "", "None"):
+                display["weight"] = float(
+                    convert_mass(float(row["weight"]), "kg", display_mass_unit)
+                )
+        display["canonicalized"] = False
+        display_rows.append(display)
+    return sanitize_transport_rows_for_session(display_rows)
+
+
+def build_container_from_config(cfg, selected_material=None, unit_state=None):
     messages = []
 
-    max_weight = _parse_optional_non_negative(cfg.get("max_weight"), "max payload", messages)
-    tare_weight = _parse_optional_non_negative(cfg.get("tare_weight"), "tare weight", messages)
+    if unit_state is None:
+        unit_state, unit_messages = validate_transport_unit_state(cfg)
+        messages.extend(unit_messages)
+    if messages:
+        return None, messages
 
-    if tare_weight is None and selected_material is not None:
+    source = (cfg.get("container_source") or "manual")
+    dimension_unit = unit_state["transport_dimension_unit"]
+    mass_unit = unit_state["transport_mass_unit"]
+
+    max_weight = _parse_optional_non_negative(
+        cfg.get("max_weight"), "max payload", messages
+    )
+    tare_weight = _parse_optional_non_negative(
+        cfg.get("tare_weight"), "tare weight", messages
+    )
+    if source == "manual":
+        try:
+            max_weight = convert_optional(
+                max_weight, mass_unit, convert_mass, "kg"
+            )
+            tare_weight = convert_optional(
+                tare_weight, mass_unit, convert_mass, "kg"
+            )
+        except (TypeError, ValueError, UnsupportedUnitError):
+            messages.append("Please enter valid manual transport-unit mass values.")
+
+    if source == "catalogue" and selected_material is not None:
+        try:
+            tare_weight = (
+                float(selected_material.part_weight)
+                if selected_material.part_weight is not None
+                else tare_weight
+            )
+        except Exception:
+            pass
+    elif tare_weight is None and selected_material is not None:
         try:
             tare_weight = float(selected_material.part_weight) if selected_material.part_weight is not None else None
         except Exception:
@@ -184,7 +378,7 @@ def build_container_from_config(cfg, selected_material=None):
         default=DEFAULT_TRANSPORT_PACKING_MODE,
     )
 
-    if (cfg.get("container_source") or "manual") == "catalogue":
+    if source == "catalogue":
         if not selected_material:
             messages.append("Please select a packaging item from the catalogue table.")
             return None, messages
@@ -205,9 +399,9 @@ def build_container_from_config(cfg, selected_material=None):
     else:
         try:
             container = {
-                "L": float(cfg.get("container_l")),
-                "W": float(cfg.get("container_w")),
-                "H": float(cfg.get("container_h")),
+                "L": float(convert_length(float(cfg.get("container_l")), dimension_unit, "mm")),
+                "W": float(convert_length(float(cfg.get("container_w")), dimension_unit, "mm")),
+                "H": float(convert_length(float(cfg.get("container_h")), dimension_unit, "mm")),
                 "max_weight": max_weight,
                 "tare_weight": tare_weight,
                 "type": "MANUAL",
@@ -549,6 +743,12 @@ def _rows_from_products(products):
             "r1": bool(product.get("r1", False)),
             "r2": bool(product.get("r2", False)),
             "r3": bool(product.get("r3", False)),
+            "physical_source": product.get("physical_source", "manual"),
+            "canonical_length": product.get("canonical_length", ""),
+            "canonical_width": product.get("canonical_width", ""),
+            "canonical_height": product.get("canonical_height", ""),
+            "canonical_weight": product.get("canonical_weight", ""),
+            "canonicalized": True,
         }
         for product in products
     ]
@@ -582,13 +782,23 @@ def _prepare_transport_analysis(cfg, raw_rows, selected_material=None):
         cfg.get("packing_mode"),
         default=DEFAULT_TRANSPORT_PACKING_MODE,
     )
-    safe_rows = sanitize_transport_rows_for_session(raw_rows or default_product_rows())
+    unit_state, unit_messages = validate_transport_unit_state(cfg)
+    safe_rows, normalization_messages = normalize_transport_rows_for_calculation(
+        raw_rows or default_product_rows(), unit_state
+    )
     if transport_sequence_is_locked(cfg["packing_mode"]):
         safe_rows = [{**row, "sequence": 1} for row in safe_rows]
     products, row_errors = validate_transport_rows(safe_rows)
-    container, container_errors = build_container_from_config(cfg, selected_material)
+    container, container_errors = build_container_from_config(
+        cfg, selected_material, unit_state=unit_state
+    ) if not unit_messages else (None, [])
 
-    messages = list(row_errors) + list(container_errors)
+    messages = (
+        list(unit_messages)
+        + list(normalization_messages)
+        + list(row_errors)
+        + list(container_errors)
+    )
     if messages:
         return {
             "ok": False,
@@ -676,6 +886,7 @@ def analyze_transport_config(cfg, raw_rows, selected_material=None, media_root=N
     summary_rows = (serialized_result.get("summary") or {}).get("product_rows") or []
     for row, product in zip(summary_rows, prepared["products"]):
         row["max_qty"] = bool(product.get("max_qty", False))
+    serialized_result = attach_transport_result_presentation(serialized_result, cfg)
 
     return {
         "ok": True,

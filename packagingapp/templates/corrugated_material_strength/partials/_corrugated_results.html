@@ -6,17 +6,17 @@
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Required sheet area" value=result.production_sheet_area_m2 unit="m²" %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Material utilization" value=result.material_utilization_percent unit="%" %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Cutting scrap" value=result.total_scrap_area_m2 unit="m²" %}
-        {% include "corrugated_material_strength/partials/_result_card.html" with label="Estimated box weight" value=result.finished_box_weight_g unit="g" %}
-        {% include "corrugated_material_strength/partials/_result_card.html" with label="Required sheet material" value=result.production_sheet_weight_g unit="g" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Estimated box weight" display_value=result.display.finished_box_weight %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Required sheet material" display_value=result.display.production_sheet_weight %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Required BCT" value=result.required_bct_n unit="N" %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Predicted / measured BCT" value=result.available_bct_n unit="N" %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Strength margin" value=result.strength_margin unit="" %}
-        {% include "corrugated_material_strength/partials/_result_card.html" with label="Maximum supported mass above bottom box" value=result.allowable_supported_mass_kg unit="kg" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Maximum supported mass above bottom box" display_value=result.display.allowable_supported_mass %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Equivalent identical packed boxes above" value=result.maximum_equivalent_boxes_above unit="boxes" %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Maximum total boxes in one vertical column" value=result.maximum_total_boxes_in_column unit="boxes" %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Current boxes above bottom box" value=result.current_boxes_above unit="boxes" %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Compression-capacity usage" value=result.capacity_usage_percent unit="%" %}
-        {% include "corrugated_material_strength/partials/_result_card.html" with label="Remaining supported mass" value=result.remaining_supported_mass_kg unit="kg" %}
+        {% include "corrugated_material_strength/partials/_result_card.html" with label="Remaining supported mass" display_value=result.display.remaining_supported_mass %}
         {% include "corrugated_material_strength/partials/_result_card.html" with label="Required-sheet CO₂" value=result.required_sheet_co2_kg unit="kg CO₂e" %}
     </div>
     <p class="corrugated-note">Practical compression values are preliminary engineering screening outputs for one vertical load column. They are not a recommended physical stack height.</p>

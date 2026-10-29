@@ -49,6 +49,11 @@
     <form method="post" action="{{ ui.form_action }}" data-preserve-tool-scroll="corrugated-material-strength">
         {% csrf_token %}
         {{ fields.action }}
+        <input type="hidden" name="{{ ui.unit_selectors.box_dimensions.hidden_name }}" value="{{ fields.box_dimension_unit.value|default:'mm' }}" data-unit-hidden data-unit-group="{{ ui.unit_selectors.box_dimensions.group }}">
+        <input type="hidden" name="{{ ui.unit_selectors.product_mass.hidden_name }}" value="{{ fields.product_mass_unit.value|default:'g' }}" data-unit-hidden data-unit-group="{{ ui.unit_selectors.product_mass.group }}">
+        <input type="hidden" name="{{ ui.unit_selectors.pallet_dimensions.hidden_name }}" value="{{ fields.pallet_dimension_unit.value|default:'mm' }}" data-unit-hidden data-unit-group="{{ ui.unit_selectors.pallet_dimensions.group }}">
+        <input type="hidden" name="{{ ui.unit_selectors.pallet_mass.hidden_name }}" value="{{ fields.pallet_mass_unit.value|default:'kg' }}" data-unit-hidden data-unit-group="{{ ui.unit_selectors.pallet_mass.group }}">
+        <input type="hidden" name="{{ ui.unit_selectors.material_dimensions.hidden_name }}" value="{{ fields.material_dimension_unit.value|default:'mm' }}" data-unit-hidden data-unit-group="{{ ui.unit_selectors.material_dimensions.group }}">
         {% if form.non_field_errors %}<div class="alert alert-warning">{{ form.non_field_errors }}</div>{% endif %}
         <div class="corrugated-form-grid">
             {% include "corrugated_material_strength/partials/_box_product_inputs.html" %}
@@ -72,5 +77,6 @@
 {{ board_metadata_json|json_script:"corrugated-board-metadata" }}
 {{ pallet_metadata_json|json_script:"corrugated-pallet-metadata" }}
 {{ reference_grade_metadata_json|json_script:"corrugated-reference-grade-metadata" }}
+<script src="{% static 'js/unit_selector.js' %}"></script>
 <script src="{% static 'js/corrugated_material_strength.js' %}"></script>
 {% endblock %}

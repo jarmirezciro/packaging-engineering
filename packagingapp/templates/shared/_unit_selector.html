@@ -1,0 +1,31 @@
+<span class="unit-selector"
+      data-unit-selector
+      data-unit-group="{{ unit_selector.group }}"
+      data-unit-quantity="{{ unit_selector.quantity }}"
+      {% if unit_selector.storage_key %}data-unit-storage-key="{{ unit_selector.storage_key }}"{% endif %}
+      {% if unit_selector.url_param %}data-unit-url-param="{{ unit_selector.url_param }}"{% endif %}>
+    <button type="button"
+            class="unit-selector-trigger"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-controls="{{ unit_selector.menu_id }}-{{ selector_key }}"
+            aria-label="Select {{ unit_selector.label }} unit">
+        (<span data-unit-symbol>{{ current_unit }}</span>)
+    </button>
+    <span id="{{ unit_selector.menu_id }}-{{ selector_key }}"
+          class="unit-selector-menu"
+          role="listbox"
+          hidden>
+        {% for option in unit_selector.options %}
+            <button type="button"
+                    class="unit-selector-option"
+                    role="option"
+                    data-unit-option
+                    data-unit="{{ option.value }}"
+                    aria-selected="{% if option.value == current_unit %}true{% else %}false{% endif %}">
+                <span class="unit-selector-check" aria-hidden="true">{% if option.value == current_unit %}✓{% endif %}</span>
+                <span>{{ option.label }} ({{ option.symbol }})</span>
+            </button>
+        {% endfor %}
+    </span>
+</span>

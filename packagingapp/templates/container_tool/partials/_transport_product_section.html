@@ -114,16 +114,16 @@
         <thead class="table-light">
           <tr>
             <th style="min-width: 180px;">Name / load unit</th>
-            <th>L (mm)</th>
-            <th>W (mm)</th>
-            <th>H (mm)</th>
+            <th>L {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='workflow-l' %}</th>
+            <th>W {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='workflow-w' %}</th>
+            <th>H {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='workflow-h' %}</th>
             <th class="text-center">Max qty?</th>
             <th>Pieces</th>
             <th>R1</th>
             <th>R2</th>
             <th>R3</th>
             <th class="text-center" title="Allow other load units to be placed on top of this product.">Stackable?</th>
-            <th>Weight (kg)</th>
+            <th>Weight {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_mass current_unit=transport_values.load_unit_mass_unit|default:'kg' selector_key='workflow-weight' %}</th>
             <th>Loading seq.</th>
             {% if is_first_step %}
             <th>Catalogue</th>
@@ -134,10 +134,17 @@
         <tbody id="fpTransportProductsTbody_{{ step_index }}">
           {% for row in product_rows %}
           <tr>
-            <td><input type="text" name="item_name[]" class="form-control" value="{{ row.name }}"></td>
-            <td><input type="number" step="any" name="item_length[]" class="form-control" value="{{ row.length }}"></td>
-            <td><input type="number" step="any" name="item_width[]" class="form-control" value="{{ row.width }}"></td>
-            <td><input type="number" step="any" name="item_height[]" class="form-control" value="{{ row.height }}"></td>
+            <td>
+              <input type="hidden" name="item_physical_source[]" value="{{ row.physical_source|default:'manual' }}" data-transport-row-source>
+              <input type="hidden" name="item_canonical_length[]" value="{{ row.canonical_length|default:'' }}" data-transport-row-canonical>
+              <input type="hidden" name="item_canonical_width[]" value="{{ row.canonical_width|default:'' }}" data-transport-row-canonical>
+              <input type="hidden" name="item_canonical_height[]" value="{{ row.canonical_height|default:'' }}" data-transport-row-canonical>
+              <input type="hidden" name="item_canonical_weight[]" value="{{ row.canonical_weight|default:'' }}" data-transport-row-canonical>
+              <input type="text" name="item_name[]" class="form-control" value="{{ row.name }}">
+            </td>
+            <td><input type="number" step="any" name="item_length[]" class="form-control" value="{{ row.length }}" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
+            <td><input type="number" step="any" name="item_width[]" class="form-control" value="{{ row.width }}" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
+            <td><input type="number" step="any" name="item_height[]" class="form-control" value="{{ row.height }}" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
             <td class="text-center">
               <input type="hidden" name="item_max_qty[]" value="{% if row.max_qty %}1{% else %}0{% endif %}">
               <input type="checkbox" name="item_max_qty_checked[]" class="form-check-input transport-max-qty-checkbox" value="{{ forloop.counter0 }}" data-transport-max-qty-checkbox {% if row.max_qty %}checked{% endif %} onchange="transportToggleMaxQty(this)">
@@ -169,7 +176,7 @@
               <input type="checkbox" value="1" {% if row.stackable != False %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)" title="Allow other load units to be placed on top of this product.">
             </td>
 
-            <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}"></td>
+            <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_mass.group }}" oninput="transportMarkRowManual(this)"></td>
             <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{% if is_workflow and step.transport_sequence_locked or not is_workflow and transport_sequence_locked %}1{% else %}{{ row.sequence }}{% endif %}" data-transport-sequence-input{% if is_workflow and step.transport_sequence_locked or not is_workflow and transport_sequence_locked %} readonly aria-readonly="true"{% endif %}></td>
 
             {% if is_first_step %}
@@ -244,10 +251,17 @@
 {% if is_first_step %}
 <template id="fpTransportProductRowTemplate_{{ step_index }}">
   <tr>
-    <td><input type="text" name="item_name[]" class="form-control" value=""></td>
-    <td><input type="number" step="any" name="item_length[]" class="form-control" value=""></td>
-    <td><input type="number" step="any" name="item_width[]" class="form-control" value=""></td>
-    <td><input type="number" step="any" name="item_height[]" class="form-control" value=""></td>
+    <td>
+      <input type="hidden" name="item_physical_source[]" value="manual" data-transport-row-source>
+      <input type="hidden" name="item_canonical_length[]" value="" data-transport-row-canonical>
+      <input type="hidden" name="item_canonical_width[]" value="" data-transport-row-canonical>
+      <input type="hidden" name="item_canonical_height[]" value="" data-transport-row-canonical>
+      <input type="hidden" name="item_canonical_weight[]" value="" data-transport-row-canonical>
+      <input type="text" name="item_name[]" class="form-control" value="">
+    </td>
+    <td><input type="number" step="any" name="item_length[]" class="form-control" value="" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
+    <td><input type="number" step="any" name="item_width[]" class="form-control" value="" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
+    <td><input type="number" step="any" name="item_height[]" class="form-control" value="" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
     <td class="text-center">
       <input type="hidden" name="item_max_qty[]" value="0">
       <input type="checkbox" name="item_max_qty_checked[]" class="form-check-input transport-max-qty-checkbox" value="" data-transport-max-qty-checkbox onchange="transportToggleMaxQty(this)">
@@ -277,7 +291,7 @@
       <input type="checkbox" value="1" checked onchange="fpTransportSyncCheckboxHidden(this)" title="Allow other load units to be placed on top of this product.">
     </td>
 
-    <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0"></td>
+    <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_mass.group }}" oninput="transportMarkRowManual(this)"></td>
     <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1" data-transport-sequence-input{% if is_workflow and step.transport_sequence_locked or not is_workflow and transport_sequence_locked %} readonly aria-readonly="true"{% endif %}></td>
     <td class="text-center">
       <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportOpenProductCatalogueForRowFromButton(this, {{ step_index }})" title="Fill this row from catalogue">
@@ -397,16 +411,16 @@
         <thead class="table-light">
           <tr>
             <th style="min-width: 180px;">Name / load unit</th>
-            <th>L (mm)</th>
-            <th>W (mm)</th>
-            <th>H (mm)</th>
+            <th>L {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='standalone-l' %}</th>
+            <th>W {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='standalone-w' %}</th>
+            <th>H {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='standalone-h' %}</th>
             <th class="text-center">Max qty?</th>
             <th>Pieces</th>
             <th>R1</th>
             <th>R2</th>
             <th>R3</th>
             <th class="text-center" title="Allow other load units to be placed on top of this product.">Stackable?</th>
-            <th>Weight (kg)</th>
+            <th>Weight {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_mass current_unit=transport_values.load_unit_mass_unit|default:'kg' selector_key='standalone-weight' %}</th>
             <th>Loading seq.</th>
             <th>Catalogue</th>
             <th></th>
@@ -415,10 +429,17 @@
         <tbody id="products-tbody">
           {% for row in product_rows %}
           <tr>
-            <td><input type="text" name="item_name[]" class="form-control" value="{{ row.name }}"></td>
-            <td><input type="number" step="any" name="item_length[]" class="form-control" value="{{ row.length }}"></td>
-            <td><input type="number" step="any" name="item_width[]" class="form-control" value="{{ row.width }}"></td>
-            <td><input type="number" step="any" name="item_height[]" class="form-control" value="{{ row.height }}"></td>
+            <td>
+              <input type="hidden" name="item_physical_source[]" value="{{ row.physical_source|default:'manual' }}" data-transport-row-source>
+              <input type="hidden" name="item_canonical_length[]" value="{{ row.canonical_length|default:'' }}" data-transport-row-canonical>
+              <input type="hidden" name="item_canonical_width[]" value="{{ row.canonical_width|default:'' }}" data-transport-row-canonical>
+              <input type="hidden" name="item_canonical_height[]" value="{{ row.canonical_height|default:'' }}" data-transport-row-canonical>
+              <input type="hidden" name="item_canonical_weight[]" value="{{ row.canonical_weight|default:'' }}" data-transport-row-canonical>
+              <input type="text" name="item_name[]" class="form-control" value="{{ row.name }}">
+            </td>
+            <td><input type="number" step="any" name="item_length[]" class="form-control" value="{{ row.length }}" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
+            <td><input type="number" step="any" name="item_width[]" class="form-control" value="{{ row.width }}" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
+            <td><input type="number" step="any" name="item_height[]" class="form-control" value="{{ row.height }}" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
             <td class="text-center">
               <input type="hidden" name="item_max_qty[]" value="{% if row.max_qty %}1{% else %}0{% endif %}">
               <input type="checkbox" name="item_max_qty_checked[]" class="form-check-input transport-max-qty-checkbox" value="{{ forloop.counter0 }}" data-transport-max-qty-checkbox {% if row.max_qty %}checked{% endif %} onchange="transportToggleMaxQty(this)">
@@ -450,7 +471,7 @@
               <input type="checkbox" value="1" {% if row.stackable != False %}checked{% endif %} onchange="syncCheckboxHidden(this)" title="Allow other load units to be placed on top of this product.">
             </td>
 
-            <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}"></td>
+            <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="{{ row.weight }}" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_mass.group }}" oninput="transportMarkRowManual(this)"></td>
             <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="{% if transport_sequence_locked %}1{% else %}{{ row.sequence }}{% endif %}" data-transport-sequence-input{% if transport_sequence_locked %} readonly aria-readonly="true"{% endif %}></td>
             <td class="text-center">
               <button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRow({{ forloop.counter0 }})" title="Fill this row from catalogue">
@@ -521,10 +542,17 @@
 
 <template id="product-row-template">
   <tr>
-    <td><input type="text" name="item_name[]" class="form-control" value=""></td>
-    <td><input type="number" step="any" name="item_length[]" class="form-control" value=""></td>
-    <td><input type="number" step="any" name="item_width[]" class="form-control" value=""></td>
-    <td><input type="number" step="any" name="item_height[]" class="form-control" value=""></td>
+    <td>
+      <input type="hidden" name="item_physical_source[]" value="manual" data-transport-row-source>
+      <input type="hidden" name="item_canonical_length[]" value="" data-transport-row-canonical>
+      <input type="hidden" name="item_canonical_width[]" value="" data-transport-row-canonical>
+      <input type="hidden" name="item_canonical_height[]" value="" data-transport-row-canonical>
+      <input type="hidden" name="item_canonical_weight[]" value="" data-transport-row-canonical>
+      <input type="text" name="item_name[]" class="form-control" value="">
+    </td>
+    <td><input type="number" step="any" name="item_length[]" class="form-control" value="" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
+    <td><input type="number" step="any" name="item_width[]" class="form-control" value="" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
+    <td><input type="number" step="any" name="item_height[]" class="form-control" value="" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" oninput="transportMarkRowManual(this)"></td>
     <td class="text-center">
       <input type="hidden" name="item_max_qty[]" value="0">
       <input type="checkbox" name="item_max_qty_checked[]" class="form-check-input transport-max-qty-checkbox" value="" data-transport-max-qty-checkbox onchange="transportToggleMaxQty(this)">
@@ -554,7 +582,7 @@
       <input type="checkbox" value="1" checked onchange="syncCheckboxHidden(this)" title="Allow other load units to be placed on top of this product.">
     </td>
 
-    <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0"></td>
+    <td><input type="number" step="any" min="0" name="item_weight[]" class="form-control" value="0" data-unit-input data-unit-group="{{ transport_ui.unit_selectors.load_unit_mass.group }}" oninput="transportMarkRowManual(this)"></td>
     <td><input type="number" step="1" min="1" name="item_sequence[]" class="form-control" value="1" data-transport-sequence-input{% if transport_sequence_locked %} readonly aria-readonly="true"{% endif %}></td>
     <td class="text-center">
       <button type="button" class="btn btn-app-outline btn-sm" onclick="openProductCatalogueForRowFromButton(this)" title="Fill this row from catalogue">

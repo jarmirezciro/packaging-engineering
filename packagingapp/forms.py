@@ -2,9 +2,10 @@ from decimal import Decimal
 
 from django import forms
 from django.contrib.auth import get_user_model
+from django.core.validators import DecimalValidator
 from django.core.files.uploadedfile import UploadedFile
 
-from .models import CorrugatedBoardConstruction, PackagingCatalogue, PackagingMaterial
+from .models import CorrugatedBoardConstruction, PackagingCatalogue, PackagingMaterial, UserPreferences
 from .models import ProductCatalogue, Product
 from .services.catalogue_media import CatalogueMediaError, prepare_catalogue_image
 from .tools.product_shape import PRODUCT_SHAPE_CHOICES
@@ -20,6 +21,45 @@ from .tools.corrugated_material_strength.constants import (
     WALL_DOUBLE,
     WALL_SINGLE,
 )
+from .units import LENGTH_UNIT_OPTIONS, MASS_UNIT_OPTIONS
+from .units import LENGTH_UNITS, MASS_UNITS, convert_length, convert_mass, normalize_unit
+from .catalogue_units import (
+    CATALOGUE_ENTRY_LENGTH_GROUP,
+    CATALOGUE_ENTRY_MASS_GROUP,
+    CATALOGUE_DISPLAY_LENGTH_GROUP,
+    CATALOGUE_DISPLAY_MASS_GROUP,
+    DEFAULT_CATALOGUE_LENGTH_UNIT,
+    DEFAULT_CATALOGUE_MASS_UNIT,
+    format_catalogue_value,
+    quantize_canonical,
+)
+
+
+class UserPreferencesForm(forms.ModelForm):
+    """Accessible account form for the three user-facing unit defaults."""
+
+    class Meta:
+        model = UserPreferences
+        fields = (
+            "default_length_unit",
+            "default_small_mass_unit",
+            "default_large_mass_unit",
+        )
+        labels = {
+            "default_length_unit": "Default dimensions",
+            "default_small_mass_unit": "Default item/package weight",
+            "default_large_mass_unit": "Default pallet/transport weight",
+        }
+        help_texts = {
+            "default_length_unit": "Used for dimensions in newly opened tools.",
+            "default_small_mass_unit": "Used for products, cartons, bags and similar package-level weights.",
+            "default_large_mass_unit": "Used for pallets, transport units, payloads and other logistics-scale weights.",
+        }
+        widgets = {
+            "default_length_unit": forms.Select(attrs={"class": "form-select"}),
+            "default_small_mass_unit": forms.Select(attrs={"class": "form-select"}),
+            "default_large_mass_unit": forms.Select(attrs={"class": "form-select"}),
+        }
 
 
 ###
@@ -27,6 +67,24 @@ from .tools.corrugated_material_strength.constants import (
 ###
 
 class PackagingMaterialFilterForm(forms.Form):
+    catalogue_length_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        widget=forms.HiddenInput(attrs={
+            "data-unit-hidden": "true",
+            "data-unit-group": CATALOGUE_DISPLAY_LENGTH_GROUP,
+            "data-catalogue-unit-state": "true",
+        }),
+    )
+    catalogue_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        widget=forms.HiddenInput(attrs={
+            "data-unit-hidden": "true",
+            "data-unit-group": CATALOGUE_DISPLAY_MASS_GROUP,
+            "data-catalogue-unit-state": "true",
+        }),
+    )
     part_number = forms.CharField(required=False, label="Part Number")
     part_description = forms.CharField(required=False, label="Description")
     packaging_type = forms.CharField(required=False, label="Type")
@@ -110,6 +168,114 @@ class CatalogueImageFormMixin:
         return cleaned
 
 
+class CataloguePhysicalUnitFormMixin:
+    """Convert catalogue entry values at the form boundary.
+
+    The ModelForm fields are widened only for human-entered display values;
+    cleaned values are converted and quantized to the existing model scales
+    before Django's model validation and save path run.
+    """
+
+    catalogue_length_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        widget=forms.HiddenInput(attrs={
+            "data-unit-hidden": "true",
+            "data-unit-group": CATALOGUE_ENTRY_LENGTH_GROUP,
+            "data-catalogue-unit-state": "true",
+        }),
+    )
+    catalogue_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        widget=forms.HiddenInput(attrs={
+            "data-unit-hidden": "true",
+            "data-unit-group": CATALOGUE_ENTRY_MASS_GROUP,
+            "data-catalogue-unit-state": "true",
+        }),
+    )
+
+    catalogue_length_fields = ()
+    catalogue_mass_fields = ()
+    catalogue_field_precision = {}
+
+    def __init__(
+        self,
+        *args,
+        catalogue_length_unit=DEFAULT_CATALOGUE_LENGTH_UNIT,
+        catalogue_mass_unit=DEFAULT_CATALOGUE_MASS_UNIT,
+        **kwargs,
+    ):
+        self.entry_length_unit = normalize_unit(
+            catalogue_length_unit, LENGTH_UNITS, DEFAULT_CATALOGUE_LENGTH_UNIT
+        )
+        self.entry_mass_unit = normalize_unit(
+            catalogue_mass_unit, MASS_UNITS, DEFAULT_CATALOGUE_MASS_UNIT
+        )
+        super().__init__(*args, **kwargs)
+
+        for field_name in (*self.catalogue_length_fields, *self.catalogue_mass_fields):
+            field = self.fields[field_name]
+            # The model precision is applied after conversion in clean().
+            field.max_digits = 24
+            field.decimal_places = 12
+            field.validators = [
+                validator
+                for validator in field.validators
+                if not isinstance(validator, DecimalValidator)
+            ]
+            field.validators.append(DecimalValidator(max_digits=24, decimal_places=12))
+
+        if not self.is_bound:
+            self.initial["catalogue_length_unit"] = self.entry_length_unit
+            self.initial["catalogue_mass_unit"] = self.entry_mass_unit
+            for field_name in self.catalogue_length_fields:
+                if self.initial.get(field_name) not in (None, ""):
+                    self.initial[field_name] = format_catalogue_value(
+                        self.initial[field_name],
+                        quantity="length",
+                        display_unit=self.entry_length_unit,
+                        max_decimal_places=8,
+                    )
+            for field_name in self.catalogue_mass_fields:
+                if self.initial.get(field_name) not in (None, ""):
+                    self.initial[field_name] = format_catalogue_value(
+                        self.initial[field_name],
+                        quantity="mass",
+                        display_unit=self.entry_mass_unit,
+                        max_decimal_places=8,
+                    )
+
+    def clean(self):
+        cleaned = super().clean()
+        length_unit = cleaned.get("catalogue_length_unit") or self.entry_length_unit
+        mass_unit = cleaned.get("catalogue_mass_unit") or self.entry_mass_unit
+
+        for field_name in self.catalogue_length_fields:
+            value = cleaned.get(field_name)
+            if value not in (None, ""):
+                try:
+                    cleaned[field_name] = quantize_canonical(
+                        convert_length(value, length_unit, "mm"),
+                        self.catalogue_field_precision[field_name],
+                    )
+                except (TypeError, ValueError) as exc:
+                    self.add_error(field_name, str(exc))
+
+        for field_name in self.catalogue_mass_fields:
+            value = cleaned.get(field_name)
+            if value not in (None, ""):
+                try:
+                    cleaned[field_name] = quantize_canonical(
+                        convert_mass(value, mass_unit, "kg"),
+                        self.catalogue_field_precision[field_name],
+                    )
+                except (TypeError, ValueError) as exc:
+                    self.add_error(field_name, str(exc))
+
+        return cleaned
+
+
 class PackagingCatalogueForm(CatalogueImageFormMixin, CatalogueAdministrationFormMixin, forms.ModelForm):
     image_field_name = "picture"
 
@@ -118,8 +284,27 @@ class PackagingCatalogueForm(CatalogueImageFormMixin, CatalogueAdministrationFor
         fields = ["name", "description", "picture", "is_public", "owner"]
 
 
-class PackagingMaterialForm(CatalogueImageFormMixin, forms.ModelForm):
+class PackagingMaterialForm(CataloguePhysicalUnitFormMixin, CatalogueImageFormMixin, forms.ModelForm):
     image_field_name = "picture"
+
+    catalogue_length_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        widget=forms.HiddenInput(attrs={
+            "data-unit-hidden": "true",
+            "data-unit-group": CATALOGUE_ENTRY_LENGTH_GROUP,
+            "data-catalogue-unit-state": "true",
+        }),
+    )
+    catalogue_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        widget=forms.HiddenInput(attrs={
+            "data-unit-hidden": "true",
+            "data-unit-group": CATALOGUE_ENTRY_MASS_GROUP,
+            "data-catalogue-unit-state": "true",
+        }),
+    )
 
     class Meta:
         model = PackagingMaterial
@@ -140,6 +325,27 @@ class PackagingMaterialForm(CatalogueImageFormMixin, forms.ModelForm):
             "drawing",
             "picture",
         ]
+
+    catalogue_length_fields = (
+        "part_length",
+        "part_width",
+        "part_height",
+        "external_length",
+        "external_width",
+        "external_height",
+        "box_thickness_mm",
+    )
+    catalogue_mass_fields = ("part_weight",)
+    catalogue_field_precision = {
+        "part_length": 2,
+        "part_width": 2,
+        "part_height": 2,
+        "external_length": 2,
+        "external_width": 2,
+        "external_height": 2,
+        "box_thickness_mm": 3,
+        "part_weight": 3,
+    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -244,25 +450,49 @@ class ContainerSelectionMode1Form(forms.Form):
         min_value=0.0001,
         label="Length",
         required=False,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "container-product-dimensions",
+        })
     )
     product_w = forms.FloatField(
         min_value=0.0001,
         label="Width",
         required=False,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "container-product-dimensions",
+        })
     )
     product_h = forms.FloatField(
         min_value=0.0001,
         label="Height",
         required=False,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "container-product-dimensions",
+        })
+    )
+    product_dimension_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        initial="mm",
+        widget=forms.HiddenInput(),
     )
     product_weight = forms.FloatField(
         min_value=0,
         required=False,
         label="Weight",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "container-product-mass",
+        })
+    )
+    product_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        initial="g",
+        widget=forms.HiddenInput(),
     )
 
     desired_qty = forms.IntegerField(
@@ -304,19 +534,34 @@ class ContainerSelectionMode1Form(forms.Form):
         min_value=0.0001,
         required=False,
         label="Length",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "container-packaging-dimensions",
+        })
     )
     box_w = forms.FloatField(
         min_value=0.0001,
         required=False,
         label="Width",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "container-packaging-dimensions",
+        })
     )
     box_h = forms.FloatField(
         min_value=0.0001,
         required=False,
         label="Height",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "container-packaging-dimensions",
+        })
+    )
+    container_dimension_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        initial="mm",
+        widget=forms.HiddenInput(),
     )
 
     box_thickness_mm = forms.FloatField(
@@ -324,7 +569,10 @@ class ContainerSelectionMode1Form(forms.Form):
         required=False,
         label="Box thickness",
         widget=forms.NumberInput(
-            attrs={"class": "form-control", "step": "any", "min": "0.0001"}
+            attrs={
+                "class": "form-control", "step": "any", "min": "0.0001",
+                "data-unit-input": "true", "data-unit-group": "container-packaging-dimensions",
+            }
         ),
     )
 
@@ -332,14 +580,26 @@ class ContainerSelectionMode1Form(forms.Form):
         min_value=0,
         required=False,
         label="Packaging weight",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "min": "0"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any", "min": "0",
+            "data-unit-input": "true", "data-unit-group": "container-packaging-mass",
+        })
     )
 
     box_max_payload = forms.FloatField(
         min_value=0,
         required=False,
         label="Max payload",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "min": "0"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any", "min": "0",
+            "data-unit-input": "true", "data-unit-group": "container-packaging-mass",
+        })
+    )
+    container_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        initial="g",
+        widget=forms.HiddenInput(),
     )
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
@@ -362,6 +622,24 @@ class ContainerSelectionMode1Form(forms.Form):
 ###
 
 class ProductFilterForm(forms.Form):
+    catalogue_length_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        widget=forms.HiddenInput(attrs={
+            "data-unit-hidden": "true",
+            "data-unit-group": CATALOGUE_DISPLAY_LENGTH_GROUP,
+            "data-catalogue-unit-state": "true",
+        }),
+    )
+    catalogue_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        widget=forms.HiddenInput(attrs={
+            "data-unit-hidden": "true",
+            "data-unit-group": CATALOGUE_DISPLAY_MASS_GROUP,
+            "data-catalogue-unit-state": "true",
+        }),
+    )
     product_id = forms.CharField(required=False, label="Product ID")
     product_name = forms.CharField(required=False, label="Product Name")
 
@@ -390,8 +668,27 @@ class ProductCatalogueForm(CatalogueImageFormMixin, CatalogueAdministrationFormM
         fields = ["name", "description", "picture", "is_public", "owner"]
 
 
-class ProductForm(CatalogueImageFormMixin, forms.ModelForm):
+class ProductForm(CataloguePhysicalUnitFormMixin, CatalogueImageFormMixin, forms.ModelForm):
     image_field_name = "product_picture"
+
+    catalogue_length_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        widget=forms.HiddenInput(attrs={
+            "data-unit-hidden": "true",
+            "data-unit-group": CATALOGUE_ENTRY_LENGTH_GROUP,
+            "data-catalogue-unit-state": "true",
+        }),
+    )
+    catalogue_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        widget=forms.HiddenInput(attrs={
+            "data-unit-hidden": "true",
+            "data-unit-group": CATALOGUE_ENTRY_MASS_GROUP,
+            "data-catalogue-unit-state": "true",
+        }),
+    )
 
     class Meta:
         model = Product
@@ -408,6 +705,15 @@ class ProductForm(CatalogueImageFormMixin, forms.ModelForm):
             "desired_qty",
             "product_picture",
         ]
+
+    catalogue_length_fields = ("product_length", "product_width", "product_height")
+    catalogue_mass_fields = ("weight",)
+    catalogue_field_precision = {
+        "product_length": 3,
+        "product_width": 3,
+        "product_height": 3,
+        "weight": 3,
+    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -493,26 +799,52 @@ class BagSelectionForm(forms.Form):
         min_value=0.0001,
         label="Length",
         required=False,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "bag-product-dimensions",
+        })
     )
     product_w = forms.FloatField(
         min_value=0.0001,
         label="Width",
         required=False,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "bag-product-dimensions",
+        })
     )
     product_h = forms.FloatField(
         min_value=0.0001,
         label="Height",
         required=False,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "bag-product-dimensions",
+        })
+    )
+
+    product_dimension_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        initial="mm",
+        widget=forms.HiddenInput(),
     )
 
     product_weight = forms.FloatField(
         min_value=0,
         label="Product weight (g)",
         required=False,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "bag-product-mass",
+        })
+    )
+
+    product_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        initial="g",
+        widget=forms.HiddenInput(),
     )
 
     desired_qty = forms.IntegerField(
@@ -550,27 +882,53 @@ class BagSelectionForm(forms.Form):
         min_value=0.0001,
         required=False,
         label="Bag length",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "bag-packaging-dimensions",
+        })
     )
     bag_width = forms.FloatField(
         min_value=0.0001,
         required=False,
         label="Bag width",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "bag-packaging-dimensions",
+        })
+    )
+
+    bag_dimension_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        initial="mm",
+        widget=forms.HiddenInput(),
     )
 
     bag_weight = forms.FloatField(
         min_value=0,
         required=False,
         label="Packaging weight (g)",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "bag-packaging-mass",
+        })
     )
 
     bag_max_payload = forms.FloatField(
         min_value=0,
         required=False,
         label="Max payload (g)",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "bag-packaging-mass",
+        })
+    )
+
+    bag_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        initial="g",
+        widget=forms.HiddenInput(),
     )
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
@@ -613,8 +971,20 @@ class PalletizationForm(forms.Form):
     box_l = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
     box_w = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
     box_h = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    box_dimension_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        initial="mm",
+        widget=forms.HiddenInput(),
+    )
     box_weight = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
     max_weight_on_bottom_box = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        initial="g",
+        widget=forms.HiddenInput(),
+    )
 
     # PALLET
     pallet_source = forms.ChoiceField(
@@ -632,6 +1002,12 @@ class PalletizationForm(forms.Form):
     pallet_l = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
     pallet_w = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
     pallet_height = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    pallet_dimension_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        initial="mm",
+        widget=forms.HiddenInput(),
+    )
 
     # CONSTRAINTS
     max_stack_height = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
@@ -727,32 +1103,72 @@ class ContainerToolForm(forms.Form):
 
     container_id = forms.CharField(required=False, widget=forms.HiddenInput())
 
+    load_unit_dimension_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        initial="mm",
+        widget=forms.HiddenInput(),
+    )
+    load_unit_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        initial="kg",
+        widget=forms.HiddenInput(),
+    )
+    transport_dimension_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        initial="mm",
+        widget=forms.HiddenInput(),
+    )
+    transport_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        initial="kg",
+        widget=forms.HiddenInput(),
+    )
+
     container_l = forms.FloatField(
         min_value=0.0001,
-        label="Internal length (mm)",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        label="Internal length",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "transport-container-dimensions",
+        })
     )
     container_w = forms.FloatField(
         min_value=0.0001,
-        label="Internal width (mm)",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        label="Internal width",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "transport-container-dimensions",
+        })
     )
     container_h = forms.FloatField(
         min_value=0.0001,
-        label="Internal height (mm)",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        label="Internal height",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "transport-container-dimensions",
+        })
     )
     max_weight = forms.FloatField(
         required=False,
         min_value=0.0,
-        label="Max payload (kg)",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        label="Max payload",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "transport-container-mass",
+        })
     )
     tare_weight = forms.FloatField(
         required=False,
         min_value=0.0,
-        label="Tare weight (kg)",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"})
+        label="Tare weight",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "transport-container-mass",
+        })
     )
 
 
@@ -816,22 +1232,52 @@ class CorrugatedMaterialStrengthForm(forms.Form):
     """Standalone input form; catalogue/manual values are never persisted."""
 
     action = forms.CharField(required=False, widget=forms.HiddenInput())
-    box_length_mm = forms.DecimalField(label="Internal length (mm)", min_value=Decimal("0.0001"), initial=400, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
-    box_width_mm = forms.DecimalField(label="Internal width (mm)", min_value=Decimal("0.0001"), initial=300, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
-    box_height_mm = forms.DecimalField(label="Internal height (mm)", min_value=Decimal("0.0001"), initial=200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
-    product_weight_g = forms.DecimalField(label="Product net weight (g)", min_value=Decimal("0"), initial=200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    box_dimension_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        initial="mm",
+        widget=forms.HiddenInput(),
+    )
+    product_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        initial="g",
+        widget=forms.HiddenInput(),
+    )
+    pallet_dimension_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        initial="mm",
+        widget=forms.HiddenInput(),
+    )
+    pallet_mass_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in MASS_UNIT_OPTIONS],
+        initial="kg",
+        widget=forms.HiddenInput(),
+    )
+    material_dimension_unit = forms.ChoiceField(
+        required=False,
+        choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
+        initial="mm",
+        widget=forms.HiddenInput(),
+    )
+    box_length_mm = forms.DecimalField(label="Internal length", min_value=Decimal("0.0001"), initial=400, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    box_width_mm = forms.DecimalField(label="Internal width", min_value=Decimal("0.0001"), initial=300, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    box_height_mm = forms.DecimalField(label="Internal height", min_value=Decimal("0.0001"), initial=200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    product_weight_g = forms.DecimalField(label="Product net weight", min_value=Decimal("0"), initial=200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
     quantity = forms.IntegerField(label="Production quantity", min_value=1, initial=1000, widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"}))
     fefco_code = forms.ChoiceField(label="Box style", choices=(("0201", "FEFCO 0201 — regular slotted case"),), initial="0201", widget=forms.Select(attrs={"class": "form-select"}))
-    joint_width_mm = forms.DecimalField(label="Manufacturer’s joint (mm)", min_value=Decimal("0"), initial=40, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
-    sheet_margin_per_edge_mm = forms.DecimalField(label="Production-sheet margin per edge (mm)", min_value=Decimal("0"), initial=20, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    joint_width_mm = forms.DecimalField(label="Manufacturer’s joint", min_value=Decimal("0"), initial=40, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    sheet_margin_per_edge_mm = forms.DecimalField(label="Production-sheet margin per edge", min_value=Decimal("0"), initial=20, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
 
     pallet_source = forms.ChoiceField(label="Pallet source", choices=(("manual", "Manual"), ("catalogue", "Existing pallet catalogue")), initial="manual", widget=forms.RadioSelect)
     pallet_code = forms.ChoiceField(label="Pallet type", required=False, choices=(("", "— Select existing pallet —"),), widget=forms.Select(attrs={"class": "form-select"}))
-    pallet_length_mm = forms.DecimalField(label="Pallet length (mm)", min_value=Decimal("0.0001"), initial=1200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
-    pallet_width_mm = forms.DecimalField(label="Pallet width (mm)", min_value=Decimal("0.0001"), initial=800, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
-    pallet_height_mm = forms.DecimalField(label="Pallet height (mm)", min_value=Decimal("0"), initial=144, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
-    pallet_weight_kg = forms.DecimalField(label="Pallet weight (kg)", min_value=Decimal("0"), initial=0, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
-    max_palletized_height_mm = forms.DecimalField(label="Maximum palletized height including pallet (mm)", min_value=Decimal("0"), initial=1200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    pallet_length_mm = forms.DecimalField(label="Pallet length", min_value=Decimal("0.0001"), initial=1200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    pallet_width_mm = forms.DecimalField(label="Pallet width", min_value=Decimal("0.0001"), initial=800, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    pallet_height_mm = forms.DecimalField(label="Pallet height", min_value=Decimal("0"), initial=144, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    pallet_weight_kg = forms.DecimalField(label="Pallet weight", min_value=Decimal("0"), initial=0, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    max_palletized_height_mm = forms.DecimalField(label="Maximum palletized height including pallet", min_value=Decimal("0"), initial=1200, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
     pattern = forms.ChoiceField(label="Layer pattern", choices=(("COLUMN_ALIGNED", "Column aligned"), ("INTERLOCKED", "Interlocked (same load model)")), initial="COLUMN_ALIGNED", widget=forms.Select(attrs={"class": "form-select"}))
     stacked_pallets = forms.IntegerField(label="Vertically stacked pallets", min_value=1, initial=1, widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"}))
 
@@ -842,7 +1288,7 @@ class CorrugatedMaterialStrengthForm(forms.Form):
     manual_flute_2 = forms.ChoiceField(label="Flute 2", required=False, choices=(("", "— Select flute —"),) + tuple(FLUTE_CHOICES), widget=forms.Select(attrs={"class": "form-select"}))
     manual_combined_grammage_g_m2 = forms.DecimalField(label="Combined grammage (g/m²)", required=False, min_value=Decimal("0.0001"), widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
     ect_override_kn_m = forms.DecimalField(label="ECT override (kN/m)", required=False, min_value=Decimal("0.0001"), widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
-    caliper_override_mm = forms.DecimalField(label="Actual caliper override (mm)", required=False, min_value=Decimal("0.0001"), widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    caliper_override_mm = forms.DecimalField(label="Actual caliper override", required=False, min_value=Decimal("0.0001"), widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
     measured_bct_override_n = forms.DecimalField(label="Measured BCT override (N)", required=False, min_value=Decimal("0.0001"), widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
 
     distribution_profile = forms.ChoiceField(label="Distribution profile", choices=DISTRIBUTION_CHOICES, initial="NORMAL", widget=forms.Select(attrs={"class": "form-select"}))

@@ -25,6 +25,9 @@ from ..tools.bag.export import build_bag_selection_pdf
 from ..utils.bag_selection.engine import SEALING_AREA, TOLERANCE
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 from ..entitlements import PDF_REPORTS, feature_required
+from ..units import format_dimensions, format_length, kg_to_g
+from ..units.ui import build_unit_selector_contract
+from ..user_preferences import apply_user_unit_defaults
 
 
 SEO_BAG_SELECTION_EXAMPLE_CONFIG = {
@@ -44,10 +47,18 @@ SEO_BAG_SELECTION_EXAMPLE_CONFIG = {
 }
 
 
-def _read_raw_bag_config(request, *, initial_config=None):
+def _read_raw_bag_config(
+    request,
+    *,
+    initial_config=None,
+    user=None,
+    initialize_user_units=False,
+):
     cfg = default_bag_config()
     if initial_config:
         cfg.update(initial_config)
+    if initialize_user_units:
+        apply_user_unit_defaults(cfg, user, "bag", replace_legacy=True)
 
     if request.method == "POST":
         source = request.POST
@@ -66,7 +77,9 @@ def _read_raw_bag_config(request, *, initial_config=None):
         "product_l": source.get("product_l", cfg["product_l"]),
         "product_w": source.get("product_w", cfg["product_w"]),
         "product_h": source.get("product_h", cfg["product_h"]),
+        "product_dimension_unit": source.get("product_dimension_unit", cfg["product_dimension_unit"]),
         "product_weight": source.get("product_weight", cfg["product_weight"]),
+        "product_mass_unit": source.get("product_mass_unit", cfg["product_mass_unit"]),
         "desired_qty": source.get("desired_qty", cfg["desired_qty"]),
         "product_shape": source.get("product_shape", cfg["product_shape"]),
         "bag_source": source.get("bag_source", cfg["bag_source"]),
@@ -74,8 +87,10 @@ def _read_raw_bag_config(request, *, initial_config=None):
         "bag_id": source.get("bag_id", cfg["bag_id"]),
         "bag_length": source.get("bag_length", cfg["bag_length"]),
         "bag_width": source.get("bag_width", cfg["bag_width"]),
+        "bag_dimension_unit": source.get("bag_dimension_unit", cfg["bag_dimension_unit"]),
         "bag_weight": source.get("bag_weight", cfg["bag_weight"]),
         "bag_max_payload": source.get("bag_max_payload", cfg["bag_max_payload"]),
+        "bag_mass_unit": source.get("bag_mass_unit", cfg["bag_mass_unit"]),
         "selected_design_candidate_id": source.get("selected_design_candidate_id", cfg["selected_design_candidate_id"]),
     })
 
@@ -103,7 +118,9 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "product_l": f"product_l{suffix}",
             "product_w": f"product_w{suffix}",
             "product_h": f"product_h{suffix}",
+            "product_dimension_unit": f"product_dimension_unit{suffix}",
             "product_weight": f"product_weight{suffix}",
+            "product_mass_unit": f"product_mass_unit{suffix}",
             "desired_qty": f"desired_qty{suffix}",
             "product_shape": f"product_shape{suffix}",
             "bag_source": f"bag_source{suffix}",
@@ -111,9 +128,45 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "bag_id": f"bag_id{suffix}",
             "bag_length": f"bag_length{suffix}",
             "bag_width": f"bag_width{suffix}",
+            "bag_dimension_unit": f"bag_dimension_unit{suffix}",
             "bag_weight": f"bag_weight{suffix}",
             "bag_max_payload": f"bag_max_payload{suffix}",
+            "bag_mass_unit": f"bag_mass_unit{suffix}",
             "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
+        },
+        "unit_selectors": {
+            "product_dimensions": build_unit_selector_contract(
+                quantity="length",
+                label="product dimension",
+                group=f"bag-product-dimensions{suffix}",
+                hidden_name=f"product_dimension_unit{suffix}",
+                hidden_id=f"bagProductDimensionUnit{suffix}",
+                menu_id=f"bagProductDimensionUnitMenu{suffix}",
+            ),
+            "bag_dimensions": build_unit_selector_contract(
+                quantity="length",
+                label="bag dimension",
+                group=f"bag-packaging-dimensions{suffix}",
+                hidden_name=f"bag_dimension_unit{suffix}",
+                hidden_id=f"bagPackagingDimensionUnit{suffix}",
+                menu_id=f"bagPackagingDimensionUnitMenu{suffix}",
+            ),
+            "product_mass": build_unit_selector_contract(
+                quantity="mass",
+                label="product mass",
+                group=f"bag-product-mass{suffix}",
+                hidden_name=f"product_mass_unit{suffix}",
+                hidden_id=f"bagProductMassUnit{suffix}",
+                menu_id=f"bagProductMassUnitMenu{suffix}",
+            ),
+            "bag_mass": build_unit_selector_contract(
+                quantity="mass",
+                label="bag mass",
+                group=f"bag-packaging-mass{suffix}",
+                hidden_name=f"bag_mass_unit{suffix}",
+                hidden_id=f"bagPackagingMassUnit{suffix}",
+                menu_id=f"bagPackagingMassUnitMenu{suffix}",
+            ),
         },
         "ids": {
             "root": f"bagSelectionRoot{suffix}",
@@ -138,26 +191,6 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
         },
     }
 
-def _format_dims(length, width, height):
-    return f"{length} × {width} × {height} mm"
-
-
-def _format_bag_dims(length, width):
-    return f"{length} × {width} mm"
-
-
-def _format_optional_weight(value, default="Not available"):
-    if value in (None, "", "None"):
-        return default
-    try:
-        numeric = float(value)
-    except (TypeError, ValueError):
-        return default
-    if abs(numeric) >= 1000:
-        return f"{numeric / 1000:.2f} kg"
-    return f"{numeric:.0f} g"
-
-
 def _format_usage(value):
     if value in (None, "", "None"):
         return "Not available"
@@ -175,7 +208,7 @@ def _catalogue_name_from_choice(form, field_name):
     return "Selected catalogue"
 
 
-def _product_payload(*, form, selected_product):
+def _product_payload(*, form, selected_product, analysis_report=None):
     product_source = form.cleaned_data.get("product_source") or "manual"
 
     if product_source == "catalogue" and selected_product is not None:
@@ -184,7 +217,8 @@ def _product_payload(*, form, selected_product):
         product_l = selected_product.product_length
         product_w = selected_product.product_width
         product_h = selected_product.product_height
-        product_weight = getattr(selected_product, "weight", None)
+        product_weight_kg = getattr(selected_product, "weight", None)
+        product_weight = kg_to_g(product_weight_kg) if product_weight_kg is not None else None
     else:
         product_id = "Manual product"
         product_name = "Manual input"
@@ -199,8 +233,8 @@ def _product_payload(*, form, selected_product):
         "source": "Catalogue" if product_source == "catalogue" else "Manual",
         "id": product_id,
         "name": product_name or "—",
-        "dimensions": _format_dims(product_l, product_w, product_h),
-        "weight": _format_optional_weight(product_weight),
+        "dimensions": (analysis_report or {}).get("product_dimensions_display") or "Not available",
+        "weight": (analysis_report or {}).get("product_weight_display") or "Not available",
         "desired_qty": f"{desired_qty} pcs",
         "orientation": "The packed arrangement may be rotated freely; the bag opening is on the width side.",
     }
@@ -216,7 +250,8 @@ def _bag_payload(*, form, selected_material, analysis_report):
         material = selected_material.packaging_materials
         bag_length = selected_material.part_length
         bag_width = selected_material.part_width
-        bag_weight = getattr(selected_material, "part_weight", None)
+        bag_weight_kg = getattr(selected_material, "part_weight", None)
+        bag_weight = kg_to_g(bag_weight_kg) if bag_weight_kg is not None else None
     else:
         part_number = "Manual bag"
         description = "Manual input"
@@ -226,7 +261,7 @@ def _bag_payload(*, form, selected_material, analysis_report):
         bag_width = form.cleaned_data.get("bag_width")
         bag_weight = form.cleaned_data.get("bag_weight")
 
-    payload_display = (analysis_report or {}).get("payload_capacity_display") or _format_optional_weight(form.cleaned_data.get("bag_max_payload"))
+    payload_display = (analysis_report or {}).get("payload_capacity_display") or "Not available"
 
     return {
         "source": "Catalogue" if bag_source == "catalogue" else "Manual",
@@ -234,8 +269,8 @@ def _bag_payload(*, form, selected_material, analysis_report):
         "description": description or "—",
         "brand": brand or "—",
         "material": material or "—",
-        "dimensions": _format_bag_dims(bag_length, bag_width),
-        "weight": _format_optional_weight(bag_weight),
+        "dimensions": (analysis_report or {}).get("bag_dimensions_display") or "Not available",
+        "weight": (analysis_report or {}).get("bag_weight_display") or "Not available",
         "payload_capacity": payload_display,
     }
 
@@ -250,29 +285,33 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
     return {
         "report_type": "single",
         "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
-        "product": _product_payload(form=form, selected_product=selected_product),
+        "product": _product_payload(form=form, selected_product=selected_product, analysis_report=analysis_report),
         "bag": _bag_payload(form=form, selected_material=selected_material, analysis_report=analysis_report),
         "analysis_report": analysis_report,
         "image_rel_path": result.get("image_rel_path", ""),
     }
 
 
-def _top5_export_rows(top5):
+def _top5_export_rows(top5, dimension_unit="mm"):
     rows = []
     for idx, row in enumerate(top5 or [], start=1):
         best_required = row.get("best_required") or (None, None)
         if len(best_required) < 2:
             best_required_display = "-"
         else:
-            best_required_display = f"{best_required[0]} × {best_required[1]} mm"
+            best_required_display = row.get("required_dimensions_display") or f"{best_required[0]} × {best_required[1]} mm"
 
         rows.append({
             "rank": idx,
             "part_number": row.get("part_number"),
             "description": row.get("description"),
             "brand": row.get("branding"),
-            "bag_length": f"{row.get('bag_len', '-')} mm",
-            "bag_width": f"{row.get('bag_w', '-')} mm",
+            "bag_length": format_length(
+                row.get("bag_len"), display_unit=dimension_unit
+            ),
+            "bag_width": format_length(
+                row.get("bag_w"), display_unit=dimension_unit
+            ),
             "usage_display": f"{row.get('usage_pct')}%" if row.get("usage_pct") not in (None, "") else _format_usage(row.get("usage")),
             "best_required": best_required_display,
         })
@@ -280,14 +319,18 @@ def _top5_export_rows(top5):
     return rows
 
 
-def _selected_candidate_payload(selected_material):
+def _selected_candidate_payload(selected_material, dimension_unit="mm"):
     if selected_material is None:
         return None
     return {
         "part_number": selected_material.part_number,
         "description": selected_material.part_description,
         "brand": selected_material.branding,
-        "dimensions": _format_bag_dims(selected_material.part_length, selected_material.part_width),
+        "dimensions": format_dimensions(
+            selected_material.part_length,
+            selected_material.part_width,
+            display_unit=dimension_unit,
+        ),
     }
 
 
@@ -302,11 +345,16 @@ def _build_optimal_export_payload(*, form, analysis, top5, selected_product, sel
         "report_type": "optimal",
         "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
         "catalogue_name": _catalogue_name_from_choice(form, "catalogue_id"),
-        "product": _product_payload(form=form, selected_product=selected_product),
-        "selected_candidate": _selected_candidate_payload(selected_material),
+        "product": _product_payload(form=form, selected_product=selected_product, analysis_report=analysis_report),
+        "selected_candidate": _selected_candidate_payload(
+            selected_material,
+            form.cleaned_data.get("bag_dimension_unit") or "mm",
+        ),
         "analysis_report": analysis_report,
         "image_rel_path": result.get("image_rel_path", ""),
-        "top5": _top5_export_rows(top5),
+        "top5": _top5_export_rows(
+            top5, form.cleaned_data.get("bag_dimension_unit") or "mm"
+        ),
     }
 
 
@@ -328,14 +376,14 @@ def _build_design_export_payload(*, form, analysis, selected_product):
     return {
         "report_type": "design",
         "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
-        "product": _product_payload(form=form, selected_product=selected_product),
+        "product": _product_payload(form=form, selected_product=selected_product, analysis_report=report),
         "bag": {
             "source": "Designed",
             "part_number": selected["candidate_id"],
             "description": f"Arrangement {selected['arrangement']} · {selected['product_orientation']}",
             "brand": "KolliPack Design Mode",
             "material": "To be specified",
-            "dimensions": _format_bag_dims(selected["bag_length"], selected["bag_width"]),
+            "dimensions": selected.get("bag_dimensions_display"),
         },
         "analysis_report": analysis_payload,
         "selected_candidate": selected,
@@ -354,7 +402,16 @@ def _build_bag_selection_page_context(
     packaging_catalogues = get_packaging_catalogues(request.user)
     product_catalogues = get_product_catalogues(request.user)
 
-    config = _read_raw_bag_config(request, initial_config=initial_config)
+    config = _read_raw_bag_config(
+        request,
+        initial_config=initial_config,
+        user=request.user,
+        initialize_user_units=(
+            mode == "standalone"
+            and initial_config is None
+            and request.method == "GET"
+        ),
+    )
 
     selected_product = get_selected_product(config)
     selected_material = get_selected_material(config)

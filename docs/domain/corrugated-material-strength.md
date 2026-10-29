@@ -287,6 +287,21 @@ The shared result contract exposes JSON-safe internal/external dimensions and
 reference-grade metadata for a future Packaging Flow adapter. Packaging Flow is
 not implemented in this refinement.
 
+## Unit input and presentation boundary
+
+Manual Corrugated inputs may be entered with the shared length vocabulary
+(`mm`, `cm`, `m`, `in`, `ft`) and mass vocabulary (`g`, `kg`, `t`, `oz`,
+`lb`). Box geometry values normalize to millimetres, product mass to grams,
+pallet dimensions to millimetres, pallet tare to kilograms, and caliper to
+millimetres before this domain service runs. The normalized values are the
+same values this document's equations have always consumed.
+
+The result presenter converts ordinary dimensions and masses back to the
+relevant selected unit for the web page and PDF. ECT, BCT/force, grammage,
+area, and CO₂ quantities retain their documented specialist unit contracts.
+Display strings are never calculation inputs, and none of the equations or
+constants in this document changes with display-unit selection.
+
 ## Known limitations and future extensions
 
 - FEFCO 0201 geometry is preliminary and does not model slots, converter allowances, board thickness or production-sheet nesting.

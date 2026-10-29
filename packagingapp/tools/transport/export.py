@@ -19,6 +19,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from ...units import format_dimensions, format_mass
+
 from .modes import (
     DEFAULT_TRANSPORT_PACKING_MODE,
     normalize_transport_packing_mode,
@@ -209,7 +211,7 @@ def _metric_cards(metrics):
 def _product_rows_table(rows):
     header = [
         Paragraph("<b>Load unit</b>", _STYLES["TransportBodySmall"]),
-        Paragraph("<b>Dims (mm)</b>", _STYLES["TransportBodySmall"]),
+        Paragraph("<b>Dimensions</b>", _STYLES["TransportBodySmall"]),
         Paragraph("<b>Requested</b>", _STYLES["TransportBodySmall"]),
         Paragraph("<b>Loaded</b>", _STYLES["TransportBodySmall"]),
         Paragraph("<b>Weight</b>", _STYLES["TransportBodySmall"]),
@@ -219,13 +221,18 @@ def _product_rows_table(rows):
 
     data = [header]
     for row in (rows or [])[:6]:
-        dims = f"{_num(row.get('length'), 0)} x {_num(row.get('width'), 0)} x {_num(row.get('height'), 0)}"
+        dims = row.get("dimensions_display") or format_dimensions(
+            row.get("length"), row.get("width"), row.get("height")
+        )
         data.append([
             Paragraph(_clean(row.get("name")), _STYLES["TransportBodySmall"]),
             Paragraph(_clean(dims), _STYLES["TransportBodySmall"]),
             Paragraph(_clean(row.get("qty_requested")), _STYLES["TransportBodySmall"]),
             Paragraph(_clean(row.get("qty_packed")), _STYLES["TransportBodySmall"]),
-            Paragraph(f"{_num(row.get('weight_each'), 2)} kg", _STYLES["TransportBodySmall"]),
+            Paragraph(_clean(
+                row.get("weight_each_display")
+                or format_mass(row.get("weight_each"), canonical_unit="kg", display_unit="kg")
+            ), _STYLES["TransportBodySmall"]),
             Paragraph("Yes" if row.get("stackable", True) else "No", _STYLES["TransportBodySmall"]),
             Paragraph(_clean(row.get("sequence")), _STYLES["TransportBodySmall"]),
         ])
@@ -254,7 +261,7 @@ def _product_rows_table(rows):
 def _product_legend_table(products):
     entries = []
     for product in products or []:
-        dimensions = (
+        dimensions = product.get("display_dimensions") or (
             f"{_num(product.get('length'), 0)} x "
             f"{_num(product.get('width'), 0)} x "
             f"{_num(product.get('height'), 0)} mm"
@@ -367,6 +374,7 @@ def build_transport_container_pdf(export_payload):
     generated_at = export_payload.get("generated_at") or timezone.now().strftime("%Y-%m-%d %H:%M")
     unit = export_payload.get("transport_unit") or {}
     summary = export_payload.get("summary") or {}
+    display = export_payload.get("display") or {}
     packing_mode = normalize_transport_packing_mode(
         export_payload.get("packing_mode"),
         default=DEFAULT_TRANSPORT_PACKING_MODE,
@@ -403,10 +411,10 @@ def build_transport_container_pdf(export_payload):
         _section_title("Loading details"),
         _key_value_table([
             ("Packing mode", packing_mode_label),
-            ("Loaded product weight", f"{_num(summary.get('loaded_weight'), 2)} kg"),
-            ("Gross loaded weight", f"{_num(summary.get('gross_weight'), 2)} kg"),
-            ("Occupied L x W x H", f"{_num(summary.get('occupied_length'), 0)} x {_num(summary.get('occupied_width'), 0)} x {_num(summary.get('occupied_height'), 0)} mm"),
-            ("Residual L x W x H", f"{_num(summary.get('residual_length'), 0)} x {_num(summary.get('residual_width'), 0)} x {_num(summary.get('residual_height'), 0)} mm"),
+            ("Loaded product weight", display.get("loaded_weight") or format_mass(summary.get("loaded_weight"), canonical_unit="kg", display_unit="kg")),
+            ("Gross loaded weight", display.get("gross_weight") or format_mass(summary.get("gross_weight"), canonical_unit="kg", display_unit="kg")),
+            ("Occupied L x W x H", display.get("occupied_dimensions") or format_dimensions(summary.get("occupied_length"), summary.get("occupied_width"), summary.get("occupied_height"))),
+            ("Residual L x W x H", display.get("residual_dimensions") or format_dimensions(summary.get("residual_length"), summary.get("residual_width"), summary.get("residual_height"))),
         ], [41 * mm, 87 * mm]),
         Spacer(1, 3 * mm),
         _section_title("Load-unit summary"),

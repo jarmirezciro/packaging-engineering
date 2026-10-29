@@ -35,6 +35,9 @@
                     {{ line.value }} {{ line.label }}
                   </div>
                 {% endfor %}
+                {% if stage.physical %}
+                  <div class="fp-flow-summary-secondary">{{ stage.physical }}</div>
+                {% endif %}
               {% else %}
                 <div class="fp-flow-summary-pending">{{ stage.status }}</div>
               {% endif %}
@@ -88,6 +91,9 @@
                   {{ line.value }} {{ line.label }}
                 </div>
               {% endfor %}
+              {% if stage.physical %}
+                <div class="fp-flow-summary-secondary">{{ stage.physical }}</div>
+              {% endif %}
             {% else %}
               <div class="fp-flow-summary-pending">{{ stage.status }}</div>
             {% endif %}

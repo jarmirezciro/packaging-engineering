@@ -9,8 +9,13 @@ from django.utils import timezone
 
 from ..forms import PalletizationForm
 from ..models import PackagingCatalogue
+from ..units import kg_to_g
 from ..tools.palletization.export import build_palletization_pdf
-from ..tools.palletization.presenter import build_pallet_ui_contract
+from ..tools.palletization.presenter import (
+    build_pallet_ui_contract,
+    selected_box_summary,
+    selected_pallet_summary,
+)
 from ..tools.palletization.serializers import sanitize_palletization_config_for_session
 from ..tools.palletization.service import (
     analyze_palletization_config,
@@ -23,6 +28,7 @@ from ..tools.palletization.state import default_palletization_config
 from ..tools.palletization.case_presets import get_palletization_case_preset
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 from ..entitlements import PDF_REPORTS, feature_required
+from ..user_preferences import apply_user_unit_defaults
 
 
 def _as_bool(value):
@@ -64,12 +70,15 @@ SEO_PALLETIZATION_EXAMPLE_CONFIG = {
     "box_l": 400,
     "box_w": 300,
     "box_h": 250,
+    "box_dimension_unit": "mm",
     "box_weight": "",
     "max_weight_on_bottom_box": "",
+    "mass_unit": "g",
     "pallet_source": "manual",
     "pallet_l": 1200,
     "pallet_w": 800,
     "pallet_height": "",
+    "pallet_dimension_unit": "mm",
     "max_stack_height": 1500,
     "max_width_stickout": 0,
     "max_length_stickout": 0,
@@ -77,10 +86,20 @@ SEO_PALLETIZATION_EXAMPLE_CONFIG = {
 }
 
 
-def _read_raw_palletization_config(request, *, initial_config=None):
+def _read_raw_palletization_config(
+    request,
+    *,
+    initial_config=None,
+    user=None,
+    initialize_user_units=False,
+):
     cfg = default_palletization_config()
     if initial_config:
         cfg.update(initial_config)
+    if initialize_user_units:
+        apply_user_unit_defaults(
+            cfg, user, "palletization", replace_legacy=True
+        )
 
     if request.method == "POST":
         source = request.POST
@@ -94,17 +113,24 @@ def _read_raw_palletization_config(request, *, initial_config=None):
         "box_l": source.get("box_l", cfg["box_l"]),
         "box_w": source.get("box_w", cfg["box_w"]),
         "box_h": source.get("box_h", cfg["box_h"]),
+        "box_dimension_unit": source.get(
+            "box_dimension_unit", cfg["box_dimension_unit"]
+        ),
         "box_weight": source.get("box_weight", cfg["box_weight"]),
         "max_weight_on_bottom_box": source.get(
             "max_weight_on_bottom_box",
             cfg["max_weight_on_bottom_box"],
         ),
+        "mass_unit": source.get("mass_unit", cfg["mass_unit"]),
         "pallet_source": source.get("pallet_source", cfg["pallet_source"]),
         "pallet_catalogue_id": source.get("pallet_catalogue_id", cfg["pallet_catalogue_id"]),
         "pallet_id": source.get("pallet_id", cfg["pallet_id"]),
         "pallet_l": source.get("pallet_l", cfg["pallet_l"]),
         "pallet_w": source.get("pallet_w", cfg["pallet_w"]),
         "pallet_height": source.get("pallet_height", cfg["pallet_height"]),
+        "pallet_dimension_unit": source.get(
+            "pallet_dimension_unit", cfg["pallet_dimension_unit"]
+        ),
         "max_stack_height": source.get("max_stack_height", cfg["max_stack_height"]),
         "max_width_stickout": source.get("max_width_stickout", cfg["max_width_stickout"]),
         "max_length_stickout": source.get("max_length_stickout", cfg["max_length_stickout"]),
@@ -131,7 +157,9 @@ def _build_hydrated_form(request, config, selected_box_material=None, selected_p
                 (post_data.get("box_weight") in (None, "", "None"))
                 and getattr(selected_box_material, "part_weight", None) is not None
             ):
-                post_data["box_weight"] = str(selected_box_material.part_weight)
+                post_data["box_weight"] = str(
+                    kg_to_g(selected_box_material.part_weight)
+                )
 
         if config.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
             pallet_l = _catalogue_dimension(selected_pallet_material, "external_length", "part_length")
@@ -157,7 +185,9 @@ def _build_hydrated_form(request, config, selected_box_material=None, selected_p
                 initial_data.get("box_weight") in (None, "", "None")
                 and getattr(selected_box_material, "part_weight", None) is not None
             ):
-                initial_data["box_weight"] = selected_box_material.part_weight
+                initial_data["box_weight"] = kg_to_g(
+                    selected_box_material.part_weight
+                )
 
         if config.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
             pallet_l = _catalogue_dimension(selected_pallet_material, "external_length", "part_length")
@@ -183,33 +213,6 @@ def _clean_display(value, default="-"):
     if value in (None, "", "None"):
         return default
     return str(value)
-
-
-def _format_number(value, decimals=0):
-    if value in (None, "", "None"):
-        return "-"
-    try:
-        value = float(value)
-    except (TypeError, ValueError):
-        return str(value)
-    if decimals == 0:
-        return str(int(round(value)))
-    return f"{value:.{decimals}f}".rstrip("0").rstrip(".")
-
-
-def _format_dims(length, width, height=None):
-    parts = [_format_number(length), _format_number(width)]
-    if height not in (None, "", "None"):
-        parts.append(_format_number(height))
-    if any(part == "-" for part in parts):
-        return "-"
-    return " x ".join(parts) + " mm"
-
-
-def _format_weight(value):
-    if value in (None, "", "None"):
-        return "Not provided"
-    return f"{_format_number(value, 2)} g"
 
 
 def _material_payload(material, fallback_part_number):
@@ -241,6 +244,7 @@ def _material_payload(material, fallback_part_number):
 def _build_palletization_export_payload(*, config, analysis, selected_box_material=None, selected_pallet_material=None):
     serialized = analysis.get("serialized_result") or {}
     selected_result = serialized.get("selected_result") or {}
+    display = serialized.get("display") or {}
     effective_config = analysis.get("effective_config") or {}
 
     if not selected_result:
@@ -258,26 +262,18 @@ def _build_palletization_export_payload(*, config, analysis, selected_box_materi
         "box": {
             **box_base,
             "source": box_source,
-            "dimensions": _format_dims(
-                effective_config.get("box_l"),
-                effective_config.get("box_w"),
-                effective_config.get("box_h"),
-            ),
-            "weight": _format_weight(effective_config.get("box_weight")),
-            "bottom_load_limit": _format_weight(effective_config.get("max_weight_on_bottom_box")),
+            "dimensions": display.get("box_dimensions"),
+            "weight": display.get("box_weight"),
+            "bottom_load_limit": display.get("bottom_load_limit"),
         },
         "pallet": {
             **pallet_base,
             "source": pallet_source,
-            "dimensions": _format_dims(
-                effective_config.get("pallet_l"),
-                effective_config.get("pallet_w"),
-                effective_config.get("pallet_height"),
-            ),
-            "max_stack_height": f"{_format_number(effective_config.get('max_stack_height'))} mm",
+            "dimensions": display.get("pallet_dimensions"),
+            "max_stack_height": display.get("max_stack_height"),
             "overhang": (
-                f"{_format_number(effective_config.get('max_width_stickout'))} mm width / "
-                f"{_format_number(effective_config.get('max_length_stickout'))} mm length"
+                f"{display.get('width_overhang')} width / "
+                f"{display.get('length_overhang')} length"
             ),
         },
         "analysis_report": selected_result,
@@ -301,7 +297,16 @@ def _build_palletization_page_context(
     """
     packaging_catalogues = visible_packaging_catalogues(request.user).order_by("name")
 
-    config = _read_raw_palletization_config(request, initial_config=initial_config)
+    config = _read_raw_palletization_config(
+        request,
+        initial_config=initial_config,
+        user=request.user,
+        initialize_user_units=(
+            mode == "standalone"
+            and initial_config is None
+            and request.method == "GET"
+        ),
+    )
 
     selected_box_material = get_selected_box_material(config)
     selected_pallet_material = get_selected_pallet_material(config)
@@ -372,6 +377,8 @@ def _build_palletization_page_context(
         "pallet_materials": pallet_materials,
         "selected_box_material": selected_box_material,
         "selected_pallet_material": selected_pallet_material,
+        "selected_box_summary": selected_box_summary(selected_box_material, config),
+        "selected_pallet_summary": selected_pallet_summary(selected_pallet_material, config),
         "results_table": results_table,
         "selected_result": selected_result,
         "result_image_url": result_image_url,

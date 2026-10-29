@@ -20,6 +20,9 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from ...units import format_dimensions, format_length, format_mass
+from .presentation import payload_for_display, step_display_units
+
 
 TOOL_LABELS = {
     "container": "Container Selection",
@@ -232,6 +235,8 @@ def _section_title(text):
 def _format_dims(payload):
     if not payload:
         return "-"
+    if payload.get("dimensions_display"):
+        return payload["dimensions_display"]
     length = _first_present(payload.get("length"), payload.get("l"))
     width = _first_present(payload.get("width"), payload.get("w"))
     height = _first_present(payload.get("height"), payload.get("h"))
@@ -243,6 +248,8 @@ def _format_dims(payload):
 def _format_weight(payload):
     if not payload:
         return "-"
+    if payload.get("weight_display"):
+        return payload["weight_display"]
     weight_kg = payload.get("weight_kg")
     if weight_kg not in (None, "", "None"):
         return f"{_num(weight_kg, 2)} kg"
@@ -291,7 +298,12 @@ def _step_title(step, index):
 
 def _chain_item(step, index):
     step_type = (step or {}).get("type") or "container"
-    output = _effective_output(step) or {}
+    units = step_display_units(step)
+    output = payload_for_display(
+        _effective_output(step),
+        dimension_unit=units["output_dimension"],
+        mass_unit=units["output_mass"],
+    ) or {}
     package_type = output.get("package_type") or step_type
     label = output.get("label") or TOOL_LABELS.get(step_type, step_type.title())
     return {
@@ -308,18 +320,26 @@ def _summary_metrics(final_step):
         return []
 
     step_type = final_step.get("type")
-    output = _effective_output(final_step) or {}
+    units = step_display_units(final_step)
+    output = payload_for_display(
+        _effective_output(final_step),
+        dimension_unit=units["output_dimension"],
+        mass_unit=units["output_mass"],
+    ) or {}
     result = final_step.get("result") or {}
     analysis = final_step.get("analysis_report") or (result.get("analysis_report") if isinstance(result, dict) else {}) or {}
 
     if step_type == "transport":
         summary = (result.get("summary") or {}) if isinstance(result, dict) else {}
+        display = (result.get("display") or {}) if isinstance(result, dict) else {}
         return [
             ("Placed units", _int(summary.get("placed_units"))),
             ("Unplaced units", _int(summary.get("unplaced_units"))),
             ("Volume usage", f"{_num(summary.get('utilization_volume_pct'), 2)}%"),
             ("Payload usage", f"{_num(summary.get('utilization_weight_pct'), 2)}%" if summary.get("utilization_weight_pct") is not None else "Not set"),
-            ("Gross weight", f"{_num(summary.get('gross_weight'), 2)} kg"),
+            ("Gross weight", display.get("gross_weight") or format_mass(
+                summary.get("gross_weight"), canonical_unit="kg", display_unit=units["output_mass"]
+            )),
             ("Final base units", _int(output.get("total_base_units"))),
         ]
 
@@ -358,19 +378,37 @@ def _step_metrics(step):
     step_type = (step or {}).get("type")
     result = (step or {}).get("result") or {}
     analysis = (step or {}).get("analysis_report") or (result.get("analysis_report") if isinstance(result, dict) else {}) or {}
-    output = _effective_output(step) or {}
+    units = step_display_units(step)
+    output = payload_for_display(
+        _effective_output(step),
+        dimension_unit=units["output_dimension"],
+        mass_unit=units["output_mass"],
+    ) or {}
 
     if step_type == "transport":
         summary = (result.get("summary") or {}) if isinstance(result, dict) else {}
+        display = (result.get("display") or {}) if isinstance(result, dict) else {}
         rows = [
             ("Placed units", _int(summary.get("placed_units"))),
             ("Unplaced units", _int(summary.get("unplaced_units"))),
             ("Volume usage", f"{_num(summary.get('utilization_volume_pct'), 2)}%"),
             ("Payload usage", f"{_num(summary.get('utilization_weight_pct'), 2)}%" if summary.get("utilization_weight_pct") is not None else "Not set"),
             ("Loaded volume", f"{_num(summary.get('packed_volume_m3'), 3)} m3"),
-            ("Gross loaded weight", f"{_num(summary.get('gross_weight'), 2)} kg"),
-            ("Occupied L x W x H", f"{_num(summary.get('occupied_length'), 0)} x {_num(summary.get('occupied_width'), 0)} x {_num(summary.get('occupied_height'), 0)} mm"),
-            ("Residual L x W x H", f"{_num(summary.get('residual_length'), 0)} x {_num(summary.get('residual_width'), 0)} x {_num(summary.get('residual_height'), 0)} mm"),
+            ("Gross loaded weight", display.get("gross_weight") or format_mass(
+                summary.get("gross_weight"), canonical_unit="kg", display_unit=units["output_mass"]
+            )),
+            ("Occupied L x W x H", display.get("occupied_dimensions") or format_dimensions(
+                summary.get("occupied_length"),
+                summary.get("occupied_width"),
+                summary.get("occupied_height"),
+                display_unit=units["output_dimension"],
+            )),
+            ("Residual L x W x H", display.get("residual_dimensions") or format_dimensions(
+                summary.get("residual_length"),
+                summary.get("residual_width"),
+                summary.get("residual_height"),
+                display_unit=units["output_dimension"],
+            )),
         ]
         return rows
 
@@ -381,8 +419,13 @@ def _step_metrics(step):
             ("Alternate layer cartons", _int(selected.get("boxes_layer_B"))),
             ("Layers", _int(selected.get("layers"))),
             ("Total cartons", _int(selected.get("total_boxes") or output.get("units_per_parent"))),
-            ("Total palletized-load height", f"{_num(selected.get('total_height_mm') or output.get('height'), 0)} mm"),
-            ("Carton arrangement height", f"{_num(selected.get('used_height_mm'), 0)} mm"),
+            ("Total palletized-load height", selected.get("total_height_display") or format_length(
+                selected.get("total_height_mm") or output.get("height"),
+                display_unit=units["output_dimension"],
+            )),
+            ("Carton arrangement height", selected.get("used_height_display") or format_length(
+                selected.get("used_height_mm"), display_unit=units["output_dimension"]
+            )),
             ("Pallet floor usage", f"{_num(selected.get('layer_footprint_util_pct'), 2)}%"),
             ("Stack volume usage", f"{_num(selected.get('volumetric_util_pct'), 2)}%"),
             ("Bottom-carton load check", "OK" if selected.get("feasible_weight") else ("Review required" if selected else "Not checked")),
@@ -410,14 +453,43 @@ def _step_metrics(step):
     ]
 
 
+def _transport_rows_for_report(rows, units):
+    presented = []
+    for raw_row in rows or []:
+        row = dict(raw_row)
+        row["dimensions_display"] = row.get("dimensions_display") or format_dimensions(
+            row.get("length"),
+            row.get("width"),
+            row.get("height"),
+            display_unit=units["input_dimension"],
+        )
+        row["weight_each_display"] = row.get("weight_each_display") or format_mass(
+            row.get("weight_each"),
+            canonical_unit="kg",
+            display_unit=units["input_mass"],
+        )
+        presented.append(row)
+    return presented
+
+
 def build_workflow_report_payload(workflow):
     steps = (workflow or {}).get("steps") or []
     report_steps = []
 
     for index, step in enumerate(steps):
-        input_payload = _input_for_step(steps, index)
-        output_payload = _effective_output(step)
+        units = step_display_units(step)
+        input_payload = payload_for_display(
+            _input_for_step(steps, index),
+            dimension_unit=units["input_dimension"],
+            mass_unit=units["input_mass"],
+        )
+        output_payload = payload_for_display(
+            _effective_output(step),
+            dimension_unit=units["output_dimension"],
+            mass_unit=units["output_mass"],
+        )
         image_urls = (step or {}).get("image_urls") or {}
+        transport_rows = (((step or {}).get("result") or {}).get("summary") or {}).get("product_rows") or []
 
         report_steps.append({
             "number": index + 1,
@@ -434,7 +506,7 @@ def build_workflow_report_payload(workflow):
                 for key, value in image_urls.items()
                 if value
             },
-            "transport_rows": (((step or {}).get("result") or {}).get("summary") or {}).get("product_rows") or [],
+            "transport_rows": _transport_rows_for_report(transport_rows, units),
         })
 
     final_step = None
@@ -584,7 +656,7 @@ def _transport_rows_table(rows):
     rows = rows or []
     header = [
         Paragraph("<b>Load unit</b>", _STYLES["WorkflowBodySmall"]),
-        Paragraph("<b>Dims (mm)</b>", _STYLES["WorkflowBodySmall"]),
+        Paragraph("<b>Dimensions</b>", _STYLES["WorkflowBodySmall"]),
         Paragraph("<b>Requested</b>", _STYLES["WorkflowBodySmall"]),
         Paragraph("<b>Loaded</b>", _STYLES["WorkflowBodySmall"]),
         Paragraph("<b>Weight</b>", _STYLES["WorkflowBodySmall"]),
@@ -592,7 +664,7 @@ def _transport_rows_table(rows):
     ]
     data = [header]
     for row in rows[:5]:
-        dims = f"{_num(row.get('length'), 0)} x {_num(row.get('width'), 0)} x {_num(row.get('height'), 0)}"
+        dims = row.get("dimensions_display") or "-"
         requested = _int(row.get("qty_requested"))
         if row.get("max_qty"):
             requested = f"Max ({requested})"
@@ -601,7 +673,7 @@ def _transport_rows_table(rows):
             Paragraph(_clean(dims), _STYLES["WorkflowBodySmall"]),
             Paragraph(_clean(requested), _STYLES["WorkflowBodySmall"]),
             Paragraph(_int(row.get("qty_packed")), _STYLES["WorkflowBodySmall"]),
-            Paragraph(f"{_num(row.get('weight_each'), 2)} kg", _STYLES["WorkflowBodySmall"]),
+            Paragraph(_clean(row.get("weight_each_display") or "-"), _STYLES["WorkflowBodySmall"]),
             Paragraph("Yes" if row.get("stackable", True) else "No", _STYLES["WorkflowBodySmall"]),
         ])
 

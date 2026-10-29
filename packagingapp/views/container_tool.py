@@ -11,8 +11,13 @@ from ..forms import ContainerToolForm
 from ..models import PackagingMaterial, Product
 from ..tools.transport.export import build_transport_container_pdf
 from ..tools.transport.presenter import selected_container_summary
+from ..tools.transport.presenter import build_transport_ui_contract
 from ..tools.transport.serializers import sanitize_transport_rows_for_session
-from ..tools.transport.service import analyze_transport_config, read_product_rows_raw
+from ..tools.transport.service import (
+    analyze_transport_config,
+    read_product_rows_raw,
+    transport_rows_for_display,
+)
 from ..tools.transport.state import default_product_rows
 from ..tools.transport.case_presets import get_transport_container_case_preset
 from ..tools.transport.modes import (
@@ -23,6 +28,15 @@ from ..tools.transport.modes import (
 )
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 from ..entitlements import PDF_REPORTS, feature_required
+from ..units import (
+    LENGTH_UNITS,
+    MASS_UNITS,
+    convert_length,
+    convert_mass,
+    format_dimensions,
+    normalize_unit,
+)
+from ..user_preferences import apply_user_unit_defaults
 
 
 SEO_TRANSPORT_EXAMPLE_CONFIG = {
@@ -33,6 +47,10 @@ SEO_TRANSPORT_EXAMPLE_CONFIG = {
     "max_weight": 26500,
     "tare_weight": 3750,
     "packing_mode": DEFAULT_TRANSPORT_PACKING_MODE,
+    "load_unit_dimension_unit": "mm",
+    "load_unit_mass_unit": "kg",
+    "transport_dimension_unit": "mm",
+    "transport_mass_unit": "kg",
 }
 
 SEO_TRANSPORT_EXAMPLE_ROWS = [
@@ -52,29 +70,48 @@ SEO_TRANSPORT_EXAMPLE_ROWS = [
 ]
 
 
-def _format_number(value, decimals=0):
-    if value in (None, "", "None"):
-        return "-"
-    try:
-        return f"{float(value):.{decimals}f}"
-    except (TypeError, ValueError):
-        return "-"
-
-
-def _format_dims(l, w, h):
-    return f"{_format_number(l, 0)} x {_format_number(w, 0)} x {_format_number(h, 0)} mm"
-
-
-def _format_optional_weight(value):
-    if value in (None, "", "None"):
-        return "Not set"
-    return f"{_format_number(value, 2)} kg"
-
-
 def _material_value(material, attr, default="-"):
     if material is None:
         return default
     return getattr(material, attr, default) or default
+
+
+def _posted_unit(data, key, definitions, default):
+    try:
+        return normalize_unit(data.get(key), definitions, default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _canonical_transport_mass(value, display_unit):
+    """Preserve a typed manual constraint when switching to catalogue kg."""
+    if value in (None, "", "None"):
+        return value
+    try:
+        return float(convert_mass(float(value), display_unit or "kg", "kg"))
+    except (TypeError, ValueError):
+        return value
+
+
+def _catalogue_product_row_values(product, dimension_unit, mass_unit):
+    canonical = {
+        "length": float(product.product_length),
+        "width": float(product.product_width),
+        "height": float(product.product_height),
+        "weight": float(getattr(product, "weight", 0) or 0),
+    }
+    return {
+        "length": float(convert_length(canonical["length"], "mm", dimension_unit)),
+        "width": float(convert_length(canonical["width"], "mm", dimension_unit)),
+        "height": float(convert_length(canonical["height"], "mm", dimension_unit)),
+        "weight": float(convert_mass(canonical["weight"], "kg", mass_unit)),
+        "physical_source": "catalogue",
+        "canonical_length": canonical["length"],
+        "canonical_width": canonical["width"],
+        "canonical_height": canonical["height"],
+        "canonical_weight": canonical["weight"],
+        "canonicalized": False,
+    }
 
 
 def _build_transport_export_payload(*, cfg, analysis, selected_material=None):
@@ -83,6 +120,7 @@ def _build_transport_export_payload(*, cfg, analysis, selected_material=None):
 
     serialized = analysis.get("serialized_result") or {}
     summary = serialized.get("summary") or {}
+    display = serialized.get("display") or {}
     container = analysis.get("container") or {}
     result = analysis.get("result") or {}
     image_rel_paths = result.get("image_rel_paths") or {}
@@ -93,14 +131,24 @@ def _build_transport_export_payload(*, cfg, analysis, selected_material=None):
         description = _material_value(selected_material, "part_description")
         unit_type = _material_value(selected_material, "packaging_type")
         material = _material_value(selected_material, "packaging_materials")
-        dimensions = _format_dims(selected_material.part_length, selected_material.part_width, selected_material.part_height)
+        dimensions = format_dimensions(
+            selected_material.part_length,
+            selected_material.part_width,
+            selected_material.part_height,
+            display_unit=cfg.get("transport_dimension_unit") or "mm",
+        )
     else:
         source = "Manual"
         part_number = "Manual transport unit"
         description = "Manual input"
         unit_type = "Manual"
         material = "Manual input"
-        dimensions = _format_dims(container.get("L"), container.get("W"), container.get("H"))
+        dimensions = format_dimensions(
+            container.get("L"),
+            container.get("W"),
+            container.get("H"),
+            display_unit=cfg.get("transport_dimension_unit") or "mm",
+        )
 
     return {
         "report_type": "standalone",
@@ -112,10 +160,11 @@ def _build_transport_export_payload(*, cfg, analysis, selected_material=None):
             "type": str(unit_type),
             "material": str(material),
             "dimensions": dimensions,
-            "max_payload": _format_optional_weight(container.get("max_weight")),
-            "tare_weight": _format_optional_weight(container.get("tare_weight")),
+            "max_payload": display.get("max_payload"),
+            "tare_weight": display.get("tare_weight"),
         },
         "summary": summary,
+        "display": display,
         "product_legend": list(
             (analysis.get("threejs_scene") or {}).get("products") or []
         ),
@@ -154,7 +203,19 @@ def _build_transport_page_context(
     Packaging Flow consumes the same service and shared partials through its
     prefixed workflow adapter.
     """
+    initial_config_was_none = initial_config is None
     initial_config = dict(initial_config or {})
+    if (
+        mode == "standalone"
+        and initial_config_was_none
+        and request.method == "GET"
+    ):
+        apply_user_unit_defaults(
+            initial_config,
+            request.user,
+            "transport",
+            replace_legacy=True,
+        )
     initial_config["packing_mode"] = normalize_transport_packing_mode(
         initial_config.get("packing_mode"),
         default=DEFAULT_TRANSPORT_PACKING_MODE,
@@ -234,11 +295,26 @@ def _build_transport_page_context(
 
         if selected_product is not None and row_idx is not None and 0 <= row_idx < len(product_rows):
             row = product_rows[row_idx]
+            load_dimension_unit = _posted_unit(
+                request.POST,
+                "load_unit_dimension_unit",
+                LENGTH_UNITS,
+                "mm",
+            )
+            load_mass_unit = _posted_unit(
+                request.POST,
+                "load_unit_mass_unit",
+                MASS_UNITS,
+                "kg",
+            )
             row["name"] = selected_product.product_name or selected_product.product_id or f"Product {row_idx + 1}"
-            row["length"] = float(selected_product.product_length)
-            row["width"] = float(selected_product.product_width)
-            row["height"] = float(selected_product.product_height)
-            row["weight"] = float(getattr(selected_product, "weight", 0) or 0)
+            row.update(
+                _catalogue_product_row_values(
+                    selected_product,
+                    load_dimension_unit,
+                    load_mass_unit,
+                )
+            )
             row.setdefault("stackable", True)
             row["r1"] = bool(getattr(selected_product, "rotation_1", False))
             row["r2"] = bool(getattr(selected_product, "rotation_2", False))
@@ -291,6 +367,18 @@ def _build_transport_page_context(
             "container_h": initial_config.get("container_h", ""),
             "max_weight": initial_config.get("max_weight", ""),
             "tare_weight": initial_config.get("tare_weight", ""),
+            "load_unit_dimension_unit": initial_config.get(
+                "load_unit_dimension_unit", "mm"
+            ),
+            "load_unit_mass_unit": initial_config.get(
+                "load_unit_mass_unit", "kg"
+            ),
+            "transport_dimension_unit": initial_config.get(
+                "transport_dimension_unit", "mm"
+            ),
+            "transport_mass_unit": initial_config.get(
+                "transport_mass_unit", "kg"
+            ),
         }
 
         if selected_material is not None and current_container_source == "catalogue":
@@ -330,7 +418,34 @@ def _build_transport_page_context(
             "product_catalogue_id": raw_product_catalogue_id,
             "selected_row_index": raw_selected_row_index,
             "product_id_to_fill": raw_product_id_to_fill,
+            "load_unit_dimension_unit": form.cleaned_data.get(
+                "load_unit_dimension_unit"
+            ) or "mm",
+            "load_unit_mass_unit": form.cleaned_data.get(
+                "load_unit_mass_unit"
+            ) or "kg",
+            "transport_dimension_unit": form.cleaned_data.get(
+                "transport_dimension_unit"
+            ) or "mm",
+            "transport_mass_unit": form.cleaned_data.get(
+                "transport_mass_unit"
+            ) or "kg",
         }
+
+        if current_container_source == "catalogue":
+            # Catalogue-backed transport values retain their canonical
+            # millimetre/kilogram contract and never inherit a manual display
+            # selector state.  Optional user-entered constraints retain their
+            # physical value when that context changes to canonical kg.
+            prior_mass_unit = cfg["transport_mass_unit"]
+            cfg["max_weight"] = _canonical_transport_mass(
+                cfg["max_weight"], prior_mass_unit
+            )
+            cfg["tare_weight"] = _canonical_transport_mass(
+                cfg["tare_weight"], prior_mass_unit
+            )
+            cfg["transport_dimension_unit"] = "mm"
+            cfg["transport_mass_unit"] = "kg"
 
         if raw_action == "run_analysis":
             analysis = analyze_transport_config(
@@ -376,8 +491,18 @@ def _build_transport_page_context(
                 "container_l": container_l_value,
                 "container_w": container_w_value,
                 "container_h": container_h_value,
-                "max_weight": form.cleaned_data.get("max_weight"),
-                "tare_weight": form.cleaned_data.get("tare_weight"),
+                "max_weight": cfg["max_weight"],
+                "tare_weight": (
+                    selected_material.part_weight
+                    if current_container_source == "catalogue"
+                    and selected_material is not None
+                    and selected_material.part_weight is not None
+                    else cfg["tare_weight"]
+                ),
+                "load_unit_dimension_unit": cfg["load_unit_dimension_unit"],
+                "load_unit_mass_unit": cfg["load_unit_mass_unit"],
+                "transport_dimension_unit": cfg["transport_dimension_unit"],
+                "transport_mass_unit": cfg["transport_mass_unit"],
             }
         )
 
@@ -410,6 +535,18 @@ def _build_transport_page_context(
                     "container_h": selected_material.part_height,
                     "max_weight": request.POST.get("max_weight", "") if request.method == "POST" else "",
                     "tare_weight": request.POST.get("tare_weight", "") if request.method == "POST" else (selected_material.part_weight or ""),
+                    "load_unit_dimension_unit": request.POST.get(
+                        "load_unit_dimension_unit", "mm"
+                    ),
+                    "load_unit_mass_unit": request.POST.get(
+                        "load_unit_mass_unit", "kg"
+                    ),
+                    "transport_dimension_unit": request.POST.get(
+                        "transport_dimension_unit", "mm"
+                    ),
+                    "transport_mass_unit": request.POST.get(
+                        "transport_mass_unit", "kg"
+                    ),
                 }
             )
 
@@ -436,6 +573,10 @@ def _build_transport_page_context(
             "product_catalogue_id": raw_product_catalogue_id,
             "selected_row_index": raw_selected_row_index,
             "product_id_to_fill": raw_product_id_to_fill,
+            "load_unit_dimension_unit": form["load_unit_dimension_unit"].value() or "mm",
+            "load_unit_mass_unit": form["load_unit_mass_unit"].value() or "kg",
+            "transport_dimension_unit": form["transport_dimension_unit"].value() or "mm",
+            "transport_mass_unit": form["transport_mass_unit"].value() or "kg",
         }
         analysis = analyze_transport_config(
             cfg,
@@ -468,7 +609,41 @@ def _build_transport_page_context(
             "container_h": form["container_h"].value() if "container_h" in form.fields else "",
             "max_weight": form["max_weight"].value() if "max_weight" in form.fields else "",
             "tare_weight": form["tare_weight"].value() if "tare_weight" in form.fields else "",
+            "transport_dimension_unit": (
+                form["transport_dimension_unit"].value() or "mm"
+            ),
+            "transport_mass_unit": form["transport_mass_unit"].value() or "kg",
         },
+    )
+
+    if current_container_source == "catalogue":
+        for field_name in (
+            "container_l",
+            "container_w",
+            "container_h",
+            "max_weight",
+            "tare_weight",
+        ):
+            form.fields[field_name].widget.attrs.pop("data-unit-input", None)
+            form.fields[field_name].widget.attrs.pop("data-unit-group", None)
+
+    transport_values = {
+        "load_unit_dimension_unit": (
+            form["load_unit_dimension_unit"].value() or "mm"
+        ),
+        "load_unit_mass_unit": form["load_unit_mass_unit"].value() or "kg",
+        "transport_dimension_unit": (
+            form["transport_dimension_unit"].value() or "mm"
+        ),
+        "transport_mass_unit": form["transport_mass_unit"].value() or "kg",
+    }
+    if current_container_source == "catalogue":
+        transport_values["transport_dimension_unit"] = "mm"
+        transport_values["transport_mass_unit"] = "kg"
+    product_rows = transport_rows_for_display(
+        product_rows,
+        transport_values["load_unit_dimension_unit"],
+        transport_values["load_unit_mass_unit"],
     )
 
     materials = PackagingMaterial.objects.filter(catalogue__in=packaging_catalogues).select_related("catalogue").order_by("part_number")
@@ -505,6 +680,8 @@ def _build_transport_page_context(
             if "packing_mode" in form.fields
             else DEFAULT_TRANSPORT_PACKING_MODE
         ),
+        "transport_ui": build_transport_ui_contract(),
+        "transport_values": transport_values,
     }
 
     return context

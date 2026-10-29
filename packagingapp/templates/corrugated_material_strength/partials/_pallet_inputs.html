@@ -6,11 +6,11 @@
         <div class="mb-3">{{ fields.pallet_source }}</div>
         <div class="row g-3">
             <div class="col-md-6" data-corrugated-catalogue-pallet><label class="form-label">{{ fields.pallet_code.label }}</label>{{ fields.pallet_code }}{{ fields.pallet_code.errors }}</div>
-            <div class="col-md-6"><label class="form-label">{{ fields.pallet_length_mm.label }}</label>{{ fields.pallet_length_mm }}{{ fields.pallet_length_mm.errors }}</div>
-            <div class="col-md-6"><label class="form-label">{{ fields.pallet_width_mm.label }}</label>{{ fields.pallet_width_mm }}{{ fields.pallet_width_mm.errors }}</div>
-            <div class="col-md-6"><label class="form-label">{{ fields.pallet_height_mm.label }}</label>{{ fields.pallet_height_mm }}{{ fields.pallet_height_mm.errors }}</div>
-            <div class="col-md-6"><label class="form-label">{{ fields.pallet_weight_kg.label }}</label>{{ fields.pallet_weight_kg }}{{ fields.pallet_weight_kg.errors }}</div>
-            <div class="col-md-6"><label class="form-label">{{ fields.max_palletized_height_mm.label }}</label>{{ fields.max_palletized_height_mm }}{{ fields.max_palletized_height_mm.errors }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.pallet_length_mm.label }} {% include "shared/_unit_selector.html" with unit_selector=ui.unit_selectors.pallet_dimensions current_unit=fields.pallet_dimension_unit.value|default:'mm' selector_key='pallet-length' %}</label>{{ fields.pallet_length_mm }}{{ fields.pallet_length_mm.errors }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.pallet_width_mm.label }} {% include "shared/_unit_selector.html" with unit_selector=ui.unit_selectors.pallet_dimensions current_unit=fields.pallet_dimension_unit.value|default:'mm' selector_key='pallet-width' %}</label>{{ fields.pallet_width_mm }}{{ fields.pallet_width_mm.errors }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.pallet_height_mm.label }} {% include "shared/_unit_selector.html" with unit_selector=ui.unit_selectors.pallet_dimensions current_unit=fields.pallet_dimension_unit.value|default:'mm' selector_key='pallet-height' %}</label>{{ fields.pallet_height_mm }}{{ fields.pallet_height_mm.errors }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.pallet_weight_kg.label }} {% include "shared/_unit_selector.html" with unit_selector=ui.unit_selectors.pallet_mass current_unit=fields.pallet_mass_unit.value|default:'kg' selector_key='pallet-weight' %}</label>{{ fields.pallet_weight_kg }}{{ fields.pallet_weight_kg.errors }}</div>
+            <div class="col-md-6"><label class="form-label">{{ fields.max_palletized_height_mm.label }} {% include "shared/_unit_selector.html" with unit_selector=ui.unit_selectors.pallet_dimensions current_unit=fields.pallet_dimension_unit.value|default:'mm' selector_key='pallet-max-height' %}</label>{{ fields.max_palletized_height_mm }}{{ fields.max_palletized_height_mm.errors }}</div>
             <div class="col-md-6"><label class="form-label">{{ fields.pattern.label }}</label>{{ fields.pattern }}</div>
             <div class="col-md-6"><label class="form-label">{{ fields.stacked_pallets.label }}</label>{{ fields.stacked_pallets }}{{ fields.stacked_pallets.errors }}</div>
         </div>

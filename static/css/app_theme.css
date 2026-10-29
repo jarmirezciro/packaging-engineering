@@ -923,6 +923,91 @@ body {
     margin-bottom: 1rem;
 }
 
+/* Quiet, keyboard/touch-friendly unit text used by manual physical inputs. */
+.unit-selector {
+    position: relative;
+    display: inline-flex;
+    vertical-align: baseline;
+    z-index: 2;
+}
+
+.unit-selector-trigger {
+    display: inline;
+    margin: 0;
+    padding: .08rem .16rem;
+    border: 0;
+    border-radius: .3rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    cursor: pointer;
+}
+
+.unit-selector-trigger:hover,
+.unit-selector-trigger:focus-visible {
+    outline: none;
+    background: rgba(15, 118, 110, .08);
+    color: var(--app-primary-dark, #0b7a60);
+}
+
+.unit-selector-trigger:focus-visible {
+    box-shadow: 0 0 0 .14rem rgba(16, 163, 127, .2);
+}
+
+.unit-selector-menu {
+    position: absolute;
+    top: calc(100% + .3rem);
+    left: 0;
+    min-width: 11.5rem;
+    padding: .28rem;
+    border: 1px solid rgba(15, 23, 42, .14);
+    border-radius: .55rem;
+    background: #fff;
+    box-shadow: 0 .55rem 1.4rem rgba(15, 23, 42, .14);
+    color: var(--app-text, #1f2937);
+    z-index: 40;
+}
+
+.unit-selector-option {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: .35rem;
+    padding: .38rem .48rem;
+    border: 0;
+    border-radius: .35rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: .86rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.unit-selector-option:hover,
+.unit-selector-option:focus-visible {
+    outline: none;
+    background: rgba(15, 118, 110, .08);
+}
+
+.unit-selector-check {
+    width: 1rem;
+    color: var(--app-primary-dark, #0b7a60);
+    font-weight: 700;
+}
+
+.catalogue-unit-heading {
+    color: var(--app-text-muted, #64748b);
+    font-size: .82em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.catalogue-unit-heading .unit-selector-trigger {
+    color: var(--app-primary-dark, #0b7a60);
+}
+
 .tool-tight-gap {
     margin-top: 0.75rem;
     margin-bottom: 0.75rem;

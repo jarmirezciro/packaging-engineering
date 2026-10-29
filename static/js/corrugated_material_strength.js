@@ -47,7 +47,18 @@
         var values = meta.querySelectorAll("dd");
         if (values[0]) values[0].textContent = (item.wall_type || "") + " · " + (item.flute || "");
         if (values[1]) values[1].textContent = (item.combined_grammage_g_m2 || "—") + " g/m²";
-        if (values[2]) values[2].textContent = (item.caliper_mm || "Not stored") + (item.caliper_mm ? " mm" : "");
+        if (values[2]) {
+            var caliperValue = values[2].querySelector("[data-corrugated-board-caliper-value]");
+            var caliperUnit = values[2].querySelector("[data-corrugated-board-caliper-unit]");
+            var caliperEmpty = values[2].querySelector("[data-corrugated-board-caliper-empty]");
+            var hasCaliper = item.caliper_mm !== null && item.caliper_mm !== undefined && item.caliper_mm !== "";
+            if (caliperValue) caliperValue.hidden = !hasCaliper;
+            if (caliperUnit) caliperUnit.hidden = !hasCaliper;
+            if (caliperEmpty) caliperEmpty.hidden = hasCaliper;
+            if (hasCaliper && window.KolliPackUnitSelector && window.KolliPackUnitSelector.setCanonicalDisplay) {
+                window.KolliPackUnitSelector.setCanonicalDisplay(caliperValue, item.caliper_mm, "mm");
+            }
+        }
         if (values[3]) values[3].textContent = item.ect_kn_m ? "ECT " + item.ect_kn_m + " kN/m" : "Not stored";
         if (values[4]) values[4].textContent = item.measured_bct_n ? item.measured_bct_n + " N" : "Not stored";
         if (values[5]) values[5].textContent = (item.source_type || "") + " · " + (item.source_label || "");
@@ -94,9 +105,15 @@
         if (!select || !node) return;
         var item = JSON.parse(node.textContent || "[]").find(function (entry) { return String(entry.id) === String(select.value); });
         if (!item) return;
-        [["pallet_length_mm", item.length_mm], ["pallet_width_mm", item.width_mm], ["pallet_height_mm", item.height_mm], ["pallet_weight_kg", item.weight_kg]].forEach(function (pair) {
+        [["pallet_length_mm", item.length_mm, "mm"], ["pallet_width_mm", item.width_mm, "mm"], ["pallet_height_mm", item.height_mm, "mm"], ["pallet_weight_kg", item.weight_kg, "kg"]].forEach(function (pair) {
             var field = document.querySelector('input[name="' + pair[0] + '"]');
-            if (field && pair[1] !== null && pair[1] !== undefined) field.value = pair[1];
+            if (field && pair[1] !== null && pair[1] !== undefined) {
+                if (window.KolliPackUnitSelector && window.KolliPackUnitSelector.setCanonicalValue) {
+                    window.KolliPackUnitSelector.setCanonicalValue(field, pair[1], pair[2]);
+                } else {
+                    field.value = pair[1];
+                }
+            }
         });
     }
 

@@ -7,6 +7,8 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Flowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from .presenter import present_corrugated_result
+
 
 def _value(value, suffix=""):
     if value in (None, "", "None"):
@@ -84,6 +86,9 @@ def build_corrugated_material_strength_pdf(payload):
     strength = result.get("strength") or {}
     carbon = result.get("carbon") or {}
     source = result.get("source_metadata") or {}
+    display = result.get("display") or present_corrugated_result(
+        result, payload.get("inputs") or {}
+    ).get("display", {})
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=16 * mm, leftMargin=16 * mm, topMargin=14 * mm, bottomMargin=14 * mm, title="Corrugated Material & Strength Report")
     story = [
@@ -98,9 +103,9 @@ def build_corrugated_material_strength_pdf(payload):
         ], styles),
         Paragraph("Dimensions", styles["CMS_Section"]),
         _table([
-            ("Internal dimensions", f"{_value(dimensions.get('internal_length_mm'))} x {_value(dimensions.get('internal_width_mm'))} x {_value(dimensions.get('internal_height_mm'))} mm"),
-            ("Estimated external dimensions", f"{_value(dimensions.get('external_length_mm'))} x {_value(dimensions.get('external_width_mm'))} x {_value(dimensions.get('external_height_mm'))} mm"),
-            ("Caliper used", _value(dimensions.get("caliper_used_mm"), " mm")),
+            ("Internal dimensions", display.get("internal_dimensions")),
+            ("Estimated external dimensions", display.get("external_dimensions")),
+            ("Caliper used", display.get("caliper_used")),
             ("Caliper source", dimensions.get("caliper_source_label")),
             ("External-dimension method", dimensions.get("external_dimension_method")),
             ("Dimension warning", dimensions.get("warning")),
@@ -125,9 +130,9 @@ def build_corrugated_material_strength_pdf(payload):
         BlankPreviewFlowable(geometry),
         Paragraph("Geometry", styles["CMS_Section"]),
         _table([
-            ("Blank", f"{_value(geometry.get('blank_length_mm'))} × {_value(geometry.get('blank_width_mm'))} mm"),
+            ("Blank", display.get("blank_dimensions")),
             ("Blank bounding area", _value(geometry.get("blank_bounding_area_m2"), " m²")),
-            ("Required sheet", f"{_value(geometry.get('production_sheet_length_mm'))} × {_value(geometry.get('production_sheet_width_mm'))} mm"),
+            ("Required sheet", display.get("production_sheet_dimensions")),
             ("Required sheet area", _value(geometry.get("production_sheet_area_m2"), " m²")),
             ("Effective box area", _value(geometry.get("effective_box_area_m2"), " m²")),
             ("Geometric scrap", _value(geometry.get("total_scrap_area_m2"), " m²")),
@@ -136,20 +141,21 @@ def build_corrugated_material_strength_pdf(payload):
         Paragraph("Material", styles["CMS_Section"]),
         _table([
             ("Combined grammage", _value(material.get("combined_grammage_g_m2"), " g/m²")),
-            ("Finished-box weight", _value(material.get("finished_box_weight_g"), " g")),
-            ("Required-sheet weight", _value(material.get("production_sheet_weight_g"), " g")),
-            ("Geometric scrap weight", _value(material.get("cutting_scrap_weight_g"), " g")),
-            ("Gross packed-box weight", _value(material.get("gross_packed_box_weight_g"), " g")),
+            ("Finished-box weight", display.get("finished_box_weight")),
+            ("Required-sheet weight", display.get("production_sheet_weight")),
+            ("Geometric scrap weight", display.get("cutting_scrap_weight")),
+            ("Gross packed-box weight", display.get("gross_packed_box_weight")),
         ], styles),
         Paragraph("Pallet and strength", styles["CMS_Section"]),
         _table([
             ("Dimension basis", pallet.get("dimension_basis")),
-            ("External box dimensions used", f"{_value(pallet.get('box_length_used_mm'))} x {_value(pallet.get('box_width_used_mm'))} x {_value(pallet.get('box_height_used_mm'))} mm"),
+            ("External box dimensions used", display.get("pallet_box_dimensions")),
             ("Pallet status", pallet.get("status")),
             ("Pallet reason", pallet.get("reason")),
             ("Orientation", pallet.get("selected_orientation")), ("Boxes per layer", pallet.get("boxes_per_layer")),
             ("Layers", pallet.get("layers")), ("Boxes per pallet", pallet.get("boxes_per_pallet")),
-            ("Palletized height", _value(pallet.get("palletized_height_mm"), " mm")),
+            ("Palletized height", display.get("palletized_height")),
+            ("Supported mass", display.get("supported_mass")),
             ("Static load", _value(pallet.get("static_load_n"), " N")),
             ("Required BCT", _value(strength.get("required_bct_n"), " N")),
             ("Available BCT", _value(strength.get("available_bct_n"), " N")),
@@ -163,17 +169,17 @@ def build_corrugated_material_strength_pdf(payload):
         Paragraph("Practical compression capacity", styles["CMS_Section"]),
         _table([
             ("Maximum supported force", _value(strength.get("compression_capacity", {}).get("allowable_supported_force_n"), " N")),
-            ("Maximum supported mass above bottom box", _value(strength.get("compression_capacity", {}).get("allowable_supported_mass_kg"), " kg")),
+            ("Maximum supported mass above bottom box", display.get("allowable_supported_mass")),
             ("Equivalent packed boxes above", _value(strength.get("compression_capacity", {}).get("maximum_equivalent_boxes_above"), " boxes")),
             ("Maximum total boxes in column", _value(strength.get("compression_capacity", {}).get("maximum_total_boxes_in_column"), " boxes")),
             ("Current boxes above", _value(strength.get("compression_capacity", {}).get("current_boxes_above"))),
-            ("Current supported mass", _value(strength.get("compression_capacity", {}).get("current_supported_mass_kg"), " kg")),
+            ("Current supported mass", display.get("current_supported_mass")),
             ("Current equivalent supported load", _value(strength.get("compression_capacity", {}).get("current_equivalent_supported_load"), " packed boxes")),
             ("Compression-capacity usage", _value(strength.get("compression_capacity", {}).get("capacity_usage_percent"), "%")),
-            ("Remaining supported mass", _value(strength.get("compression_capacity", {}).get("remaining_supported_mass_kg"), " kg")),
+            ("Remaining supported mass", display.get("remaining_supported_mass")),
             ("Remaining equivalent boxes", _value(strength.get("compression_capacity", {}).get("remaining_equivalent_boxes"), " boxes")),
             ("Overload force", _value(strength.get("compression_capacity", {}).get("overload_force_n"), " N")),
-            ("Overload mass", _value(strength.get("compression_capacity", {}).get("overload_mass_kg"), " kg")),
+            ("Overload mass", display.get("overload_mass")),
             ("Capacity basis", strength.get("compression_capacity", {}).get("capacity_basis")),
             ("Capacity warning", "The equivalent box capacity is a compression-strength screening result for one vertical load column. It is not a recommended physical stack height."),
         ], styles),

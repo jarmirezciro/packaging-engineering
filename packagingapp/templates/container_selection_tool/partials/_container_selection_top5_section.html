@@ -13,13 +13,9 @@
                         <th>Type</th>
                         <th>Brand</th>
                         <th>Materials</th>
-                        <th>Int. L (mm)</th>
-                        <th>Int. W (mm)</th>
-                        <th>Int. H (mm)</th>
-                        <th>Ext. L (mm)</th>
-                        <th>Ext. W (mm)</th>
-                        <th>Ext. H (mm)</th>
-                        <th>Weight (g)</th>
+                        <th>Internal dimensions</th>
+                        <th>External dimensions</th>
+                        <th>Weight</th>
                         <th>Volume (mm³)</th>
                         <th>Max Qty</th>
                         <th>Usage</th>
@@ -38,13 +34,9 @@
                         <td>{{ material.packaging_type }}</td>
                         <td>{{ material.branding }}</td>
                         <td>{{ material.packaging_materials }}</td>
-                        <td>{{ material.part_length }}</td>
-                        <td>{{ material.part_width }}</td>
-                        <td>{{ material.part_height }}</td>
-                        <td>{{ material.external_length|default:"—" }}</td>
-                        <td>{{ material.external_width|default:"—" }}</td>
-                        <td>{{ material.external_height|default:"—" }}</td>
-                        <td>{{ material.part_weight|default:"—" }}</td>
+                        <td>{{ row.internal_dimensions_display }}</td>
+                        <td>{{ row.external_dimensions_display }}</td>
+                        <td>{{ row.weight_display }}</td>
                         <td>{{ material.part_volume }}</td>
                         <td>{{ row.max_qty }}</td>
                         <td>{{ row.usage|floatformat:2 }}</td>

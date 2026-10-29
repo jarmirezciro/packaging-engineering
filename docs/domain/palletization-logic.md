@@ -6,19 +6,23 @@ Generate and rank practical rectangular-carton pallet patterns, calculate layers
 
 ## Inputs
 
-Established or discussed inputs include:
+Current implemented inputs include:
 
 - carton L/W/H;
-- pallet L/W/H and pallet weight;
+- pallet L/W/H;
 - maximum total stack/load height;
 - acceptable length and width overhang;
 - carton/product weight;
-- optional maximum pallet payload;
 - optional maximum cargo load on the bottom carton;
 - pattern families and column/interlock preference;
 - advanced carton/stability parameters where present in the current form.
 
-All fields and units must be verified against the current form and service before logic edits.
+Dimensions are millimetres. Carton weight and maximum bottom-carton load are
+grams. The current standalone form and engine do not accept pallet tare or a
+maximum pallet payload; a catalogue pallet's kg tare is used only by Packaging
+Flow when it constructs the downstream physical load mass. All fields and
+units must still be verified against the current form and service before logic
+edits.
 
 ## Core geometry
 
@@ -173,13 +177,15 @@ Packaging Flow, rendering, and downstream transport handoff:
 
 ## Weight limits
 
-### Pallet payload
+### Pallet payload (not currently implemented)
 
 ```text
 cargo_weight = total_cartons × carton_weight
 ```
 
-Compare with maximum pallet payload according to whether pallet tare is excluded or included in the current definition.
+This remains a discussed contract only. The current form and engine do not
+accept a maximum pallet payload, so it must not be described as an active
+feasibility check.
 
 ### Bottom-carton load
 
@@ -190,6 +196,11 @@ load_above_bottom_carton = (layers - 1) × carton_weight
 ```
 
 For interlock or partial overlap, a prior design used overlap-area load distribution. The current implementation must be inspected and tested; do not replace it with a simple full-load assumption during unrelated work.
+
+The current engine receives carton weight and the bottom-carton limit in grams.
+Its primary result keys are `max_bottom_load_g`, `avg_bottom_load_g`, and
+`weight_limit_g`. Historical `_kg` keys remain temporary compatibility aliases
+but contain the same gram values; they are not kilogram conversions.
 
 ## Column and interlock
 

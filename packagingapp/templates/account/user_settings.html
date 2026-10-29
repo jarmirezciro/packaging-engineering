@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Units &amp; Display{% endblock %}
+
+{% block content %}
+<div class="app-page">
+    <div class="app-hero mb-4">
+        <div>
+            <div class="app-eyebrow">Account settings</div>
+            <h1 class="app-hero-title">Units &amp; Display</h1>
+            <p class="app-section-subtitle mb-0">These defaults control how physical values are initially shown and entered. You can still change units directly inside each tool.</p>
+        </div>
+    </div>
+
+    <div class="app-card" style="max-width: 760px;">
+        <div class="app-card-body p-4">
+            <form method="post">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
+                {% endif %}
+                {% for field in form %}
+                <div class="mb-4">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                    {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <p class="small text-muted">Changing a unit inside a tool is a local choice for that calculation and does not update these account defaults.</p>
+                <button type="submit" class="btn btn-app-primary">Save Units &amp; Display</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

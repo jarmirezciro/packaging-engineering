@@ -39,15 +39,19 @@
         <div id="{{ pallet_ui.ids.manual_pallet_fields }}">
             <div class="tool-compact-grid-two">
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Pallet length <span class="text-muted">(mm)</span></label>
+                    <label class="form-label">Pallet length {% if current_pallet_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.pallet_dimensions current_unit=pallet_values.pallet_dimension_unit|default:'mm' selector_key='length' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.pallet_l }}"
+                           data-unit-input
+                           data-unit-group="{{ pallet_ui.unit_selectors.pallet_dimensions.group }}"
                            value="{{ pallet_values.pallet_l|default:'' }}">
                 </div>
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Pallet width <span class="text-muted">(mm)</span></label>
+                    <label class="form-label">Pallet width {% if current_pallet_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.pallet_dimensions current_unit=pallet_values.pallet_dimension_unit|default:'mm' selector_key='width' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.pallet_w }}"
+                           data-unit-input
+                           data-unit-group="{{ pallet_ui.unit_selectors.pallet_dimensions.group }}"
                            value="{{ pallet_values.pallet_w|default:'' }}">
                 </div>
             </div>
@@ -55,17 +59,21 @@
 
         <div class="tool-compact-grid-two tool-tight-gap">
             <div id="{{ pallet_ui.ids.manual_pallet_height_field }}" class="tool-field-group mb-0">
-                <label class="form-label">Pallet height <span class="text-muted">(mm)</span></label>
+                <label class="form-label">Pallet height {% if current_pallet_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.pallet_dimensions current_unit=pallet_values.pallet_dimension_unit|default:'mm' selector_key='height' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>
                 <input type="number" step="any" class="form-control"
                        name="{{ pallet_ui.names.pallet_height }}"
+                       data-unit-input
+                       data-unit-group="{{ pallet_ui.unit_selectors.pallet_dimensions.group }}"
                        value="{{ pallet_values.pallet_height|default:'' }}"
                        placeholder="150">
                 <div class="app-form-note mt-1">Default: 150 mm</div>
             </div>
             <div class="tool-field-group mb-0">
-                <label class="form-label">Max stack height <span class="text-muted">(mm)</span></label>
+                <label class="form-label">Max stack height {% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.pallet_dimensions current_unit=pallet_values.pallet_dimension_unit|default:'mm' selector_key='max-stack' %}</label>
                 <input type="number" step="any" class="form-control"
                        name="{{ pallet_ui.names.max_stack_height }}"
+                       data-unit-input
+                       data-unit-group="{{ pallet_ui.unit_selectors.pallet_dimensions.group }}"
                        value="{{ pallet_values.max_stack_height|default:'' }}">
             </div>
         </div>
@@ -73,17 +81,12 @@
         {% if selected_pallet_material %}
             <div class="tool-summary-strip">
                 <div class="tool-summary-main">
-                    <strong>{{ selected_pallet_material.part_number }}</strong> — {{ selected_pallet_material.part_description }}
+                    <strong>{{ selected_pallet_summary.title }}</strong>
                 </div>
                 <div class="tool-summary-meta">
-                    {{ selected_pallet_material.external_length|default:selected_pallet_material.part_length }}
-                    ×
-                    {{ selected_pallet_material.external_width|default:selected_pallet_material.part_width }}
-                    ×
-                    {{ selected_pallet_material.external_height|default:selected_pallet_material.part_height }} mm
-                    {% if selected_pallet_material.part_weight %} | Pallet wt: {{ selected_pallet_material.part_weight }} g{% endif %}
-                    | {{ selected_pallet_material.packaging_type }}
-                    | {{ selected_pallet_material.branding }}
+                    {{ selected_pallet_summary.dims }}
+                    {% if selected_pallet_summary.weight and selected_pallet_summary.weight != '—' %} | Pallet wt: {{ selected_pallet_summary.weight }}{% endif %}
+                    {% if selected_pallet_summary.meta %} | {{ selected_pallet_summary.meta }}{% endif %}
                 </div>
             </div>
         {% endif %}
@@ -125,15 +128,19 @@
         <div id="{{ pallet_ui.ids.stacking_constraints_section }}" style="display:none;">
             <div class="tool-compact-grid-two">
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Max width overhang <span class="text-muted">(mm)</span></label>
+                    <label class="form-label">Max width overhang {% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.pallet_dimensions current_unit=pallet_values.pallet_dimension_unit|default:'mm' selector_key='width-overhang' %}</label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.max_width_stickout }}"
+                           data-unit-input
+                           data-unit-group="{{ pallet_ui.unit_selectors.pallet_dimensions.group }}"
                            value="{{ pallet_values.max_width_stickout|default:'' }}">
                 </div>
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Max length overhang <span class="text-muted">(mm)</span></label>
+                    <label class="form-label">Max length overhang {% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.pallet_dimensions current_unit=pallet_values.pallet_dimension_unit|default:'mm' selector_key='length-overhang' %}</label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.max_length_stickout }}"
+                           data-unit-input
+                           data-unit-group="{{ pallet_ui.unit_selectors.pallet_dimensions.group }}"
                            value="{{ pallet_values.max_length_stickout|default:'' }}">
                 </div>
             </div>

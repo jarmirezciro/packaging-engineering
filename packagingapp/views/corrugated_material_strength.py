@@ -11,8 +11,11 @@ from ..models import CorrugatedBoardConstruction, CorrugatedECTReferenceGrade, P
 from ..tools.corrugated_material_strength.contracts import build_shared_corrugated_material_ui_contract
 from ..tools.corrugated_material_strength.serializers import json_safe, serialize_corrugated_inputs
 from ..tools.corrugated_material_strength.service import calculate_corrugated_material_strength
+from ..tools.corrugated_material_strength.presenter import present_corrugated_result
 from ..tools.corrugated_material_strength.export import build_corrugated_material_strength_pdf
 from ..entitlements import PDF_REPORTS, feature_required
+from ..units import convert_length, convert_mass
+from ..user_preferences import unit_defaults_for_user
 
 
 def _dimension(material, *names):
@@ -124,6 +127,63 @@ def _shared_fields(form, ui):
     }
 
 
+def _configure_unit_widgets(form, ui):
+    groups = ui["unit_selectors"]
+    mapping = {
+        "box_dimensions": (
+            "box_length_mm", "box_width_mm", "box_height_mm",
+            "joint_width_mm", "sheet_margin_per_edge_mm",
+        ),
+        "product_mass": ("product_weight_g",),
+        "pallet_dimensions": (
+            "pallet_length_mm", "pallet_width_mm", "pallet_height_mm",
+            "max_palletized_height_mm",
+        ),
+        "pallet_mass": ("pallet_weight_kg",),
+        "material_dimensions": ("caliper_override_mm",),
+    }
+    for selector_key, field_names in mapping.items():
+        group = groups[selector_key]["group"]
+        for field_name in field_names:
+            form.fields[field_name].widget.attrs.update({
+                "data-unit-input": "",
+                "data-unit-group": group,
+            })
+
+
+def _adapt_corrugated_initial_units(form, unit_defaults):
+    """Render canonical form defaults in the user's initial display units."""
+    length_unit = unit_defaults["length"]
+    small_mass_unit = unit_defaults["small_mass"]
+    large_mass_unit = unit_defaults["large_mass"]
+
+    for field_name in (
+        "box_length_mm",
+        "box_width_mm",
+        "box_height_mm",
+        "joint_width_mm",
+        "sheet_margin_per_edge_mm",
+        "pallet_length_mm",
+        "pallet_width_mm",
+        "pallet_height_mm",
+        "max_palletized_height_mm",
+        "caliper_override_mm",
+    ):
+        if form.initial.get(field_name) not in (None, ""):
+            form.initial[field_name] = convert_length(
+                form.initial[field_name], "mm", length_unit
+            )
+
+    if form.initial.get("product_weight_g") not in (None, ""):
+        form.initial["product_weight_g"] = convert_mass(
+            form.initial["product_weight_g"], "g", small_mass_unit
+        )
+    if form.initial.get("pallet_weight_kg") not in (None, ""):
+        form.initial["pallet_weight_kg"] = convert_mass(
+            form.initial["pallet_weight_kg"], "kg", large_mass_unit
+        )
+
+
 def corrugated_material_strength(request):
     boards = list(CorrugatedBoardConstruction.objects.filter(is_active=True).order_by("sort_order", "wall_type", "flute_1", "flute_2", "name"))
     reference_grades = list(CorrugatedECTReferenceGrade.objects.filter(is_active=True).order_by("wall_type", "flute_family", "sort_order", "ect_lb_in"))
@@ -131,6 +191,14 @@ def corrugated_material_strength(request):
 
     initial = {}
     if request.method == "GET":
+        unit_defaults = unit_defaults_for_user(request.user)
+        initial.update({
+            "box_dimension_unit": unit_defaults["length"],
+            "product_mass_unit": unit_defaults["small_mass"],
+            "pallet_dimension_unit": unit_defaults["length"],
+            "pallet_mass_unit": unit_defaults["large_mass"],
+            "material_dimension_unit": unit_defaults["length"],
+        })
         if boards:
             initial["board_construction_id"] = str(boards[0].pk)
         euro = next((item for item in pallets if item.part_number.upper() == "EUROPALLET"), None)
@@ -151,6 +219,7 @@ def corrugated_material_strength(request):
         form = CorrugatedMaterialStrengthForm(
             initial=initial, reference_grades=reference_grades, board_constructions=boards
         )
+        _adapt_corrugated_initial_units(form, unit_defaults)
     _apply_choices(form, boards, pallets, reference_grades)
 
     result = None
@@ -181,6 +250,7 @@ def corrugated_material_strength(request):
                 inputs, construction=selected_board, pallet_material=selected_pallet,
                 reference_ect_grade=selected_reference_grade,
             )
+            result = present_corrugated_result(result, inputs)
             request.session["corrugated_material_strength_last_analysis"] = {
                 "inputs": inputs, "result": result,
             }
@@ -205,6 +275,7 @@ def corrugated_material_strength(request):
     ui = build_shared_corrugated_material_ui_contract(
         mode="standalone", prefix="", catalogue=catalogue
     )
+    _configure_unit_widgets(form, ui)
     ui["form_action"] = reverse("corrugated_material_strength")
     return render(request, "corrugated_material_strength/corrugated_material_strength_tool.html", {
         "form": form,

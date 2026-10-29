@@ -1,8 +1,11 @@
 from .constants import DEFAULTS, DISTRIBUTION_CHOICES
 from .serializers import json_safe
+from ...units.ui import build_unit_selector_contract
 
 
 FIELD_KEYS = (
+    "box_dimension_unit", "product_mass_unit", "pallet_dimension_unit",
+    "pallet_mass_unit", "material_dimension_unit",
     "box_length_mm", "box_width_mm", "box_height_mm", "product_weight_g",
     "quantity", "fefco_code", "joint_width_mm", "sheet_margin_per_edge_mm",
     "pallet_source", "pallet_code", "pallet_length_mm", "pallet_width_mm",
@@ -27,6 +30,14 @@ def prefixed_id(prefix, field_name):
 
 
 def build_shared_corrugated_material_ui_contract(*, mode="standalone", prefix="", catalogue=None):
+    unit_suffix = f"-{prefix}" if str(prefix or "") else ""
+    unit_names = {
+        key: prefixed_name(prefix, key)
+        for key in (
+            "box_dimension_unit", "product_mass_unit", "pallet_dimension_unit",
+            "pallet_mass_unit", "material_dimension_unit",
+        )
+    }
     return {
         "mode": mode,
         "prefix": str(prefix or ""),
@@ -55,6 +66,48 @@ def build_shared_corrugated_material_ui_contract(*, mode="standalone", prefix=""
             "capacity_usage_percent": "Compression-capacity usage",
             "remaining_supported_mass_kg": "Remaining supported mass",
             "remaining_equivalent_boxes": "Remaining equivalent box capacity",
+        },
+        "unit_selectors": {
+            "box_dimensions": build_unit_selector_contract(
+                quantity="length",
+                label="box and sheet dimension",
+                group=f"corrugated-box-dimensions{unit_suffix}",
+                hidden_name=unit_names["box_dimension_unit"],
+                hidden_id=f"corrugatedBoxDimensionUnit{unit_suffix}",
+                menu_id=f"corrugatedBoxDimensionUnitMenu{unit_suffix}",
+            ),
+            "product_mass": build_unit_selector_contract(
+                quantity="mass",
+                label="product mass",
+                group=f"corrugated-product-mass{unit_suffix}",
+                hidden_name=unit_names["product_mass_unit"],
+                hidden_id=f"corrugatedProductMassUnit{unit_suffix}",
+                menu_id=f"corrugatedProductMassUnitMenu{unit_suffix}",
+            ),
+            "pallet_dimensions": build_unit_selector_contract(
+                quantity="length",
+                label="pallet dimension",
+                group=f"corrugated-pallet-dimensions{unit_suffix}",
+                hidden_name=unit_names["pallet_dimension_unit"],
+                hidden_id=f"corrugatedPalletDimensionUnit{unit_suffix}",
+                menu_id=f"corrugatedPalletDimensionUnitMenu{unit_suffix}",
+            ),
+            "pallet_mass": build_unit_selector_contract(
+                quantity="mass",
+                label="pallet mass",
+                group=f"corrugated-pallet-mass{unit_suffix}",
+                hidden_name=unit_names["pallet_mass_unit"],
+                hidden_id=f"corrugatedPalletMassUnit{unit_suffix}",
+                menu_id=f"corrugatedPalletMassUnitMenu{unit_suffix}",
+            ),
+            "material_dimensions": build_unit_selector_contract(
+                quantity="length",
+                label="board material dimension",
+                group=f"corrugated-material-dimensions{unit_suffix}",
+                hidden_name=unit_names["material_dimension_unit"],
+                hidden_id=f"corrugatedMaterialDimensionUnit{unit_suffix}",
+                menu_id=f"corrugatedMaterialDimensionUnitMenu{unit_suffix}",
+            ),
         },
         "help_text": {
             "box_dimensions": "Preliminary geometry uses entered internal dimensions directly; converter allowances are not included.",

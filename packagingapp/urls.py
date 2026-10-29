@@ -31,6 +31,7 @@ from packagingapp.views.multi_product_container import (
 )
 
 from packagingapp.views.full_packaging import full_packaging_mode, full_packaging_export_pdf
+from .views.user_settings import user_settings
 
 urlpatterns = [
     # Public KolliLabs website
@@ -86,6 +87,7 @@ urlpatterns = [
 
     # KolliPack application
     path("kollipack/", home, name="home"),
+    path("account/settings/", user_settings, name="user_settings"),
     path(
         "assistant/context/",
         assistant_views.assistant_context,

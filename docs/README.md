@@ -40,6 +40,7 @@ Labels used in domain documents:
 | Architecture/refactor | `architecture/application-architecture.md`, `architecture/shared-tool-contract.md` |
 | AI assistant architecture or implementation | `ai_assistant_architecture.md`, `ai_assistant_implementation_status.md`, then the affected tool/domain documents; local OpenAI setup is in `engineering/ai-assistant-local-openai.md`, Session 10.5 product evidence is in `engineering/ai-assistant-input-action-evaluation.md`, and Public Expert evidence is in `engineering/ai-public-expert-evaluation.md` |
 | Packaging Flow | `architecture/packaging-flow.md` |
+| Unit contracts or unit conversion | `UNIT_SYSTEM_AUDIT.md` plus the affected domain document |
 | Multi-product Bag/Container | `architecture/shared-tool-contract.md` plus the affected domain document |
 | CSS/templates/JS | `frontend/theme-and-components.md`, `frontend/interactions-and-accessibility.md`; for full-page tool interactions, `frontend/tool-scroll-preservation.md` |
 | Bag logic | `domain/bag-selection-logic.md` |

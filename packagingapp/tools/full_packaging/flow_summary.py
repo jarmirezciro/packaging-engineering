@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable, Mapping
 
+from .presentation import payload_for_display, physical_summary, step_display_units
+
 
 @dataclass(frozen=True)
 class UnitDefinition:
@@ -161,6 +163,13 @@ def build_packaging_flow_summary(steps: Iterable[Mapping[str, Any]]) -> dict[str
             for unit, quantity in reversed(multiplied_counts[:-1])
         ]
 
+        units = step_display_units(raw_step)
+        display_payload = payload_for_display(
+            payload,
+            dimension_unit=units["output_dimension"],
+            mass_unit=units["output_mass"],
+        )
+
         stages.append({
             "title": definition["title"],
             "icon": definition["icon"],
@@ -169,6 +178,7 @@ def build_packaging_flow_summary(steps: Iterable[Mapping[str, Any]]) -> dict[str
             "primary_value": _format_quantity(units_per_output),
             "primary_label": f"{_unit_label(current_unit, units_per_output)} / {output_unit.singular}",
             "secondary": secondary,
+            "physical": physical_summary(display_payload),
         })
 
         contained_counts = multiplied_counts + [(output_unit, Decimal(1))]

@@ -18,6 +18,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from ...units import format_dimensions
+
 
 def _clean(value, default="-"):
     if value in (None, "", "None"):
@@ -328,7 +330,11 @@ def build_bag_selection_single_pdf(export_payload):
     if is_design:
         detail_rows.insert(5, (
             "Bundle dimensions",
-            f"{analysis.get('bundle_length', '-')} × {analysis.get('bundle_width', '-')} × {analysis.get('bundle_height', '-')} mm",
+            analysis.get("bundle_dimensions_display") or format_dimensions(
+                analysis.get("bundle_length"),
+                analysis.get("bundle_width"),
+                analysis.get("bundle_height"),
+            ),
         ))
     detail_table = _key_value_table(detail_rows, [40 * mm, 132 * mm])
     story.append(_section_title("Result interpretation"))
@@ -348,7 +354,7 @@ def build_bag_selection_single_pdf(export_payload):
         story.append(Spacer(1, 5))
 
     story.append(Paragraph(
-        "Decision-support representation only. Bag dimensions are interpreted as flat L x W dimensions in millimetres, "
+        "Decision-support representation only. Displayed bag dimensions follow the selected presentation unit; canonical calculations remain millimetres. "
         "with the opening on the width side. Physical validation is recommended for critical packaging decisions. "
         "Final selection may also depend on sealing, protection, handling, branding, transport and quality requirements.",
         _STYLES["BagNote"],

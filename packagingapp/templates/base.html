@@ -510,6 +510,10 @@
                     <i class="bi bi-person-circle" aria-hidden="true"></i>
                     <span>{{ user.username }}</span>
                 </div>
+                <a href="{% url 'user_settings' %}" class="app-nav-link {% if request.path == '/account/settings/' %}active{% endif %}">
+                    <i class="bi bi-sliders" aria-hidden="true"></i>
+                    <span>Units &amp; Display</span>
+                </a>
                 {% if effective_plan_code == "FREE" %}
                 <a href="{% url 'pricing' %}" class="app-nav-link">
                     <i class="bi bi-stars" aria-hidden="true"></i>

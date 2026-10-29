@@ -3,6 +3,17 @@ from django.conf import settings
 from ...access import visible_packaging_catalogues, visible_product_catalogues
 from ...forms import BagSelectionForm
 from ...models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
+from ...units import (
+    LENGTH_UNITS,
+    MASS_UNITS,
+    UnsupportedUnitError,
+    convert_length,
+    convert_mass,
+    format_dimensions,
+    format_mass,
+    kg_to_g,
+)
+from ...units.input import convert_optional, validate_unit
 from ...utils.bag_selection.engine import (
     SEALING_AREA,
     TOLERANCE,
@@ -34,6 +45,71 @@ def _to_float(value):
         return None
 
 
+def _config_value(config, key, default=None):
+    value = (config or {}).get(key, default)
+    return default if value in (None, "") else value
+
+
+def _unit_from_config(config, key, definitions, default, label, messages):
+    raw = _config_value(config, key, default)
+    try:
+        return validate_unit(raw, definitions, default, label)
+    except UnsupportedUnitError as exc:
+        messages.append(str(exc))
+        return None
+
+
+def _convert_manual(value, unit, converter, canonical_unit):
+    if value in (None, "", "None") or unit is None:
+        return None
+    try:
+        return convert_optional(value, unit, converter, canonical_unit)
+    except (TypeError, ValueError, UnsupportedUnitError):
+        return None
+
+
+def _normalize_manual_bag_inputs(config):
+    messages = []
+    product_dimension_unit = _unit_from_config(
+        config, "product_dimension_unit", LENGTH_UNITS, "mm", "product dimension", messages
+    )
+    product_mass_unit = _unit_from_config(
+        config, "product_mass_unit", MASS_UNITS, "g", "product mass", messages
+    )
+    bag_dimension_unit = _unit_from_config(
+        config, "bag_dimension_unit", LENGTH_UNITS, "mm", "bag dimension", messages
+    )
+    bag_mass_unit = _unit_from_config(
+        config, "bag_mass_unit", MASS_UNITS, "g", "bag mass", messages
+    )
+
+    product = None
+    if (config or {}).get("product_source") != "catalogue" and product_dimension_unit is not None:
+        product = tuple(
+            _convert_manual(_config_value(config, key), product_dimension_unit, convert_length, "mm")
+            for key in ("product_l", "product_w", "product_h")
+        )
+        if any(value is None for value in product):
+            product = None
+
+    bag = None
+    if (config or {}).get("bag_source") != "catalogue" and bag_dimension_unit is not None:
+        bag = tuple(
+            _convert_manual(_config_value(config, key), bag_dimension_unit, convert_length, "mm")
+            for key in ("bag_length", "bag_width")
+        )
+        if any(value is None for value in bag):
+            bag = None
+
+    return {
+        "product": product,
+        "bag": bag,
+        "product_dimension_unit": product_dimension_unit,
+        "product_mass_unit": product_mass_unit,
+        "bag_dimension_unit": bag_dimension_unit,
+        "bag_mass_unit": bag_mass_unit,
+        "messages": messages,
+    }
 def _to_int(value, default=1):
     try:
         return int(value)
@@ -143,7 +219,7 @@ def build_hydrated_post_data(raw_post, config, selected_product=None, selected_m
         post_data["product_w"] = "" if selected_product.product_width is None else str(selected_product.product_width)
         post_data["product_h"] = "" if selected_product.product_height is None else str(selected_product.product_height)
         if post_data.get("product_weight") in (None, "", "None") and getattr(selected_product, "weight", None) is not None:
-            post_data["product_weight"] = str(selected_product.weight)
+            post_data["product_weight"] = str(kg_to_g(selected_product.weight))
         if config.get("mode") == "optimal" and getattr(selected_product, "desired_qty", None) not in (None, "", "None"):
             post_data["desired_qty"] = str(selected_product.desired_qty)
 
@@ -151,7 +227,7 @@ def build_hydrated_post_data(raw_post, config, selected_product=None, selected_m
         post_data["bag_length"] = "" if selected_material.part_length is None else str(selected_material.part_length)
         post_data["bag_width"] = "" if selected_material.part_width is None else str(selected_material.part_width)
         if post_data.get("bag_weight") in (None, "", "None") and getattr(selected_material, "part_weight", None) is not None:
-            post_data["bag_weight"] = str(selected_material.part_weight)
+            post_data["bag_weight"] = str(kg_to_g(selected_material.part_weight))
         payload = _resolve_payload_capacity_from_material(selected_material)
         if post_data.get("bag_max_payload") in (None, "", "None") and payload is not None:
             post_data["bag_max_payload"] = str(payload)
@@ -167,7 +243,11 @@ def build_initial_data(config, selected_product=None, selected_material=None):
             "product_l": selected_product.product_length,
             "product_w": selected_product.product_width,
             "product_h": selected_product.product_height,
-            "product_weight": getattr(selected_product, "weight", None),
+            "product_weight": (
+                kg_to_g(selected_product.weight)
+                if getattr(selected_product, "weight", None) is not None
+                else None
+            ),
         })
         if config.get("mode") == "optimal":
             initial_data["desired_qty"] = getattr(selected_product, "desired_qty", None) or initial_data.get("desired_qty")
@@ -176,7 +256,11 @@ def build_initial_data(config, selected_product=None, selected_material=None):
         initial_data.update({
             "bag_length": selected_material.part_length,
             "bag_width": selected_material.part_width,
-            "bag_weight": getattr(selected_material, "part_weight", None),
+            "bag_weight": (
+                kg_to_g(selected_material.part_weight)
+                if getattr(selected_material, "part_weight", None) is not None
+                else None
+            ),
             "bag_max_payload": _resolve_payload_capacity_from_material(selected_material),
         })
 
@@ -213,24 +297,25 @@ def resolve_product_tuple(config, selected_product=None):
             float(selected_product.product_height),
         )
 
-    product_l = _to_float((config or {}).get("product_l"))
-    product_w = _to_float((config or {}).get("product_w"))
-    product_h = _to_float((config or {}).get("product_h"))
-    if None in (product_l, product_w, product_h):
-        return None
-    return (product_l, product_w, product_h)
+    return _normalize_manual_bag_inputs(config)["product"]
 
 
 def _resolve_product_weight(config, selected_product=None):
     if (config or {}).get("product_source") == "catalogue" and selected_product is not None:
-        return _to_float(getattr(selected_product, "weight", None))
-    return _to_float((config or {}).get("product_weight"))
+        weight_kg = getattr(selected_product, "weight", None)
+        return _to_float(kg_to_g(weight_kg)) if weight_kg is not None else None
+    value = _config_value(config, "product_weight")
+    unit = _unit_from_config(config, "product_mass_unit", MASS_UNITS, "g", "product mass", [])
+    return _convert_manual(value, unit, convert_mass, "g")
 
 
 def _resolve_bag_weight(config, selected_material=None):
     if (config or {}).get("bag_source") == "catalogue" and selected_material is not None:
-        return _to_float(getattr(selected_material, "part_weight", None))
-    return _to_float((config or {}).get("bag_weight"))
+        weight_kg = getattr(selected_material, "part_weight", None)
+        return _to_float(kg_to_g(weight_kg)) if weight_kg is not None else None
+    value = _config_value(config, "bag_weight")
+    unit = _unit_from_config(config, "bag_mass_unit", MASS_UNITS, "g", "bag mass", [])
+    return _convert_manual(value, unit, convert_mass, "g")
 
 
 def _resolve_payload_capacity_from_material(selected_material):
@@ -251,7 +336,9 @@ def _resolve_payload_capacity_from_material(selected_material):
 def _resolve_payload_capacity(config, selected_material=None):
     if (config or {}).get("bag_source") == "catalogue" and selected_material is not None:
         return _resolve_payload_capacity_from_material(selected_material)
-    return _to_float((config or {}).get("bag_max_payload"))
+    value = _config_value(config, "bag_max_payload")
+    unit = _unit_from_config(config, "bag_mass_unit", MASS_UNITS, "g", "bag mass", [])
+    return _convert_manual(value, unit, convert_mass, "g")
 
 
 def _resolve_visual_bag_box(selected_bag, inner_box):
@@ -339,6 +426,11 @@ def build_bag_analysis_report(
         if payload_capacity and payload_capacity > 0:
             payload_usage_pct = (net_weight / payload_capacity) * 100
 
+    product_dimension_unit = (config or {}).get("product_dimension_unit") or "mm"
+    product_mass_unit = (config or {}).get("product_mass_unit") or "g"
+    bag_dimension_unit = (config or {}).get("bag_dimension_unit") or "mm"
+    bag_mass_unit = (config or {}).get("bag_mass_unit") or "g"
+
     return {
         "current_quantity": current_quantity,
         "requested_qty": current_quantity,
@@ -363,11 +455,42 @@ def build_bag_analysis_report(
         "net_weight": _round_or_none(net_weight, 3),
         "total_weight": _round_or_none(total_weight, 3),
         "payload_usage_pct": _round_int_or_none(payload_usage_pct),
-        "product_weight_display": _format_weight(product_weight),
-        "bag_weight_display": _format_weight(bag_weight),
-        "payload_capacity_display": _format_weight(payload_capacity),
-        "net_weight_display": _format_weight(net_weight),
-        "total_weight_display": _format_weight(total_weight),
+        "display_units": {
+            "product_dimension": product_dimension_unit,
+            "product_mass": product_mass_unit,
+            "bag_dimension": bag_dimension_unit,
+            "bag_mass": bag_mass_unit,
+        },
+        "product_dimensions_display": format_dimensions(
+            product[0], product[1], product[2], display_unit=product_dimension_unit
+        ),
+        "bag_dimensions_display": format_dimensions(
+            bag_len, bag_w, display_unit=bag_dimension_unit
+        ),
+        "required_dimensions_display": (
+            format_dimensions(
+                best_required_current[0],
+                best_required_current[1],
+                display_unit=bag_dimension_unit,
+            )
+            if best_required_current
+            else "—"
+        ),
+        "product_weight_display": format_mass(
+            product_weight, canonical_unit="g", display_unit=product_mass_unit
+        ),
+        "bag_weight_display": format_mass(
+            bag_weight, canonical_unit="g", display_unit=bag_mass_unit
+        ),
+        "payload_capacity_display": format_mass(
+            payload_capacity, canonical_unit="g", display_unit=bag_mass_unit
+        ),
+        "net_weight_display": format_mass(
+            net_weight, canonical_unit="g", display_unit=product_mass_unit
+        ),
+        "total_weight_display": format_mass(
+            total_weight, canonical_unit="g", display_unit=bag_mass_unit
+        ),
         "payload_usage_display": _format_percent(payload_usage_pct),
         "has_product_weight": product_weight is not None,
         "has_bag_weight": bag_weight is not None,
@@ -375,7 +498,7 @@ def build_bag_analysis_report(
         "has_total_weight": total_weight is not None,
         "has_payload_usage": payload_usage_pct is not None,
         "search_capped": max_search_capped,
-        "calculation_note": "Bag dimensions and product dimensions are treated as millimetres. Sealing allowance is included in the bag formula.",
+        "calculation_note": "Displayed dimensions follow the selected local units; canonical bag calculations remain millimetres and include the sealing allowance.",
     }
 
 
@@ -426,13 +549,40 @@ def _add_bag_design_metrics(candidate, config, selected_product=None):
     net_weight = product_weight * quantity if product_weight is not None else None
     row.update({
         "net_content_weight": _round_or_none(net_weight, 3),
-        "net_content_weight_display": _format_weight(net_weight),
+        "bundle_dimensions_display": format_dimensions(
+            row["bundle_length"],
+            row["bundle_width"],
+            row["bundle_height"],
+            display_unit=(config or {}).get("product_dimension_unit") or "mm",
+        ),
+        "bag_dimensions_display": format_dimensions(
+            row["bag_width"],
+            row["bag_length"],
+            display_unit=(config or {}).get("bag_dimension_unit") or "mm",
+        ),
+        "bag_width_display": format_dimensions(
+            row["bag_width"],
+            canonical_unit="mm",
+            display_unit=(config or {}).get("bag_dimension_unit") or "mm",
+        ),
+        "net_content_weight_display": format_mass(
+            net_weight,
+            canonical_unit="g",
+            display_unit=(config or {}).get("product_mass_unit") or "g",
+        ),
     })
     return row
 
 
-def _analyze_bag_design(config, action, product, selected_product=None, selected_material=None):
-    messages = []
+def _analyze_bag_design(
+    config,
+    action,
+    product,
+    selected_product=None,
+    selected_material=None,
+    initial_messages=None,
+):
+    messages = list(initial_messages or [])
     notices = []
     desired_quantity = _positive_integer(config.get("desired_qty"))
     product_unit_scene = build_product_unit_scene(
@@ -555,9 +705,13 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
     pending_result = None
     analysis_report = None
     threejs_scene = None
-    messages = []
+    normalized_inputs = _normalize_manual_bag_inputs(cfg)
+    messages = list(normalized_inputs["messages"])
 
-    product = resolve_product_tuple(cfg, selected_product)
+    if product_source == "catalogue":
+        product = resolve_product_tuple(cfg, selected_product)
+    else:
+        product = normalized_inputs["product"]
     product_unit_scene = build_product_unit_scene(
         product,
         cfg.get("product_shape"),
@@ -570,6 +724,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
             product,
             selected_product=selected_product,
             selected_material=selected_material,
+            initial_messages=messages,
         )
 
     if mode == "optimal" and product_source == "catalogue" and selected_product is not None:
@@ -586,12 +741,11 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
 
         if not messages:
             if bag_source == "manual":
-                bag_l = _to_float(cfg.get("bag_length"))
-                bag_w = _to_float(cfg.get("bag_width"))
-                if bag_l is None or bag_w is None:
+                bag_values = normalized_inputs["bag"]
+                if bag_values is None:
                     messages.append("Please enter bag length and width in mm.")
                 else:
-                    bag = (bag_l, bag_w)
+                    bag = bag_values
             else:
                 if not selected_material:
                     messages.append("Please select a bag from the packaging catalogue.")
@@ -676,6 +830,16 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                     "usage": best["usage"],
                     "usage_pct": round(best["usage"] * 100, 2),
                     "best_required": (best["req_len"], best["req_w"]),
+                    "bag_dimensions_display": format_dimensions(
+                        bag_len,
+                        bag_w,
+                        display_unit=cfg.get("bag_dimension_unit") or "mm",
+                    ),
+                    "required_dimensions_display": format_dimensions(
+                        best["req_len"],
+                        best["req_w"],
+                        display_unit=cfg.get("bag_dimension_unit") or "mm",
+                    ),
                     "bag_area": bag_len * bag_w,
                 })
             scored.sort(key=lambda x: (-x["usage"], x["bag_area"]))
@@ -751,8 +915,13 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
     mode = cfg.get("mode") or "single"
     product_source = cfg.get("product_source") or "manual"
     bag_source = cfg.get("bag_source") or "manual"
-    product = resolve_product_tuple(cfg, selected_product)
-    messages = []
+    normalized_inputs = _normalize_manual_bag_inputs(cfg)
+    product = (
+        resolve_product_tuple(cfg, selected_product)
+        if product_source == "catalogue"
+        else normalized_inputs["product"]
+    )
+    messages = list(normalized_inputs["messages"])
 
     if product_source == "catalogue" and selected_product is None:
         messages.append("Please select a product from the product catalogue.")
@@ -830,9 +999,7 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
                 float(selected_material.part_width),
             )
     else:
-        bag_length = _to_float(cfg.get("bag_length"))
-        bag_width = _to_float(cfg.get("bag_width"))
-        selected_bag = (bag_length, bag_width) if None not in (bag_length, bag_width) else None
+        selected_bag = normalized_inputs["bag"]
         if selected_bag is None:
             messages.append("Please enter bag length and width in mm.")
 

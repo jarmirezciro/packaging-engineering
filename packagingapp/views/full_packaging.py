@@ -9,6 +9,15 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ..models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
+from ..units import (
+    LENGTH_UNITS,
+    MASS_UNITS,
+    convert_length,
+    convert_mass,
+    g_to_kg,
+    kg_to_g,
+    normalize_unit,
+)
 from ..entitlements import AI_ASSISTANT, PDF_REPORTS, feature_required, has_feature
 from ..assistant.contracts import ToolContextValidationError
 from ..utils.box_selection.engine import run_mode1_and_render, compute_max_quantity_only
@@ -20,6 +29,8 @@ from ..tools.palletization.presenter import (
     build_pallet_ui_contract,
     result_card_from_row,
     build_pallet_pending_result,
+    selected_box_summary,
+    selected_pallet_summary,
 )
 from ..tools.palletization.height import resolve_pallet_height
 from ..tools.palletization.serializers import sanitize_palletization_config_for_session
@@ -68,6 +79,7 @@ from ..tools.container.service import (
     get_selected_product as get_container_selected_product,
 )
 from ..tools.container.state import default_container_config
+from ..user_preferences import apply_user_unit_defaults
 from ..tools.container.dimensions import (
     EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
     EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
@@ -75,6 +87,7 @@ from ..tools.container.dimensions import (
 )
 
 from ..tools.transport.presenter import (
+    build_transport_ui_contract,
     selected_container_summary,
     build_transport_pending_result,
 )
@@ -83,6 +96,7 @@ from ..tools.transport.service import (
     analyze_transport_capacity,
     analyze_transport_config,
     read_product_rows_raw,
+    transport_rows_for_display,
 )
 from ..tools.transport.state import default_product_rows
 from ..tools.transport.modes import (
@@ -97,6 +111,10 @@ from ..tools.full_packaging.export import (
     build_workflow_report_payload,
 )
 from ..tools.full_packaging.flow_summary import build_packaging_flow_summary
+from ..tools.full_packaging.presentation import (
+    payload_for_display,
+    step_display_units,
+)
 from ..tools.full_packaging.case_presets import get_case_preset
 from ..tools.full_packaging.chain_optimizer import (
     build_design_candidate_payload,
@@ -212,7 +230,9 @@ def _workflow_export_url(request):
     return reverse("full_packaging_export_pdf")
 
 
-def _new_container_step():
+def _new_container_step(user=None):
+    config = default_container_config()
+    apply_user_unit_defaults(config, user, "container", replace_legacy=True)
     return {
         "type": "container",
         "expanded": True,
@@ -228,11 +248,13 @@ def _new_container_step():
         "design_candidates": [],
         "selected_design_candidate_id": "",
         "pending_result": None,
-        "config": default_container_config(),
+        "config": config,
     }
 
 
-def _new_bag_step():
+def _new_bag_step(user=None):
+    config = default_bag_config()
+    apply_user_unit_defaults(config, user, "bag", replace_legacy=True)
     return {
         "type": "bag",
         "expanded": True,
@@ -246,14 +268,34 @@ def _new_bag_step():
         "design_candidates": [],
         "selected_design_candidate_id": "",
         "pending_result": None,
-        "config": default_bag_config(),
+        "config": config,
     }
 
 
 
 
 
-def _new_transport_step():
+def _new_transport_step(user=None):
+    config = {
+        "container_source": "manual",
+        "packing_mode": DEFAULT_TRANSPORT_PACKING_MODE,
+        "catalogue_id": "",
+        "container_id": "",
+        "container_l": 12032,
+        "container_w": 2352,
+        "container_h": 2698,
+        "max_weight": 26000,
+        "tare_weight": "",
+        "load_unit_dimension_unit": "mm",
+        "load_unit_mass_unit": "kg",
+        "transport_dimension_unit": "mm",
+        "transport_mass_unit": "kg",
+        "product_catalogue_id": "",
+        "product_id_to_fill": "",
+        "selected_row_index": "",
+        "product_rows": default_product_rows(),
+    }
+    apply_user_unit_defaults(config, user, "transport", replace_legacy=True)
     return {
         "type": "transport",
         "expanded": True,
@@ -268,21 +310,7 @@ def _new_transport_step():
         "pending_result": None,
         "analysis_ran": False,
         "auto_hide_product_catalogue": False,
-        "config": {
-            "container_source": "manual",
-            "packing_mode": DEFAULT_TRANSPORT_PACKING_MODE,
-            "catalogue_id": "",
-            "container_id": "",
-            "container_l": 12032,
-            "container_w": 2352,
-            "container_h": 2698,
-            "max_weight": 26000,
-            "tare_weight": "",
-            "product_catalogue_id": "",
-            "product_id_to_fill": "",
-            "selected_row_index": "",
-            "product_rows": default_product_rows(),
-        },
+        "config": config,
     }
 
 
@@ -290,7 +318,9 @@ def _new_transport_step():
 
 
 
-def _new_pallet_step():
+def _new_pallet_step(user=None):
+    config = default_palletization_config()
+    apply_user_unit_defaults(config, user, "palletization", replace_legacy=True)
     return {
         "type": "pallet",
         "expanded": True,
@@ -307,26 +337,7 @@ def _new_pallet_step():
         "show_box_catalogue": False,
         "show_pallet_catalogue": False,
         "analysis_ran": False,
-        "config": {
-            "box_source": "manual",
-            "box_catalogue_id": "",
-            "selected_box_id": "",
-            "box_l": "",
-            "box_w": "",
-            "box_h": "",
-            "box_weight": "",
-            "max_weight_on_bottom_box": "",
-            "pallet_source": "manual",
-            "pallet_catalogue_id": "",
-            "pallet_id": "",
-            "pallet_l": "",
-            "pallet_w": "",
-            "pallet_height": "",
-            "max_stack_height": "",
-            "max_width_stickout": 0,
-            "max_length_stickout": 0,
-            "show_advanced": False,
-        },
+        "config": config,
     }
 
 
@@ -355,10 +366,16 @@ def _read_prefixed_pallet_post(step, idx, post):
     cfg["box_l"] = post.get(f"box_l_{idx}", cfg.get("box_l", ""))
     cfg["box_w"] = post.get(f"box_w_{idx}", cfg.get("box_w", ""))
     cfg["box_h"] = post.get(f"box_h_{idx}", cfg.get("box_h", ""))
+    cfg["box_dimension_unit"] = post.get(
+        f"box_dimension_unit_{idx}", cfg.get("box_dimension_unit", "mm")
+    )
     cfg["box_weight"] = post.get(f"box_weight_{idx}", cfg.get("box_weight", ""))
     cfg["max_weight_on_bottom_box"] = post.get(
         f"max_weight_on_bottom_box_{idx}",
         cfg.get("max_weight_on_bottom_box", ""),
+    )
+    cfg["mass_unit"] = post.get(
+        f"mass_unit_{idx}", cfg.get("mass_unit", "g")
     )
 
     cfg["pallet_source"] = post.get(f"pallet_source_{idx}", cfg.get("pallet_source", "manual"))
@@ -370,6 +387,9 @@ def _read_prefixed_pallet_post(step, idx, post):
     cfg["pallet_l"] = post.get(f"pallet_l_{idx}", cfg.get("pallet_l", ""))
     cfg["pallet_w"] = post.get(f"pallet_w_{idx}", cfg.get("pallet_w", ""))
     cfg["pallet_height"] = post.get(f"pallet_height_{idx}", cfg.get("pallet_height", ""))
+    cfg["pallet_dimension_unit"] = post.get(
+        f"pallet_dimension_unit_{idx}", cfg.get("pallet_dimension_unit", "mm")
+    )
     cfg["max_stack_height"] = post.get(f"max_stack_height_{idx}", cfg.get("max_stack_height", ""))
     cfg["max_width_stickout"] = post.get(
         f"max_width_stickout_{idx}",
@@ -419,17 +439,21 @@ def _build_pallet_workflow_payload(
         payload["length"] = round(pallet_l + length_overhang, 2)
     if pallet_w is not None:
         payload["width"] = round(pallet_w + width_overhang, 2)
-    prev_weight_g = _to_float((upstream or {}).get("weight_g"), None)
-    pallet_tare_g = _to_float(
+    prev_weight_kg = _to_float((upstream or {}).get("weight_kg"), None)
+    if prev_weight_kg is None:
+        legacy_weight_g = _to_float((upstream or {}).get("weight_g"), None)
+        if legacy_weight_g is not None:
+            prev_weight_kg = g_to_kg(legacy_weight_g)
+    pallet_tare_kg = _to_float(
         getattr(selected_pallet_material, "part_weight", None), None
     )
     total_boxes = _to_int(selected_row.get("total_boxes"), 1) or 1
-    gross_weight_g = prev_weight_g * total_boxes if prev_weight_g is not None else None
-    if pallet_tare_g is not None:
-        gross_weight_g = (gross_weight_g or 0.0) + pallet_tare_g
-    if gross_weight_g is not None:
-        payload["weight_g"] = round(gross_weight_g, 3)
-        payload["weight_kg"] = round(gross_weight_g / 1000.0, 3)
+    gross_weight_kg = (
+        prev_weight_kg * total_boxes if prev_weight_kg is not None else None
+    )
+    if pallet_tare_kg is not None:
+        gross_weight_kg = (gross_weight_kg or 0.0) + pallet_tare_kg
+    _set_payload_weight_kg(payload, gross_weight_kg)
     payload.setdefault("transport_qty", 1)
     payload["transport_r1"] = True
     payload["transport_r2"] = False
@@ -479,7 +503,15 @@ def _run_pallet_analysis_shared(step, steps, idx):
 
     serialized = analysis["serialized_result"] or {}
     effective = analysis["effective_config"] or {}
-    cfg["pallet_height"] = effective.get("pallet_height")
+    if cfg.get("pallet_height") in (None, "", "None"):
+        # Keep the existing default-height hydration, but express it in the
+        # selected display unit so a workflow step cannot show canonical mm as
+        # if it were inches/feet after a successful analysis.
+        cfg["pallet_height"] = convert_length(
+            effective.get("pallet_height"),
+            "mm",
+            cfg.get("pallet_dimension_unit", "mm"),
+        )
     _update_pallet_config_on_step(step, cfg)
 
     step["results_table"] = serialized.get("results_table") or []
@@ -511,14 +543,14 @@ def _run_pallet_analysis_shared(step, steps, idx):
 def _compute_pallet_view_model(step, steps, idx):
     _run_pallet_analysis_shared(step, steps, idx)
 
-def _new_step(step_type):
+def _new_step(step_type, user=None):
     if step_type == "bag":
-        return _new_bag_step()
+        return _new_bag_step(user=user)
     if step_type == "pallet":
-        return _new_pallet_step()
+        return _new_pallet_step(user=user)
     if step_type == "transport":
-        return _new_transport_step()
-    return _new_container_step()
+        return _new_transport_step(user=user)
+    return _new_container_step(user=user)
 
 
 def _candidate_matches_dimensions(candidate, expected_dimensions):
@@ -541,7 +573,7 @@ def _accept_pending_result(step):
     if not pending:
         return
     step["selected"] = pending
-    step["summary"] = _build_summary(pending)
+    step["summary"] = _build_summary(pending, step)
     step["expanded"] = True
 
 
@@ -657,6 +689,16 @@ def _to_float(value, default=None):
         return default
 
 
+def _canonical_input(value, unit, converter, canonical_unit):
+    numeric = _to_float(value, None)
+    if numeric is None:
+        return None
+    try:
+        return float(converter(numeric, unit or canonical_unit, canonical_unit))
+    except (TypeError, ValueError):
+        return numeric
+
+
 def _to_int(value, default=None):
     try:
         if value in (None, "", "None"):
@@ -705,18 +747,7 @@ def _round_payload_value(value, digits=2):
     return round(numeric, digits)
 
 
-def _format_mm_triplet(payload):
-    if not payload:
-        return "Not set"
-    length = payload.get("length", "")
-    width = payload.get("width", "")
-    height = payload.get("height", "")
-    if length in (None, "") or width in (None, "") or height in (None, ""):
-        return "Not set"
-    return f"{length} × {width} × {height} mm"
-
-
-def _format_payload_units(payload):
+def _format_payload_units(payload, mass_unit):
     if not payload:
         return ""
     parts = []
@@ -726,21 +757,28 @@ def _format_payload_units(payload):
         parts.append(f"{units_per_parent} units per parent")
     if total_base_units not in (None, ""):
         parts.append(f"{total_base_units} total base units")
-    weight_kg = payload.get("weight_kg")
-    if weight_kg not in (None, ""):
-        try:
-            parts.append(f"{float(weight_kg):.2f} kg gross")
-        except Exception:
-            parts.append(f"{weight_kg} kg gross")
+    display = payload_for_display(
+        payload,
+        dimension_unit="mm",
+        mass_unit=mass_unit,
+    ) or {}
+    weight_display = display.get("weight_display")
+    if weight_display:
+        parts.append(f"{weight_display} gross")
     return " | ".join(parts)
 
 
-def _payload_overview_value(payload):
+def _payload_overview_value(payload, *, dimension_unit="mm", mass_unit="kg"):
     if not payload:
         return "Not selected yet"
     label = payload.get("label") or "Workflow load unit"
-    dims = _format_mm_triplet(payload)
-    units = _format_payload_units(payload)
+    display = payload_for_display(
+        payload,
+        dimension_unit=dimension_unit,
+        mass_unit=mass_unit,
+    ) or {}
+    dims = display.get("dimensions_display") or "Not set"
+    units = _format_payload_units(payload, mass_unit)
     if units:
         return f"{label} — {dims} — {units}"
     return f"{label} — {dims}"
@@ -787,49 +825,107 @@ def _hydrate_pallet_catalogue_values(cfg, selected_box_material=None, selected_p
         if cfg.get("box_weight") in (None, "", "None"):
             material_weight = getattr(selected_box_material, "part_weight", None)
             if material_weight not in (None, "", "None"):
-                cfg["box_weight"] = material_weight
+                cfg["box_weight"] = kg_to_g(material_weight)
+        # Catalogue geometry and tare remain canonical metric; selectors only
+        # describe active manual inputs. Validate before collapsing the hidden
+        # catalogue dimension group to its canonical state so an explicit
+        # invalid token can still reach the authoritative rejection path.
+        try:
+            convert_length(0, cfg.get("box_dimension_unit", "mm"), "mm")
+        except (TypeError, ValueError):
+            return sanitize_palletization_config_for_session(cfg)
+        cfg["box_dimension_unit"] = "mm"
 
     if cfg.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
+        previous_dimension_unit = cfg.get("pallet_dimension_unit", "mm")
+        try:
+            for key in (
+                "max_stack_height",
+                "max_width_stickout",
+                "max_length_stickout",
+            ):
+                value = _to_float(cfg.get(key), None)
+                if value is not None:
+                    cfg[key] = convert_length(value, previous_dimension_unit, "mm")
+        except (TypeError, ValueError):
+            # Preserve an invalid explicit unit so the authoritative service
+            # can reject it safely instead of allowing catalogue hydration to
+            # turn it into a metric default.
+            return sanitize_palletization_config_for_session(cfg)
+
         cfg["pallet_l"] = _material_dimension_value(selected_pallet_material, "external_length", "part_length")
         cfg["pallet_w"] = _material_dimension_value(selected_pallet_material, "external_width", "part_width")
         cfg["pallet_height"] = resolve_pallet_height(
             _material_dimension_value(selected_pallet_material, "external_height", "part_height"),
             fallback_on_invalid=True,
         )
+        cfg["pallet_dimension_unit"] = "mm"
 
     return sanitize_palletization_config_for_session(cfg)
 
 
-def _resolve_product_weight_g(cfg, selected_product=None):
+def _resolve_product_weight_kg(cfg, selected_product=None):
     if (cfg or {}).get("product_source") == "catalogue" and selected_product is not None:
         return _to_float(getattr(selected_product, "weight", None))
-    return _to_float((cfg or {}).get("product_weight"))
+    manual_weight = _to_float((cfg or {}).get("product_weight"))
+    manual_weight_g = _canonical_input(
+        manual_weight,
+        (cfg or {}).get("product_mass_unit", "g"),
+        convert_mass,
+        "g",
+    )
+    return g_to_kg(manual_weight_g) if manual_weight_g is not None else None
 
 
-def _resolve_packaging_weight_g(cfg, manual_key, selected_material=None):
-    manual_weight = _to_float((cfg or {}).get(manual_key))
-    if manual_weight is not None:
-        return manual_weight
-    if selected_material is not None:
+def _resolve_packaging_weight_kg(
+    cfg,
+    manual_key,
+    selected_material=None,
+    *,
+    source_key,
+):
+    if (
+        (cfg or {}).get(source_key) == "catalogue"
+        and selected_material is not None
+    ):
         return _to_float(getattr(selected_material, "part_weight", None))
-    return None
+    manual_weight = _to_float((cfg or {}).get(manual_key))
+    mass_unit_key = "container_mass_unit" if source_key == "container_source" else "bag_mass_unit"
+    manual_weight_g = _canonical_input(
+        manual_weight,
+        (cfg or {}).get(mass_unit_key, "g"),
+        convert_mass,
+        "g",
+    )
+    return g_to_kg(manual_weight_g) if manual_weight_g is not None else None
 
 
-def _enrich_package_payload_weight(payload, product_weight_g=None, packaging_weight_g=None):
+def _set_payload_weight_kg(payload, weight_kg):
+    if payload is None or weight_kg is None:
+        return payload
+    authoritative_weight_kg = float(weight_kg)
+    payload["weight_kg"] = authoritative_weight_kg
+    payload["weight_g"] = float(kg_to_g(authoritative_weight_kg))
+    return payload
+
+
+def _enrich_package_payload_weight(
+    payload,
+    product_weight_kg=None,
+    packaging_weight_kg=None,
+):
     if not payload:
         return payload
 
     units_per_parent = _to_int(payload.get("units_per_parent"), 1) or 1
-    gross_weight_g = None
+    gross_weight_kg = None
 
-    if product_weight_g is not None:
-        gross_weight_g = float(product_weight_g) * units_per_parent
-    if packaging_weight_g is not None:
-        gross_weight_g = (gross_weight_g or 0.0) + float(packaging_weight_g)
+    if product_weight_kg is not None:
+        gross_weight_kg = float(product_weight_kg) * units_per_parent
+    if packaging_weight_kg is not None:
+        gross_weight_kg = (gross_weight_kg or 0.0) + float(packaging_weight_kg)
 
-    if gross_weight_g is not None:
-        payload["weight_g"] = round(gross_weight_g, 3)
-        payload["weight_kg"] = round(gross_weight_g / 1000.0, 3)
+    _set_payload_weight_kg(payload, gross_weight_kg)
 
     payload.setdefault("transport_qty", 1)
     return payload
@@ -886,10 +982,15 @@ def _selected_input_for_step(steps, idx):
     return _effective_step_output(steps[idx - 1])
 
 
-def _build_summary(selected):
+def _build_summary(selected, step=None):
     if not selected:
         return ""
-    return _payload_overview_value(selected)
+    units = step_display_units(step)
+    return _payload_overview_value(
+        selected,
+        dimension_unit=units["output_dimension"],
+        mass_unit=units["output_mass"],
+    )
 
 
 def _build_step_overview(step, steps, idx):
@@ -898,6 +999,7 @@ def _build_step_overview(step, steps, idx):
     pending = step.get("pending_result")
     result = step.get("result")
     messages = step.get("messages") or []
+    units = step_display_units(step)
 
     if messages:
         status_label = "Needs attention"
@@ -919,7 +1021,11 @@ def _build_step_overview(step, steps, idx):
     if incoming:
         rows.append({
             "label": "Input inherited",
-            "value": _payload_overview_value(incoming),
+            "value": _payload_overview_value(
+                incoming,
+                dimension_unit=units["input_dimension"],
+                mass_unit=units["input_mass"],
+            ),
         })
     else:
         rows.append({
@@ -930,12 +1036,20 @@ def _build_step_overview(step, steps, idx):
     if selected:
         rows.append({
             "label": "Passed forward",
-            "value": _payload_overview_value(selected),
+            "value": _payload_overview_value(
+                selected,
+                dimension_unit=units["output_dimension"],
+                mass_unit=units["output_mass"],
+            ),
         })
     elif pending:
         rows.append({
             "label": "Ready to pass",
-            "value": _payload_overview_value(pending),
+            "value": _payload_overview_value(
+                pending,
+                dimension_unit=units["output_dimension"],
+                mass_unit=units["output_mass"],
+            ),
         })
     elif result:
         rows.append({
@@ -977,11 +1091,21 @@ def _apply_payload_to_config(cfg, step_type, payload):
         cfg["box_catalogue_id"] = ""
         cfg["selected_box_id"] = ""
         if has_dimensions:
-            cfg["box_l"] = length
-            cfg["box_w"] = width
-            cfg["box_h"] = height
+            display_unit = cfg.get("box_dimension_unit", "mm")
+            cfg["box_l"] = _canonical_input(
+                length, "mm", convert_length, display_unit
+            )
+            cfg["box_w"] = _canonical_input(
+                width, "mm", convert_length, display_unit
+            )
+            cfg["box_h"] = _canonical_input(
+                height, "mm", convert_length, display_unit
+            )
         if weight_g not in (None, "", "None"):
-            cfg["box_weight"] = weight_g
+            display_unit = cfg.get("mass_unit", "g")
+            cfg["box_weight"] = _canonical_input(
+                weight_g, "g", convert_mass, display_unit
+            )
         return cfg
 
     if step_type == "transport":
@@ -1003,11 +1127,13 @@ def _apply_payload_to_config(cfg, step_type, payload):
     cfg["product_catalogue_id"] = ""
     cfg["selected_product_id"] = ""
     if has_dimensions:
-        cfg["product_l"] = length
-        cfg["product_w"] = width
-        cfg["product_h"] = height
+        display_unit = cfg.get("product_dimension_unit", "mm")
+        cfg["product_l"] = _canonical_input(length, "mm", convert_length, display_unit)
+        cfg["product_w"] = _canonical_input(width, "mm", convert_length, display_unit)
+        cfg["product_h"] = _canonical_input(height, "mm", convert_length, display_unit)
     if weight_g not in (None, "", "None"):
-        cfg["product_weight"] = weight_g
+        display_unit = cfg.get("product_mass_unit", "g")
+        cfg["product_weight"] = _canonical_input(weight_g, "g", convert_mass, display_unit)
     return cfg
 
 
@@ -1024,15 +1150,23 @@ def _transport_rows_from_selected(selected):
 
     weight_kg = _to_float(selected.get("weight_kg"), None)
     if weight_kg is None:
+        legacy_weight_g = _to_float(selected.get("weight_g"), None)
+        if legacy_weight_g is not None:
+            weight_kg = g_to_kg(legacy_weight_g)
+    if weight_kg is None:
         weight_kg = _to_float(selected.get("weight"), 0) or 0
 
     is_palletized_load = selected.get("source_type") == PALLETIZATION_VISUAL_SOURCE
+    canonical_length = selected.get("length", "")
+    canonical_width = selected.get("width", "")
+    canonical_height = selected.get("height", "")
+    canonical_weight = round(float(weight_kg), 12)
     return sanitize_transport_rows_for_session([
         {
             "name": selected.get("label") or "Previous workflow load unit",
-            "length": selected.get("length", ""),
-            "width": selected.get("width", ""),
-            "height": selected.get("height", ""),
+            "length": canonical_length,
+            "width": canonical_width,
+            "height": canonical_height,
             "qty": qty,
             "max_qty": bool(selected.get("transport_max_qty", False)),
             "stackable": bool(
@@ -1041,7 +1175,7 @@ def _transport_rows_from_selected(selected):
                     True,
                 )
             ),
-            "weight": round(float(weight_kg), 3),
+            "weight": canonical_weight,
             "sequence": 1,
             "r1": bool(selected.get("transport_r1", True)),
             "r2": bool(
@@ -1050,8 +1184,45 @@ def _transport_rows_from_selected(selected):
             "r3": bool(
                 selected.get("transport_r3", False if is_palletized_load else True)
             ),
+            "physical_source": "inherited",
+            "canonical_length": canonical_length,
+            "canonical_width": canonical_width,
+            "canonical_height": canonical_height,
+            "canonical_weight": canonical_weight,
+            "canonicalized": True,
         }
     ])
+
+
+def _catalogue_transport_row_values(product, dimension_unit, mass_unit):
+    canonical_length = float(product.product_length)
+    canonical_width = float(product.product_width)
+    canonical_height = float(product.product_height)
+    canonical_weight = float(product.weight or 0)
+    try:
+        length = convert_length(canonical_length, "mm", dimension_unit)
+        width = convert_length(canonical_width, "mm", dimension_unit)
+        height = convert_length(canonical_height, "mm", dimension_unit)
+        weight = convert_mass(canonical_weight, "kg", mass_unit)
+    except (TypeError, ValueError):
+        length, width, height, weight = (
+            canonical_length,
+            canonical_width,
+            canonical_height,
+            canonical_weight,
+        )
+    return {
+        "length": float(length),
+        "width": float(width),
+        "height": float(height),
+        "weight": float(weight),
+        "physical_source": "catalogue",
+        "canonical_length": canonical_length,
+        "canonical_width": canonical_width,
+        "canonical_height": canonical_height,
+        "canonical_weight": canonical_weight,
+        "canonicalized": False,
+    }
 
 
 def _matches_dimensions(actual, expected):
@@ -1332,10 +1503,10 @@ def _resolve_product_for_container(cfg, selected_product):
             r2 = 1 if cfg.get("r2") else 0
             r3 = 1 if cfg.get("r3") else 0
     else:
-        product = (
-            _to_float(cfg.get("product_l")),
-            _to_float(cfg.get("product_w")),
-            _to_float(cfg.get("product_h")),
+        unit = cfg.get("product_dimension_unit", "mm")
+        product = tuple(
+            _canonical_input(cfg.get(key), unit, convert_length, "mm")
+            for key in ("product_l", "product_w", "product_h")
         )
         r1 = 1 if cfg.get("r1") else 0
         r2 = 1 if cfg.get("r2") else 0
@@ -1352,10 +1523,10 @@ def _resolve_product_for_bag(cfg, selected_product):
                 float(selected_product.product_height),
             )
         return None
-    return (
-        _to_float(cfg.get("product_l")),
-        _to_float(cfg.get("product_w")),
-        _to_float(cfg.get("product_h")),
+    unit = cfg.get("product_dimension_unit", "mm")
+    return tuple(
+        _canonical_input(cfg.get(key), unit, convert_length, "mm")
+        for key in ("product_l", "product_w", "product_h")
     )
 
 
@@ -1551,7 +1722,9 @@ def _normalized_container_post(cfg):
         "product_l": cfg.get("product_l", ""),
         "product_w": cfg.get("product_w", ""),
         "product_h": cfg.get("product_h", ""),
+        "product_dimension_unit": cfg.get("product_dimension_unit", "mm"),
         "product_weight": cfg.get("product_weight", ""),
+        "product_mass_unit": cfg.get("product_mass_unit", "g"),
         "desired_qty": cfg.get("desired_qty", "1"),
         "product_shape": cfg.get("product_shape", "cuboid"),
         "container_source": cfg.get("container_source", "manual"),
@@ -1561,8 +1734,10 @@ def _normalized_container_post(cfg):
         "box_w": cfg.get("box_w", ""),
         "box_h": cfg.get("box_h", ""),
         "box_thickness_mm": cfg.get("box_thickness_mm", ""),
+        "container_dimension_unit": cfg.get("container_dimension_unit", "mm"),
         "box_weight": cfg.get("box_weight", ""),
         "box_max_payload": cfg.get("box_max_payload", ""),
+        "container_mass_unit": cfg.get("container_mass_unit", "g"),
         "selected_design_candidate_id": cfg.get("selected_design_candidate_id", ""),
     }
     if cfg.get("r1"):
@@ -1652,11 +1827,12 @@ def _build_container_non_design_workflow_payload(
         )
         label = selected_material.part_number
     else:
+        dimension_unit = cfg.get("container_dimension_unit", "mm")
         dimensions = resolve_external_carton_dimensions(
-            cfg.get("box_l"),
-            cfg.get("box_w"),
-            cfg.get("box_h"),
-            thickness_mm=cfg.get("box_thickness_mm"),
+            _canonical_input(cfg.get("box_l"), dimension_unit, convert_length, "mm"),
+            _canonical_input(cfg.get("box_w"), dimension_unit, convert_length, "mm"),
+            _canonical_input(cfg.get("box_h"), dimension_unit, convert_length, "mm"),
+            thickness_mm=_canonical_input(cfg.get("box_thickness_mm"), dimension_unit, convert_length, "mm"),
             thickness_source=EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
         )
         label = "Manual Container"
@@ -1678,9 +1854,12 @@ def _build_container_non_design_workflow_payload(
     }
     return _enrich_package_payload_weight(
         payload,
-        product_weight_g=_resolve_product_weight_g(cfg, selected_product),
-        packaging_weight_g=_resolve_packaging_weight_g(
-            cfg, "box_weight", selected_material
+        product_weight_kg=_resolve_product_weight_kg(cfg, selected_product),
+        packaging_weight_kg=_resolve_packaging_weight_kg(
+            cfg,
+            "box_weight",
+            selected_material,
+            source_key="container_source",
         ),
     )
 
@@ -1722,9 +1901,17 @@ def _process_container_step(step, steps, idx, post):
     cfg["product_l"] = post.get(f"product_l{suffix}", post.get(f"product_l_{idx}", cfg.get("product_l", "")))
     cfg["product_w"] = post.get(f"product_w{suffix}", post.get(f"product_w_{idx}", cfg.get("product_w", "")))
     cfg["product_h"] = post.get(f"product_h{suffix}", post.get(f"product_h_{idx}", cfg.get("product_h", "")))
+    cfg["product_dimension_unit"] = post.get(
+        f"product_dimension_unit{suffix}",
+        post.get(f"product_dimension_unit_{idx}", cfg.get("product_dimension_unit", "mm")),
+    )
     cfg["product_weight"] = post.get(
         f"product_weight{suffix}",
         post.get(f"product_weight_{idx}", cfg.get("product_weight", ""))
+    )
+    cfg["product_mass_unit"] = post.get(
+        f"product_mass_unit{suffix}",
+        post.get(f"product_mass_unit_{idx}", cfg.get("product_mass_unit", "g")),
     )
     cfg["desired_qty"] = post.get(
         f"desired_qty{suffix}",
@@ -1758,6 +1945,10 @@ def _process_container_step(step, steps, idx, post):
     cfg["box_l"] = post.get(f"box_l{suffix}", post.get(f"box_l_{idx}", cfg.get("box_l", "")))
     cfg["box_w"] = post.get(f"box_w{suffix}", post.get(f"box_w_{idx}", cfg.get("box_w", "")))
     cfg["box_h"] = post.get(f"box_h{suffix}", post.get(f"box_h_{idx}", cfg.get("box_h", "")))
+    cfg["container_dimension_unit"] = post.get(
+        f"container_dimension_unit{suffix}",
+        post.get(f"container_dimension_unit_{idx}", cfg.get("container_dimension_unit", "mm")),
+    )
     cfg["box_thickness_mm"] = post.get(
         f"box_thickness_mm{suffix}",
         post.get(f"box_thickness_mm_{idx}", cfg.get("box_thickness_mm", "")),
@@ -1769,6 +1960,10 @@ def _process_container_step(step, steps, idx, post):
     cfg["box_max_payload"] = post.get(
         f"box_max_payload{suffix}",
         post.get(f"box_max_payload_{idx}", cfg.get("box_max_payload", ""))
+    )
+    cfg["container_mass_unit"] = post.get(
+        f"container_mass_unit{suffix}",
+        post.get(f"container_mass_unit_{idx}", cfg.get("container_mass_unit", "g")),
     )
     cfg["action"] = post.get(
         f"action{suffix}",
@@ -1906,12 +2101,21 @@ def _finalize_bag_workflow_payload(
     payload["source_step_type"] = "bag"
     payload["package_type"] = "bag"
     payload.setdefault("transport_qty", 1)
-    if cfg.get("mode") != "design":
+    if cfg.get("mode") == "design":
+        net_content_weight_g = _to_float(
+            payload.get("net_content_weight_g"), None
+        )
+        if net_content_weight_g is not None:
+            _set_payload_weight_kg(payload, g_to_kg(net_content_weight_g))
+    else:
         payload = _enrich_package_payload_weight(
             payload,
-            product_weight_g=_resolve_product_weight_g(cfg, selected_product),
-            packaging_weight_g=_resolve_packaging_weight_g(
-                cfg, "bag_weight", selected_material
+            product_weight_kg=_resolve_product_weight_kg(cfg, selected_product),
+            packaging_weight_kg=_resolve_packaging_weight_kg(
+                cfg,
+                "bag_weight",
+                selected_material,
+                source_key="bag_source",
             ),
         )
         upstream_units = _to_int((upstream or {}).get("total_base_units"), 1) or 1
@@ -1958,9 +2162,17 @@ def _process_bag_step(step, steps, idx, post):
     cfg["product_l"] = post.get(f"product_l{suffix}", post.get(f"product_l_{idx}", cfg.get("product_l", "")))
     cfg["product_w"] = post.get(f"product_w{suffix}", post.get(f"product_w_{idx}", cfg.get("product_w", "")))
     cfg["product_h"] = post.get(f"product_h{suffix}", post.get(f"product_h_{idx}", cfg.get("product_h", "")))
+    cfg["product_dimension_unit"] = post.get(
+        f"product_dimension_unit{suffix}",
+        post.get(f"product_dimension_unit_{idx}", cfg.get("product_dimension_unit", "mm")),
+    )
     cfg["product_weight"] = post.get(
         f"product_weight{suffix}",
         post.get(f"product_weight_{idx}", cfg.get("product_weight", "")),
+    )
+    cfg["product_mass_unit"] = post.get(
+        f"product_mass_unit{suffix}",
+        post.get(f"product_mass_unit_{idx}", cfg.get("product_mass_unit", "g")),
     )
     cfg["desired_qty"] = post.get(
         f"desired_qty{suffix}",
@@ -1980,6 +2192,10 @@ def _process_bag_step(step, steps, idx, post):
     )
     cfg["bag_length"] = post.get(f"bag_length{suffix}", post.get(f"bag_length_{idx}", cfg.get("bag_length", "")))
     cfg["bag_width"] = post.get(f"bag_width{suffix}", post.get(f"bag_width_{idx}", cfg.get("bag_width", "")))
+    cfg["bag_dimension_unit"] = post.get(
+        f"bag_dimension_unit{suffix}",
+        post.get(f"bag_dimension_unit_{idx}", cfg.get("bag_dimension_unit", "mm")),
+    )
     cfg["bag_weight"] = post.get(
         f"bag_weight{suffix}",
         post.get(f"bag_weight_{idx}", cfg.get("bag_weight", "")),
@@ -1987,6 +2203,10 @@ def _process_bag_step(step, steps, idx, post):
     cfg["bag_max_payload"] = post.get(
         f"bag_max_payload{suffix}",
         post.get(f"bag_max_payload_{idx}", cfg.get("bag_max_payload", "")),
+    )
+    cfg["bag_mass_unit"] = post.get(
+        f"bag_mass_unit{suffix}",
+        post.get(f"bag_mass_unit_{idx}", cfg.get("bag_mass_unit", "g")),
     )
     cfg["action"] = post.get(
         f"action{suffix}",
@@ -2082,6 +2302,45 @@ def _process_transport_step(step, steps, idx, post):
     cfg["container_h"] = post.get(f"container_h_{idx}", cfg.get("container_h", ""))
     cfg["max_weight"] = post.get(f"max_weight_{idx}", cfg.get("max_weight", ""))
     cfg["tare_weight"] = post.get(f"tare_weight_{idx}", cfg.get("tare_weight", ""))
+    cfg["load_unit_dimension_unit"] = post.get(
+        f"load_unit_dimension_unit_{idx}",
+        cfg.get("load_unit_dimension_unit", "mm"),
+    )
+    cfg["load_unit_mass_unit"] = post.get(
+        f"load_unit_mass_unit_{idx}",
+        cfg.get("load_unit_mass_unit", "kg"),
+    )
+    cfg["transport_dimension_unit"] = post.get(
+        f"transport_dimension_unit_{idx}",
+        cfg.get("transport_dimension_unit", "mm"),
+    )
+    cfg["transport_mass_unit"] = post.get(
+        f"transport_mass_unit_{idx}",
+        cfg.get("transport_mass_unit", "kg"),
+    )
+
+    if cfg.get("container_source") == "catalogue":
+        # The catalogue surface is canonical mm/kg.  Preserve optional manual
+        # constraints physically when entering it, while leaving unsupported
+        # explicit metadata untouched so the service can reject it.
+        try:
+            normalize_unit(
+                cfg.get("transport_dimension_unit"), LENGTH_UNITS, "mm"
+            )
+            prior_mass_unit = normalize_unit(
+                cfg.get("transport_mass_unit"), MASS_UNITS, "kg"
+            )
+        except (TypeError, ValueError):
+            pass
+        else:
+            cfg["max_weight"] = _canonical_input(
+                cfg.get("max_weight"), prior_mass_unit, convert_mass, "kg"
+            )
+            cfg["tare_weight"] = _canonical_input(
+                cfg.get("tare_weight"), prior_mass_unit, convert_mass, "kg"
+            )
+            cfg["transport_dimension_unit"] = "mm"
+            cfg["transport_mass_unit"] = "kg"
 
     action = post.get(f"step_action_{idx}", "refresh")
 
@@ -2120,10 +2379,13 @@ def _process_transport_step(step, steps, idx, post):
         if selected_product is not None and row_idx is not None and 0 <= row_idx < len(cfg["product_rows"]):
             row = cfg["product_rows"][row_idx]
             row["name"] = selected_product.product_name or selected_product.product_id or f"Product {row_idx + 1}"
-            row["length"] = float(selected_product.product_length)
-            row["width"] = float(selected_product.product_width)
-            row["height"] = float(selected_product.product_height)
-            row["weight"] = float(selected_product.weight or 0)
+            row.update(
+                _catalogue_transport_row_values(
+                    selected_product,
+                    cfg.get("load_unit_dimension_unit", "mm"),
+                    cfg.get("load_unit_mass_unit", "kg"),
+                )
+            )
             row.setdefault("stackable", True)
             row["r1"] = bool(selected_product.rotation_1)
             row["r2"] = bool(selected_product.rotation_2)
@@ -2142,6 +2404,10 @@ def _process_transport_step(step, steps, idx, post):
             cfg["container_l"] = float(selected_material.part_length)
             cfg["container_w"] = float(selected_material.part_width)
             cfg["container_h"] = float(selected_material.part_height)
+            if selected_material.part_weight is not None:
+                cfg["tare_weight"] = float(selected_material.part_weight)
+            cfg["transport_dimension_unit"] = "mm"
+            cfg["transport_mass_unit"] = "kg"
 
     if cfg.get("container_source") != "catalogue":
         cfg["container_id"] = ""
@@ -2433,7 +2699,7 @@ def full_packaging_mode(request, case_slug=None):
             invalidate_design_chain_optimizations(steps, structural=True)
             after_index = request.POST.get("after_index", "")
             step_type = request.POST.get("step_type", "container")
-            new_step = _new_step(step_type)
+            new_step = _new_step(step_type, user=request.user)
             if after_index in ("", "start"):
                 steps.append(new_step)
             else:
@@ -2558,10 +2824,14 @@ def full_packaging_mode(request, case_slug=None):
                 if steps[idx].get("type") == "transport":
                     step = steps[idx]
                     step["messages"] = []
-                    _run_transport_analysis(step, steps, idx)
+                    posted = request.POST.copy()
+                    posted[f"step_action_{idx}"] = "run_analysis"
+                    _process_transport_step(step, steps, idx, posted)
                 elif steps[idx].get("type") == "pallet":
                     step = steps[idx]
-                    _run_pallet_analysis_shared(step, steps, idx)
+                    posted = request.POST.copy()
+                    posted[f"step_action_{idx}"] = "run_analysis"
+                    _process_pallet_step(step, steps, idx, posted)
 
                 if is_pallet_step and (
                     pallet_signature_before
@@ -2576,10 +2846,10 @@ def full_packaging_mode(request, case_slug=None):
                 pending = _effective_step_output(steps[idx])
                 if pending:
                     steps[idx]["selected"] = pending
-                    steps[idx]["summary"] = _build_summary(pending)
+                    steps[idx]["summary"] = _build_summary(pending, steps[idx])
                     _invalidate_downstream(steps, idx)
                     steps[idx]["selected"] = pending
-                    steps[idx]["summary"] = _build_summary(pending)
+                    steps[idx]["summary"] = _build_summary(pending, steps[idx])
                     steps[idx]["expanded"] = True
                     workflow["show_add_bar_after"] = None
                     _save_workflow(request, workflow)
@@ -2631,16 +2901,38 @@ def full_packaging_mode(request, case_slug=None):
                 cfg["container_l"] = float(step["selected_material"].part_length)
                 cfg["container_w"] = float(step["selected_material"].part_width)
                 cfg["container_h"] = float(step["selected_material"].part_height)
+                if step["selected_material"].part_weight is not None:
+                    cfg["tare_weight"] = float(step["selected_material"].part_weight)
+                cfg["transport_dimension_unit"] = "mm"
+                cfg["transport_mass_unit"] = "kg"
             if idx == 0:
-                step["product_rows"] = sanitize_transport_rows_for_session(cfg.get("product_rows") or default_product_rows())
-                cfg["product_rows"] = step["product_rows"]
+                cfg["product_rows"] = sanitize_transport_rows_for_session(
+                    cfg.get("product_rows") or default_product_rows()
+                )
             else:
                 inherited_rows = _transport_rows_from_selected(_selected_input_for_step(steps, idx))
-                step["product_rows"] = _merge_transport_inherited_rows(cfg.get("product_rows"), inherited_rows)
-                cfg["product_rows"] = step["product_rows"]
+                cfg["product_rows"] = _merge_transport_inherited_rows(
+                    cfg.get("product_rows"), inherited_rows
+                )
             step["container_summary"] = selected_container_summary(step["selected_material"], cfg)
             if step.get("analysis_ran"):
                 _run_transport_analysis(step, steps, idx)
+            step["transport_ui"] = build_transport_ui_contract(str(idx))
+            step["transport_values"] = {
+                "load_unit_dimension_unit": cfg.get(
+                    "load_unit_dimension_unit", "mm"
+                ),
+                "load_unit_mass_unit": cfg.get("load_unit_mass_unit", "kg"),
+                "transport_dimension_unit": cfg.get(
+                    "transport_dimension_unit", "mm"
+                ),
+                "transport_mass_unit": cfg.get("transport_mass_unit", "kg"),
+            }
+            step["product_rows"] = transport_rows_for_display(
+                cfg.get("product_rows") or default_product_rows(),
+                step["transport_values"]["load_unit_dimension_unit"],
+                step["transport_values"]["load_unit_mass_unit"],
+            )
         elif step.get("type") == "bag":
             _prepare_bag_step_view_model(step, idx)
             _prepare_design_chain_view_model(step, steps, idx)
@@ -2700,6 +2992,12 @@ def full_packaging_mode(request, case_slug=None):
                 k: cfg.get(k)
                 for k in default_palletization_config().keys()
             }
+            step["selected_box_summary"] = selected_box_summary(
+                step.get("selected_box_material"), cfg
+            )
+            step["selected_pallet_summary"] = selected_pallet_summary(
+                step.get("selected_pallet_material"), cfg
+            )
             step["mode"] = "workflow"
             step["prefix"] = str(idx)
 
@@ -2708,6 +3006,8 @@ def full_packaging_mode(request, case_slug=None):
             _prepare_container_step_view_model(step, idx)
             _prepare_design_chain_view_model(step, steps, idx)
 
+        if step.get("selected"):
+            step["summary"] = _build_summary(step["selected"], step)
         step["workflow_overview"] = _build_step_overview(step, steps, idx)
 
     packaging_flow_summary = build_packaging_flow_summary(steps)
@@ -2742,8 +3042,7 @@ def _build_transport_workflow_payload(
     )
     gross_weight = _to_float((summary or {}).get("gross_weight"), None)
     if gross_weight is not None and payload:
-        payload["weight_kg"] = round(gross_weight, 3)
-        payload["weight_g"] = round(gross_weight * 1000.0, 3)
+        _set_payload_weight_kg(payload, gross_weight)
     if payload:
         payload.setdefault("transport_qty", 1)
         payload["source_step_type"] = "transport"

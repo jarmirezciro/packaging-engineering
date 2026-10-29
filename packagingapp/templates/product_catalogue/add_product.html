@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 
+{% load static %}
 {% block title %}Add Product{% endblock %}
 
 {% block content %}
@@ -13,7 +14,7 @@
             </div>
             <h1 class="app-title">Add product</h1>
             <p class="app-subtitle">
-                Add a product to <strong>{{ catalogue.name }}</strong>. Dimensions are in millimetres and weight is in kilograms.
+                Add a product to <strong>{{ catalogue.name }}</strong>. Enter dimensions and weight using the linked unit selectors.
             </p>
         </div>
         <a href="{% url 'product_catalogue_detail' catalogue.id %}" class="btn btn-app-outline catalogue-hero-action">
@@ -43,4 +44,8 @@
     </form>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/unit_selector.js' %}"></script>
 {% endblock %}

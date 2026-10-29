@@ -3,8 +3,18 @@ from dataclasses import asdict, is_dataclass
 from datetime import date, datetime
 from decimal import Decimal
 
+from ...units import (
+    LENGTH_UNITS,
+    MASS_UNITS,
+    convert_length,
+    convert_mass,
+    normalize_unit,
+)
+
 
 INPUT_KEYS = (
+    "box_dimension_unit", "product_mass_unit", "pallet_dimension_unit",
+    "pallet_mass_unit", "material_dimension_unit",
     "box_length_mm", "box_width_mm", "box_height_mm", "product_weight_g",
     "quantity", "fefco_code", "joint_width_mm", "sheet_margin_per_edge_mm",
     "pallet_source", "pallet_code", "pallet_length_mm", "pallet_width_mm",
@@ -51,6 +61,54 @@ def json_safe(value):
 
 def serialize_corrugated_inputs(cleaned_data):
     payload = {key: cleaned_data.get(key) for key in INPUT_KEYS}
+    box_unit = normalize_unit(
+        payload.get("box_dimension_unit"), LENGTH_UNITS, "mm"
+    )
+    product_mass_unit = normalize_unit(
+        payload.get("product_mass_unit"), MASS_UNITS, "g"
+    )
+    pallet_unit = normalize_unit(
+        payload.get("pallet_dimension_unit"), LENGTH_UNITS, "mm"
+    )
+    pallet_mass_unit = normalize_unit(
+        payload.get("pallet_mass_unit"), MASS_UNITS, "kg"
+    )
+    material_unit = normalize_unit(
+        payload.get("material_dimension_unit"), LENGTH_UNITS, "mm"
+    )
+
+    for key in (
+        "box_length_mm", "box_width_mm", "box_height_mm",
+        "joint_width_mm", "sheet_margin_per_edge_mm",
+    ):
+        if payload.get(key) is not None:
+            payload[key] = convert_length(payload[key], box_unit, "mm")
+    if payload.get("product_weight_g") is not None:
+        payload["product_weight_g"] = convert_mass(
+            payload["product_weight_g"], product_mass_unit, "g"
+        )
+    for key in (
+        "pallet_length_mm", "pallet_width_mm", "pallet_height_mm",
+        "max_palletized_height_mm",
+    ):
+        if payload.get(key) is not None:
+            payload[key] = convert_length(payload[key], pallet_unit, "mm")
+    if payload.get("pallet_weight_kg") is not None:
+        payload["pallet_weight_kg"] = convert_mass(
+            payload["pallet_weight_kg"], pallet_mass_unit, "kg"
+        )
+    if payload.get("caliper_override_mm") is not None:
+        payload["caliper_override_mm"] = convert_length(
+            payload["caliper_override_mm"], material_unit, "mm"
+        )
+
+    payload.update({
+        "box_dimension_unit": box_unit,
+        "product_mass_unit": product_mass_unit,
+        "pallet_dimension_unit": pallet_unit,
+        "pallet_mass_unit": pallet_mass_unit,
+        "material_dimension_unit": material_unit,
+    })
     return json_safe(payload)
 
 

@@ -4,6 +4,9 @@
 </div>
 {% endif %}
 
+{{ form.catalogue_length_unit }}
+{{ form.catalogue_mass_unit }}
+
 <div class="catalogue-form-layout catalogue-form-layout--product">
     <div class="catalogue-form-main">
         <section class="catalogue-form-card catalogue-form-card--primary">
@@ -34,7 +37,15 @@
             <div class="catalogue-form-card-header catalogue-form-card-header--compact">
                 <div class="catalogue-form-card-icon"><i class="bi bi-rulers"></i></div>
                 <div>
-                    <h2>Dimensions and demand</h2>
+                    <h2>
+                        Dimensions and demand
+                        <span class="catalogue-unit-heading">
+                            Dimensions {% include "shared/_unit_selector.html" with unit_selector=catalogue_unit_selectors.length current_unit=catalogue_length_unit selector_key="product-length" %}
+                        </span>
+                        <span class="catalogue-unit-heading">
+                            Weight {% include "shared/_unit_selector.html" with unit_selector=catalogue_unit_selectors.mass current_unit=catalogue_mass_unit selector_key="product-mass" %}
+                        </span>
+                    </h2>
                     <p>Dimensions are used by box, bag, palletization, container, and transport tools.</p>
                 </div>
             </div>
@@ -42,22 +53,22 @@
             <div class="catalogue-dimension-grid catalogue-dimension-grid--five">
                 <div class="catalogue-field">
                     <label for="{{ form.product_length.id_for_label }}">Length</label>
-                    <div class="catalogue-input-with-unit">{{ form.product_length }}<span>mm</span></div>
+                    <div class="catalogue-input-with-unit">{{ form.product_length }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.length.group }}">{{ catalogue_length_unit }}</span></div>
                     {% if form.product_length.errors %}<div class="catalogue-field-error">{{ form.product_length.errors|join:", " }}</div>{% endif %}
                 </div>
                 <div class="catalogue-field">
                     <label for="{{ form.product_width.id_for_label }}">Width</label>
-                    <div class="catalogue-input-with-unit">{{ form.product_width }}<span>mm</span></div>
+                    <div class="catalogue-input-with-unit">{{ form.product_width }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.length.group }}">{{ catalogue_length_unit }}</span></div>
                     {% if form.product_width.errors %}<div class="catalogue-field-error">{{ form.product_width.errors|join:", " }}</div>{% endif %}
                 </div>
                 <div class="catalogue-field">
                     <label for="{{ form.product_height.id_for_label }}">Height</label>
-                    <div class="catalogue-input-with-unit">{{ form.product_height }}<span>mm</span></div>
+                    <div class="catalogue-input-with-unit">{{ form.product_height }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.length.group }}">{{ catalogue_length_unit }}</span></div>
                     {% if form.product_height.errors %}<div class="catalogue-field-error">{{ form.product_height.errors|join:", " }}</div>{% endif %}
                 </div>
                 <div class="catalogue-field">
                     <label for="{{ form.weight.id_for_label }}">Weight</label>
-                    <div class="catalogue-input-with-unit">{{ form.weight }}<span>kg</span></div>
+                    <div class="catalogue-input-with-unit">{{ form.weight }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.mass.group }}">{{ catalogue_mass_unit }}</span></div>
                     {% if form.weight.errors %}<div class="catalogue-field-error">{{ form.weight.errors|join:", " }}</div>{% endif %}
                 </div>
                 <div class="catalogue-field">

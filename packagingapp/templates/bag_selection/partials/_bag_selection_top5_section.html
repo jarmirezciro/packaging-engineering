@@ -12,10 +12,9 @@
                         <th>Part Number</th>
                         <th>Description</th>
                         <th>Brand</th>
-                        <th>Bag L <span class="text-muted">(mm)</span></th>
-                        <th>Bag W <span class="text-muted">(mm)</span></th>
+                        <th>Bag dimensions</th>
                         <th>Usage</th>
-                        <th>Best Required <span class="text-muted">(mm)</span></th>
+                        <th>Best required</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -28,10 +27,9 @@
                         <td>{{ row.part_number }}</td>
                         <td>{{ row.description }}</td>
                         <td>{{ row.branding }}</td>
-                        <td>{{ row.bag_len }}</td>
-                        <td>{{ row.bag_w }}</td>
+                        <td>{{ row.bag_dimensions_display }}</td>
                         <td>{% if row.usage_pct %}{{ row.usage_pct }}%{% else %}{{ row.usage|floatformat:4 }}{% endif %}</td>
-                        <td>{{ row.best_required.0 }} × {{ row.best_required.1 }}</td>
+                        <td>{{ row.required_dimensions_display }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

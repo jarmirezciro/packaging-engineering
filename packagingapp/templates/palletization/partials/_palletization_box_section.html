@@ -1,7 +1,7 @@
 <div class="app-card">
     <div class="app-card-body">
         <div class="app-section-title">Carton / Box</div>
-        <div class="app-section-subtitle">Use manual carton dimensions or select a BOX/CRATE from the packaging catalogue. Dimensions are in mm.</div>
+        <div class="app-section-subtitle">Use manual carton dimensions in the selected unit, or select a canonical catalogue BOX/CRATE.</div>
 
         <div class="tool-field-group">
             <label class="form-label">Carton source</label>
@@ -39,21 +39,27 @@
         <div id="{{ pallet_ui.ids.manual_box_fields }}">
             <div class="tool-compact-grid-three">
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Carton length <span class="text-muted">(mm)</span></label>
+                    <label class="form-label">Carton length {% if current_box_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.box_dimensions current_unit=pallet_values.box_dimension_unit|default:'mm' selector_key='length' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.box_l }}"
+                           data-unit-input
+                           data-unit-group="{{ pallet_ui.unit_selectors.box_dimensions.group }}"
                            value="{{ pallet_values.box_l|default:'' }}">
                 </div>
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Carton width <span class="text-muted">(mm)</span></label>
+                    <label class="form-label">Carton width {% if current_box_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.box_dimensions current_unit=pallet_values.box_dimension_unit|default:'mm' selector_key='width' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.box_w }}"
+                           data-unit-input
+                           data-unit-group="{{ pallet_ui.unit_selectors.box_dimensions.group }}"
                            value="{{ pallet_values.box_w|default:'' }}">
                 </div>
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Carton height <span class="text-muted">(mm)</span></label>
+                    <label class="form-label">Carton height {% if current_box_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.box_dimensions current_unit=pallet_values.box_dimension_unit|default:'mm' selector_key='height' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.box_h }}"
+                           data-unit-input
+                           data-unit-group="{{ pallet_ui.unit_selectors.box_dimensions.group }}"
                            value="{{ pallet_values.box_h|default:'' }}">
                 </div>
             </div>
@@ -74,16 +80,20 @@
 
             <div class="tool-compact-grid-two tool-tight-gap">
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Carton weight <span class="text-muted">(g)</span></label>
+                    <label class="form-label">Carton weight {% if current_box_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.mass current_unit=pallet_values.mass_unit|default:'g' selector_key='weight' %}{% else %}<span class="text-muted">(g)</span>{% endif %}</label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.box_weight }}"
+                           data-unit-input
+                           data-unit-group="{{ pallet_ui.unit_selectors.mass.group }}"
                            value="{{ pallet_values.box_weight|default:'' }}">
                     <div class="app-form-note mt-1">Optional. Used for the bottom-carton load check.</div>
                 </div>
                 <div class="tool-field-group mb-0">
-                    <label class="form-label">Max load on bottom carton <span class="text-muted">(g)</span></label>
+                    <label class="form-label">Max load on bottom carton {% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.mass current_unit=pallet_values.mass_unit|default:'g' selector_key='bottom-load' %}</label>
                     <input type="number" step="any" class="form-control"
                            name="{{ pallet_ui.names.max_weight_on_bottom_box }}"
+                           data-unit-input
+                           data-unit-group="{{ pallet_ui.unit_selectors.mass.group }}"
                            value="{{ pallet_values.max_weight_on_bottom_box|default:'' }}">
                     <div class="app-form-note mt-1">Optional. Leave empty when no compression limit is known.</div>
                 </div>
@@ -93,17 +103,12 @@
         {% if selected_box_material %}
             <div class="tool-summary-strip">
                 <div class="tool-summary-main">
-                    <strong>{{ selected_box_material.part_number }}</strong> — {{ selected_box_material.part_description }}
+                    <strong>{{ selected_box_summary.title }}</strong>
                 </div>
                 <div class="tool-summary-meta">
-                    {{ selected_box_material.external_length|default:selected_box_material.part_length }}
-                    ×
-                    {{ selected_box_material.external_width|default:selected_box_material.part_width }}
-                    ×
-                    {{ selected_box_material.external_height|default:selected_box_material.part_height }} mm
-                    {% if selected_box_material.part_weight %} | Packaging wt: {{ selected_box_material.part_weight }} g{% endif %}
-                    | {{ selected_box_material.packaging_type }}
-                    | {{ selected_box_material.branding }}
+                    {{ selected_box_summary.dims }}
+                    {% if selected_box_summary.weight and selected_box_summary.weight != '—' %} | Packaging wt: {{ selected_box_summary.weight }}{% endif %}
+                    {% if selected_box_summary.meta %} | {{ selected_box_summary.meta }}{% endif %}
                 </div>
             </div>
         {% endif %}

@@ -1,7 +1,7 @@
 <div class="app-card">
     <div class="app-card-body">
         <div class="app-section-title">Container</div>
-        <div class="app-section-subtitle">Manual dimensions in mm or catalogue selection from BOX, CRATE, CONTAINER, or TRAILER types.</div>
+        <div class="app-section-subtitle">Manual size with selectable units, or catalogue selection from BOX, CRATE, CONTAINER, or TRAILER types.</div>
 
         <div id="{{ container_ui.ids.selection_package_controls }}">
 
@@ -36,26 +36,24 @@
 
             <div id="{% if mode == 'workflow' %}manualContainerFields_{{ container_ui.prefix }}{% else %}manualContainerFields{% endif %}">
                 <div class="tool-compact-grid-three">
-                    <div class="tool-field-group mb-0"><label class="form-label">Length <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_l }}" value="{{ container_values.box_l|default:'' }}">{% else %}{{ form.box_l }}{% endif %}</div>
-                    <div class="tool-field-group mb-0"><label class="form-label">Width <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_w }}" value="{{ container_values.box_w|default:'' }}">{% else %}{{ form.box_w }}{% endif %}</div>
-                    <div class="tool-field-group mb-0"><label class="form-label">Height <span class="text-muted">(mm)</span></label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_h }}" value="{{ container_values.box_h|default:'' }}">{% else %}{{ form.box_h }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Length {% if current_container_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.container_dimensions current_unit=container_values.container_dimension_unit|default:'mm' selector_key='length' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_l }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.container_dimensions.group }}" value="{{ container_values.box_l|default:'' }}">{% else %}{{ form.box_l }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Width {% if current_container_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.container_dimensions current_unit=container_values.container_dimension_unit|default:'mm' selector_key='width' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_w }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.container_dimensions.group }}" value="{{ container_values.box_w|default:'' }}">{% else %}{{ form.box_w }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Height {% if current_container_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.container_dimensions current_unit=container_values.container_dimension_unit|default:'mm' selector_key='height' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.box_h }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.container_dimensions.group }}" value="{{ container_values.box_h|default:'' }}">{% else %}{{ form.box_h }}{% endif %}</div>
                 </div>
 
                 <div class="tool-compact-grid-two tool-tight-gap">
-                    <div class="tool-field-group mb-0"><label class="form-label">Packaging weight <span class="text-muted">(g)</span></label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ container_ui.names.box_weight }}" value="{{ container_values.box_weight|default:'' }}">{% else %}{{ form.box_weight }}{% endif %}</div>
-                    <div class="tool-field-group mb-0"><label class="form-label">Max payload <span class="text-muted">(g)</span></label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ container_ui.names.box_max_payload }}" value="{{ container_values.box_max_payload|default:'' }}">{% else %}{{ form.box_max_payload }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Packaging weight {% if current_container_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.container_mass current_unit=container_values.container_mass_unit|default:'g' selector_key='weight' %}{% else %}<span class="text-muted">(g)</span>{% endif %}</label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ container_ui.names.box_weight }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.container_mass.group }}" value="{{ container_values.box_weight|default:'' }}">{% else %}{{ form.box_weight }}{% endif %}</div>
+                    <div class="tool-field-group mb-0"><label class="form-label">Max payload {% if current_container_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.container_mass current_unit=container_values.container_mass_unit|default:'g' selector_key='payload' %}{% else %}<span class="text-muted">(g)</span>{% endif %}</label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ container_ui.names.box_max_payload }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.container_mass.group }}" value="{{ container_values.box_max_payload|default:'' }}">{% else %}{{ form.box_max_payload }}{% endif %}</div>
                 </div>
                 <div class="app-form-note mt-2">Packaging weight and max payload are optional. They are used only for the weight and payload report.</div>
             </div>
 
             {% if selected_material and current_mode == "single" %}
                 <div class="tool-summary-strip">
-                    <div class="tool-summary-main"><strong>{{ selected_material.part_number }}</strong> — {{ selected_material.part_description }}</div>
+                    <div class="tool-summary-main"><strong>{{ selected_container_summary.title }}</strong></div>
                     <div class="tool-summary-meta">
-                        {{ selected_material.part_length }} × {{ selected_material.part_width }} × {{ selected_material.part_height }} mm
-                        {% if selected_material.part_weight %} | Wt: {{ selected_material.part_weight }} g{% endif %}
-                        | {{ selected_material.packaging_type }}
-                        | {{ selected_material.branding }}
+                        {{ selected_container_summary.dims }}
+                        {% if selected_container_summary.meta %} | {{ selected_container_summary.meta }}{% endif %}
                     </div>
                 </div>
             {% endif %}
@@ -82,9 +80,9 @@
 
         {% if current_mode == "design" or current_mode == "single" and current_container_source == "manual" %}
             <div class="tool-field-group mt-3 mb-0">
-                <label class="form-label">Box thickness <span class="text-muted">(mm, optional)</span></label>
+                <label class="form-label">Box thickness {% if current_container_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.container_dimensions current_unit=container_values.container_dimension_unit|default:'mm' selector_key='thickness' %}{% else %}<span class="text-muted">(mm, optional)</span>{% endif %}</label>
                 {% if mode == "workflow" %}
-                    <input type="number" step="any" min="0.0001" class="form-control" name="{{ container_ui.names.box_thickness_mm }}" value="{{ container_values.box_thickness_mm|default:'' }}">
+                    <input type="number" step="any" min="0.0001" class="form-control" name="{{ container_ui.names.box_thickness_mm }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.container_dimensions.group }}" value="{{ container_values.box_thickness_mm|default:'' }}">
                 {% else %}
                     {{ form.box_thickness_mm }}
                     {% if form.box_thickness_mm.errors %}<div class="text-danger small mt-1">{{ form.box_thickness_mm.errors|join:", " }}</div>{% endif %}

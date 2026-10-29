@@ -3,6 +3,18 @@ from django.conf import settings
 from ...access import visible_packaging_catalogues, visible_product_catalogues
 from ...forms import ContainerSelectionMode1Form
 from ...models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
+from ...units import (
+    LENGTH_UNITS,
+    MASS_UNITS,
+    UnsupportedUnitError,
+    convert_length,
+    convert_mass,
+    format_dimensions,
+    format_length,
+    format_mass,
+    kg_to_g,
+)
+from ...units.input import convert_optional, validate_unit
 from ...utils.box_selection.engine import (
     build_container_design_candidates,
     compute_max_quantity_only,
@@ -110,7 +122,7 @@ def build_hydrated_post_data(raw_post, config, selected_product=None, selected_m
             post_data.get("product_weight") in (None, "", "None")
             and getattr(selected_product, "weight", None) is not None
         ):
-            post_data["product_weight"] = str(selected_product.weight)
+            post_data["product_weight"] = str(kg_to_g(selected_product.weight))
 
         post_data["r1"] = "on" if bool(getattr(selected_product, "rotation_1", False)) else ""
         post_data["r2"] = "on" if bool(getattr(selected_product, "rotation_2", False)) else ""
@@ -138,7 +150,11 @@ def build_initial_data(config, selected_product=None, selected_material=None):
             "product_l": selected_product.product_length,
             "product_w": selected_product.product_width,
             "product_h": selected_product.product_height,
-            "product_weight": getattr(selected_product, "weight", None),
+            "product_weight": (
+                kg_to_g(selected_product.weight)
+                if getattr(selected_product, "weight", None) is not None
+                else None
+            ),
             "r1": bool(getattr(selected_product, "rotation_1", False)),
             "r2": bool(getattr(selected_product, "rotation_2", False)),
             "r3": bool(getattr(selected_product, "rotation_3", False)),
@@ -183,7 +199,7 @@ def apply_catalogue_choices(form, packaging_catalogues, product_catalogues):
     ]
 
 
-def resolve_product_from_form(form, product_source, selected_product):
+def resolve_product_from_form(form, product_source, selected_product, normalized_product=None):
     if product_source == "catalogue":
         if not selected_product:
             return None, 0, 0, 0
@@ -202,6 +218,9 @@ def resolve_product_from_form(form, product_source, selected_product):
     r2 = 1 if form.cleaned_data.get("r2") else 0
     r3 = 1 if form.cleaned_data.get("r3") else 0
 
+    if normalized_product is not None:
+        return normalized_product, r1, r2, r3
+
     product = None
     if (
         form.cleaned_data.get("product_l") is not None
@@ -217,7 +236,7 @@ def resolve_product_from_form(form, product_source, selected_product):
     return product, r1, r2, r3
 
 
-def resolve_container_from_form(form, container_source, selected_material):
+def resolve_container_from_form(form, container_source, selected_material, normalized_container=None):
     if container_source == "catalogue":
         if not selected_material:
             return None
@@ -226,6 +245,9 @@ def resolve_container_from_form(form, container_source, selected_material):
             float(selected_material.part_width),
             float(selected_material.part_height),
         )
+
+    if normalized_container is not None:
+        return normalized_container
 
     bl = form.cleaned_data.get("box_l")
     bw = form.cleaned_data.get("box_w")
@@ -259,7 +281,13 @@ def resolve_container_dimension_contract(
 
     return resolve_external_carton_dimensions(
         *container,
-        thickness_mm=form.cleaned_data.get("box_thickness_mm"),
+        thickness_mm=_resolve_manual_quantity(
+            form,
+            "box_thickness_mm",
+            "container_dimension_unit",
+            convert_length,
+            "mm",
+        ),
         thickness_source=EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
     )
 
@@ -304,11 +332,18 @@ def inspect_container_readiness(
     def add_issue(field, code, message):
         issues.append({"field": field, "code": code, "message": message})
 
+    normalized_inputs = _normalize_manual_container_inputs(
+        form, config, product_source, container_source
+    )
+    for message in normalized_inputs["messages"]:
+        add_issue("units", "unsupported_unit", message)
+
     try:
         product, r1, r2, r3 = resolve_product_from_form(
             form=form,
             product_source=product_source,
             selected_product=selected_product,
+            normalized_product=normalized_inputs["product"],
         )
     except (TypeError, ValueError):
         product, r1, r2, r3 = None, 0, 0, 0
@@ -362,6 +397,7 @@ def inspect_container_readiness(
                 form=form,
                 container_source=container_source,
                 selected_material=selected_material,
+                normalized_container=normalized_inputs["container"],
             )
         except (TypeError, ValueError):
             container = None
@@ -495,18 +531,131 @@ def _first_available_numeric_attr(obj, attr_names):
     return None
 
 
+def _form_or_config_value(form, config, key, default=None):
+    cleaned = getattr(form, "cleaned_data", {}) or {}
+    value = cleaned.get(key)
+    if value in (None, ""):
+        data = getattr(form, "data", {}) or {}
+        value = data.get(key)
+    if value in (None, ""):
+        value = (config or {}).get(key, default)
+    return default if value in (None, "") else value
+
+
+def _unit_from_form_or_config(form, config, key, definitions, default, label, messages):
+    raw = _form_or_config_value(form, config, key, default)
+    try:
+        return validate_unit(raw, definitions, default, label)
+    except UnsupportedUnitError as exc:
+        messages.append(str(exc))
+        return None
+
+
+def _convert_manual(value, unit, converter, label, messages):
+    if value in (None, "", "None") or unit is None:
+        return None
+    try:
+        return convert_optional(value, unit, converter, "mm" if converter is convert_length else "g")
+    except (TypeError, ValueError, UnsupportedUnitError):
+        if not any(label in message for message in messages):
+            messages.append(f"Invalid {label} value.")
+        return None
+
+
+def _normalize_manual_container_inputs(form, config, product_source, container_source):
+    messages = []
+    product_dimension_unit = _unit_from_form_or_config(
+        form, config, "product_dimension_unit", LENGTH_UNITS, "mm", "product dimension", messages
+    )
+    product_mass_unit = _unit_from_form_or_config(
+        form, config, "product_mass_unit", MASS_UNITS, "g", "product mass", messages
+    )
+    container_dimension_unit = _unit_from_form_or_config(
+        form, config, "container_dimension_unit", LENGTH_UNITS, "mm", "container dimension", messages
+    )
+    container_mass_unit = _unit_from_form_or_config(
+        form, config, "container_mass_unit", MASS_UNITS, "g", "container mass", messages
+    )
+
+    product = None
+    if product_source == "manual" and product_dimension_unit is not None:
+        product = tuple(
+            _convert_manual(
+                _form_or_config_value(form, config, key),
+                product_dimension_unit,
+                convert_length,
+                "product dimension",
+                messages,
+            )
+            for key in ("product_l", "product_w", "product_h")
+        )
+        if any(value is None for value in product):
+            product = None
+
+    container = None
+    if container_source == "manual" and container_dimension_unit is not None:
+        container = tuple(
+            _convert_manual(
+                _form_or_config_value(form, config, key),
+                container_dimension_unit,
+                convert_length,
+                "container dimension",
+                messages,
+            )
+            for key in ("box_l", "box_w", "box_h")
+        )
+        if any(value is None for value in container):
+            container = None
+
+    return {
+        "product": product,
+        "container": container,
+        "product_dimension_unit": product_dimension_unit,
+        "product_mass_unit": product_mass_unit,
+        "container_dimension_unit": container_dimension_unit,
+        "container_mass_unit": container_mass_unit,
+        "messages": messages,
+    }
+
+
+def _resolve_manual_quantity(form, key, unit_key, converter, canonical_unit):
+    cleaned = getattr(form, "cleaned_data", {}) or {}
+    value = cleaned.get(key)
+    if value in (None, ""):
+        return None
+    unit = cleaned.get(unit_key) or ("mm" if canonical_unit == "mm" else "g")
+    try:
+        return convert_optional(value, unit, converter, canonical_unit)
+    except (TypeError, ValueError, UnsupportedUnitError):
+        return None
+
+
 def _resolve_product_weight(form, product_source, selected_product):
     if product_source == "catalogue" and selected_product is not None:
-        return _safe_float(getattr(selected_product, "weight", None))
+        weight_kg = getattr(selected_product, "weight", None)
+        return _safe_float(kg_to_g(weight_kg)) if weight_kg is not None else None
 
-    return _safe_float(form.cleaned_data.get("product_weight"))
+    return _resolve_manual_quantity(
+        form,
+        "product_weight",
+        "product_mass_unit",
+        convert_mass,
+        "g",
+    )
 
 
 def _resolve_container_tare(form, container_source, selected_material):
     if container_source == "manual":
-        return _safe_float(form.cleaned_data.get("box_weight"))
+        return _resolve_manual_quantity(
+            form,
+            "box_weight",
+            "container_mass_unit",
+            convert_mass,
+            "g",
+        )
 
-    return _safe_float(getattr(selected_material, "part_weight", None))
+    weight_kg = getattr(selected_material, "part_weight", None)
+    return _safe_float(kg_to_g(weight_kg)) if weight_kg is not None else None
 
 
 def _resolve_payload_capacity(form, container_source, selected_material):
@@ -519,7 +668,13 @@ def _resolve_payload_capacity(form, container_source, selected_material):
     the template contract.
     """
     if container_source == "manual":
-        return _safe_float(form.cleaned_data.get("box_max_payload"))
+        return _resolve_manual_quantity(
+            form,
+            "box_max_payload",
+            "container_mass_unit",
+            convert_mass,
+            "g",
+        )
 
     return _first_available_numeric_attr(
         selected_material,
@@ -591,6 +746,10 @@ def build_container_analysis_report(
             payload_usage_pct = (net_weight / payload_capacity) * 100
 
     remaining_capacity = max(max_quantity - requested_qty, 0)
+    product_dimension_unit = form.cleaned_data.get("product_dimension_unit") or "mm"
+    product_mass_unit = form.cleaned_data.get("product_mass_unit") or "g"
+    container_dimension_unit = form.cleaned_data.get("container_dimension_unit") or "mm"
+    container_mass_unit = form.cleaned_data.get("container_mass_unit") or "g"
 
     return {
         **dimension_contract,
@@ -617,11 +776,46 @@ def build_container_analysis_report(
         "unused_volume_current_display": _format_percent(
             100 - current_efficiency_pct if current_efficiency_pct is not None else None
         ),
-        "product_weight_display": _format_weight(product_weight),
-        "container_tare_display": _format_weight(container_tare),
-        "payload_capacity_display": _format_weight(payload_capacity),
-        "net_weight_display": _format_weight(net_weight),
-        "total_weight_current_display": _format_weight(total_weight_current),
+        "display_units": {
+            "product_dimension": product_dimension_unit,
+            "product_mass": product_mass_unit,
+            "container_dimension": container_dimension_unit,
+            "container_mass": container_mass_unit,
+        },
+        "product_dimensions_display": format_dimensions(
+            product[0], product[1], product[2], display_unit=product_dimension_unit
+        ),
+        "internal_dimensions_display": format_dimensions(
+            dimension_contract.get("internal_length"),
+            dimension_contract.get("internal_width"),
+            dimension_contract.get("internal_height"),
+            display_unit=container_dimension_unit,
+        ),
+        "external_dimensions_display": format_dimensions(
+            dimension_contract.get("external_length"),
+            dimension_contract.get("external_width"),
+            dimension_contract.get("external_height"),
+            display_unit=container_dimension_unit,
+        ),
+        "box_thickness_display": format_length(
+            dimension_contract.get("box_thickness_mm"),
+            display_unit=container_dimension_unit,
+        ),
+        "product_weight_display": format_mass(
+            product_weight, canonical_unit="g", display_unit=product_mass_unit
+        ),
+        "container_tare_display": format_mass(
+            container_tare, canonical_unit="g", display_unit=container_mass_unit
+        ),
+        "payload_capacity_display": format_mass(
+            payload_capacity, canonical_unit="g", display_unit=container_mass_unit
+        ),
+        "net_weight_display": format_mass(
+            net_weight, canonical_unit="g", display_unit=product_mass_unit
+        ),
+        "total_weight_current_display": format_mass(
+            total_weight_current, canonical_unit="g", display_unit=container_mass_unit
+        ),
         "payload_usage_display": _format_percent(payload_usage_pct),
         "has_product_weight": product_weight is not None,
         "has_container_tare": container_tare is not None,
@@ -640,19 +834,56 @@ def _add_container_design_metrics(candidate, form, product_source, selected_prod
         row["container_length"],
         row["container_width"],
         row["container_height"],
-        thickness_mm=form.cleaned_data.get("box_thickness_mm"),
+        thickness_mm=_resolve_manual_quantity(
+            form,
+            "box_thickness_mm",
+            "container_dimension_unit",
+            convert_length,
+            "mm",
+        ),
         thickness_source=EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
     )
     row.update({
         **dimension_contract,
         "net_content_weight": _round_or_none(net_weight, 3),
-        "net_content_weight_display": _format_weight(net_weight),
+        "container_dimensions_display": format_dimensions(
+            row["container_length"],
+            row["container_width"],
+            row["container_height"],
+            display_unit=form.cleaned_data.get("container_dimension_unit") or "mm",
+        ),
+        "external_dimensions_display": format_dimensions(
+            dimension_contract.get("external_length"),
+            dimension_contract.get("external_width"),
+            dimension_contract.get("external_height"),
+            display_unit=form.cleaned_data.get("container_dimension_unit") or "mm",
+        ),
+        "box_thickness_display": format_length(
+            dimension_contract.get("box_thickness_mm"),
+            display_unit=form.cleaned_data.get("container_dimension_unit") or "mm",
+        ),
+        "net_content_weight_display": format_mass(
+            net_weight,
+            canonical_unit="g",
+            display_unit=form.cleaned_data.get("product_mass_unit") or "g",
+        ),
     })
     return row
 
 
-def _analyze_container_design(form, product, r1, r2, r3, product_source, container_source, selected_product, selected_material):
-    messages = []
+def _analyze_container_design(
+    form,
+    product,
+    r1,
+    r2,
+    r3,
+    product_source,
+    container_source,
+    selected_product,
+    selected_material,
+    initial_messages=None,
+):
+    messages = list(initial_messages or [])
     notices = []
     desired_quantity = form.cleaned_data.get("desired_qty")
     action = form.cleaned_data.get("action") or ""
@@ -749,16 +980,31 @@ def analyze_container_form(
     product_source = form.cleaned_data.get("product_source") or "manual"
     container_source = form.cleaned_data.get("container_source") or "manual"
 
+    normalized_inputs = _normalize_manual_container_inputs(
+        form, config, product_source, container_source
+    )
+    messages.extend(normalized_inputs["messages"])
+
     product, r1, r2, r3 = resolve_product_from_form(
         form=form,
         product_source=product_source,
         selected_product=selected_product,
+        normalized_product=normalized_inputs["product"],
     )
     product_unit_scene = build_product_unit_scene(product, product_shape)
 
     if mode == "design":
         return _analyze_container_design(
-            form, product, r1, r2, r3, product_source, container_source, selected_product, selected_material
+            form,
+            product,
+            r1,
+            r2,
+            r3,
+            product_source,
+            container_source,
+            selected_product,
+            selected_material,
+            initial_messages=messages,
         )
 
     if r1 == 0 and r2 == 0 and r3 == 0:
@@ -799,6 +1045,7 @@ def analyze_container_form(
                     form=form,
                     container_source=container_source,
                     selected_material=selected_material,
+                    normalized_container=normalized_inputs["container"],
                 )
 
                 if container_source == "manual" and container is None:
@@ -924,12 +1171,16 @@ def analyze_container_capacity(
     mode = form.cleaned_data.get("mode") or "single"
     product_source = form.cleaned_data.get("product_source") or "manual"
     container_source = form.cleaned_data.get("container_source") or "manual"
+    normalized_inputs = _normalize_manual_container_inputs(
+        form, config, product_source, container_source
+    )
     product, r1, r2, r3 = resolve_product_from_form(
         form=form,
         product_source=product_source,
         selected_product=selected_product,
+        normalized_product=normalized_inputs["product"],
     )
-    messages = []
+    messages = list(normalized_inputs["messages"])
 
     if product is None or any(float(value) <= 0 for value in product):
         messages.append("Enter product length, width, and height greater than zero in millimetres.")
@@ -984,6 +1235,7 @@ def analyze_container_capacity(
         form=form,
         container_source=container_source,
         selected_material=selected_material,
+        normalized_container=normalized_inputs["container"],
     )
     if container_source == "catalogue" and selected_material is None:
         messages.append("Please select a packaging item from the catalogue table.")

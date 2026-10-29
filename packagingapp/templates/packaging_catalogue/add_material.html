@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 
+{% load static %}
 {% block title %}Add Packaging Item{% endblock %}
 
 {% block content %}
@@ -13,7 +14,7 @@
             </div>
             <h1 class="app-title">Add packaging item</h1>
             <p class="app-subtitle">
-                Add a row to <strong>{{ catalogue.name }}</strong>. Dimensions are in millimetres and weight is in kilograms.
+                Add a row to <strong>{{ catalogue.name }}</strong>. Enter physical values using the linked unit selectors.
             </p>
         </div>
         <a href="{% url 'catalogue_detail' catalogue.pk %}" class="btn btn-app-outline catalogue-hero-action">
@@ -43,4 +44,8 @@
     </form>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/unit_selector.js' %}"></script>
 {% endblock %}

@@ -30,7 +30,7 @@
                     <div class="col-12 col-sm-6">
                         <div class="border rounded-3 p-2 h-100">
                             <div class="tool-stat-label">Stack height</div>
-                            <div class="fw-bold text-break">{{ selected_result.total_height_mm|floatformat:0 }} mm</div>
+                            <div class="fw-bold text-break">{{ selected_result.total_height_display }}</div>
                         </div>
                     </div>
                 </div>
@@ -90,8 +90,8 @@
                             Pallet floor usage: {{ selected_result.layer_footprint_util_pct }}%
                             | Stack volume usage: {{ selected_result.volumetric_util_pct }}%
                             | Alternate layer possible: {% if selected_result.interlock_possible %}Yes{% else %}No{% endif %}
-                            | Bottom load check: {% if selected_result.weight_limit_kg is not None %}{% if selected_result.feasible_weight %}OK{% else %}Review{% endif %}{% else %}Not checked{% endif %}
-                            {% if selected_result.weight_limit_kg is not None %}| Max bottom-carton load: {{ selected_result.max_bottom_load_kg }} g{% endif %}
+                            | Bottom load check: {% if selected_result.weight_limit_g is not None %}{% if selected_result.feasible_weight %}OK{% else %}Review{% endif %}{% else %}Not checked{% endif %}
+                            {% if selected_result.weight_limit_g is not None %}| Max bottom-carton load: {{ selected_result.max_bottom_load_display }}{% endif %}
                         </div>
                     </div>
                     {% if selected_result.interlock_possible %}
@@ -137,11 +137,11 @@
                             </tr>
                             <tr>
                                 <th scope="row" class="fw-normal text-muted">Total palletized-load height</th>
-                                <td class="text-end">{{ selected_result.total_height_mm }} mm</td>
+                                <td class="text-end">{{ selected_result.total_height_display }}</td>
                             </tr>
                             <tr>
                                 <th scope="row" class="fw-normal text-muted">Carton arrangement height</th>
-                                <td class="text-end">{{ selected_result.used_height_mm }} mm</td>
+                                <td class="text-end">{{ selected_result.used_height_display }}</td>
                             </tr>
                             <tr>
                                 <th scope="row" class="fw-normal text-muted">Pallet floor usage</th>
@@ -153,13 +153,13 @@
                             </tr>
                             <tr>
                                 <th scope="row" class="fw-normal text-muted">Bottom-carton load check</th>
-                                <td class="text-end">{% if selected_result.weight_limit_kg is not None %}{% if selected_result.feasible_weight %}OK{% else %}Review required{% endif %}{% else %}<span class="text-muted">Not checked</span>{% endif %}</td>
+                                <td class="text-end">{% if selected_result.weight_limit_g is not None %}{% if selected_result.feasible_weight %}OK{% else %}Review required{% endif %}{% else %}<span class="text-muted">Not checked</span>{% endif %}</td>
                             </tr>
                             <tr>
                                 <th scope="row" class="fw-normal text-muted">Max bottom-carton load</th>
                                 <td class="text-end">
-                                    {% if selected_result.weight_limit_kg is not None %}
-                                        {{ selected_result.max_bottom_load_kg }} g
+                                    {% if selected_result.weight_limit_g is not None %}
+                                        {{ selected_result.max_bottom_load_display }}
                                     {% else %}
                                         <span class="text-muted">Not available</span>
                                     {% endif %}
@@ -168,8 +168,8 @@
                             <tr>
                                 <th scope="row" class="fw-normal text-muted">Bottom-carton load limit</th>
                                 <td class="text-end">
-                                    {% if selected_result.weight_limit_kg is not None %}
-                                        {{ selected_result.weight_limit_kg }} g
+                                    {% if selected_result.weight_limit_g is not None %}
+                                        {{ selected_result.weight_limit_display }}
                                     {% else %}
                                         <span class="text-muted">Not provided</span>
                                     {% endif %}

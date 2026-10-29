@@ -18,6 +18,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from ...units import format_length
+
 
 def _clean(value, default="-"):
     if value in (None, "", "None"):
@@ -332,7 +334,10 @@ def build_container_selection_single_pdf(export_payload):
         ("Type", container.get("type")),
         ("Internal dims", container.get("dimensions")),
         ("External dims", container.get("external_dimensions")),
-        ("Box thickness", f"{container.get('box_thickness_mm')} mm" if container.get("box_thickness_mm") is not None else "Not available"),
+        ("Box thickness", (
+            container.get("box_thickness_display")
+            or format_length(container.get("box_thickness_mm"))
+        ) if container.get("box_thickness_mm") is not None else "Not available"),
         ("Requested / designed", f"{analysis.get('desired_quantity', analysis.get('requested_qty', '-'))} / {analysis.get('design_quantity', analysis.get('max_quantity', '-'))} pcs"),
         ("Arrangement", analysis.get("arrangement")),
         ("Orientation", analysis.get("product_orientation")),

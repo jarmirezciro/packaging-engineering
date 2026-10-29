@@ -18,6 +18,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from ...units import format_length, format_mass
+
 
 def _clean(value, default="-"):
     if value in (None, "", "None"):
@@ -196,7 +198,7 @@ def _build_doc(buffer):
 
 
 def _load_check_label(analysis):
-    if analysis.get("weight_limit_kg") in (None, "", "None"):
+    if analysis.get("weight_limit_g", analysis.get("weight_limit_kg")) in (None, "", "None"):
         return "Not checked"
     return "OK" if analysis.get("feasible_weight") else "Review required"
 
@@ -210,18 +212,27 @@ def _cartons_per_layer(analysis):
 
 
 def _analysis_rows(analysis):
-    weight_limit = analysis.get("weight_limit_kg")
+    weight_limit = analysis.get("weight_limit_g", analysis.get("weight_limit_kg"))
+    max_bottom_load = analysis.get(
+        "max_bottom_load_g", analysis.get("max_bottom_load_kg")
+    )
     return [
         ("Main layer cartons", f"{_clean(analysis.get('boxes_layer_A'))} pcs"),
         ("Alternate layer cartons", f"{_clean(analysis.get('boxes_layer_B'))} pcs" if analysis.get("boxes_layer_B") not in (None, "", "None") else "Not available"),
-        ("Total palletized-load height", f"{_clean(analysis.get('total_height_mm'))} mm"),
-        ("Carton arrangement height", f"{_clean(analysis.get('used_height_mm'))} mm"),
+        ("Total palletized-load height", analysis.get("total_height_display") or format_length(analysis.get("total_height_mm"))),
+        ("Carton arrangement height", analysis.get("used_height_display") or format_length(analysis.get("used_height_mm"))),
         ("Pallet floor usage", f"{_clean(analysis.get('layer_footprint_util_pct'))}%"),
         ("Stack volume usage", f"{_clean(analysis.get('volumetric_util_pct'))}%"),
         ("Alternate layer possible", "Yes" if analysis.get("interlock_possible") else "No"),
         ("Bottom-carton load check", _load_check_label(analysis)),
-        ("Max bottom-carton load", f"{_clean(analysis.get('max_bottom_load_kg'))} g" if weight_limit not in (None, "", "None") else "Not available"),
-        ("Bottom-carton load limit", f"{_clean(weight_limit)} g" if weight_limit not in (None, "", "None") else "Not provided"),
+        ("Max bottom-carton load", (
+            analysis.get("max_bottom_load_display")
+            or format_mass(max_bottom_load, canonical_unit="g", display_unit="g")
+        ) if weight_limit not in (None, "", "None") else "Not available"),
+        ("Bottom-carton load limit", (
+            analysis.get("weight_limit_display")
+            or format_mass(weight_limit, canonical_unit="g", display_unit="g")
+        ) if weight_limit not in (None, "", "None") else "Not provided"),
     ]
 
 
@@ -276,7 +287,7 @@ def build_palletization_pdf(export_payload):
         ("Total cartons", f"{_clean(analysis.get('total_boxes'))} pcs"),
         ("Layers", _clean(analysis.get("layers"))),
         ("Cartons/layer", _cartons_per_layer(analysis)),
-        ("Stack height", f"{_clean(analysis.get('total_height_mm'))} mm"),
+        ("Stack height", analysis.get("total_height_display") or format_length(analysis.get("total_height_mm"))),
         ("Floor usage", f"{_clean(analysis.get('layer_footprint_util_pct'))}%"),
         ("Volume usage", f"{_clean(analysis.get('volumetric_util_pct'))}%"),
     ]))

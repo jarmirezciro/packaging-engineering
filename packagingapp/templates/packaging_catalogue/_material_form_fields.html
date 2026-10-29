@@ -4,6 +4,9 @@
 </div>
 {% endif %}
 
+{{ form.catalogue_length_unit }}
+{{ form.catalogue_mass_unit }}
+
 <div class="catalogue-form-layout catalogue-form-layout--material">
     <div class="catalogue-form-main">
         <section class="catalogue-form-card catalogue-form-card--primary">
@@ -52,7 +55,15 @@
             <div class="catalogue-form-card-header catalogue-form-card-header--compact">
                 <div class="catalogue-form-card-icon"><i class="bi bi-rulers"></i></div>
                 <div>
-                    <h2>Dimensions</h2>
+                    <h2>
+                        Dimensions
+                        <span class="catalogue-unit-heading">
+                            Length {% include "shared/_unit_selector.html" with unit_selector=catalogue_unit_selectors.length current_unit=catalogue_length_unit selector_key="material-length" %}
+                        </span>
+                        <span class="catalogue-unit-heading">
+                            Weight {% include "shared/_unit_selector.html" with unit_selector=catalogue_unit_selectors.mass current_unit=catalogue_mass_unit selector_key="material-mass" %}
+                        </span>
+                    </h2>
                     <p>Internal dimensions are used by selection tools. External dimensions are optional but recommended for logistics calculations.</p>
                 </div>
             </div>
@@ -62,17 +73,17 @@
                 <div class="catalogue-dimension-grid">
                     <div class="catalogue-field">
                         <label for="{{ form.part_length.id_for_label }}">Length</label>
-                        <div class="catalogue-input-with-unit">{{ form.part_length }}<span>mm</span></div>
+                        <div class="catalogue-input-with-unit">{{ form.part_length }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.length.group }}">{{ catalogue_length_unit }}</span></div>
                         {% if form.part_length.errors %}<div class="catalogue-field-error">{{ form.part_length.errors|join:", " }}</div>{% endif %}
                     </div>
                     <div class="catalogue-field">
                         <label for="{{ form.part_width.id_for_label }}">Width</label>
-                        <div class="catalogue-input-with-unit">{{ form.part_width }}<span>mm</span></div>
+                        <div class="catalogue-input-with-unit">{{ form.part_width }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.length.group }}">{{ catalogue_length_unit }}</span></div>
                         {% if form.part_width.errors %}<div class="catalogue-field-error">{{ form.part_width.errors|join:", " }}</div>{% endif %}
                     </div>
                     <div class="catalogue-field">
                         <label for="{{ form.part_height.id_for_label }}">Height</label>
-                        <div class="catalogue-input-with-unit">{{ form.part_height }}<span>mm</span></div>
+                        <div class="catalogue-input-with-unit">{{ form.part_height }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.length.group }}">{{ catalogue_length_unit }}</span></div>
                         {% if form.part_height.errors %}<div class="catalogue-field-error">{{ form.part_height.errors|join:", " }}</div>{% endif %}
                     </div>
                 </div>
@@ -83,27 +94,27 @@
                 <div class="catalogue-dimension-grid catalogue-dimension-grid--four">
                     <div class="catalogue-field">
                         <label for="{{ form.external_length.id_for_label }}">External length</label>
-                        <div class="catalogue-input-with-unit">{{ form.external_length }}<span>mm</span></div>
+                        <div class="catalogue-input-with-unit">{{ form.external_length }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.length.group }}">{{ catalogue_length_unit }}</span></div>
                         {% if form.external_length.errors %}<div class="catalogue-field-error">{{ form.external_length.errors|join:", " }}</div>{% endif %}
                     </div>
                     <div class="catalogue-field">
                         <label for="{{ form.external_width.id_for_label }}">External width</label>
-                        <div class="catalogue-input-with-unit">{{ form.external_width }}<span>mm</span></div>
+                        <div class="catalogue-input-with-unit">{{ form.external_width }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.length.group }}">{{ catalogue_length_unit }}</span></div>
                         {% if form.external_width.errors %}<div class="catalogue-field-error">{{ form.external_width.errors|join:", " }}</div>{% endif %}
                     </div>
                     <div class="catalogue-field">
                         <label for="{{ form.external_height.id_for_label }}">External height</label>
-                        <div class="catalogue-input-with-unit">{{ form.external_height }}<span>mm</span></div>
+                        <div class="catalogue-input-with-unit">{{ form.external_height }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.length.group }}">{{ catalogue_length_unit }}</span></div>
                         {% if form.external_height.errors %}<div class="catalogue-field-error">{{ form.external_height.errors|join:", " }}</div>{% endif %}
                     </div>
                     <div class="catalogue-field">
                         <label for="{{ form.box_thickness_mm.id_for_label }}">Box thickness</label>
-                        <div class="catalogue-input-with-unit">{{ form.box_thickness_mm }}<span>mm</span></div>
+                        <div class="catalogue-input-with-unit">{{ form.box_thickness_mm }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.length.group }}">{{ catalogue_length_unit }}</span></div>
                         {% if form.box_thickness_mm.errors %}<div class="catalogue-field-error">{{ form.box_thickness_mm.errors|join:", " }}</div>{% endif %}
                     </div>
                     <div class="catalogue-field">
                         <label for="{{ form.part_weight.id_for_label }}">Weight</label>
-                        <div class="catalogue-input-with-unit">{{ form.part_weight }}<span>kg</span></div>
+                        <div class="catalogue-input-with-unit">{{ form.part_weight }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.mass.group }}">{{ catalogue_mass_unit }}</span></div>
                         {% if form.part_weight.errors %}<div class="catalogue-field-error">{{ form.part_weight.errors|join:", " }}</div>{% endif %}
                     </div>
                 </div>

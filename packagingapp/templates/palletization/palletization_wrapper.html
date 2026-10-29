@@ -4,6 +4,24 @@
 <input type="hidden" name="{{ pallet_ui.names.pallet_id }}" value="{{ pallet_values.pallet_id|default:'' }}">
 <input type="hidden" name="{{ pallet_ui.names.selected_result_key }}" id="{{ pallet_ui.ids.selected_result_key }}" value="{{ pallet_values.selected_result_key|default:'' }}">
 <input type="hidden" name="{{ pallet_ui.names.show_advanced }}" id="{{ pallet_ui.ids.show_advanced }}" value="{% if show_advanced|default:pallet_values.show_advanced %}1{% else %}0{% endif %}">
+<input type="hidden"
+       name="{{ pallet_ui.names.box_dimension_unit }}"
+       id="{{ pallet_ui.unit_selectors.box_dimensions.hidden_id }}"
+       value="{{ pallet_values.box_dimension_unit|default:'mm' }}"
+       data-unit-hidden
+       data-unit-group="{{ pallet_ui.unit_selectors.box_dimensions.group }}">
+<input type="hidden"
+       name="{{ pallet_ui.names.pallet_dimension_unit }}"
+       id="{{ pallet_ui.unit_selectors.pallet_dimensions.hidden_id }}"
+       value="{{ pallet_values.pallet_dimension_unit|default:'mm' }}"
+       data-unit-hidden
+       data-unit-group="{{ pallet_ui.unit_selectors.pallet_dimensions.group }}">
+<input type="hidden"
+       name="{{ pallet_ui.names.mass_unit }}"
+       id="{{ pallet_ui.unit_selectors.mass.hidden_id }}"
+       value="{{ pallet_values.mass_unit|default:'g' }}"
+       data-unit-hidden
+       data-unit-group="{{ pallet_ui.unit_selectors.mass.group }}">
 
 {% if form.non_field_errors %}
     <div class="alert alert-danger mb-0" role="alert" tabindex="-1" data-tool-validation-errors>

@@ -91,6 +91,30 @@ Each row contains:
 The rotation flags are safety constraints, not suggestions. Enable only
 orientations that are physically permitted for the packaged unit.
 
+### Manual input units
+
+Manual input may be displayed and entered using the shared KolliPack length
+vocabulary (`mm`, `cm`, `m`, `in`, `ft`) and mass vocabulary (`g`, `kg`, `t`,
+`oz`, `lb`). All load-row dimensions share one selector and all load-row
+weights share one selector. Manual transport-unit dimensions share a third
+selector; manual maximum payload and tare share a fourth.
+
+The submitted unit metadata is validated by the Transport service. Supported
+values normalize to the unchanged engine contract:
+
+```text
+load and transport geometry -> mm
+load-unit weight             -> kg
+maximum payload and tare     -> kg
+```
+
+Missing metadata defaults to `mm`/`kg` for saved-session and request
+compatibility. Explicit unsupported values are errors. Catalogue-backed
+transport dimensions/tare and exact catalogue/inherited load-row scalars stay
+canonical and bypass rounded display values. No unit conversion occurs inside
+the packing engine, max-quantity solver, serializer, Three.js viewer, or report
+calculation.
+
 ## How Balanced Spread behaves for users
 
 Balanced Spread puts all product rows into one common loading group. In this mode:

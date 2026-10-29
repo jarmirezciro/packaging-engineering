@@ -123,6 +123,7 @@ class PalletHeightTests(SimpleTestCase):
             {"layers": 1, "total_boxes": 1, "used_height_mm": 200},
         )
 
+        self.assertEqual(scene["units"], "mm")
         self.assertEqual(scene["pallet"]["height"], 130.0)
         self.assertEqual(scene["placements"][0]["z"], 130.0)
         self.assertEqual(scene["metadata"]["total_render_height_mm"], 330.0)

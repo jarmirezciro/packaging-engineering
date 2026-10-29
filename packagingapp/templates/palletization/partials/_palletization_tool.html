@@ -55,8 +55,8 @@
                                 </td>
                                 <td>{{ row.layer_footprint_util_pct }}%</td>
                                 <td>{{ row.volumetric_util_pct }}%</td>
-                                <td>{% if row.weight_limit_kg is not None %}{% if row.feasible_weight %}OK{% else %}Review{% endif %}{% else %}Not checked{% endif %}</td>
-                                <td>{% if row.weight_limit_kg is not None %}{{ row.max_bottom_load_kg }} g{% else %}—{% endif %}</td>
+                                <td>{% if row.weight_limit_g is not None %}{% if row.feasible_weight %}OK{% else %}Review{% endif %}{% else %}Not checked{% endif %}</td>
+                                <td>{% if row.weight_limit_g is not None %}{{ row.max_bottom_load_display }}{% else %}—{% endif %}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
