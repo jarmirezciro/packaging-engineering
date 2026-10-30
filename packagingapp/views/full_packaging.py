@@ -80,6 +80,10 @@ from ..tools.container.service import (
 )
 from ..tools.container.state import default_container_config
 from ..user_preferences import apply_user_unit_defaults
+from ..catalogue_units import (
+    annotate_packaging_picker_rows,
+    annotate_product_picker_rows,
+)
 from ..tools.container.dimensions import (
     EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
     EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
@@ -1636,6 +1640,16 @@ def _prepare_container_step_view_model(step, idx):
 
     step["products"] = products
     step["materials"] = materials
+    annotate_product_picker_rows(
+        step["products"],
+        length_unit=cfg.get("product_dimension_unit") or "mm",
+        mass_unit=cfg.get("product_mass_unit") or "g",
+    )
+    annotate_packaging_picker_rows(
+        step["materials"],
+        length_unit=cfg.get("container_dimension_unit") or "mm",
+        mass_unit=cfg.get("container_mass_unit") or "g",
+    )
     step["selected_product"] = selected_product
     step["selected_material"] = selected_material
     step["selected_product_summary"] = selected_product_summary_container(
@@ -1684,6 +1698,16 @@ def _prepare_bag_step_view_model(step, idx):
 
     step["products"] = get_bag_products_for_catalogue(cfg) if idx == 0 else Product.objects.none()
     step["materials"] = get_bag_materials_for_catalogue(cfg)
+    annotate_product_picker_rows(
+        step["products"],
+        length_unit=cfg.get("product_dimension_unit") or "mm",
+        mass_unit=cfg.get("product_mass_unit") or "g",
+    )
+    annotate_packaging_picker_rows(
+        step["materials"],
+        length_unit=cfg.get("bag_dimension_unit") or "mm",
+        mass_unit=cfg.get("bag_mass_unit") or "g",
+    )
     step["selected_product"] = selected_product
     step["selected_material"] = selected_material
     step["selected_product_summary"] = selected_product_summary_bag(
@@ -2339,8 +2363,6 @@ def _process_transport_step(step, steps, idx, post):
             cfg["tare_weight"] = _canonical_input(
                 cfg.get("tare_weight"), prior_mass_unit, convert_mass, "kg"
             )
-            cfg["transport_dimension_unit"] = "mm"
-            cfg["transport_mass_unit"] = "kg"
 
     action = post.get(f"step_action_{idx}", "refresh")
 
@@ -2406,8 +2428,6 @@ def _process_transport_step(step, steps, idx, post):
             cfg["container_h"] = float(selected_material.part_height)
             if selected_material.part_weight is not None:
                 cfg["tare_weight"] = float(selected_material.part_weight)
-            cfg["transport_dimension_unit"] = "mm"
-            cfg["transport_mass_unit"] = "kg"
 
     if cfg.get("container_source") != "catalogue":
         cfg["container_id"] = ""
@@ -2903,8 +2923,6 @@ def full_packaging_mode(request, case_slug=None):
                 cfg["container_h"] = float(step["selected_material"].part_height)
                 if step["selected_material"].part_weight is not None:
                     cfg["tare_weight"] = float(step["selected_material"].part_weight)
-                cfg["transport_dimension_unit"] = "mm"
-                cfg["transport_mass_unit"] = "kg"
             if idx == 0:
                 cfg["product_rows"] = sanitize_transport_rows_for_session(
                     cfg.get("product_rows") or default_product_rows()
@@ -2928,6 +2946,16 @@ def full_packaging_mode(request, case_slug=None):
                 ),
                 "transport_mass_unit": cfg.get("transport_mass_unit", "kg"),
             }
+            annotate_product_picker_rows(
+                step["products"],
+                length_unit=step["transport_values"]["load_unit_dimension_unit"],
+                mass_unit=step["transport_values"]["load_unit_mass_unit"],
+            )
+            annotate_packaging_picker_rows(
+                step["materials"],
+                length_unit=step["transport_values"]["transport_dimension_unit"],
+                mass_unit=step["transport_values"]["transport_mass_unit"],
+            )
             step["product_rows"] = transport_rows_for_display(
                 cfg.get("product_rows") or default_product_rows(),
                 step["transport_values"]["load_unit_dimension_unit"],
@@ -2973,6 +3001,18 @@ def full_packaging_mode(request, case_slug=None):
                 selected_pallet_material=step.get("selected_pallet_material"),
             )
             _update_pallet_config_on_step(step, cfg)
+            annotate_packaging_picker_rows(
+                step["box_materials"],
+                length_unit=cfg.get("box_dimension_unit") or "mm",
+                mass_unit=cfg.get("mass_unit") or "g",
+                external_fallback=True,
+            )
+            annotate_packaging_picker_rows(
+                step["pallet_materials"],
+                length_unit=cfg.get("pallet_dimension_unit") or "mm",
+                mass_unit=cfg.get("mass_unit") or "g",
+                external_fallback=True,
+            )
 
             step["show_box_catalogue"] = bool(step.get("show_box_catalogue")) or (
                 idx == 0

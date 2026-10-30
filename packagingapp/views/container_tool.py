@@ -37,6 +37,10 @@ from ..units import (
     normalize_unit,
 )
 from ..user_preferences import apply_user_unit_defaults
+from ..catalogue_units import (
+    annotate_packaging_picker_rows,
+    annotate_product_picker_rows,
+)
 
 
 SEO_TRANSPORT_EXAMPLE_CONFIG = {
@@ -444,8 +448,6 @@ def _build_transport_page_context(
             cfg["tare_weight"] = _canonical_transport_mass(
                 cfg["tare_weight"], prior_mass_unit
             )
-            cfg["transport_dimension_unit"] = "mm"
-            cfg["transport_mass_unit"] = "kg"
 
         if raw_action == "run_analysis":
             analysis = analyze_transport_config(
@@ -637,9 +639,6 @@ def _build_transport_page_context(
         ),
         "transport_mass_unit": form["transport_mass_unit"].value() or "kg",
     }
-    if current_container_source == "catalogue":
-        transport_values["transport_dimension_unit"] = "mm"
-        transport_values["transport_mass_unit"] = "kg"
     product_rows = transport_rows_for_display(
         product_rows,
         transport_values["load_unit_dimension_unit"],
@@ -653,6 +652,16 @@ def _build_transport_page_context(
     product_items = Product.objects.filter(catalogue__in=product_catalogues).order_by("product_name")
     if selected_product_catalogue:
         product_items = product_items.filter(catalogue=selected_product_catalogue)
+    annotate_packaging_picker_rows(
+        materials,
+        length_unit=transport_values["transport_dimension_unit"],
+        mass_unit=transport_values["transport_mass_unit"],
+    )
+    annotate_product_picker_rows(
+        product_items,
+        length_unit=transport_values["load_unit_dimension_unit"],
+        mass_unit=transport_values["load_unit_mass_unit"],
+    )
 
     context = {
         "mode": mode,

@@ -11,13 +11,13 @@
                         <th>Picture</th>
                         <th>Product ID</th>
                         <th>Name</th>
-                        <th>L (mm)</th>
-                        <th>W (mm)</th>
-                        <th>H (mm)</th>
+                        <th>L {% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.product_dimensions current_unit=container_values.product_dimension_unit|default:'mm' selector_key='catalogue-length' %}</th>
+                        <th>W {% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.product_dimensions current_unit=container_values.product_dimension_unit|default:'mm' selector_key='catalogue-width' %}</th>
+                        <th>H {% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.product_dimensions current_unit=container_values.product_dimension_unit|default:'mm' selector_key='catalogue-height' %}</th>
                         <th>Rotation 1</th>
                         <th>Rotation 2</th>
                         <th>Rotation 3</th>
-                        <th>Weight (kg)</th>
+                        <th>Weight {% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.product_mass current_unit=container_values.product_mass_unit|default:'g' selector_key='catalogue-weight' %}</th>
                         <th>Desired Qty</th>
                         <th>Volume (mm³)</th>
                     </tr>
@@ -42,13 +42,13 @@
                         </td>
                         <td>{{ product.product_id }}</td>
                         <td>{{ product.product_name|default:"—" }}</td>
-                        <td>{{ product.product_length }}</td>
-                        <td>{{ product.product_width }}</td>
-                        <td>{{ product.product_height }}</td>
+                        <td><span data-unit-display data-unit-group="{{ container_ui.unit_selectors.product_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ product.product_length }}">{{ product.picker_display_length }}</span></td>
+                        <td><span data-unit-display data-unit-group="{{ container_ui.unit_selectors.product_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ product.product_width }}">{{ product.picker_display_width }}</span></td>
+                        <td><span data-unit-display data-unit-group="{{ container_ui.unit_selectors.product_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ product.product_height }}">{{ product.picker_display_height }}</span></td>
                         <td>{{ product.rotation_1|yesno:"Yes,No" }}</td>
                         <td>{{ product.rotation_2|yesno:"Yes,No" }}</td>
                         <td>{{ product.rotation_3|yesno:"Yes,No" }}</td>
-                        <td>{{ product.weight|default:"—" }}</td>
+                        <td>{% if product.weight is not None %}<span data-unit-display data-unit-group="{{ container_ui.unit_selectors.product_mass.group }}" data-unit-quantity="mass" data-unit-canonical-unit="kg" data-unit-canonical="{{ product.weight }}">{{ product.picker_display_weight }}</span>{% else %}—{% endif %}</td>
                         <td>{{ product.desired_qty }}</td>
                         <td>{{ product.product_volume }}</td>
                     </tr>

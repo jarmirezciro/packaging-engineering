@@ -249,9 +249,10 @@ once to canonical mm/kg before ORM filtering. Database ordering remains
 canonical and is never performed on formatted strings. Volume filters remain
 canonical because the existing UI has no volume-unit selector.
 
-Catalogue selection widgets inside Container, Bag, Palletization, Transport,
-and Full Packaging remain metric for this task. Their adapters continue to
-consume exact canonical catalogue values; Product kg still crosses the
+At the Task 4 stage, catalogue selection widgets inside Container, Bag,
+Palletization, Transport, and Full Packaging remained metric. Task 7 later
+adds local-unit picker presentation without changing their adapters: they
+still consume exact canonical catalogue values; Product kg still crosses the
 Container/Bag gram boundary exactly once, Packaging kg still crosses the
 Palletization gram boundary exactly once, and Transport continues to consume
 kg directly. Displaying a catalogue value as `lb` or `in` cannot alter those
@@ -346,13 +347,11 @@ presentation notes in the Task 2–5 rollout sections above.
 ### Catalogue picker review
 
 Catalogue database values, hidden identifiers, and machine data attributes stay
-canonical. Selected-item summaries in Container, Bag, and Palletization safely
-format canonical catalogue values in the current local tool units. The dense
-browse/picker tables intentionally remain metric (`mm`/`kg`): this keeps their
-existing canonical selection contract obvious and avoids making rounded picker
-text an input. Corrugated catalogue options likewise remain metric/reference
-descriptions while the hydrated editable fields and calculated results follow
-the selected local units.
+canonical. Picker rows now use transient server-rendered display attributes and
+the shared browser display metadata; rounded text is never submitted as a
+calculation input. Picker header selectors reuse the owning tool's existing
+unit group, so changing a header changes the same local state used by manual
+fields and other linked displays.
 
 ### Hard-coded-unit classification
 
@@ -363,7 +362,7 @@ tokens fall into these intentional categories:
 1. canonical machine contracts and compatibility field names (`*_mm`, `*_g`,
    `*_kg`, workflow `weight_kg`);
 2. legacy-safe unit defaults applied only when metadata is absent;
-3. catalogue picker and Excel/bulk schemas, which remain Metric-only;
+3. Excel/bulk schemas, which remain Metric-only;
 4. Three.js scene markers and coordinates (`mm`);
 5. Corrugated specialist engineering units (ECT, BCT/force, grammage, area,
    and carbon screening);
@@ -396,7 +395,8 @@ drift.
 - all Three.js geometry and placement coordinates;
 - catalogue Excel import/export and other bulk schemas;
 - machine-facing Assistant/action contracts;
-- raw catalogue picker tables and structured selection values;
+- multi-product Container and Multi-product Bag picker tables, which remain
+  metric because those surfaces do not expose an active editable unit state;
 - specialist Corrugated quantities without an approved alternative vocabulary.
 
 ## Task 7 — User default unit preferences
@@ -463,3 +463,58 @@ the serializer still returns canonical metric values.
 Engines, catalogue storage, workflow `weight_kg`, Three.js coordinates, and
 Excel/bulk schemas are unchanged. Reports continue consuming the selected
 presentation metadata from the existing Task 6 contracts.
+
+## Task 7 — Catalogue picker unit coherence
+
+Embedded catalogue pickers now speak the local unit language of the tool that
+owns them. The implementation is presentation-only: catalogue dimensions stay
+stored in `mm`, catalogue mass stays stored in `kg`, and row selection remains
+an ID-based action that resolves the canonical model object before entering the
+existing service boundary.
+
+### Picker mapping
+
+| Picker | Length state | Mass state |
+|---|---|---|
+| Container Product | `product_dimension_unit` | `product_mass_unit` |
+| Container Packaging | `container_dimension_unit` | `container_mass_unit` |
+| Bag Product | `product_dimension_unit` | `product_mass_unit` |
+| Bag Packaging | `bag_dimension_unit` | `bag_mass_unit` |
+| Palletization Carton | `box_dimension_unit` | `mass_unit` |
+| Palletization Pallet | `pallet_dimension_unit` | `mass_unit` |
+| Transport Load Unit Product | `load_unit_dimension_unit` | `load_unit_mass_unit` |
+| Transport Packaging / Transport Unit | `transport_dimension_unit` | `transport_mass_unit` |
+
+Palletization has no separate pallet-tare selector. Its existing `mass_unit`
+is therefore the verified shared presentation state for both carton/load mass
+and catalogue pallet tare. This does not reinterpret the historical pallet
+result `_kg` compatibility aliases, which remain gram-valued aliases.
+
+### Precedence and workflow propagation
+
+The effective picker state is the existing tool state, with the established
+precedence of explicit local selector/form state over initialized account
+defaults and historical metric fallback. User Preferences reach pickers
+indirectly: a new standalone tool or Full Packaging step initializes its unit
+state from the account defaults, and the picker reads that state. A local
+selector change updates the same hidden unit group, so the picker follows the
+local override rather than querying `UserPreferences` or creating a second
+picker-only state.
+
+Container, Bag, Palletization, and Transport public/shared pages use the same
+partials and annotations. Full Packaging uses each step's prefixed contract:
+Container, Palletization, and Transport pickers can therefore display
+different units on the same workflow page. The catalogue-to-tool services and
+the existing Container/Bag/Palletization `kg → g` boundaries are unchanged;
+Transport continues consuming canonical `kg`.
+
+### Intentional exceptions
+
+- Picker volume columns remain on their existing canonical `mm³` contract.
+  This task does not invent a general volume-unit vocabulary.
+- Multi-product Container and Multi-product Bag remain metric catalogue-driven
+  surfaces because they do not expose an active editable unit state.
+- Standalone catalogue detail pages retain their own catalogue display state;
+  this task only adds coherence to pickers embedded in engineering tools.
+- Three.js, PDF/report architecture, Excel/bulk schemas, engines, and database
+  units are unchanged.

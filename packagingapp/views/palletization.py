@@ -29,6 +29,7 @@ from ..tools.palletization.case_presets import get_palletization_case_preset
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 from ..entitlements import PDF_REPORTS, feature_required
 from ..user_preferences import apply_user_unit_defaults
+from ..catalogue_units import annotate_packaging_picker_rows
 
 
 def _as_bool(value):
@@ -313,6 +314,18 @@ def _build_palletization_page_context(
 
     box_materials = get_box_materials(config)
     pallet_materials = get_pallet_materials(config)
+    annotate_packaging_picker_rows(
+        box_materials,
+        length_unit=config.get("box_dimension_unit") or "mm",
+        mass_unit=config.get("mass_unit") or "g",
+        external_fallback=True,
+    )
+    annotate_packaging_picker_rows(
+        pallet_materials,
+        length_unit=config.get("pallet_dimension_unit") or "mm",
+        mass_unit=config.get("mass_unit") or "g",
+        external_fallback=True,
+    )
 
     form = _build_hydrated_form(
         request=request,

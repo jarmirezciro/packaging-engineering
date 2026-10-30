@@ -10,6 +10,7 @@ from packagingapp.models import (
     PackagingMaterial,
     Product,
     ProductCatalogue,
+    UserPreferences,
     UserSubscription,
 )
 from packagingapp.tools.container.service import build_container_analysis_report
@@ -302,3 +303,165 @@ class CatalogueUnitViewTests(TestCase):
         )
 
         self.assertEqual(report["product_weight"], 1250.0)
+
+    def test_container_picker_uses_tool_units_and_keeps_id_selection(self):
+        response = self.client.get(
+            reverse("container_selection_mode1"),
+            {
+                "product_source": "catalogue",
+                "product_catalogue_id": self.catalogue.pk,
+                "product_dimension_unit": "in",
+                "product_mass_unit": "lb",
+                "container_source": "catalogue",
+                "catalogue_id": self.packaging_catalogue.pk,
+                "container_dimension_unit": "cm",
+                "container_mass_unit": "g",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["products"][0].picker_display_length, "12")
+        self.assertEqual(response.context["products"][0].picker_display_weight, "2.7558")
+        self.assertEqual(response.context["materials"][0].picker_display_part_length, "30.48")
+        self.assertEqual(response.context["materials"][0].picker_display_weight, "450")
+        self.assertContains(response, 'data-unit-group="container-product-dimensions"')
+        self.assertContains(response, 'data-unit-canonical="304.800"')
+        self.assertContains(response, "containerSelectionSelectProduct('',")
+        self.assertContains(response, "containerSelectionSelectContainer('',")
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.product_length, Decimal("304.800"))
+        self.assertEqual(self.product.weight, Decimal("1.250"))
+
+    def test_picker_inherits_account_defaults_through_container_state(self):
+        user = get_user_model().objects.create_user(
+            username="picker-default-user", password="pass-123"
+        )
+        UserPreferences.objects.create(
+            user=user,
+            default_length_unit="in",
+            default_small_mass_unit="lb",
+            default_large_mass_unit="lb",
+        )
+        self.client.force_login(user)
+        response = self.client.get(
+            reverse("container_selection_mode1"),
+            {
+                "product_source": "catalogue",
+                "product_catalogue_id": self.catalogue.pk,
+                "container_source": "catalogue",
+                "catalogue_id": self.packaging_catalogue.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["products"][0].picker_display_length, "12")
+        self.assertEqual(response.context["products"][0].picker_display_weight, "2.7558")
+        self.assertContains(response, 'name="product_dimension_unit"')
+        self.assertContains(response, 'value="in"')
+        self.assertContains(response, 'name="container_mass_unit"')
+        self.assertContains(response, 'value="lb"')
+
+    def test_bag_picker_uses_product_and_bag_unit_groups_independently(self):
+        PackagingMaterial.objects.create(
+            catalogue=self.packaging_catalogue,
+            part_number="UNIT-BAG-1",
+            part_description="Twelve inch bag",
+            packaging_type="BAG",
+            branding="Brand1",
+            packaging_materials="Film",
+            part_length=Decimal("304.80"),
+            part_width=Decimal("203.20"),
+            part_height=Decimal("1.00"),
+            part_weight=Decimal("0.450"),
+        )
+        response = self.client.get(
+            reverse("bag_selection_mode1"),
+            {
+                "product_source": "catalogue",
+                "product_catalogue_id": self.catalogue.pk,
+                "product_dimension_unit": "in",
+                "product_mass_unit": "lb",
+                "bag_source": "catalogue",
+                "catalogue_id": self.packaging_catalogue.pk,
+                "bag_dimension_unit": "cm",
+                "bag_mass_unit": "g",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["products"][0].picker_display_length, "12")
+        self.assertEqual(response.context["products"][0].picker_display_weight, "2.7558")
+        self.assertEqual(response.context["materials"][0].picker_display_part_length, "30.48")
+        self.assertEqual(response.context["materials"][0].picker_display_weight, "450")
+        self.assertContains(response, 'data-unit-group="bag-product-dimensions"')
+        self.assertContains(response, 'data-unit-group="bag-packaging-dimensions"')
+        self.assertContains(response, "bagSelectionSelectProduct('',")
+        self.assertContains(response, "bagSelectionSelectBag('',")
+
+    def test_pallet_picker_uses_box_and_pallet_dimensions_with_shared_mass_state(self):
+        pallet = PackagingMaterial.objects.create(
+            catalogue=self.packaging_catalogue,
+            part_number="UNIT-PALLET-1",
+            part_description="Pallet",
+            packaging_type="PALLET",
+            branding="Brand1",
+            packaging_materials="Wood",
+            part_length=Decimal("1200"),
+            part_width=Decimal("800"),
+            part_height=Decimal("144"),
+            part_weight=Decimal("25"),
+        )
+        response = self.client.get(
+            reverse("palletization_mode1"),
+            {
+                "box_source": "catalogue",
+                "box_catalogue_id": self.packaging_catalogue.pk,
+                "box_dimension_unit": "cm",
+                "pallet_source": "catalogue",
+                "pallet_catalogue_id": self.packaging_catalogue.pk,
+                "pallet_dimension_unit": "in",
+                "mass_unit": "lb",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["box_materials"][0].picker_display_external_length, "31.75")
+        self.assertEqual(response.context["pallet_materials"][0].picker_display_external_length, "47.2441")
+        self.assertEqual(response.context["pallet_materials"][0].picker_display_weight, "55.1156")
+        self.assertContains(response, 'data-unit-group="pallet-box-dimensions"')
+        self.assertContains(response, 'data-unit-group="pallet-layout-dimensions"')
+        self.assertContains(response, 'data-unit-canonical="1200.00"')
+        self.assertContains(response, "palletToolSelectBox('',")
+        self.assertContains(response, "palletToolSelectPallet('',")
+
+    def test_transport_picker_uses_load_and_transport_unit_groups(self):
+        user = get_user_model().objects.create_user(
+            username="transport-picker-user", password="pass-123"
+        )
+        UserPreferences.objects.create(
+            user=user,
+            default_length_unit="ft",
+            default_small_mass_unit="g",
+            default_large_mass_unit="lb",
+        )
+        self.client.force_login(user)
+        response = self.client.get(
+            reverse("container_tool"),
+            {
+                "container_source": "catalogue",
+                "catalogue_id": self.packaging_catalogue.pk,
+                "product_catalogue_id": self.catalogue.pk,
+                "selected_row_index": "0",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["product_items"][0].picker_display_length, "1")
+        self.assertEqual(response.context["product_items"][0].picker_display_weight, "2.7558")
+        self.assertEqual(response.context["materials"][0].picker_display_part_length, "1")
+        self.assertEqual(response.context["materials"][0].picker_display_weight, "0.9921")
+        self.assertContains(response, 'data-unit-group="transport-load-unit-dimensions"')
+        self.assertContains(response, 'data-unit-group="transport-container-dimensions"')
+        self.assertContains(response, 'data-unit-canonical="304.80"')
+        self.assertContains(response, "selectProductFromCatalogue('")
+        self.assertContains(response, "selectContainerFromCatalogue('")

@@ -334,6 +334,6 @@ class TransportUnitSelectorSurfaceTests(TestCase):
         config = self.client.session["full_packaging_mode_session"]["steps"][0][
             "config"
         ]
-        self.assertEqual(config["transport_dimension_unit"], "mm")
-        self.assertEqual(config["transport_mass_unit"], "kg")
+        self.assertEqual(config["transport_dimension_unit"], "ft")
+        self.assertEqual(config["transport_mass_unit"], "lb")
         self.assertAlmostEqual(config["max_weight"], 1000.0)

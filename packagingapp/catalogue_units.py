@@ -190,6 +190,96 @@ def format_catalogue_value(value, *, quantity, display_unit, max_decimal_places=
     return text or "0"
 
 
+def annotate_product_picker_rows(records, *, length_unit, mass_unit):
+    """Attach display-only values for an in-tool Product Catalogue picker.
+
+    The records remain ordinary model instances and their canonical fields are
+    never replaced.  The transient attributes are consumed by picker
+    templates while ``data-unit-canonical`` keeps the browser conversion
+    source tied to the stored mm/kg values.
+    """
+    for product in records or ():
+        for axis in ("length", "width", "height"):
+            field_name = f"product_{axis}"
+            setattr(
+                product,
+                f"picker_display_{axis}",
+                format_catalogue_value(
+                    getattr(product, field_name, None),
+                    quantity="length",
+                    display_unit=length_unit,
+                ),
+            )
+        setattr(
+            product,
+            "picker_display_weight",
+            format_catalogue_value(
+                getattr(product, "weight", None),
+                quantity="mass",
+                display_unit=mass_unit,
+            ),
+        )
+    return records
+
+
+def annotate_packaging_picker_rows(
+    records, *, length_unit, mass_unit, external_fallback=False
+):
+    """Attach display-only values for an in-tool Packaging Catalogue picker.
+
+    ``external_fallback`` matches Palletization's established selection
+    contract: external dimensions are preferred and the canonical internal
+    ``part_*`` dimensions are used only when an external value is absent.
+    """
+    for material in records or ():
+        for axis in ("length", "width", "height"):
+            part_field = f"part_{axis}"
+            external_field = f"external_{axis}"
+            part_value = getattr(material, part_field, None)
+            external_value = getattr(material, external_field, None)
+            setattr(
+                material,
+                f"picker_display_part_{axis}",
+                format_catalogue_value(
+                    part_value,
+                    quantity="length",
+                    display_unit=length_unit,
+                ),
+            )
+            if external_fallback:
+                display_value = external_value or part_value
+                setattr(material, f"picker_external_{axis}", display_value)
+                setattr(
+                    material,
+                    f"picker_display_external_{axis}",
+                    format_catalogue_value(
+                        display_value,
+                        quantity="length",
+                        display_unit=length_unit,
+                    ),
+                )
+            elif external_value not in (None, ""):
+                setattr(
+                    material,
+                    f"picker_display_external_{axis}",
+                    format_catalogue_value(
+                        external_value,
+                        quantity="length",
+                        display_unit=length_unit,
+                    ),
+                )
+        setattr(
+            material,
+            "picker_display_weight",
+            format_catalogue_value(
+                getattr(material, "part_weight", None),
+                quantity="mass",
+                display_unit=mass_unit,
+            ),
+        )
+    return records
+
+
 def catalogue_entry_state(*, length_unit, mass_unit):
     """Return JSON-safe state for catalogue forms and templates."""
     return {

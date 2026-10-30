@@ -28,6 +28,10 @@ from ..entitlements import PDF_REPORTS, feature_required
 from ..units import format_dimensions, format_length, kg_to_g
 from ..units.ui import build_unit_selector_contract
 from ..user_preferences import apply_user_unit_defaults
+from ..catalogue_units import (
+    annotate_packaging_picker_rows,
+    annotate_product_picker_rows,
+)
 
 
 SEO_BAG_SELECTION_EXAMPLE_CONFIG = {
@@ -418,6 +422,16 @@ def _build_bag_selection_page_context(
 
     products = get_products_for_catalogue(config)
     materials = get_materials_for_catalogue(config)
+    annotate_product_picker_rows(
+        products,
+        length_unit=config.get("product_dimension_unit") or "mm",
+        mass_unit=config.get("product_mass_unit") or "g",
+    )
+    annotate_packaging_picker_rows(
+        materials,
+        length_unit=config.get("bag_dimension_unit") or "mm",
+        mass_unit=config.get("bag_mass_unit") or "g",
+    )
 
     form = build_bag_form(
         request=request,

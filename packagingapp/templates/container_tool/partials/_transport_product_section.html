@@ -39,10 +39,10 @@
             <th>Picture</th>
             <th>Product ID</th>
             <th>Name</th>
-            <th>L (mm)</th>
-            <th>W (mm)</th>
-            <th>H (mm)</th>
-            <th>Weight (kg)</th>
+            <th>L {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='catalogue-workflow-l' %}</th>
+            <th>W {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='catalogue-workflow-w' %}</th>
+            <th>H {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='catalogue-workflow-h' %}</th>
+            <th>Weight {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_mass current_unit=transport_values.load_unit_mass_unit|default:'kg' selector_key='catalogue-workflow-weight' %}</th>
             <th>R1</th>
             <th>R2</th>
             <th>R3</th>
@@ -63,10 +63,10 @@
             </td>
             <td>{{ product.product_id }}</td>
             <td>{{ product.product_name }}</td>
-            <td>{{ product.product_length }}</td>
-            <td>{{ product.product_width }}</td>
-            <td>{{ product.product_height }}</td>
-            <td>{{ product.weight|default:"—" }}</td>
+            <td><span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ product.product_length }}">{{ product.picker_display_length }}</span></td>
+            <td><span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ product.product_width }}">{{ product.picker_display_width }}</span></td>
+            <td><span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ product.product_height }}">{{ product.picker_display_height }}</span></td>
+            <td>{% if product.weight is not None %}<span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.load_unit_mass.group }}" data-unit-quantity="mass" data-unit-canonical-unit="kg" data-unit-canonical="{{ product.weight }}">{{ product.picker_display_weight }}</span>{% else %}—{% endif %}</td>
             <td>{% if product.rotation_1 %}✓{% endif %}</td>
             <td>{% if product.rotation_2 %}✓{% endif %}</td>
             <td>{% if product.rotation_3 %}✓{% endif %}</td>
@@ -345,10 +345,10 @@
             <th>Picture</th>
             <th>Product ID</th>
             <th>Name</th>
-            <th>L (mm)</th>
-            <th>W (mm)</th>
-            <th>H (mm)</th>
-            <th>Weight (kg)</th>
+            <th>L {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='catalogue-standalone-l' %}</th>
+            <th>W {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='catalogue-standalone-w' %}</th>
+            <th>H {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='catalogue-standalone-h' %}</th>
+            <th>Weight {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_mass current_unit=transport_values.load_unit_mass_unit|default:'kg' selector_key='catalogue-standalone-weight' %}</th>
             <th>R1</th>
             <th>R2</th>
             <th>R3</th>
@@ -369,10 +369,10 @@
             </td>
             <td>{{ product.product_id }}</td>
             <td>{{ product.product_name }}</td>
-            <td>{{ product.product_length }}</td>
-            <td>{{ product.product_width }}</td>
-            <td>{{ product.product_height }}</td>
-            <td>{{ product.weight|default:"—" }}</td>
+            <td><span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ product.product_length }}">{{ product.picker_display_length }}</span></td>
+            <td><span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ product.product_width }}">{{ product.picker_display_width }}</span></td>
+            <td><span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.load_unit_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ product.product_height }}">{{ product.picker_display_height }}</span></td>
+            <td>{% if product.weight is not None %}<span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.load_unit_mass.group }}" data-unit-quantity="mass" data-unit-canonical-unit="kg" data-unit-canonical="{{ product.weight }}">{{ product.picker_display_weight }}</span>{% else %}—{% endif %}</td>
             <td>{% if product.rotation_1 %}✓{% endif %}</td>
             <td>{% if product.rotation_2 %}✓{% endif %}</td>
             <td>{% if product.rotation_3 %}✓{% endif %}</td>

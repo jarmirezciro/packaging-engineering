@@ -97,8 +97,8 @@
           <div class="tool-summary-strip mt-3">
             <div class="tool-summary-main"><strong>{{ selected_material.part_number }}</strong> — {{ selected_material.part_description }}</div>
             <div class="tool-summary-meta">
-              Internal: {{ selected_material.part_length }} × {{ selected_material.part_width }} × {{ selected_material.part_height }} mm
-              {% if selected_material.part_weight %} | Catalogue tare/reference wt: {{ selected_material.part_weight }} kg{% endif %}
+              Internal: {{ container_summary.dims }}
+              {% if selected_material.part_weight %} | Catalogue tare/reference wt: {{ container_summary.tare_weight }}{% endif %}
               | {{ selected_material.packaging_type }} | {{ selected_material.branding }}
             </div>
           </div>
@@ -144,13 +144,13 @@
               <th>Type</th>
               <th>Brand</th>
               <th>Materials</th>
-              <th>Int. L (mm)</th>
-              <th>Int. W (mm)</th>
-              <th>Int. H (mm)</th>
-              <th>Ext. L (mm)</th>
-              <th>Ext. W (mm)</th>
-              <th>Ext. H (mm)</th>
-              <th>Weight (kg)</th>
+              <th>Int. L {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_dimensions current_unit=transport_values.transport_dimension_unit|default:'mm' selector_key='catalogue-int-length' %}</th>
+              <th>Int. W {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_dimensions current_unit=transport_values.transport_dimension_unit|default:'mm' selector_key='catalogue-int-width' %}</th>
+              <th>Int. H {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_dimensions current_unit=transport_values.transport_dimension_unit|default:'mm' selector_key='catalogue-int-height' %}</th>
+              <th>Ext. L {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_dimensions current_unit=transport_values.transport_dimension_unit|default:'mm' selector_key='catalogue-ext-length' %}</th>
+              <th>Ext. W {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_dimensions current_unit=transport_values.transport_dimension_unit|default:'mm' selector_key='catalogue-ext-width' %}</th>
+              <th>Ext. H {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_dimensions current_unit=transport_values.transport_dimension_unit|default:'mm' selector_key='catalogue-ext-height' %}</th>
+              <th>Weight {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.transport_mass current_unit=transport_values.transport_mass_unit|default:'kg' selector_key='catalogue-weight' %}</th>
             </tr>
           </thead>
           <tbody>
@@ -171,13 +171,13 @@
               <td>{{ material.packaging_type }}</td>
               <td>{{ material.branding }}</td>
               <td>{{ material.packaging_materials }}</td>
-              <td>{{ material.part_length }}</td>
-              <td>{{ material.part_width }}</td>
-              <td>{{ material.part_height }}</td>
-              <td>{{ material.external_length|default:"—" }}</td>
-              <td>{{ material.external_width|default:"—" }}</td>
-              <td>{{ material.external_height|default:"—" }}</td>
-              <td>{{ material.part_weight|default:"—" }}</td>
+              <td><span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.transport_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.part_length }}">{{ material.picker_display_part_length }}</span></td>
+              <td><span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.transport_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.part_width }}">{{ material.picker_display_part_width }}</span></td>
+              <td><span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.transport_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.part_height }}">{{ material.picker_display_part_height }}</span></td>
+              <td>{% if material.external_length is not None %}<span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.transport_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.external_length }}">{{ material.picker_display_external_length }}</span>{% else %}—{% endif %}</td>
+              <td>{% if material.external_width is not None %}<span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.transport_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.external_width }}">{{ material.picker_display_external_width }}</span>{% else %}—{% endif %}</td>
+              <td>{% if material.external_height is not None %}<span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.transport_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ material.external_height }}">{{ material.picker_display_external_height }}</span>{% else %}—{% endif %}</td>
+              <td>{% if material.part_weight is not None %}<span data-unit-display data-unit-group="{{ transport_ui.unit_selectors.transport_mass.group }}" data-unit-quantity="mass" data-unit-canonical-unit="kg" data-unit-canonical="{{ material.part_weight }}">{{ material.picker_display_weight }}</span>{% else %}—{% endif %}</td>
             </tr>
             {% empty %}<tr><td colspan="13" class="text-center text-muted">No packaging items found in this catalogue.</td></tr>{% endfor %}
           </tbody>

@@ -42,6 +42,10 @@ from ..entitlements import AI_ASSISTANT, PDF_REPORTS, feature_required, has_feat
 from ..units import format_dimensions, format_mass, kg_to_g
 from ..units.ui import build_unit_selector_contract
 from ..user_preferences import apply_user_unit_defaults
+from ..catalogue_units import (
+    annotate_packaging_picker_rows,
+    annotate_product_picker_rows,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -632,6 +636,16 @@ def _build_container_selection_page_context(
 
     products = get_products_for_catalogue(config, user=catalogue_user)
     materials = get_materials_for_catalogue(config, user=catalogue_user)
+    annotate_product_picker_rows(
+        products,
+        length_unit=config.get("product_dimension_unit") or "mm",
+        mass_unit=config.get("product_mass_unit") or "g",
+    )
+    annotate_packaging_picker_rows(
+        materials,
+        length_unit=config.get("container_dimension_unit") or "mm",
+        mass_unit=config.get("container_mass_unit") or "g",
+    )
 
     form = build_container_form(
         request=request,
