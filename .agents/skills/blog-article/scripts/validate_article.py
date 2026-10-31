@@ -36,6 +36,7 @@ REQUIRED_FIELDS = {
     "primary_keyword",
 }
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+STATIC_REF_RE = re.compile(r"static://([^\"'\s)]+)")
 
 
 def parse_article(path: Path) -> tuple[dict[str, Any], str]:
@@ -98,6 +99,26 @@ def validate(path: Path) -> list[str]:
         errors.append("meta_description exceeds 170 characters")
     if len(str(metadata.get("seo_title", ""))) > 70:
         errors.append("seo_title exceeds 70 characters")
+
+    repo_root = Path(__file__).resolve().parents[4]
+    static_root = repo_root / "static"
+
+    def check_static_asset(value: Any, field: str) -> None:
+        if not value:
+            return
+        asset = Path(str(value).lstrip("/"))
+        if asset.is_absolute() or ".." in asset.parts:
+            errors.append(f"{field} must be a safe static-relative asset path")
+            return
+        if not (static_root / asset).is_file():
+            errors.append(f"{field} asset does not exist: {value}")
+
+    if metadata.get("status") == "published":
+        for field in ("thumbnail", "featured_image", "og_image"):
+            check_static_asset(metadata.get(field), field)
+
+    for asset in STATIC_REF_RE.findall(body):
+        check_static_asset(asset, "body image")
 
     return errors
 

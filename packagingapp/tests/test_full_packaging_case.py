@@ -9,6 +9,82 @@ from packagingapp.views.full_packaging import (
 
 
 class FullPackagingCaseTests(TestCase):
+    def test_cape_pack_benchmark_case_exposes_both_designs_and_prefills_pallet(self):
+        case_url = reverse(
+            "full_packaging_case",
+            args=["cape-pack-12-carton-two-layouts"],
+        )
+        response = self.client.get(case_url + "?reset=1", follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        workflow = self.client.session[
+            "full_packaging_mode_session_case_cape-pack-12-carton-two-layouts"
+        ]
+        self.assertEqual(
+            [step["type"] for step in workflow["steps"]],
+            ["container", "pallet"],
+        )
+
+        container = workflow["steps"][0]
+        self.assertEqual(container["config"]["product_dimension_unit"], "in")
+        self.assertFalse(container["config"]["r1"])
+        self.assertFalse(container["config"]["r2"])
+        self.assertTrue(container["config"]["r3"])
+        designs = {
+            tuple(row["container_dimensions_display"].split(" × ")): row
+            for row in container["design_candidates"]
+        }
+        self.assertIn(("15", "12", "16 in"), designs)
+        self.assertIn(("20", "18", "8 in"), designs)
+
+        pallet = workflow["steps"][1]
+        self.assertEqual(pallet["config"]["box_dimension_unit"], "in")
+        self.assertEqual(pallet["config"]["pallet_dimension_unit"], "in")
+        self.assertEqual(pallet["config"]["mass_unit"], "lb")
+        self.assertEqual(pallet["config"]["pallet_l"], 48)
+        self.assertEqual(pallet["config"]["pallet_w"], 40)
+        self.assertEqual(pallet["config"]["pallet_height"], 5.5)
+        self.assertEqual(pallet["config"]["max_stack_height"], 50)
+        self.assertEqual(pallet["config"]["max_pallet_load"], 2000)
+        self.assertEqual(pallet["selected_result"]["total_boxes"], 20)
+        self.assertEqual(pallet["pending_result"]["total_base_units"], 240)
+        json.dumps(workflow)
+
+        response = self.client.post(
+            case_url,
+            {
+                "action": "run_step",
+                "index": "0",
+                "step_action_0": "select_design_candidate",
+                "selected_design_candidate_id_0": designs[("15", "12", "16 in")][
+                    "candidate_id"
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        response = self.client.post(
+            case_url,
+            {"action": "use_step_result", "index": "0"},
+        )
+        self.assertEqual(response.status_code, 302)
+
+        response = self.client.post(
+            case_url,
+            {
+                "action": "run_step",
+                "index": "1",
+                "step_action_1": "run_analysis",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        workflow = self.client.session[
+            "full_packaging_mode_session_case_cape-pack-12-carton-two-layouts"
+        ]
+        self.assertEqual(workflow["steps"][1]["selected_result"]["total_boxes"], 18)
+        self.assertEqual(workflow["steps"][1]["pending_result"]["total_base_units"], 216)
+        json.dumps(workflow)
+
     def test_think_beyond_the_box_case_loads_and_remains_json_safe(self):
         case_url = reverse("full_packaging_case", args=["think-beyond-the-box"])
         for query in ("", "?reset=1"):

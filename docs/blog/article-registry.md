@@ -4,6 +4,7 @@
 
 | Slug | Title | Status | Type | Primary keyword | Published | Updated | Related tools |
 |---|---|---|---|---|---|---|---|
+| cartons-per-pallet-case-design-exploration | Can KolliPack Match CapePack? From 216 to 240 Cartons per Pallet | published | demo_case_study | cartons per pallet case design | 2026-10-31 | 2026-10-31 | packaging-flow |
 | tops-maxload-kollipack-container-loading-benchmark | KolliPack vs TOPS MaxLoad: Can a Different Loading Strategy Fit More? | published | demo_case_study | TOPS MaxLoad container loading benchmark | 2026-10-20 | 2026-10-20 | transport-container |
 | ask-kollipack-ai-assistant-packaging-logistics | Ask KolliPack: What Happens When AI Meets Logistics Software? | published | kollipack_update | packaging AI assistant | 2026-10-19 | 2026-10-19 | container-selection, packaging-flow |
 | container-loading-benchmark-kollipack-br1-br7 | How Good Is KolliPack at Container Loading? An Honest Benchmark | published | engineering_deep_dive | container loading benchmark | 2026-08-20 | 2026-10-20 | transport-container |

@@ -82,6 +82,49 @@ _CASE_PRESETS = {
             "max_length_stickout": 0,
         },
     },
+    "cape-pack-12-carton-two-layouts": {
+        "slug": "cape-pack-12-carton-two-layouts",
+        "title": "216 or 240 Cartons per Pallet?",
+        "description": (
+            "A bounded 12-carton CapePack reference case with two shared KolliPack "
+            "shipping-case geometries and a linked 48 × 40 in pallet calculation."
+        ),
+        "display_units": {
+            "product_dimension_unit": "in",
+            "product_mass_unit": "lb",
+            "container_dimension_unit": "in",
+            "container_mass_unit": "lb",
+            "pallet_dimension_unit": "in",
+            "mass_unit": "lb",
+        },
+        "product": {
+            "length": 6,
+            "width": 5,
+            "height": 8,
+            "weight": 2.25,
+            "desired_quantity": 12,
+            "r1": False,
+            "r2": False,
+            "r3": True,
+        },
+        "box_design": {
+            "preferred_dimensions": (508, 457.2, 203.2),
+            "thickness": 0.16,
+            "thickness_unit": "in",
+        },
+        "pallet": {
+            "length": 48,
+            "width": 40,
+            "height": 5.5,
+            "max_stack_height": 50,
+            "max_pallet_load": 2000,
+            "max_width_stickout": 0,
+            "max_length_stickout": 0,
+            # The current pallet tool reports carton load and intentionally
+            # excludes the empty pallet tare from this constraint.
+            "reference_tare_lb": 50,
+        },
+    },
 }
 
 

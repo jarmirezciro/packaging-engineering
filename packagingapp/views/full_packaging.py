@@ -599,6 +599,7 @@ def _build_case_workflow(case_slug):
     steps = []
 
     product = preset["product"]
+    display_units = preset.get("display_units") or {}
     box_step = _new_container_step()
     steps.append(box_step)
     box_post = {
@@ -609,15 +610,21 @@ def _build_case_workflow(case_slug):
         "product_w_0": str(product["width"]),
         "product_h_0": str(product["height"]),
         "product_weight_0": str(product.get("weight") or ""),
+        "product_dimension_unit_0": display_units.get("product_dimension_unit", "mm"),
+        "product_mass_unit_0": display_units.get("product_mass_unit", "g"),
         "desired_qty_0": str(product["desired_quantity"]),
         "box_thickness_mm_0": str(
-            preset["box_design"].get("thickness_mm") or ""
+            preset["box_design"].get("thickness")
+            if preset["box_design"].get("thickness") is not None
+            else preset["box_design"].get("thickness_mm") or ""
         ),
-        "r1_0": "on" if product.get("r1") else "",
-        "r2_0": "on" if product.get("r2") else "",
-        "r3_0": "on" if product.get("r3") else "",
+        "container_dimension_unit_0": display_units.get("container_dimension_unit", "mm"),
+        "container_mass_unit_0": display_units.get("container_mass_unit", "g"),
         "step_action_0": "run_design",
     }
+    for rotation in ("r1", "r2", "r3"):
+        if product.get(rotation):
+            box_post[f"{rotation}_0"] = "on"
     _process_container_step(box_step, steps, 0, box_post)
 
     preferred_dimensions = preset["box_design"]["preferred_dimensions"]
@@ -638,6 +645,12 @@ def _build_case_workflow(case_slug):
     pallet_preset = preset["pallet"]
     pallet_step = _new_pallet_step()
     steps.append(pallet_step)
+    pallet_step["config"].update({
+        "box_dimension_unit": display_units.get("container_dimension_unit", "mm"),
+        "pallet_dimension_unit": display_units.get("pallet_dimension_unit", "mm"),
+        "mass_unit": display_units.get("mass_unit", "g"),
+        "max_pallet_load": pallet_preset.get("max_pallet_load", ""),
+    })
     _apply_chained_defaults(pallet_step, steps, 1)
     pallet_cfg = _extract_pallet_config_from_step(pallet_step)
     pallet_cfg.update({
@@ -646,7 +659,11 @@ def _build_case_workflow(case_slug):
         "pallet_l": pallet_preset["length"],
         "pallet_w": pallet_preset["width"],
         "pallet_height": pallet_preset.get("height", ""),
+        "box_dimension_unit": display_units.get("container_dimension_unit", "mm"),
+        "pallet_dimension_unit": display_units.get("pallet_dimension_unit", "mm"),
+        "mass_unit": display_units.get("mass_unit", "g"),
         "max_stack_height": pallet_preset["max_stack_height"],
+        "max_pallet_load": pallet_preset.get("max_pallet_load", ""),
         "max_width_stickout": pallet_preset["max_width_stickout"],
         "max_length_stickout": pallet_preset["max_length_stickout"],
     })

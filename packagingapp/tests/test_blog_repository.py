@@ -1,9 +1,11 @@
 from pathlib import Path
+import re
 from tempfile import TemporaryDirectory
 
+from django.conf import settings
 from django.test import SimpleTestCase
 
-from packagingapp.services.blog_repository import _load_article
+from packagingapp.services.blog_repository import _load_article, get_published_articles
 
 
 class BlogMathRenderingTests(SimpleTestCase):
@@ -46,3 +48,40 @@ class BlogMathRenderingTests(SimpleTestCase):
         self.assertIn("<p>[\n", article["content_html"])
         self.assertIn("\n]</p>", article["content_html"])
         self.assertIn("<p>Inline: (L=H)</p>", article["content_html"])
+
+
+class BlogPublishingContractTests(SimpleTestCase):
+    def test_published_articles_have_resolvable_image_assets(self):
+        static_root = Path(settings.BASE_DIR) / "static"
+        static_prefix = str(settings.STATIC_URL).rstrip("/") + "/"
+        registry = Path(settings.BASE_DIR) / "docs" / "blog" / "article-registry.md"
+        registry_status = {}
+        if registry.is_file():
+            for line in registry.read_text(encoding="utf-8").splitlines():
+                if line.startswith("| ") and not line.startswith("|---"):
+                    columns = [column.strip() for column in line.strip("|").split("|")]
+                    if len(columns) >= 3 and columns[0] != "Slug":
+                        registry_status[columns[0]] = columns[2]
+
+        for article in get_published_articles():
+            with self.subTest(slug=article["slug"]):
+                self.assertEqual(registry_status.get(article["slug"]), article["status"])
+                for field in ("thumbnail", "featured_image", "og_image"):
+                    asset = article.get(field)
+                    if asset:
+                        self.assertTrue(
+                            (static_root / str(asset).lstrip("/")).is_file(),
+                            f"{field} is missing for {article['slug']}: {asset}",
+                        )
+
+                body_sources = re.findall(
+                    r'<img\b[^>]*\bsrc=["\']([^"\']+)',
+                    article["content_html"],
+                )
+                for source in body_sources:
+                    if source.startswith(static_prefix):
+                        asset = source[len(static_prefix) :]
+                        self.assertTrue(
+                            (static_root / asset).is_file(),
+                            f"body image is missing for {article['slug']}: {asset}",
+                        )
