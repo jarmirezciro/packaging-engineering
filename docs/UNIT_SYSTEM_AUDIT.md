@@ -518,3 +518,15 @@ Transport continues consuming canonical `kg`.
   this task only adds coherence to pickers embedded in engineering tools.
 - Three.js, PDF/report architecture, Excel/bulk schemas, engines, and database
   units are unchanged.
+
+### Palletization regression repair
+
+Catalogue pallet selection preserves the active local `pallet_dimension_unit`
+and keeps manual layout constraints such as max stack height and overhang in
+that display unit. Copied catalogue dimensions are converted from canonical mm
+only for presentation; the selected `PackagingMaterial` remains authoritative
+for engineering calculations. Packaging Flow now passes the shared selected
+box/pallet presenter summaries into the Palletization wrapper, so selected
+catalogue metadata and locally formatted dimensions/mass are rendered. Blank
+optional width/length overhangs normalize to zero at the Palletization service
+boundary, while blank carton weight and bottom-load limit remain `None`.

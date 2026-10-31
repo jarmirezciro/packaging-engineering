@@ -255,7 +255,7 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
         messages,
     )
     max_width_stickout = _convert_manual_value(
-        cfg.get("max_width_stickout"),
+        cfg.get("max_width_stickout") or 0,
         pallet_dimension_unit,
         convert_length,
         "mm",
@@ -263,7 +263,7 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
         messages,
     )
     max_length_stickout = _convert_manual_value(
-        cfg.get("max_length_stickout"),
+        cfg.get("max_length_stickout") or 0,
         pallet_dimension_unit,
         convert_length,
         "mm",

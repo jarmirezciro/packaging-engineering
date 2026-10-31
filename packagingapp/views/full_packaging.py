@@ -812,6 +812,18 @@ def _material_dimension_value(material, external_attr, part_attr):
     return first_raw
 
 
+def _catalogue_dimension_for_display(material, external_attr, part_attr, display_unit):
+    """Return a canonical catalogue dimension expressed for the active UI."""
+    value = _material_dimension_value(material, external_attr, part_attr)
+    if value in (None, "", "None"):
+        return value
+
+    numeric_value = _to_float(value, None)
+    if numeric_value is None:
+        return value
+    return convert_length(numeric_value, "mm", display_unit)
+
+
 def _hydrate_pallet_catalogue_values(cfg, selected_box_material=None, selected_pallet_material=None):
     """Copy selected catalogue dimensions into the pallet workflow config.
 
@@ -841,29 +853,46 @@ def _hydrate_pallet_catalogue_values(cfg, selected_box_material=None, selected_p
         cfg["box_dimension_unit"] = "mm"
 
     if cfg.get("pallet_source") == "catalogue" and selected_pallet_material is not None:
-        previous_dimension_unit = cfg.get("pallet_dimension_unit", "mm")
+        display_unit = cfg.get("pallet_dimension_unit", "mm") or "mm"
         try:
-            for key in (
-                "max_stack_height",
-                "max_width_stickout",
-                "max_length_stickout",
-            ):
-                value = _to_float(cfg.get(key), None)
-                if value is not None:
-                    cfg[key] = convert_length(value, previous_dimension_unit, "mm")
+            # Validate the active display unit, but keep all editable layout
+            # constraints in that unit. The service performs the one
+            # authoritative conversion to canonical mm at calculation time.
+            convert_length(0, display_unit, "mm")
         except (TypeError, ValueError):
             # Preserve an invalid explicit unit so the authoritative service
             # can reject it safely instead of allowing catalogue hydration to
             # turn it into a metric default.
             return sanitize_palletization_config_for_session(cfg)
 
-        cfg["pallet_l"] = _material_dimension_value(selected_pallet_material, "external_length", "part_length")
-        cfg["pallet_w"] = _material_dimension_value(selected_pallet_material, "external_width", "part_width")
-        cfg["pallet_height"] = resolve_pallet_height(
-            _material_dimension_value(selected_pallet_material, "external_height", "part_height"),
+        # Catalogue geometry is stored in canonical mm. These copies are only
+        # for coherent form/workflow display and must follow the current local
+        # pallet unit without changing that unit or the calculation authority.
+        cfg["pallet_l"] = _catalogue_dimension_for_display(
+            selected_pallet_material,
+            "external_length",
+            "part_length",
+            display_unit,
+        )
+        cfg["pallet_w"] = _catalogue_dimension_for_display(
+            selected_pallet_material,
+            "external_width",
+            "part_width",
+            display_unit,
+        )
+        pallet_height_mm = resolve_pallet_height(
+            _material_dimension_value(
+                selected_pallet_material,
+                "external_height",
+                "part_height",
+            ),
             fallback_on_invalid=True,
         )
-        cfg["pallet_dimension_unit"] = "mm"
+        cfg["pallet_height"] = convert_length(
+            pallet_height_mm,
+            "mm",
+            display_unit,
+        )
 
     return sanitize_palletization_config_for_session(cfg)
 

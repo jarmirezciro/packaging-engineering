@@ -21,6 +21,7 @@ from packagingapp.units import (
 )
 from packagingapp.views.full_packaging import (
     _enrich_package_payload_weight,
+    _hydrate_pallet_catalogue_values,
     _resolve_packaging_weight_kg,
     _resolve_product_weight_kg,
     _transport_rows_from_selected,
@@ -345,6 +346,35 @@ class PalletizationManualUnitBoundaryTests(SimpleTestCase):
         self.assertAlmostEqual(result["effective_config"]["pallet_height"], 150, places=7)
         self.assertAlmostEqual(result["effective_config"]["max_stack_height"], 1000, places=7)
 
+    def test_metric_and_imperial_pallet_layouts_have_equivalent_results(self):
+        metric = self._config()
+        metric.update({
+            "pallet_height": 150,
+            "max_stack_height": 1000,
+            "max_width_stickout": 0,
+            "max_length_stickout": 0,
+        })
+        imperial = dict(metric)
+        imperial.update({
+            "pallet_dimension_unit": "in",
+            "pallet_l": convert_length(1200, "mm", "in"),
+            "pallet_w": convert_length(800, "mm", "in"),
+            "pallet_height": convert_length(150, "mm", "in"),
+            "max_stack_height": convert_length(1000, "mm", "in"),
+            "max_width_stickout": "",
+            "max_length_stickout": "",
+        })
+
+        metric_result = analyze_palletization_capacity(metric)
+        imperial_result = analyze_palletization_capacity(imperial)
+
+        self.assertTrue(metric_result["ok"], metric_result["messages"])
+        self.assertTrue(imperial_result["ok"], imperial_result["messages"])
+        self.assertEqual(
+            self._result_signature(imperial_result),
+            self._result_signature(metric_result),
+        )
+
     def test_mass_units_normalize_weight_and_limit(self):
         metric = analyze_palletization_capacity(self._config())
         config = self._config()
@@ -393,6 +423,122 @@ class PalletizationManualUnitBoundaryTests(SimpleTestCase):
         self.assertTrue(result["ok"], result["messages"])
         self.assertEqual(result["effective_config"]["box_l"], 400.0)
         self.assertEqual(result["effective_config"]["box_weight"], 453.59237)
+
+    def test_blank_optional_overhangs_normalize_to_zero_mm(self):
+        config = self._config()
+        config.update({
+            "pallet_dimension_unit": "in",
+            "pallet_height": convert_length(150, "mm", "in"),
+            "max_stack_height": convert_length(1000, "mm", "in"),
+            "max_width_stickout": "",
+            "max_length_stickout": "",
+        })
+
+        built = build_effective_palletization_config(config)
+
+        self.assertTrue(built["ok"], built["messages"])
+        self.assertEqual(built["effective_config"]["max_width_stickout"], 0.0)
+        self.assertEqual(built["effective_config"]["max_length_stickout"], 0.0)
+
+    def test_blank_optional_mass_fields_remain_none(self):
+        config = self._config()
+        config.update({
+            "box_weight": "",
+            "max_weight_on_bottom_box": "",
+            "max_width_stickout": "",
+            "max_length_stickout": "",
+        })
+
+        result = analyze_palletization_capacity(config)
+
+        self.assertTrue(result["ok"], result["messages"])
+        self.assertIsNone(result["effective_config"]["box_weight"])
+        self.assertIsNone(result["effective_config"]["max_weight_on_bottom_box"])
+
+    def test_blank_max_stack_height_remains_required(self):
+        config = self._config()
+        config["max_stack_height"] = ""
+
+        built = build_effective_palletization_config(config)
+
+        self.assertFalse(built["ok"])
+        self.assertIn("Please enter max stack height.", built["messages"])
+
+    def test_catalogue_pallet_dimensions_remain_authoritative(self):
+        material = SimpleNamespace(
+            external_length=Decimal("1200"),
+            external_width=Decimal("800"),
+            external_height=Decimal("144"),
+            part_length=Decimal("1200"),
+            part_width=Decimal("800"),
+            part_height=Decimal("144"),
+            part_weight=Decimal("25"),
+        )
+        config = self._config()
+        config.update({
+            "pallet_source": "catalogue",
+            "pallet_dimension_unit": "in",
+            "pallet_l": "999",
+            "pallet_w": "888",
+            "pallet_height": "777",
+            "max_stack_height": 50,
+            "max_width_stickout": "",
+            "max_length_stickout": "",
+        })
+
+        built = build_effective_palletization_config(
+            config,
+            selected_pallet_material=material,
+        )
+
+        self.assertTrue(built["ok"], built["messages"])
+        self.assertEqual(built["effective_config"]["pallet_l"], 1200.0)
+        self.assertEqual(built["effective_config"]["pallet_w"], 800.0)
+        self.assertEqual(built["effective_config"]["pallet_height"], 144.0)
+
+    def test_catalogue_pallet_hydration_preserves_local_display_unit_and_constraints(self):
+        material = SimpleNamespace(
+            external_length=Decimal("1200"),
+            external_width=Decimal("800"),
+            external_height=Decimal("144"),
+            part_length=Decimal("1200"),
+            part_width=Decimal("800"),
+            part_height=Decimal("144"),
+        )
+        for display_unit, expected_dimensions in (
+            ("in", (1200 / 25.4, 800 / 25.4, 144 / 25.4)),
+            ("cm", (120, 80, 14.4)),
+        ):
+            with self.subTest(display_unit=display_unit):
+                hydrated = _hydrate_pallet_catalogue_values(
+                    {
+                        "pallet_source": "catalogue",
+                        "pallet_dimension_unit": display_unit,
+                        "pallet_l": "999",
+                        "pallet_w": "888",
+                        "pallet_height": "777",
+                        "max_stack_height": 50,
+                        "max_width_stickout": "",
+                        "max_length_stickout": "",
+                    },
+                    selected_pallet_material=material,
+                )
+
+                self.assertEqual(hydrated["pallet_dimension_unit"], display_unit)
+                self.assertEqual(hydrated["max_stack_height"], 50)
+                self.assertEqual(hydrated["max_width_stickout"], "")
+                self.assertEqual(hydrated["max_length_stickout"], "")
+                for key, expected in zip(
+                    ("pallet_l", "pallet_w", "pallet_height"),
+                    expected_dimensions,
+                ):
+                    self.assertAlmostEqual(hydrated[key], expected, places=10)
+
+                rehydrated = _hydrate_pallet_catalogue_values(
+                    hydrated,
+                    selected_pallet_material=material,
+                )
+                self.assertEqual(rehydrated, hydrated)
 
     def test_catalogue_weight_ignores_manual_mass_unit(self):
         config = self._config()
