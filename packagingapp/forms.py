@@ -1011,6 +1011,7 @@ class PalletizationForm(forms.Form):
 
     # CONSTRAINTS
     max_stack_height = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
+    max_pallet_load = forms.FloatField(required=False, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
     max_width_stickout = forms.FloatField(required=False, initial=0, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
     max_length_stickout = forms.FloatField(required=False, initial=0, widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}))
 
@@ -1042,7 +1043,7 @@ class PalletizationForm(forms.Form):
         if cleaned.get("max_stack_height") is None:
             raise forms.ValidationError("Please enter max stack height.")
 
-        positive_fields = ["box_l", "box_w", "box_h", "pallet_l", "pallet_w", "pallet_height", "max_stack_height"]
+        positive_fields = ["box_l", "box_w", "box_h", "pallet_l", "pallet_w", "pallet_height", "max_stack_height", "max_pallet_load"]
         for fld in positive_fields:
             value = cleaned.get(fld)
             if value is not None and value <= 0:

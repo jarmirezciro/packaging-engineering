@@ -88,6 +88,13 @@ Container Selection, Bag Selection, and Palletization. Transport consumes
 inputs are converted from grams once at the workflow boundary. See
 `../UNIT_SYSTEM_AUDIT.md` for the complete contract and compatibility rules.
 
+The Palletization step stores optional `max_pallet_load` as ordinary JSON-safe
+prefixed form state in the selected display mass unit. The shared service
+normalizes it to grams and the shared engine returns `actual_pallet_load_g` for
+the carton cargo. Flow uses that authoritative cargo result when constructing
+the downstream pallet mass, then adds catalogue pallet tare in kilograms. The
+maximum pallet load itself always excludes pallet tare.
+
 ## Manual unit display state
 
 Each embedded shared tool keeps its own prefixed, JSON-safe manual unit tokens

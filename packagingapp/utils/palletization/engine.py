@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import math
 import uuid
+from decimal import Decimal, InvalidOperation, ROUND_FLOOR
 from dataclasses import dataclass
 from typing import List, Tuple, Optional, Dict
 
@@ -2416,24 +2417,37 @@ def build_layers(
     box_h: float,
     available_carton_height: float,
     stacking_mode: str,
+    max_total_boxes: Optional[int] = None,
 ) -> Tuple[List[Placement3D], int, List[List[Placement2D]]]:
-    max_layers = int(available_carton_height // box_h)
+    geometric_max_layers = int(available_carton_height // box_h)
     placements3d: List[Placement3D] = []
     layers_2d: List[List[Placement2D]] = []
+    remaining_boxes = None if max_total_boxes is None else max(int(max_total_boxes), 0)
 
-    for layer_idx in range(max_layers):
+    for layer_idx in range(geometric_max_layers):
         z = layer_idx * box_h
 
         if stacking_mode == "column":
-            layer = base_layer
+            full_layer = base_layer
             layer_kind = "base"
         else:
             if layer_idx % 2 == 0:
-                layer = base_layer
+                full_layer = base_layer
                 layer_kind = "base"
             else:
-                layer = interlock_layer
+                full_layer = interlock_layer
                 layer_kind = "interlock"
+
+        if remaining_boxes is not None:
+            if remaining_boxes <= 0:
+                break
+            layer = full_layer[:remaining_boxes]
+            remaining_boxes -= len(layer)
+        else:
+            layer = full_layer
+
+        if not layer:
+            break
 
         layers_2d.append(layer)
 
@@ -2452,7 +2466,7 @@ def build_layers(
                 )
             )
 
-    return placements3d, max_layers, layers_2d
+    return placements3d, len(layers_2d), layers_2d
 
 
 def translate_placements3d(
@@ -2540,6 +2554,47 @@ def translate_result_for_centered_overhang(
 # LOAD CHECK
 # ============================================================
 
+def max_cartons_for_pallet_load(
+    max_pallet_load: Optional[float],
+    box_weight: Optional[float],
+) -> Optional[int]:
+    """Return the strict carton-count cap for a pallet cargo-load limit.
+
+    Decimal arithmetic is deliberately used at this boundary so an exact
+    converted-unit boundary cannot gain an extra carton through binary floating
+    point rounding. Values use the caller's common mass unit (grams in the
+    shared service and engine contract).
+    """
+    if max_pallet_load is None:
+        return None
+    if box_weight is None:
+        raise ValueError(
+            "Carton gross weight is required when Max Pallet Load is provided."
+        )
+
+    try:
+        limit = Decimal(str(max_pallet_load))
+        carton = Decimal(str(box_weight))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError(
+            "Max Pallet Load and carton gross weight must be finite numbers."
+        ) from exc
+
+    if not limit.is_finite() or limit <= 0:
+        raise ValueError("Max Pallet Load must be a finite number greater than 0.")
+    if not carton.is_finite() or carton <= 0:
+        raise ValueError(
+            "Carton gross weight must be a finite number greater than 0 when Max Pallet Load is provided."
+        )
+
+    ratio = limit / carton
+    nearest_integer = ratio.to_integral_value()
+    conversion_tolerance = max(abs(ratio), Decimal("1")) * Decimal("1e-12")
+    if abs(ratio - nearest_integer) <= conversion_tolerance:
+        return int(nearest_integer)
+    return int(ratio.to_integral_value(rounding=ROUND_FLOOR))
+
+
 def compute_bottom_loads(layers_2d: List[List[Placement2D]], box_weight: Optional[float]) -> List[float]:
     if box_weight is None or len(layers_2d) == 0:
         return [0.0] * (len(layers_2d[0]) if layers_2d else 0)
@@ -2597,19 +2652,16 @@ def result_metrics(
     layers_2d,
     box_weight,
     max_weight_on_bottom_box,
+    max_pallet_load=None,
+    weight_capacity_boxes=None,
+    geometric_capacity_boxes=None,
     interlock_relation_name=None,
 ):
-    max_layers = int(available_carton_height // box_h)
-
-    if max_layers <= 0:
-        counts = []
-    elif stacking_mode == "column":
-        counts = [len(base_layer)] * max_layers
-    else:
-        counts = [len(base_layer) if i % 2 == 0 else len(interlock_layer) for i in range(max_layers)]
+    counts = [len(layer) for layer in layers_2d]
+    loaded_layers = len(layers_2d)
 
     total_boxes = sum(counts)
-    used_height = max_layers * box_h
+    used_height = loaded_layers * box_h
     footprint_area = area_l * area_w
     layer_avg = sum(counts) / len(counts) if counts else 0.0
 
@@ -2623,12 +2675,37 @@ def result_metrics(
         layers_2d, box_weight, max_weight_on_bottom_box
     )
 
+    actual_pallet_load = None
+    if box_weight is not None:
+        carton_mass = Decimal(str(box_weight))
+        if carton_mass.is_finite() and carton_mass >= 0:
+            actual_pallet_load = float(carton_mass * total_boxes)
+
+    load_utilization_pct = None
+    feasible_pallet_load = True
+    if max_pallet_load is not None and actual_pallet_load is not None:
+        limit = Decimal(str(max_pallet_load))
+        actual = Decimal(str(box_weight)) * total_boxes
+        conversion_tolerance = max(abs(limit), abs(actual), Decimal("1")) * Decimal("1e-12")
+        if actual > limit and actual - limit <= conversion_tolerance:
+            actual = limit
+            actual_pallet_load = float(limit)
+        feasible_pallet_load = actual <= limit
+        load_utilization_pct = float((actual / limit) * Decimal("100"))
+
+    limiting_constraint = "Geometry"
+    if max_pallet_load is not None:
+        if weight_capacity_boxes < geometric_capacity_boxes:
+            limiting_constraint = "Weight"
+        elif weight_capacity_boxes == geometric_capacity_boxes:
+            limiting_constraint = "Both"
+
     return {
         "pattern": name,
         "stacking": stacking_mode,
         "boxes_layer_A": len(base_layer),
         "boxes_layer_B": len(interlock_layer),
-        "layers": max_layers,
+        "layers": loaded_layers,
         "total_boxes": total_boxes,
         "used_height_mm": used_height,
         "layer_footprint_util_pct": round(layer_footprint_util * 100, 2),
@@ -2637,6 +2714,15 @@ def result_metrics(
         "max_bottom_load_g": round(max_bottom_load, 2),
         "avg_bottom_load_g": round(avg_bottom_load, 2),
         "weight_limit_g": max_weight_on_bottom_box,
+        "max_pallet_load_g": max_pallet_load,
+        "actual_pallet_load_g": actual_pallet_load,
+        "load_utilization_pct": (
+            None if load_utilization_pct is None else round(load_utilization_pct, 2)
+        ),
+        "feasible_pallet_load": feasible_pallet_load,
+        "weight_capacity_boxes": weight_capacity_boxes,
+        "geometric_capacity_boxes": geometric_capacity_boxes,
+        "limiting_constraint": limiting_constraint,
         # Compatibility aliases retained for stored/session/report consumers.
         # The values have always followed the caller's gram contract despite
         # the historical and misleading ``_kg`` suffix.
@@ -2969,6 +3055,7 @@ def run_palletization_analysis(
     max_length_stickout: float = 0.0,
     box_weight: Optional[float] = None,
     max_weight_on_bottom_box: Optional[float] = None,
+    max_pallet_load: Optional[float] = None,
 ) -> List[Dict]:
     available_carton_height = max_stack_height - pallet_height
     if available_carton_height <= 0:
@@ -2985,6 +3072,13 @@ def run_palletization_analysis(
     if box_h > available_carton_height + 1e-9:
         return []
     if not carton_footprint_fits(area_l, area_w, box_l, box_w):
+        return []
+
+    weight_capacity_boxes = max_cartons_for_pallet_load(
+        max_pallet_load,
+        box_weight,
+    )
+    if weight_capacity_boxes is not None and weight_capacity_boxes <= 0:
         return []
 
     results: List[Dict] = []
@@ -3008,13 +3102,22 @@ def run_palletization_analysis(
                 continue
 
             active_interlock_layer = interlock_layer if stacking_mode == "interlock" else base_layer
+            geometric_max_layers = int(available_carton_height // box_h)
+            if stacking_mode == "column":
+                geometric_capacity_boxes = geometric_max_layers * len(base_layer)
+            else:
+                geometric_capacity_boxes = sum(
+                    len(base_layer) if i % 2 == 0 else len(active_interlock_layer)
+                    for i in range(geometric_max_layers)
+                )
 
-            placements3d, max_layers, layers_2d = build_layers(
+            placements3d, _loaded_layers, layers_2d = build_layers(
                 base_layer=base_layer,
                 interlock_layer=active_interlock_layer,
                 box_h=box_h,
                 available_carton_height=available_carton_height,
                 stacking_mode=stacking_mode,
+                max_total_boxes=weight_capacity_boxes,
             )
 
             row = result_metrics(
@@ -3032,6 +3135,9 @@ def run_palletization_analysis(
                 layers_2d,
                 box_weight,
                 max_weight_on_bottom_box,
+                max_pallet_load,
+                weight_capacity_boxes,
+                geometric_capacity_boxes,
                 interlock_relation_name if stacking_mode == "interlock" else "same",
             )
             row["interlock_possible"] = bool(interlock_possible)
@@ -3252,6 +3358,7 @@ def _interlock_render_row(selected_result: Dict, available_carton_height: float)
         box_h=box_h,
         available_carton_height=available_carton_height,
         stacking_mode="interlock",
+        max_total_boxes=int(selected_result.get("total_boxes") or 0),
     )
 
     render_row = dict(selected_result)

@@ -13,16 +13,17 @@ Current implemented inputs include:
 - maximum total stack/load height;
 - acceptable length and width overhang;
 - carton/product weight;
+- optional maximum pallet load for carton cargo only;
 - optional maximum cargo load on the bottom carton;
 - pattern families and column/interlock preference;
 - advanced carton/stability parameters where present in the current form.
 
-Dimensions are millimetres. Carton weight and maximum bottom-carton load are
-grams. The current standalone form and engine do not accept pallet tare or a
-maximum pallet payload; a catalogue pallet's kg tare is used only by Packaging
-Flow when it constructs the downstream physical load mass. All fields and
-units must still be verified against the current form and service before logic
-edits.
+Dimensions are millimetres. Carton weight, maximum pallet load, and maximum
+bottom-carton load are grams at the shared service/engine boundary. The maximum
+pallet load excludes empty-pallet tare. A catalogue pallet's kg tare is used
+only by Packaging Flow when it constructs the downstream physical load mass.
+All fields and units must still be verified against the current form and
+service before logic edits.
 
 ## Core geometry
 
@@ -177,15 +178,25 @@ Packaging Flow, rendering, and downstream transport handoff:
 
 ## Weight limits
 
-### Pallet payload (not currently implemented)
+### Maximum pallet load
 
 ```text
 cargo_weight = total_cartons × carton_weight
+weight_capacity = floor(max_pallet_load / carton_weight)
 ```
 
-This remains a discussed contract only. The current form and engine do not
-accept a maximum pallet payload, so it must not be described as an active
-feasibility check.
+The optional maximum pallet load is the combined gross weight of the cartons on
+one pallet and excludes pallet tare. When supplied, carton gross weight must be
+a finite positive value. The engine caps the actual placement construction,
+including a partial final layer, so serialized 2D/3D geometry and displayed
+carton counts cannot diverge. Decimal count-flooring and a narrow unit-
+conversion tolerance protect exact kg/lb boundaries without admitting a truly
+overweight carton. A limit below one carton is an infeasible input.
+
+When the limit is blank, layer construction, ranking, and placement geometry
+follow the prior geometric path unchanged. Result presentation may still show
+actual pallet load when carton weight is available, but maximum-load utilization
+is absent.
 
 ### Bottom-carton load
 

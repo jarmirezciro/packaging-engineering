@@ -9,7 +9,7 @@
                 <div class="row g-2">
                     <div class="col-12 col-sm-6">
                         <div class="border rounded-3 p-2 h-100">
-                            <div class="tool-stat-label">Total cartons</div>
+                            <div class="tool-stat-label">Cartons per pallet</div>
                             <div class="fw-bold text-break">{{ selected_result.total_boxes }} pcs</div>
                         </div>
                     </div>
@@ -31,6 +31,34 @@
                         <div class="border rounded-3 p-2 h-100">
                             <div class="tool-stat-label">Stack height</div>
                             <div class="fw-bold text-break">{{ selected_result.total_height_display }}</div>
+                        </div>
+                    </div>
+                    {% if selected_result.actual_pallet_load_g is not None %}
+                        <div class="col-12 col-sm-6">
+                            <div class="border rounded-3 p-2 h-100">
+                                <div class="tool-stat-label">Actual pallet load</div>
+                                <div class="fw-bold text-break">{{ selected_result.actual_pallet_load_display }}</div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    {% if selected_result.max_pallet_load_g is not None %}
+                        <div class="col-12 col-sm-6">
+                            <div class="border rounded-3 p-2 h-100">
+                                <div class="tool-stat-label">Maximum pallet load</div>
+                                <div class="fw-bold text-break">{{ selected_result.max_pallet_load_display }}</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <div class="border rounded-3 p-2 h-100">
+                                <div class="tool-stat-label">Load utilization</div>
+                                <div class="fw-bold text-break">{{ selected_result.load_utilization_pct }}%</div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    <div class="col-12 col-sm-6">
+                        <div class="border rounded-3 p-2 h-100">
+                            <div class="tool-stat-label">Limiting constraint</div>
+                            <div class="fw-bold text-break">{{ selected_result.limiting_constraint }}</div>
                         </div>
                     </div>
                 </div>
@@ -92,6 +120,7 @@
                             | Alternate layer possible: {% if selected_result.interlock_possible %}Yes{% else %}No{% endif %}
                             | Bottom load check: {% if selected_result.weight_limit_g is not None %}{% if selected_result.feasible_weight %}OK{% else %}Review{% endif %}{% else %}Not checked{% endif %}
                             {% if selected_result.weight_limit_g is not None %}| Max bottom-carton load: {{ selected_result.max_bottom_load_display }}{% endif %}
+                            {% if selected_result.max_pallet_load_g is not None %}| Pallet load utilization: {{ selected_result.load_utilization_pct }}%{% endif %}
                         </div>
                     </div>
                     {% if selected_result.interlock_possible %}
@@ -125,6 +154,30 @@
                 <div class="table-responsive mt-2">
                     <table class="table table-sm mb-0 align-middle">
                         <tbody>
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Cartons per pallet</th>
+                                <td class="text-end">{{ selected_result.total_boxes }} pcs</td>
+                            </tr>
+                            {% if selected_result.actual_pallet_load_g is not None %}
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Actual pallet load</th>
+                                <td class="text-end">{{ selected_result.actual_pallet_load_display }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if selected_result.max_pallet_load_g is not None %}
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Maximum pallet load</th>
+                                <td class="text-end">{{ selected_result.max_pallet_load_display }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Load utilization</th>
+                                <td class="text-end">{{ selected_result.load_utilization_pct }}%</td>
+                            </tr>
+                            {% endif %}
+                            <tr>
+                                <th scope="row" class="fw-normal text-muted">Limiting constraint</th>
+                                <td class="text-end">{{ selected_result.limiting_constraint }}</td>
+                            </tr>
                             <tr>
                                 <th scope="row" class="fw-normal text-muted">Main layer cartons</th>
                                 <td class="text-end">{{ selected_result.boxes_layer_A }} pcs</td>

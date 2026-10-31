@@ -76,6 +76,15 @@
                        data-unit-group="{{ pallet_ui.unit_selectors.pallet_dimensions.group }}"
                        value="{{ pallet_values.max_stack_height|default:'' }}">
             </div>
+            <div class="tool-field-group mb-0">
+                <label class="form-label">Max Pallet Load {% include "shared/_unit_selector.html" with unit_selector=pallet_ui.unit_selectors.mass current_unit=pallet_values.mass_unit|default:'g' selector_key='max-pallet-load' %}</label>
+                <input type="number" step="any" class="form-control"
+                       name="{{ pallet_ui.names.max_pallet_load }}"
+                       data-unit-input
+                       data-unit-group="{{ pallet_ui.unit_selectors.mass.group }}"
+                       value="{{ pallet_values.max_pallet_load|default:'' }}">
+                <div class="app-form-note mt-1">Optional carton load only; excludes the empty pallet.</div>
+            </div>
         </div>
 
         {% if selected_pallet_material %}

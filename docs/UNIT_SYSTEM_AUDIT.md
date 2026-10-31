@@ -62,9 +62,10 @@ Exact definitions:
 | Bag Selection | manual product, bag tare, max payload | — | g | g | g report fields | Payload feasibility/report contract is gram-based. |
 | Bag Selection | catalogue product / bag tare | kg | catalogue row/summary: kg | kg -> g in shared Bag service | g report fields | Conversion is not performed inside the bag engine. |
 | Palletization | carton and pallet dimensions, heights, overhang | catalogue/manual mm | mm | mm | mm | Catalogue carton/pallet uses external dimensions first, then internal fallback. |
-| Palletization | manual carton weight / max bottom-carton load | — | g | g | g | Engine propagates the caller's mass unit; KolliPack's caller contract is grams. |
+| Palletization | manual carton weight / max pallet load / max bottom-carton load | — | selectable mass unit | g | g | Shared service converts once; max pallet load excludes pallet tare and caps authoritative placements. |
 | Palletization | catalogue carton tare | kg | catalogue row/summary: kg | kg -> g in shared Palletization service | g | Manual `450 g` and catalogue `0.450 kg` are equivalent. |
 | Palletization | `max_bottom_load_g`, `avg_bottom_load_g`, `weight_limit_g` | — | g | g | g | Correct names. Legacy `_kg` aliases remain temporarily and contain the same gram values. |
+| Palletization | `max_pallet_load_g`, `actual_pallet_load_g`, `load_utilization_pct` | — | selected mass unit / percent | g | g / percent | Screen and both PDF paths consume the serialized engine result; no report-side recalculation. |
 | Palletization | catalogue pallet tare | kg | kg | kg in Packaging Flow | not an engine input | Standalone Palletization does not include pallet tare in its stacking algorithm. |
 | Palletization | result height fields | — | mm | mm | mm | `used_height_mm`, `pallet_height_mm`, `total_height_mm`. |
 | Transport Container | internal transport-unit L/W/H | catalogue/manual mm | mm | mm | mm | Engine geometry and placements remain millimetres. |
@@ -165,10 +166,11 @@ it is absent:
 - carton dimensions: `mm`, `cm`, `m`, `in`, `ft`;
 - pallet/layout dimensions, maximum stack height, and overhang: `mm`, `cm`,
   `m`, `in`, `ft`;
-- carton weight and maximum bottom-carton load: `g`, `kg`, `t`, `oz`, `lb`.
+- carton weight, maximum pallet load, and maximum bottom-carton load: `g`, `kg`,
+  `t`, `oz`, `lb`.
 
 Carton dimensions share one linked state, pallet/layout values share a second
-linked state, and the two manual mass inputs share one mass state. The server
+linked state, and the three manual mass inputs share one mass state. The server
 converts submitted manual values once at the Palletization service boundary to
 `mm` and `g`; the Palletization engine and all result calculations remain
 metric and unchanged. Browser conversion is only an interaction aid and

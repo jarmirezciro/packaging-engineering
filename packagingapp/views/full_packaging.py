@@ -395,6 +395,10 @@ def _read_prefixed_pallet_post(step, idx, post):
         f"pallet_dimension_unit_{idx}", cfg.get("pallet_dimension_unit", "mm")
     )
     cfg["max_stack_height"] = post.get(f"max_stack_height_{idx}", cfg.get("max_stack_height", ""))
+    cfg["max_pallet_load"] = post.get(
+        f"max_pallet_load_{idx}",
+        cfg.get("max_pallet_load", ""),
+    )
     cfg["max_width_stickout"] = post.get(
         f"max_width_stickout_{idx}",
         cfg.get("max_width_stickout", 0),
@@ -452,8 +456,13 @@ def _build_pallet_workflow_payload(
         getattr(selected_pallet_material, "part_weight", None), None
     )
     total_boxes = _to_int(selected_row.get("total_boxes"), 1) or 1
+    actual_pallet_load_g = _to_float(
+        selected_row.get("actual_pallet_load_g"), None
+    )
     gross_weight_kg = (
-        prev_weight_kg * total_boxes if prev_weight_kg is not None else None
+        g_to_kg(actual_pallet_load_g)
+        if actual_pallet_load_g is not None
+        else (prev_weight_kg * total_boxes if prev_weight_kg is not None else None)
     )
     if pallet_tare_kg is not None:
         gross_weight_kg = (gross_weight_kg or 0.0) + pallet_tare_kg
@@ -722,6 +731,7 @@ _PALLET_NUMERIC_INPUT_KEYS = {
     "pallet_w",
     "pallet_height",
     "max_stack_height",
+    "max_pallet_load",
     "max_width_stickout",
     "max_length_stickout",
 }

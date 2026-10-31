@@ -34,6 +34,7 @@ def sanitize_palletization_config_for_session(cfg):
         "pallet_height": _json_safe_scalar(cfg.get("pallet_height", "")),
         "pallet_dimension_unit": str(cfg.get("pallet_dimension_unit", "mm") or "mm"),
         "max_stack_height": _json_safe_scalar(cfg.get("max_stack_height", "")),
+        "max_pallet_load": _json_safe_scalar(cfg.get("max_pallet_load", "")),
         "max_width_stickout": _json_safe_scalar(cfg.get("max_width_stickout", 0)),
         "max_length_stickout": _json_safe_scalar(cfg.get("max_length_stickout", 0)),
         "show_advanced": bool(cfg.get("show_advanced", False)),
@@ -49,9 +50,13 @@ def serialize_pallet_row(row, pallet_height_mm=0.0):
     max_bottom_load_g = row.get("max_bottom_load_g", row.get("max_bottom_load_kg"))
     avg_bottom_load_g = row.get("avg_bottom_load_g", row.get("avg_bottom_load_kg"))
     weight_limit_g = row.get("weight_limit_g", row.get("weight_limit_kg"))
+    max_pallet_load_g = row.get("max_pallet_load_g")
+    actual_pallet_load_g = row.get("actual_pallet_load_g")
     max_bottom_load_g = None if max_bottom_load_g is None else float(max_bottom_load_g)
     avg_bottom_load_g = None if avg_bottom_load_g is None else float(avg_bottom_load_g)
     weight_limit_g = None if weight_limit_g is None else float(weight_limit_g)
+    max_pallet_load_g = None if max_pallet_load_g is None else float(max_pallet_load_g)
+    actual_pallet_load_g = None if actual_pallet_load_g is None else float(actual_pallet_load_g)
     return {
         "pattern": pattern,
         "stacking": stacking,
@@ -71,6 +76,21 @@ def serialize_pallet_row(row, pallet_height_mm=0.0):
         "max_bottom_load_g": max_bottom_load_g,
         "avg_bottom_load_g": avg_bottom_load_g,
         "weight_limit_g": weight_limit_g,
+        "max_pallet_load_g": max_pallet_load_g,
+        "actual_pallet_load_g": actual_pallet_load_g,
+        "load_utilization_pct": (
+            None
+            if row.get("load_utilization_pct") is None
+            else float(row.get("load_utilization_pct"))
+        ),
+        "feasible_pallet_load": bool(row.get("feasible_pallet_load", True)),
+        "weight_capacity_boxes": (
+            None
+            if row.get("weight_capacity_boxes") is None
+            else int(row.get("weight_capacity_boxes"))
+        ),
+        "geometric_capacity_boxes": int(row.get("geometric_capacity_boxes") or 0),
+        "limiting_constraint": str(row.get("limiting_constraint") or "Geometry"),
         # Temporary compatibility aliases; values are grams.
         "max_bottom_load_kg": max_bottom_load_g,
         "avg_bottom_load_kg": avg_bottom_load_g,

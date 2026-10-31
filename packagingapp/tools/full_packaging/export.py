@@ -414,7 +414,7 @@ def _step_metrics(step):
 
     if step_type == "pallet":
         selected = (step or {}).get("selected_result") or {}
-        return [
+        rows = [
             ("Main layer cartons", _int(selected.get("boxes_layer_A"))),
             ("Alternate layer cartons", _int(selected.get("boxes_layer_B"))),
             ("Layers", _int(selected.get("layers"))),
@@ -428,8 +428,35 @@ def _step_metrics(step):
             )),
             ("Pallet floor usage", f"{_num(selected.get('layer_footprint_util_pct'), 2)}%"),
             ("Stack volume usage", f"{_num(selected.get('volumetric_util_pct'), 2)}%"),
-            ("Bottom-carton load check", "OK" if selected.get("feasible_weight") else ("Review required" if selected else "Not checked")),
         ]
+        if selected.get("actual_pallet_load_g") not in (None, "", "None"):
+            rows.append((
+                "Actual pallet load",
+                selected.get("actual_pallet_load_display")
+                or format_mass(
+                    selected.get("actual_pallet_load_g"),
+                    canonical_unit="g",
+                    display_unit=units["output_mass"],
+                ),
+            ))
+        if selected.get("max_pallet_load_g") not in (None, "", "None"):
+            rows.extend([
+                (
+                    "Maximum pallet load",
+                    selected.get("max_pallet_load_display")
+                    or format_mass(
+                        selected.get("max_pallet_load_g"),
+                        canonical_unit="g",
+                        display_unit=units["output_mass"],
+                    ),
+                ),
+                ("Load utilization", f"{_num(selected.get('load_utilization_pct'), 2)}%"),
+            ])
+        rows.extend([
+            ("Limiting constraint", _clean(selected.get("limiting_constraint"))),
+            ("Bottom-carton load check", "OK" if selected.get("feasible_weight") else ("Review required" if selected else "Not checked")),
+        ])
+        return rows
 
     if step_type == "bag":
         return [

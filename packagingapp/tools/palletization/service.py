@@ -1,3 +1,5 @@
+import math
+
 from ...models import PackagingMaterial
 from ...units import (
     LENGTH_UNITS,
@@ -8,6 +10,7 @@ from ...units import (
     kg_to_g,
 )
 from ...utils.palletization.engine import (
+    max_cartons_for_pallet_load,
     run_palletization_analysis,
     selected_result_for_render,
 )
@@ -63,6 +66,26 @@ def _convert_manual_value(value, unit, converter, canonical_unit, label, message
         # safe for direct service callers that bypass the validation step.
         if not any(label in message for message in messages):
             messages.append(f"Unsupported {label} unit {unit!r}.")
+        return None
+
+
+def _convert_optional_max_pallet_load(value, unit, messages):
+    """Normalize the optional payload cap with explicit finite-number errors."""
+    if value in (None, "", "None"):
+        return None
+
+    numeric = _to_float(value)
+    if numeric is None or not math.isfinite(numeric):
+        messages.append("Max Pallet Load must be a finite number greater than 0.")
+        return None
+    if unit is None:
+        return None
+
+    try:
+        return float(convert_mass(numeric, unit, "g"))
+    except (UnsupportedUnitError, TypeError, ValueError):
+        if not any("Unsupported mass unit" in message for message in messages):
+            messages.append(f"Unsupported mass unit {unit!r}.")
         return None
 
 
@@ -254,6 +277,11 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
         "mass",
         messages,
     )
+    max_pallet_load = _convert_optional_max_pallet_load(
+        cfg.get("max_pallet_load"),
+        mass_unit,
+        messages,
+    )
     max_width_stickout = _convert_manual_value(
         cfg.get("max_width_stickout") or 0,
         pallet_dimension_unit,
@@ -279,6 +307,7 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
         ("pallet width", pallet_w),
         ("pallet height", pallet_height),
         ("max stack height", max_stack_height),
+        ("max pallet load", max_pallet_load),
     ]:
         if value is not None and value <= 0:
             messages.append(f"{label.capitalize()} must be greater than 0.")
@@ -292,6 +321,16 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
         if value is not None and value < 0:
             messages.append(f"{label.capitalize()} cannot be negative.")
 
+    if max_pallet_load is not None:
+        if box_weight is None or not math.isfinite(box_weight) or box_weight <= 0:
+            messages.append(
+                "Carton gross weight must be a finite number greater than 0 when Max Pallet Load is provided."
+            )
+        elif max_pallet_load > 0 and max_cartons_for_pallet_load(max_pallet_load, box_weight) < 1:
+            messages.append(
+                "Max Pallet Load is lower than one carton gross weight; no carton can be placed."
+            )
+
     effective_config = {
         "box_source": box_source,
         "pallet_source": pallet_source,
@@ -304,6 +343,7 @@ def build_effective_palletization_config(config, selected_box_material=None, sel
         "pallet_w": pallet_w,
         "pallet_height": pallet_height,
         "max_stack_height": max_stack_height,
+        "max_pallet_load": max_pallet_load,
         "max_width_stickout": max_width_stickout,
         "max_length_stickout": max_length_stickout,
     }
@@ -354,6 +394,7 @@ def _analyze_palletization_core(
         max_length_stickout=float(eff["max_length_stickout"]),
         box_weight=eff["box_weight"],
         max_weight_on_bottom_box=eff["max_weight_on_bottom_box"],
+        max_pallet_load=eff["max_pallet_load"],
     )
 
     selected_row = None

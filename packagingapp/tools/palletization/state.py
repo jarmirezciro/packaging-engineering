@@ -18,6 +18,7 @@ def default_palletization_config():
         "pallet_height": "",
         "pallet_dimension_unit": "mm",
         "max_stack_height": "",
+        "max_pallet_load": "",
         "max_width_stickout": 0,
         "max_length_stickout": 0,
         "show_advanced": False,

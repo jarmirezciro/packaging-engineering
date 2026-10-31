@@ -216,7 +216,8 @@ def _analysis_rows(analysis):
     max_bottom_load = analysis.get(
         "max_bottom_load_g", analysis.get("max_bottom_load_kg")
     )
-    return [
+    rows = [
+        ("Cartons per pallet", f"{_clean(analysis.get('total_boxes'))} pcs"),
         ("Main layer cartons", f"{_clean(analysis.get('boxes_layer_A'))} pcs"),
         ("Alternate layer cartons", f"{_clean(analysis.get('boxes_layer_B'))} pcs" if analysis.get("boxes_layer_B") not in (None, "", "None") else "Not available"),
         ("Total palletized-load height", analysis.get("total_height_display") or format_length(analysis.get("total_height_mm"))),
@@ -224,6 +225,27 @@ def _analysis_rows(analysis):
         ("Pallet floor usage", f"{_clean(analysis.get('layer_footprint_util_pct'))}%"),
         ("Stack volume usage", f"{_clean(analysis.get('volumetric_util_pct'))}%"),
         ("Alternate layer possible", "Yes" if analysis.get("interlock_possible") else "No"),
+    ]
+    if analysis.get("actual_pallet_load_g") not in (None, "", "None"):
+        rows.append((
+            "Actual pallet load",
+            analysis.get("actual_pallet_load_display")
+            or format_mass(analysis.get("actual_pallet_load_g")),
+        ))
+    if analysis.get("max_pallet_load_g") not in (None, "", "None"):
+        rows.extend([
+            (
+                "Maximum pallet load",
+                analysis.get("max_pallet_load_display")
+                or format_mass(analysis.get("max_pallet_load_g")),
+            ),
+            (
+                "Load utilization",
+                f"{_clean(analysis.get('load_utilization_pct'))}%",
+            ),
+        ])
+    rows.extend([
+        ("Limiting constraint", _clean(analysis.get("limiting_constraint"))),
         ("Bottom-carton load check", _load_check_label(analysis)),
         ("Max bottom-carton load", (
             analysis.get("max_bottom_load_display")
@@ -233,7 +255,8 @@ def _analysis_rows(analysis):
             analysis.get("weight_limit_display")
             or format_mass(weight_limit, canonical_unit="g", display_unit="g")
         ) if weight_limit not in (None, "", "None") else "Not provided"),
-    ]
+    ])
+    return rows
 
 
 def _ranking_table(rows, selected_result_key):
@@ -284,7 +307,7 @@ def build_palletization_pdf(export_payload):
     story.append(Paragraph(f"Generated {generated_at}", _STYLES["PalletReportSubtitle"]))
 
     story.append(_metric_cards([
-        ("Total cartons", f"{_clean(analysis.get('total_boxes'))} pcs"),
+        ("Cartons per pallet", f"{_clean(analysis.get('total_boxes'))} pcs"),
         ("Layers", _clean(analysis.get("layers"))),
         ("Cartons/layer", _cartons_per_layer(analysis)),
         ("Stack height", analysis.get("total_height_display") or format_length(analysis.get("total_height_mm"))),
@@ -314,7 +337,9 @@ def build_palletization_pdf(export_payload):
             ("Dimensions", pallet.get("dimensions")),
             ("Max stack height", pallet.get("max_stack_height")),
             ("Allowed overhang", pallet.get("overhang")),
-        ], [34 * mm, 75 * mm]),
+        ] + ([
+            ("Maximum pallet load", pallet.get("max_pallet_load")),
+        ] if analysis.get("max_pallet_load_g") not in (None, "", "None") else []), [34 * mm, 75 * mm]),
     ]
     ranking = export_payload.get("ranking") or []
     if ranking:

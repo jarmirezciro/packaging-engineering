@@ -47,6 +47,7 @@ def build_pallet_ui_contract(prefix=""):
         "pallet_height": f"pallet_height{suffix}",
         "pallet_dimension_unit": f"pallet_dimension_unit{suffix}",
         "max_stack_height": f"max_stack_height{suffix}",
+        "max_pallet_load": f"max_pallet_load{suffix}",
         "max_width_stickout": f"max_width_stickout{suffix}",
         "max_length_stickout": f"max_length_stickout{suffix}",
     }
@@ -224,6 +225,10 @@ def result_card_from_row(row, pallet_l, pallet_w, pallet_height):
         "feasible_weight": bool(row["feasible_weight"]),
         "max_bottom_load_g": max_bottom_load_g,
         "max_bottom_load_kg": max_bottom_load_g,
+        "max_pallet_load_g": row.get("max_pallet_load_g"),
+        "actual_pallet_load_g": row.get("actual_pallet_load_g"),
+        "load_utilization_pct": row.get("load_utilization_pct"),
+        "limiting_constraint": row.get("limiting_constraint"),
     }
 
 
@@ -256,6 +261,12 @@ def attach_pallet_result_presentation(serialized_result, config, effective_confi
         )
         row["weight_limit_display"] = format_mass(
             row.get("weight_limit_g"), canonical_unit="g", display_unit=mass_unit
+        )
+        row["max_pallet_load_display"] = format_mass(
+            row.get("max_pallet_load_g"), canonical_unit="g", display_unit=mass_unit
+        )
+        row["actual_pallet_load_display"] = format_mass(
+            row.get("actual_pallet_load_g"), canonical_unit="g", display_unit=mass_unit
         )
         return row
 
@@ -294,6 +305,11 @@ def attach_pallet_result_presentation(serialized_result, config, effective_confi
         ),
         "bottom_load_limit": format_mass(
             effective.get("max_weight_on_bottom_box"),
+            canonical_unit="g",
+            display_unit=mass_unit,
+        ),
+        "max_pallet_load": format_mass(
+            effective.get("max_pallet_load"),
             canonical_unit="g",
             display_unit=mass_unit,
         ),
