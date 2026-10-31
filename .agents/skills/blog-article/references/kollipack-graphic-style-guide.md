@@ -339,6 +339,19 @@ Style rules:
 - keep the text concise
 - use one green highlight banner for a confirmed setting when useful
 
+
+<!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:scenario-style -->
+## 8.1A Packaging Scenario Setup — modular illustrated flow
+
+**Approved source of truth:** `references/packaging-scenario-setup.md`, using `assets/approved-packaging-scenario-setup-reference.webp` as the **visual style reference**.
+
+This pattern introduces physical packaging units and constraints **before** tools/screenshots, where it improves comprehension. It is generalized: Product → Box, Product → Bag, Product → Case → Pallet, Case → Pallet, Pallet → Container, full Packaging Flow, branching case alternatives, and mixed cargo. The stage list is always derived from the actual article and may be two to five units (or just one if the case genuinely needs only one). Never automatically add Transport.
+
+Use recognizable packaging objects in light editorial cards with navy headers, soft green arrows, concise data strips and optional one-line takeaway. Preserve the *aesthetic quality* of the approved example, not its specific carton dimensions, RSC arrangement or pallet depiction. Keep the figure conceptual unless real geometry is validated; for comparison results use real evidence instead. This is separate from the dark studio thumbnail design system.
+
+A separate **Software Input Comparison** can follow the scenario figure and should use actual screenshots, not newly invented software UI. All final figures are subject to `references/visual-editorial-critic.md`.
+<!-- END KOLLILABS_BLOG_SKILL_UPDATE_V1:scenario-style -->
+
 ## 8.2 Comparison figures
 
 Purpose:

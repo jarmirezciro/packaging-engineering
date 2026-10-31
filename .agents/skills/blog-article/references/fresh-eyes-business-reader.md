@@ -124,6 +124,21 @@ Check:
 - Are caveats weakening every result?
 - Can one compact limitations paragraph replace repeated disclaimers?
 
+
+<!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:fresh-eyes-figures -->
+## Figure comprehension test (alongside visual QA)
+
+Treat figures as part of the article, not decoration. After a quick look at the *actual rendered images*, can the reader identify:
+
+- Which physical packaging units are involved and how they relate?
+- What is held constant and what is changing?
+- Which two cases, products or tools are being compared?
+- What is the main consequence and why should a manager care?
+- What should the reader explore or validate next?
+
+If the visuals cannot answer these questions, revise the figure/figure order first; do not automatically add long prose to compensate for unclear diagrams. This review concerns **meaning**; the separate `visual-editorial-critic.md` enforces render completeness, legibility and editorial quality. A conceptual figure may explain a physical relationship but must not be presented as exact count/geometry evidence without verification.
+<!-- END KOLLILABS_BLOG_SKILL_UPDATE_V1:fresh-eyes-figures -->
+
 ## Required revision behavior
 
 Do not merely create a critique.

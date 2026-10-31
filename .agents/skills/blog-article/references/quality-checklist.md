@@ -86,6 +86,24 @@
 - [ ] Production files are optimized.
 - [ ] All referenced paths resolve.
 
+
+<!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:quality-gate -->
+## Packaging Scenario Setup & visual editorial quality — publication gate
+
+- [ ] Physical packaging stages follow the real article scope; absent or mixed stages are handled correctly.
+- [ ] Where beneficial, the illustrated scenario figure follows `packaging-scenario-setup.md` and its approved *style* reference (not copied facts).
+- [ ] Conceptual graphics are distinguished from source-verified calculations and real result renders.
+- [ ] Every final figure was opened and inspected at native size and realistic article/mobile display widths.
+- [ ] Important case, carton, bag, pallet and transport geometry is complete and uncropped.
+- [ ] All critical labels, counts and rendered evidence are readable at display size.
+- [ ] Software comparisons use real screenshots, faithful values and like-for-like framing.
+- [ ] The visuals explain the result promptly; there are no giant empty screenshot cards, decorative cube-only explanations, or needless repeated figures.
+- [ ] In-article images match the approved light KolliPack visual language; thumbnails follow their separate canonical workflow.
+- [ ] `visual-editorial-critic.md` was applied, with a recorded decision for each figure and the complete page.
+- [ ] Overall Visual QA is PASS; FAIL, REVISE or NOT REVIEWED blocks publication.
+- [ ] If `publish_approved`, the text and supplied figures were preserved and byte-level differences were reported/approved.
+<!-- END KOLLILABS_BLOG_SKILL_UPDATE_V1:quality-gate -->
+
 ## Minimal validation
 
 - [ ] Article schema validator passes.

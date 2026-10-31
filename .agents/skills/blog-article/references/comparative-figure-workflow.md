@@ -51,6 +51,15 @@ product requirement → package quantity → package geometry → pallet or tran
 
 Include only the stages in the approved case scope.
 
+
+<!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:comparative-scenario -->
+### Modular Packaging Scenario Setup (approved editorial pattern)
+
+When the reader benefits from understanding the physical packaging chain, precede application screenshots with a clear illustrated **Packaging Scenario Setup**. Follow `packaging-scenario-setup.md` and its approved visual reference. The stages may be partial, full, branching, or mixed—derive them from the article's scope; never add Transport simply because KolliPack supports it. Use the illustration for *conceptual context*, not as proof of an exact engine solution.
+
+For a named-tool comparison, a useful figure sequence is: (1) physical scenario when helpful, (2) real software input comparison, (3) one result comparison per important alternative, and (4) an optional trade-off chart. Do not force all four figure types into every article; choose the minimum needed to tell the case clearly. Every important result figure should show complete, readable cases and pallet/container loads, with like-for-like framing and source labels.
+<!-- END KOLLILABS_BLOG_SKILL_UPDATE_V1:comparative-scenario -->
+
 ### Comparative setup collage
 
 Place the setup view for each tool in a consistent row or column. Show only the inputs needed to establish a like-for-like comparison.

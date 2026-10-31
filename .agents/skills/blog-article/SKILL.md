@@ -14,6 +14,10 @@ Use this skill to create a new KolliLabs article, rewrite or polish a draft, ref
 - `refresh`: substantively update an existing article while preserving its identity.
 - `rewrite`: rebuild an existing article's title, hook, narrative, clarity, visuals, and SEO while preserving approved evidence and slug.
 
+<!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:mode -->
+- `publish_approved`: integrate owner-approved text and image files unchanged (apart from required metadata/path integration), verify the linked case and publish only with explicit authorization. Follow `references/publish-approved-artifact.md`. Skip the normal rewrite, title-lab, image generation and backend redesign steps unless the owner separately requests them.
+<!-- END KOLLILABS_BLOG_SKILL_UPDATE_V1:mode -->
+
 ## Article profiles
 
 Choose the article profile before drafting.
@@ -217,6 +221,19 @@ For external-tool comparisons:
 
 ## 8. Create or revise figures
 
+<!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:figure-contract -->
+### Required figure-pattern selection and approved-content preservation
+
+Before drawing figures, determine whether the article needs a **Packaging Scenario Setup**: the physical chain appropriate to its actual scope, which can be Product → Bag, Product → Case, Case → Pallet, Pallet → Transport, Product → Case → Pallet → Transport, mixed loads, or branches. Follow `references/packaging-scenario-setup.md`. The approved reference at `assets/approved-packaging-scenario-setup-reference.webp` specifies *visual quality and style*, not fixed inputs, stages or geometry. Do not add unavailable or out-of-scope stages.
+
+Keep **physical scenario illustrations** distinct from **software input comparisons** and **evidence-based result renders**. A conceptual illustration can be attractive but must not assert unverified geometry or quantities. In comparator articles, real results remain sourced from real screenshots/backend data; neither invented vendor UI nor decorative cubes count as result evidence.
+
+If the request supplies finished approved figures or copy, use `publish_approved` mode and `references/publish-approved-artifact.md`: preserve the files and wording, do not reinvent them.
+
+Before integrating any new figure, inspect the rendered image at its native resolution and actual article/mobile display size and apply `references/visual-editorial-critic.md`. Never pass a result solely because its code produced a valid PNG/WebP.
+<!-- END KOLLILABS_BLOG_SKILL_UPDATE_V1:figure-contract -->
+
+
 Follow `references/image-style-guide.md`.
 For multi-tool or multi-result comparisons, also follow
 `references/comparative-figure-workflow.md`.
@@ -264,6 +281,15 @@ Temporarily ignore the source brief and backend notes. Review only:
 - CTA.
 
 Choose the most relevant non-expert persona. Apply the recommended revisions before continuing.
+
+
+<!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:visual-gate -->
+## 9A. Run the Visual Editorial Critic (hard gate)
+
+Follow `references/visual-editorial-critic.md` **after figures are rendered**. Review each finished figure and the actual rendered article at realistic desktop and mobile widths. A narrow preview/render inspection is authorized by this gate; it is not permission for broad browser regression testing or engine modifications. This is additional to Fresh-Eyes Business Reader, not a replacement. Prefer a review isolated from the creator; if an independent review is unavailable, disclose self-review. A figure with cropped geometry, tiny unreadable results, unsupported packaging counts, confusing scale or unused out-of-scope stages fails. Block publication if Visual QA is `FAIL`, `REVISE` or `NOT REVIEWED`.
+
+For `publish_approved`, visual QA checks that the approved assets remain complete and legible **without redesigning them**. Any proposed change to approved content must be returned to the owner for approval.
+<!-- END KOLLILABS_BLOG_SKILL_UPDATE_V1:visual-gate -->
 
 ## 10. Perform the SEO pass
 
@@ -318,6 +344,13 @@ Do not run broad Django, browser, screenshot, deployment, or engine tests unless
 Perform one focused correction pass. Stop and report remaining problems instead of entering repeated loops.
 
 # Final report
+
+<!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:final-report -->
+- Visual QA results for each image and the complete page, including whether the review was independent or a self-review.
+- Packaging Scenario Setup stages and whether the image is conceptual or evidence-derived.
+- In `publish_approved` mode, file checksums and any authorized changes to supplied text/assets.
+<!-- END KOLLILABS_BLOG_SKILL_UPDATE_V1:final-report -->
+
 
 Report:
 
