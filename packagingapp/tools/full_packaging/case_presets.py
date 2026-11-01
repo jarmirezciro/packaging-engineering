@@ -125,6 +125,50 @@ _CASE_PRESETS = {
             "reference_tare_lb": 50,
         },
     },
+    "capepack-parameter-fine-tuning": {
+        "slug": "capepack-parameter-fine-tuning",
+        "title": "CapePack Parameter Fine-Tuning",
+        "description": (
+            "A bounded 12- and 16-carton CapePack continuation with a 72 in "
+            "pallet-height limit and linked case-design and palletization results."
+        ),
+        "display_units": {
+            "product_dimension_unit": "in",
+            "product_mass_unit": "lb",
+            "container_dimension_unit": "in",
+            "container_mass_unit": "lb",
+            "pallet_dimension_unit": "in",
+            "mass_unit": "lb",
+        },
+        "product": {
+            "length": 6,
+            "width": 5,
+            "height": 8,
+            "weight": 2.25,
+            "desired_quantity": 12,
+            "r1": True,
+            "r2": True,
+            "r3": True,
+        },
+        "box_design": {
+            # Canonical internal dimensions from the approved case specification.
+            # Candidate selection remains geometry-based; no volatile candidate ID
+            # is stored in the preset.
+            "preferred_dimensions": (457.2, 203.2, 508.0),
+            "thickness": 0.16,
+            "thickness_unit": "in",
+        },
+        "pallet": {
+            "length": 48,
+            "width": 40,
+            "height": 5.5,
+            "max_stack_height": 72,
+            "max_pallet_load": 2000,
+            "max_width_stickout": 0,
+            "max_length_stickout": 0,
+            "reference_tare_lb": 50,
+        },
+    },
 }
 
 

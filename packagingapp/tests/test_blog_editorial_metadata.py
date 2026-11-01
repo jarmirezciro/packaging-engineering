@@ -17,6 +17,11 @@ STATIC_ROOT = REPO_ROOT / "static"
 FRONT_MATTER = re.compile(r"\A\+\+\+\s*\n(?P<meta>.*?)\n\+\+\+", re.DOTALL)
 
 EXPECTED_ARTICLES = {
+    "capepack-parameter-fine-tuning": {
+        "title": "Can KolliPack Match CapePack After Parameter Fine-Tuning?",
+        "seo_title": "CapePack vs KolliPack: Case Design and Pallet Fine-Tuning",
+        "thumbnail": "img/blog/capepack-parameter-fine-tuning/01_benchmark_setup_approved.png",
+    },
     "box-selection-3d-bin-packing-problem": {
         "title": "The Box Fits. So Why Might It Still Be the Wrong Choice?",
         "seo_title": "3D Bin Packing for Better Box Selection | KolliLabs",
@@ -117,9 +122,9 @@ def load_metadata(slug: str) -> dict:
 
 
 class BlogEditorialMetadataTests(unittest.TestCase):
-    def test_all_nine_editorial_titles_and_seo_titles_are_canonical(self):
+    def test_all_editorial_titles_and_seo_titles_are_canonical(self):
         article_files = {path.stem for path in ARTICLE_DIR.glob("*.md")}
-        self.assertEqual(len(EXPECTED_ARTICLES), 9)
+        self.assertEqual(len(EXPECTED_ARTICLES), 10)
         self.assertTrue(set(EXPECTED_ARTICLES).issubset(article_files))
 
         for slug, expected in EXPECTED_ARTICLES.items():
