@@ -323,6 +323,9 @@ def build_container_selection_single_pdf(export_payload):
         ("Product ID", product.get("id")),
         ("Name", product.get("name")),
         ("Dimensions", product.get("dimensions")),
+        ("Nominal dims", product.get("nominal_dimensions")),
+        ("Effective dims", product.get("effective_dimensions")),
+        ("Dimensional allowance", product.get("allowances")),
         ("Weight", product.get("weight")),
         ("Rotations", product.get("rotations")),
     ], [28 * mm, 64 * mm])
@@ -344,6 +347,9 @@ def build_container_selection_single_pdf(export_payload):
     ]
     if not is_design:
         container_rows.insert(5, ("Tare / payload", f"{container.get('tare', '-')} / {container.get('payload_capacity', '-')}"))
+    else:
+        container_rows.insert(5, ("Carton tare / gross", f"{container.get('tare', '-')} / {container.get('gross_carton_weight', '-')}"))
+        container_rows.insert(6, ("Tare source", container.get("tare_source", "-")))
     container_table = _key_value_table(container_rows, [30 * mm, 66 * mm])
 
     left_stack = [
@@ -435,6 +441,9 @@ def build_container_selection_optimal_pdf(export_payload):
         ("Product ID", product.get("id")),
         ("Name", product.get("name")),
         ("Dimensions", product.get("dimensions")),
+        ("Nominal dims", product.get("nominal_dimensions")),
+        ("Effective dims", product.get("effective_dimensions")),
+        ("Dimensional allowance", product.get("allowances")),
         ("Weight", product.get("weight")),
         ("Rotations", product.get("rotations")),
     ], [31 * mm, 63 * mm])
@@ -447,6 +456,10 @@ def build_container_selection_optimal_pdf(export_payload):
         ("Description", selected_candidate.get("description") or recommendation.get("description")),
         ("Internal dims", selected_candidate.get("dimensions") or recommendation.get("dimensions")),
         ("External dims", selected_candidate.get("external_dimensions") or recommendation.get("external_dimensions")),
+        ("Carton tare", selected_candidate.get("tare")),
+        ("Tare source", selected_candidate.get("tare_source")),
+        ("Corrugated material", selected_candidate.get("corrugated_material")),
+        ("Gross carton weight", selected_candidate.get("gross_carton_weight")),
     ], [35 * mm, 67 * mm])
 
     visual_stack = [

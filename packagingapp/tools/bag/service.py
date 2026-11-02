@@ -29,6 +29,11 @@ from ..product_shape import (
     decorate_product_scene,
     normalize_product_shape,
 )
+from ..product_dimensions import (
+    PRODUCT_ALLOWANCE_KEYS,
+    apply_product_allowances,
+    normalize_product_allowances,
+)
 
 from .serializers import sanitize_bag_config_for_session
 
@@ -92,6 +97,15 @@ def _normalize_manual_bag_inputs(config):
         if any(value is None for value in product):
             product = None
 
+    try:
+        product_allowances = normalize_product_allowances(
+            tuple(_config_value(config, key, "0") for key in PRODUCT_ALLOWANCE_KEYS),
+            product_dimension_unit or "mm",
+        )
+    except (TypeError, ValueError, UnsupportedUnitError):
+        product_allowances = (0.0, 0.0, 0.0)
+        messages.append("Product dimensional allowances must be finite and non-negative.")
+
     bag = None
     if (config or {}).get("bag_source") != "catalogue" and bag_dimension_unit is not None:
         bag = tuple(
@@ -103,6 +117,7 @@ def _normalize_manual_bag_inputs(config):
 
     return {
         "product": product,
+        "product_allowances": product_allowances,
         "bag": bag,
         "product_dimension_unit": product_dimension_unit,
         "product_mass_unit": product_mass_unit,
@@ -369,9 +384,14 @@ def build_bag_analysis_report(
     quantity,
     selected_product=None,
     selected_material=None,
+    nominal_product=None,
+    product_allowances=None,
 ):
     if result is None or product is None:
         return None
+
+    nominal_product = nominal_product if nominal_product is not None else product
+    product_allowances = tuple(product_allowances or (0.0, 0.0, 0.0))
 
     current_quantity = int(quantity or result.get("desired_qty") or result.get("max_quantity") or 0)
 
@@ -463,6 +483,21 @@ def build_bag_analysis_report(
         },
         "product_dimensions_display": format_dimensions(
             product[0], product[1], product[2], display_unit=product_dimension_unit
+        ),
+        "effective_product_dimensions_display": format_dimensions(
+            product[0], product[1], product[2], display_unit=product_dimension_unit
+        ),
+        "nominal_product_dimensions_display": format_dimensions(
+            nominal_product[0],
+            nominal_product[1],
+            nominal_product[2],
+            display_unit=product_dimension_unit,
+        ),
+        "product_allowances_display": format_dimensions(
+            product_allowances[0],
+            product_allowances[1],
+            product_allowances[2],
+            display_unit=product_dimension_unit,
         ),
         "bag_dimensions_display": format_dimensions(
             bag_len, bag_w, display_unit=bag_dimension_unit
@@ -578,10 +613,14 @@ def _analyze_bag_design(
     config,
     action,
     product,
+    packing_product=None,
     selected_product=None,
     selected_material=None,
     initial_messages=None,
+    product_allowances=None,
 ):
+    packing_product = packing_product if packing_product is not None else product
+    product_allowances = tuple(product_allowances or (0.0, 0.0, 0.0))
     messages = list(initial_messages or [])
     notices = []
     desired_quantity = _positive_integer(config.get("desired_qty"))
@@ -590,7 +629,7 @@ def _analyze_bag_design(
         config.get("product_shape"),
         display_unit=config.get("product_dimension_unit") or "mm",
     )
-    if product is None or any(float(value) <= 0 for value in product):
+    if packing_product is None or any(float(value) <= 0 for value in packing_product):
         messages.append("Enter product length, width, and height greater than zero in millimetres.")
     if desired_quantity is None:
         messages.append("Enter the desired quantity as a positive whole number.")
@@ -613,7 +652,7 @@ def _analyze_bag_design(
     # be rotated freely during handling, so all product orientations are always
     # evaluated regardless of catalogue product rotation flags or legacy state.
     design = build_bag_design_candidates(
-        product[0], product[1], product[2], desired_quantity
+        packing_product[0], packing_product[1], packing_product[2], desired_quantity
     )
     candidates = [
         _add_bag_design_metrics(row, config, selected_product)
@@ -654,6 +693,24 @@ def _analyze_bag_design(
         "bag_usage_display": _format_percent(selected["bag_usage"] * 100),
         "has_net_content_weight": selected["net_content_weight"] is not None,
         "design_mode": True,
+        "nominal_product_dimensions_display": format_dimensions(
+            product[0],
+            product[1],
+            product[2],
+            display_unit=config.get("product_dimension_unit") or "mm",
+        ),
+        "effective_product_dimensions_display": format_dimensions(
+            packing_product[0],
+            packing_product[1],
+            packing_product[2],
+            display_unit=config.get("product_dimension_unit") or "mm",
+        ),
+        "product_allowances_display": format_dimensions(
+            product_allowances[0],
+            product_allowances[1],
+            product_allowances[2],
+            display_unit=config.get("product_dimension_unit") or "mm",
+        ),
     }
     pending_result = {
         "label": "Designed bag",
@@ -710,11 +767,15 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
     messages = list(normalized_inputs["messages"])
 
     if product_source == "catalogue":
-        product = resolve_product_tuple(cfg, selected_product)
+        nominal_product = resolve_product_tuple(cfg, selected_product)
     else:
-        product = normalized_inputs["product"]
+        nominal_product = normalized_inputs["product"]
+    product = apply_product_allowances(
+        nominal_product,
+        normalized_inputs["product_allowances"],
+    )
     product_unit_scene = build_product_unit_scene(
-        product,
+        nominal_product,
         cfg.get("product_shape"),
         display_unit=cfg.get("product_dimension_unit") or "mm",
     )
@@ -723,10 +784,12 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
         return _analyze_bag_design(
             cfg,
             action,
-            product,
+            nominal_product,
+            packing_product=product,
             selected_product=selected_product,
             selected_material=selected_material,
             initial_messages=messages,
+            product_allowances=normalized_inputs["product_allowances"],
         )
 
     if mode == "optimal" and product_source == "catalogue" and selected_product is not None:
@@ -776,6 +839,8 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                 config=cfg,
                 result=result,
                 product=product,
+                nominal_product=nominal_product,
+                product_allowances=normalized_inputs["product_allowances"],
                 quantity=max_qty,
                 selected_product=selected_product,
                 selected_material=selected_material,
@@ -793,7 +858,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                 decorate_product_scene(
                     render_res.threejs_scene,
                     product_shape=cfg.get("product_shape"),
-                    product=product,
+                    product=nominal_product,
                 )
                 result["image_rel_path"] = render_res.image_rel_path
                 result["threejs_scene"] = render_res.threejs_scene
@@ -870,6 +935,8 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                         config=cfg,
                         result=result,
                         product=product,
+                        nominal_product=nominal_product,
+                        product_allowances=normalized_inputs["product_allowances"],
                         quantity=desired_qty,
                         selected_product=selected_product,
                         selected_material=selected_material,
@@ -888,7 +955,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                         decorate_product_scene(
                             render_res.threejs_scene,
                             product_shape=cfg.get("product_shape"),
-                            product=product,
+                            product=nominal_product,
                         )
                         result["image_rel_path"] = render_res.image_rel_path
                         result["threejs_scene"] = render_res.threejs_scene
@@ -918,10 +985,14 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
     product_source = cfg.get("product_source") or "manual"
     bag_source = cfg.get("bag_source") or "manual"
     normalized_inputs = _normalize_manual_bag_inputs(cfg)
-    product = (
+    nominal_product = (
         resolve_product_tuple(cfg, selected_product)
         if product_source == "catalogue"
         else normalized_inputs["product"]
+    )
+    product = apply_product_allowances(
+        nominal_product,
+        normalized_inputs["product_allowances"],
     )
     messages = list(normalized_inputs["messages"])
 

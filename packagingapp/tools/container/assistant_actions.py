@@ -265,7 +265,11 @@ def _build_proposed_form(
         selected_product=selected_product,
         selected_material=selected_material,
     )
-    for field_name in ("catalogue_id", "product_catalogue_id"):
+    for field_name in (
+        "catalogue_id",
+        "product_catalogue_id",
+        "corrugated_material_id",
+    ):
         form.fields[field_name].choices = list(current_form.fields[field_name].choices)
     form.is_valid()
     return form

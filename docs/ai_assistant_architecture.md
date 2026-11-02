@@ -218,9 +218,9 @@ Design Mode does not search an existing container. It uses:
 3. internal volume ascending;
 4. stable canonical and representative tie-breakers.
 
-`build_container_design_candidates` adds stable candidate IDs, ranks, internal dimensions, arrangement/orientation metadata, and JSON-safe render data. The service adds external dimensions, the thickness assumption, and optional net-content weight. A requested stable candidate ID selects that row; otherwise the first ranked row is selected.
+`build_container_design_candidates` adds stable candidate IDs, ranks, internal dimensions, arrangement/orientation metadata, and JSON-safe render data. The service adds external dimensions, the thickness assumption, optional net-content weight, and—when an authoritative tare or eligible corrugated material is available—candidate-specific carton tare and gross carton weight. A requested stable candidate ID selects that row; otherwise the first ranked row is selected.
 
-The reported Design efficiency is `1.0` because each candidate is the exact regular-grid bounding box. It is not a measured real-world carton utilization allowance. Container tare and payload are intentionally absent from Design results.
+The reported Design efficiency is `1.0` because each candidate is the exact regular-grid bounding box. It is not a measured real-world carton utilization allowance. Carton tare and gross weight are derived reporting values; they do not affect Design ranking or packing geometry, and payload remains absent from Design results.
 
 #### Engineering truth versus presentation
 
@@ -269,7 +269,7 @@ Catalogue IDs are stored as strings and rehydrated for a request. Product/model 
 
 The actual current inheritance rule in `_effective_step_output` prefers `pending_result` and falls back to explicitly `selected`. Thus a newly calculated physical result can prefill the next step before the user presses “Use this result”; `selected` still records the explicit accepted result. An assistant contract must preserve and label this distinction instead of collapsing both to “selected.”
 
-For non-Design Container output, generic workflow `length`, `width`, and `height` are resolved external dimensions; `internal_*` fields preserve usable fit dimensions. For Design output, `build_design_candidate_payload` preserves desired/design quantities, stable candidate ID, arrangement, orientation, external dimensions, and optional net content weight.
+For non-Design Container output, generic workflow `length`, `width`, and `height` are resolved external dimensions; `internal_*` fields preserve usable fit dimensions. For Design output, `build_design_candidate_payload` preserves desired/design quantities, stable candidate ID, arrangement, orientation, external dimensions, optional net content weight, and candidate-specific carton tare/source metadata. When gross carton weight is available, it is the authoritative downstream package mass; otherwise the historical net-content fallback is retained.
 
 Full scenes and candidate lists can be large. They are JSON-safe today, but the assistant should receive compact summaries rather than blindly copying the workflow step.
 

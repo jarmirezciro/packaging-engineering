@@ -95,6 +95,17 @@ the carton cargo. Flow uses that authoritative cargo result when constructing
 the downstream pallet mass, then adds catalogue pallet tare in kilograms. The
 maximum pallet load itself always excludes pallet tare.
 
+Container Selection follows the same boundary for carton tare. Its shared
+report resolves catalogue tare, explicit manual tare, calculated eligible-RSC
+material tare, or unavailable in that order. For a selected manual or catalogue
+box, a corrugated-board choice calculates the finished FEFCO 0201 material mass
+from that candidate's dimensions; it is not a second packing or thickness
+calculation. The Container Flow adapter copies the report's gross carton
+weight once into the downstream payload's authoritative `weight_kg` and keeps
+the tare source metadata JSON-safe. If product weight is unknown, tare may be
+reported independently but gross weight remains unavailable rather than
+silently treating tare as total contents.
+
 ## Manual unit display state
 
 Each embedded shared tool keeps its own prefixed, JSON-safe manual unit tokens
@@ -240,6 +251,22 @@ Packaging Chain Optimizer candidates use the same shared Container dimension
 resolver and payload builder, so both paths provide identical carton dimensions
 to downstream capacity evaluation. Missing thickness in an older workflow
 payload remains valid and resolves through the centralized 4 mm assumption.
+
+### Product dimensional allowances
+
+The first Container or Bag product step owns the product allowance inputs and
+passes them through the shared standalone service boundary. The allowance is
+applied once per product axis before that step's packing engine runs; nominal
+product geometry and weight remain unchanged. The resulting JSON-safe workflow
+payload contains the calculated outer package dimensions, not a second copy of
+the product allowance.
+
+When a downstream packaging step inherits dimensions from an upstream package,
+the adapter treats those inherited dimensions as already effective and resets
+the downstream product allowance fields to zero. This prevents double-counting
+while preserving the existing downstream quantity and outer-dimension
+propagation rules. Full Packaging Workflow does not introduce a separate
+allowance calculation path.
 
 ## Future combined report
 

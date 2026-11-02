@@ -62,6 +62,8 @@
         const globalCatalogueChooser = getById("globalCatalogueChooser", prefix);
         const selectionPackageControls = getById("selectionPackageControls", prefix);
         const designPackagingFields = getById("designPackagingFields", prefix);
+        const corrugatedMaterialField = getField("corrugated_material_id", prefix);
+        const customCorrugatedGrammage = getById("customCorrugatedGrammage", prefix);
 
         function toggleBlock(block, visible) {
             if (!block) return;
@@ -70,6 +72,16 @@
         }
         toggleBlock(selectionPackageControls, mode !== "design");
         toggleBlock(designPackagingFields, mode === "design");
+
+        function updateCorrugatedMaterialFields() {
+            if (!customCorrugatedGrammage) return;
+            const isCustom = corrugatedMaterialField && corrugatedMaterialField.value === "custom";
+            customCorrugatedGrammage.style.display = isCustom ? "block" : "none";
+            customCorrugatedGrammage.querySelectorAll("input").forEach(function (field) {
+                field.disabled = !isCustom;
+            });
+        }
+        updateCorrugatedMaterialFields();
 
         if (productSource === "catalogue") {
             if (productCatalogueChooser) productCatalogueChooser.style.display = "block";
@@ -171,6 +183,9 @@
                 setAction(prefix, "refresh");
                 submitForm(prefix);
             });
+        }
+        if (corrugatedMaterialField) {
+            corrugatedMaterialField.addEventListener("change", updateCorrugatedMaterialFields);
         }
         const productSourceName = prefix ? ("product_source_" + prefix) : "product_source";
         const containerSourceName = prefix ? ("container_source_" + prefix) : "container_source";

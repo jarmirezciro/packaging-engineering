@@ -122,13 +122,21 @@ def _prepare_form(form, config):
 
     prepared = ContainerSelectionMode1Form(data=_normalized_form_data(config))
     if form is not None:
-        for field_name in ("catalogue_id", "product_catalogue_id"):
+        for field_name in (
+            "catalogue_id",
+            "product_catalogue_id",
+            "corrugated_material_id",
+        ):
             prepared.fields[field_name].choices = list(form.fields[field_name].choices)
 
     # A current catalogue selection is already visibility-scoped by the caller.
     # Add only its opaque current value to ChoiceField validation; it is never
     # copied to Tool Context or its fingerprint.
-    for field_name in ("catalogue_id", "product_catalogue_id"):
+    for field_name in (
+        "catalogue_id",
+        "product_catalogue_id",
+        "corrugated_material_id",
+    ):
         current = str(config.get(field_name) or "")
         choices = list(prepared.fields[field_name].choices)
         choice_values = {str(value) for value, _label in choices}
@@ -356,6 +364,21 @@ def _build_inputs(
             invalid=_field_has_error(form, "box_max_payload"),
         )
 
+    corrugated_material_id = form.cleaned_data.get("corrugated_material_id")
+    if corrugated_material_id is None:
+        corrugated_material_id = config.get("corrugated_material_id") or ""
+    custom_grammage = form.cleaned_data.get("custom_combined_grammage_g_m2")
+    if custom_grammage is None:
+        custom_grammage = config.get("custom_combined_grammage_g_m2")
+    container_inputs["corrugated_material"] = {
+        "selection": str(corrugated_material_id or "none"),
+        "custom_combined_grammage": _measurement(
+            custom_grammage,
+            "g/m^2",
+            invalid=_field_has_error(form, "custom_combined_grammage_g_m2"),
+        ),
+    }
+
     return {
         "product": product_inputs,
         "request": request_inputs,
@@ -536,6 +559,26 @@ def _selection_result(report, mode, container_source):
                 "unit": "g",
                 "status": "informational",
             }
+    carton_tare = _finite_number(report.get("carton_tare_g"))
+    if carton_tare is not None:
+        result["carton_tare"] = {
+            "value": carton_tare,
+            "unit": "g",
+            "status": "informational",
+        }
+    gross_carton_weight = _finite_number(report.get("gross_carton_weight_g"))
+    if gross_carton_weight is not None:
+        result["gross_carton_weight"] = {
+            "value": gross_carton_weight,
+            "unit": "g",
+            "status": "informational",
+        }
+    tare_source = report.get("carton_tare_source")
+    if tare_source:
+        result["carton_tare_source"] = {
+            "value": str(tare_source),
+            "label": str(report.get("carton_tare_source_display") or tare_source),
+        }
     payload_usage = _finite_number(report.get("payload_usage_pct"))
     if payload_usage is not None:
         result["payload_usage"] = {
@@ -588,6 +631,18 @@ def _design_candidate(candidate, *, selected):
     net_weight = _finite_number(candidate.get("net_content_weight"))
     if net_weight is not None:
         row["net_content_weight"] = {"value": net_weight, "unit": "g"}
+    carton_tare = _finite_number(candidate.get("carton_tare_g"))
+    if carton_tare is not None:
+        row["carton_tare"] = {"value": carton_tare, "unit": "g"}
+    gross_carton_weight = _finite_number(candidate.get("gross_carton_weight_g"))
+    if gross_carton_weight is not None:
+        row["gross_carton_weight"] = {"value": gross_carton_weight, "unit": "g"}
+    tare_source = candidate.get("carton_tare_source")
+    if tare_source:
+        row["carton_tare_source"] = {
+            "value": str(tare_source),
+            "label": str(candidate.get("carton_tare_source_display") or tare_source),
+        }
     return row
 
 

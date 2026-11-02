@@ -2,7 +2,13 @@ from django.conf import settings
 
 from ...access import visible_packaging_catalogues, visible_product_catalogues
 from ...forms import ContainerSelectionMode1Form
-from ...models import PackagingCatalogue, PackagingMaterial, ProductCatalogue, Product
+from ...models import (
+    CorrugatedBoardConstruction,
+    PackagingCatalogue,
+    PackagingMaterial,
+    ProductCatalogue,
+    Product,
+)
 from ...units import (
     LENGTH_UNITS,
     MASS_UNITS,
@@ -26,6 +32,11 @@ from ..product_shape import (
     decorate_product_scene,
     normalize_product_shape,
 )
+from ..product_dimensions import (
+    PRODUCT_ALLOWANCE_KEYS,
+    apply_product_allowances,
+    normalize_product_allowances,
+)
 
 from .serializers import sanitize_container_config_for_session
 from .dimensions import (
@@ -33,6 +44,7 @@ from .dimensions import (
     EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
     resolve_external_carton_dimensions,
 )
+from .carton_tare import calculate_rsc_carton_tare
 
 
 # Packaging types that behave like rectangular/cuboid containers in this module.
@@ -101,6 +113,39 @@ def get_selected_material(config, user=_UNSCOPED_CATALOGUE_USER):
     if user is not _UNSCOPED_CATALOGUE_USER:
         materials = materials.filter(catalogue__in=visible_packaging_catalogues(user))
     return materials.select_related("catalogue").first()
+
+
+def get_corrugated_materials():
+    """Return the active shared corrugated-board construction catalogue."""
+    return CorrugatedBoardConstruction.objects.filter(is_active=True).order_by(
+        "sort_order", "wall_type", "flute_1", "flute_2", "name"
+    )
+
+
+def get_selected_corrugated_construction(config=None, form=None):
+    """Resolve one active board construction, or ``None`` for custom/none."""
+    cleaned = getattr(form, "cleaned_data", {}) or {}
+    if "corrugated_material_id" in cleaned:
+        # A bound form's explicit empty choice means "no calculation". Do not
+        # resurrect a previous session value when the user clears the field.
+        raw_id = cleaned.get("corrugated_material_id")
+    else:
+        raw_id = (config or {}).get("corrugated_material_id")
+    raw_id = str(raw_id or "").strip()
+    if not raw_id or raw_id == "custom":
+        return None
+    try:
+        return get_corrugated_materials().filter(pk=int(raw_id)).first()
+    except (TypeError, ValueError):
+        return None
+
+
+def _corrugated_material_label(construction):
+    grammage = getattr(construction, "combined_grammage_g_m2", None)
+    grammage_text = f"{float(grammage):.1f}" if grammage is not None else "—"
+    wall = construction.get_wall_type_display()
+    flute = construction.flute_display or "—"
+    return f"{construction.name} — {wall}, {flute}-flute — {grammage_text} g/m²"
 
 
 def build_hydrated_post_data(raw_post, config, selected_product=None, selected_material=None):
@@ -190,12 +235,28 @@ def build_container_form(request, config, selected_product=None, selected_materi
     return ContainerSelectionMode1Form(initial=initial_data)
 
 
-def apply_catalogue_choices(form, packaging_catalogues, product_catalogues):
+def apply_catalogue_choices(
+    form,
+    packaging_catalogues,
+    product_catalogues,
+    corrugated_materials=None,
+):
     form.fields["catalogue_id"].choices = [("", "— Select —")] + [
         (str(c.id), c.name) for c in packaging_catalogues
     ]
     form.fields["product_catalogue_id"].choices = [("", "— Select —")] + [
         (str(c.id), c.name) for c in product_catalogues
+    ]
+    # Keep this helper side-effect free for pure-service callers and
+    # SimpleTestCase fixtures. Views pass the active construction queryset when
+    # they render a customer-facing form.
+    constructions = list(corrugated_materials) if corrugated_materials is not None else []
+    form.fields["corrugated_material_id"].choices = [
+        ("", "No carton tare calculation"),
+        ("custom", "Custom grammage"),
+    ] + [
+        (str(construction.id), _corrugated_material_label(construction))
+        for construction in constructions
     ]
 
 
@@ -592,6 +653,18 @@ def _normalize_manual_container_inputs(form, config, product_source, container_s
         if any(value is None for value in product):
             product = None
 
+    try:
+        product_allowances = normalize_product_allowances(
+            tuple(
+                _form_or_config_value(form, config, key, "0")
+                for key in PRODUCT_ALLOWANCE_KEYS
+            ),
+            product_dimension_unit or "mm",
+        )
+    except (TypeError, ValueError, UnsupportedUnitError):
+        product_allowances = (0.0, 0.0, 0.0)
+        messages.append("Product dimensional allowances must be finite and non-negative.")
+
     container = None
     if container_source == "manual" and container_dimension_unit is not None:
         container = tuple(
@@ -609,6 +682,7 @@ def _normalize_manual_container_inputs(form, config, product_source, container_s
 
     return {
         "product": product,
+        "product_allowances": product_allowances,
         "container": container,
         "product_dimension_unit": product_dimension_unit,
         "product_mass_unit": product_mass_unit,
@@ -644,18 +718,140 @@ def _resolve_product_weight(form, product_source, selected_product):
     )
 
 
-def _resolve_container_tare(form, container_source, selected_material):
-    if container_source == "manual":
-        return _resolve_manual_quantity(
-            form,
-            "box_weight",
-            "container_mass_unit",
-            convert_mass,
-            "g",
-        )
+RSC_ELIGIBLE_PACKAGING_TYPES = ("BOX",)
 
-    weight_kg = getattr(selected_material, "part_weight", None)
-    return _safe_float(kg_to_g(weight_kg)) if weight_kg is not None else None
+
+def _corrugated_grammage(form, config, selected_board_construction=None):
+    cleaned = getattr(form, "cleaned_data", {}) or {}
+    if "corrugated_material_id" in cleaned:
+        material_id = cleaned.get("corrugated_material_id")
+    else:
+        material_id = (config or {}).get("corrugated_material_id")
+    material_id = str(material_id or "").strip()
+
+    if material_id == "custom":
+        value = cleaned.get("custom_combined_grammage_g_m2")
+        if value in (None, ""):
+            value = (config or {}).get("custom_combined_grammage_g_m2")
+        numeric = _safe_float(value)
+        return numeric if numeric is not None and numeric > 0 else None
+
+    if selected_board_construction is None:
+        selected_board_construction = get_selected_corrugated_construction(
+            config=config,
+            form=form,
+        )
+    combined = getattr(selected_board_construction, "combined_grammage_g_m2", None)
+    numeric = _safe_float(combined)
+    return numeric if numeric is not None and numeric > 0 else None
+
+
+def _rsc_estimate_is_eligible(container_source, selected_material):
+    if container_source == "manual":
+        return True
+    return (
+        selected_material is not None
+        and getattr(selected_material, "packaging_type", None)
+        in RSC_ELIGIBLE_PACKAGING_TYPES
+    )
+
+
+def _resolve_container_weight(
+    form,
+    container_source,
+    selected_material,
+    container,
+    config=None,
+    selected_board_construction=None,
+):
+    """Resolve one carton tare using the shared precedence contract."""
+    if container_source == "catalogue":
+        weight_kg = getattr(selected_material, "part_weight", None)
+        if weight_kg is not None:
+            return {
+                "tare_g": _safe_float(kg_to_g(weight_kg)),
+                "source": "catalogue",
+                "source_label": "Known from catalogue",
+                "reason": "",
+            }
+
+    explicit_tare = _resolve_manual_quantity(
+        form,
+        "box_weight",
+        "container_mass_unit",
+        convert_mass,
+        "g",
+    )
+    if explicit_tare is not None:
+        return {
+            "tare_g": explicit_tare,
+            "source": "manual",
+            "source_label": "Manually supplied",
+            "reason": "",
+        }
+
+    grammage = _corrugated_grammage(
+        form,
+        config,
+        selected_board_construction=selected_board_construction,
+    )
+    if grammage is not None:
+        if not _rsc_estimate_is_eligible(container_source, selected_material):
+            return {
+                "tare_g": None,
+                "source": "unavailable",
+                "source_label": "Not included",
+                "reason": "FEFCO 0201 tare estimates apply only to eligible cartons.",
+            }
+        try:
+            tare = calculate_rsc_carton_tare(
+                *(container or (None, None, None)),
+                combined_grammage_g_m2=grammage,
+            )
+        except (TypeError, ValueError):
+            return {
+                "tare_g": None,
+                "source": "unavailable",
+                "source_label": "Not included",
+                "reason": "Carton dimensions are required for the corrugated tare estimate.",
+            }
+        if selected_board_construction is None:
+            selected_board_construction = get_selected_corrugated_construction(
+                config=config,
+                form=form,
+            )
+        selected_id = getattr(selected_board_construction, "pk", None)
+        return {
+            "tare_g": _safe_float(tare.finished_box_weight_g),
+            "source": "estimated_material",
+            "source_label": "Estimated from corrugated material",
+            "reason": "",
+            "corrugated_material_id": str(selected_id) if selected_id is not None else "custom",
+            "corrugated_material_name": (
+                getattr(selected_board_construction, "name", None)
+                or "Custom grammage"
+            ),
+            "combined_grammage_g_m2": _safe_float(tare.combined_grammage_g_m2),
+            "effective_box_area_m2": _safe_float(tare.effective_box_area_m2),
+            "fefco_code": "0201",
+        }
+
+    return {
+        "tare_g": None,
+        "source": "unavailable",
+        "source_label": "Not included",
+        "reason": "Carton tare is not included because no material or authoritative tare was supplied.",
+    }
+
+
+def _resolve_container_tare(form, container_source, selected_material):
+    """Backward-compatible tare accessor for existing callers."""
+    return _resolve_container_weight(
+        form,
+        container_source,
+        selected_material,
+        container=None,
+    ).get("tare_g")
 
 
 def _resolve_payload_capacity(form, container_source, selected_material):
@@ -701,6 +897,9 @@ def build_container_analysis_report(
     mode="single",
     selected_product=None,
     selected_material=None,
+    nominal_product=None,
+    product_allowances=None,
+    selected_board_construction=None,
 ):
     """
     Build a compact, JSON-safe report used by both the standalone Container
@@ -708,6 +907,9 @@ def build_container_analysis_report(
     """
     if result is None or product is None or container is None:
         return None
+
+    nominal_product = nominal_product if nominal_product is not None else product
+    product_allowances = tuple(product_allowances or (0.0, 0.0, 0.0))
 
     max_quantity = int(getattr(result, "max_quantity", 0) or 0)
     requested_qty = max_quantity if mode == "single" else int(desired_qty or 1)
@@ -731,7 +933,14 @@ def build_container_analysis_report(
         container_source,
         selected_material,
     )
-    container_tare = _resolve_container_tare(form, container_source, selected_material)
+    container_weight = _resolve_container_weight(
+        form=form,
+        container_source=container_source,
+        selected_material=selected_material,
+        container=container,
+        selected_board_construction=selected_board_construction,
+    )
+    container_tare = container_weight.get("tare_g")
     payload_capacity = _resolve_payload_capacity(form, container_source, selected_material)
 
     net_weight = None
@@ -767,6 +976,23 @@ def build_container_analysis_report(
         "max_product_volume": _round_or_none(max_product_volume, 2),
         "product_weight": _round_or_none(product_weight, 3),
         "container_tare": _round_or_none(container_tare, 3),
+        "carton_tare_g": _round_or_none(container_tare, 3),
+        "carton_tare_source": container_weight.get("source"),
+        "carton_tare_source_display": container_weight.get("source_label"),
+        "carton_tare_reason": container_weight.get("reason") or "",
+        "carton_tare_estimated": container_weight.get("source") == "estimated_material",
+        "gross_carton_weight_g": _round_or_none(total_weight_current, 3),
+        "weight_source": container_weight.get("source"),
+        "weight_source_display": container_weight.get("source_label"),
+        "corrugated_material_name": container_weight.get("corrugated_material_name"),
+        "corrugated_material_id": container_weight.get("corrugated_material_id"),
+        "combined_grammage_g_m2": _round_or_none(
+            container_weight.get("combined_grammage_g_m2"), 4
+        ),
+        "effective_box_area_m2": _round_or_none(
+            container_weight.get("effective_box_area_m2"), 9
+        ),
+        "fefco_code": container_weight.get("fefco_code"),
         "payload_capacity": _round_or_none(payload_capacity, 3),
         "net_weight": _round_or_none(net_weight, 3),
         "total_weight_current": _round_or_none(total_weight_current, 3),
@@ -784,6 +1010,21 @@ def build_container_analysis_report(
         },
         "product_dimensions_display": format_dimensions(
             product[0], product[1], product[2], display_unit=product_dimension_unit
+        ),
+        "effective_product_dimensions_display": format_dimensions(
+            product[0], product[1], product[2], display_unit=product_dimension_unit
+        ),
+        "nominal_product_dimensions_display": format_dimensions(
+            nominal_product[0],
+            nominal_product[1],
+            nominal_product[2],
+            display_unit=product_dimension_unit,
+        ),
+        "product_allowances_display": format_dimensions(
+            product_allowances[0],
+            product_allowances[1],
+            product_allowances[2],
+            display_unit=product_dimension_unit,
         ),
         "internal_dimensions_display": format_dimensions(
             dimension_contract.get("internal_length"),
@@ -816,16 +1057,29 @@ def build_container_analysis_report(
         "total_weight_current_display": format_mass(
             total_weight_current, canonical_unit="g", display_unit=container_mass_unit
         ),
+        "carton_tare_display": format_mass(
+            container_tare, canonical_unit="g", display_unit=container_mass_unit
+        ),
+        "gross_carton_weight_display": format_mass(
+            total_weight_current, canonical_unit="g", display_unit=container_mass_unit
+        ),
         "payload_usage_display": _format_percent(payload_usage_pct),
         "has_product_weight": product_weight is not None,
         "has_container_tare": container_tare is not None,
         "has_payload_capacity": payload_capacity is not None,
         "has_total_weight_current": total_weight_current is not None,
+        "has_gross_carton_weight": total_weight_current is not None,
         "has_payload_usage": payload_usage_pct is not None,
     }
 
 
-def _add_container_design_metrics(candidate, form, product_source, selected_product):
+def _add_container_design_metrics(
+    candidate,
+    form,
+    product_source,
+    selected_product,
+    selected_board_construction=None,
+):
     row = dict(candidate)
     product_weight = _resolve_product_weight(form, product_source, selected_product)
     quantity = int(row["design_quantity"])
@@ -843,9 +1097,57 @@ def _add_container_design_metrics(candidate, form, product_source, selected_prod
         ),
         thickness_source=EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
     )
+    container_weight = _resolve_container_weight(
+        form=form,
+        container_source="manual",
+        selected_material=None,
+        container=(
+            row["container_length"],
+            row["container_width"],
+            row["container_height"],
+        ),
+        selected_board_construction=selected_board_construction,
+    )
+    container_tare = container_weight.get("tare_g")
+    gross_weight = net_weight + container_tare if net_weight is not None and container_tare is not None else None
     row.update({
         **dimension_contract,
         "net_content_weight": _round_or_none(net_weight, 3),
+        "net_content_weight_g": _round_or_none(net_weight, 3),
+        "container_tare": _round_or_none(container_tare, 3),
+        "carton_tare_g": _round_or_none(container_tare, 3),
+        "container_tare_display": format_mass(
+            container_tare,
+            canonical_unit="g",
+            display_unit=form.cleaned_data.get("container_mass_unit") or "g",
+        ),
+        "carton_tare_display": format_mass(
+            container_tare,
+            canonical_unit="g",
+            display_unit=form.cleaned_data.get("container_mass_unit") or "g",
+        ),
+        "gross_carton_weight": _round_or_none(gross_weight, 3),
+        "gross_carton_weight_g": _round_or_none(gross_weight, 3),
+        "gross_carton_weight_display": format_mass(
+            gross_weight,
+            canonical_unit="g",
+            display_unit=form.cleaned_data.get("container_mass_unit") or "g",
+        ),
+        "carton_tare_source": container_weight.get("source"),
+        "carton_tare_source_display": container_weight.get("source_label"),
+        "carton_tare_reason": container_weight.get("reason") or "",
+        "weight_source": container_weight.get("source"),
+        "weight_source_display": container_weight.get("source_label"),
+        "carton_tare_estimated": container_weight.get("source") == "estimated_material",
+        "corrugated_material_name": container_weight.get("corrugated_material_name"),
+        "corrugated_material_id": container_weight.get("corrugated_material_id"),
+        "combined_grammage_g_m2": _round_or_none(
+            container_weight.get("combined_grammage_g_m2"), 4
+        ),
+        "effective_box_area_m2": _round_or_none(
+            container_weight.get("effective_box_area_m2"), 9
+        ),
+        "fefco_code": container_weight.get("fefco_code"),
         "container_dimensions_display": format_dimensions(
             row["container_length"],
             row["container_width"],
@@ -882,12 +1184,17 @@ def _analyze_container_design(
     selected_product,
     selected_material,
     initial_messages=None,
+    packing_product=None,
+    product_allowances=None,
+    selected_board_construction=None,
 ):
+    packing_product = packing_product if packing_product is not None else product
+    product_allowances = tuple(product_allowances or (0.0, 0.0, 0.0))
     messages = list(initial_messages or [])
     notices = []
     desired_quantity = form.cleaned_data.get("desired_qty")
     action = form.cleaned_data.get("action") or ""
-    if product is None or any(float(value) <= 0 for value in product):
+    if packing_product is None or any(float(value) <= 0 for value in packing_product):
         messages.append("Enter product length, width, and height greater than zero in millimetres.")
     if desired_quantity is None or int(desired_quantity) <= 0:
         messages.append("Enter the desired quantity as a positive whole number.")
@@ -915,9 +1222,17 @@ def _analyze_container_design(
         base["ok"] = not messages
         return base
 
-    design = build_container_design_candidates(product, int(desired_quantity), r1, r2, r3)
+    design = build_container_design_candidates(
+        packing_product, int(desired_quantity), r1, r2, r3
+    )
     candidates = [
-        _add_container_design_metrics(row, form, product_source, selected_product)
+        _add_container_design_metrics(
+            row,
+            form,
+            product_source,
+            selected_product,
+            selected_board_construction=selected_board_construction,
+        )
         for row in design["candidates"]
     ]
     if not candidates:
@@ -944,6 +1259,24 @@ def _analyze_container_design(
         "volumetric_efficiency_display": _format_percent(selected["volumetric_efficiency"] * 100),
         "has_net_content_weight": selected["net_content_weight"] is not None,
         "design_mode": True,
+        "nominal_product_dimensions_display": format_dimensions(
+            product[0],
+            product[1],
+            product[2],
+            display_unit=form.cleaned_data.get("product_dimension_unit") or "mm",
+        ),
+        "effective_product_dimensions_display": format_dimensions(
+            packing_product[0],
+            packing_product[1],
+            packing_product[2],
+            display_unit=form.cleaned_data.get("product_dimension_unit") or "mm",
+        ),
+        "product_allowances_display": format_dimensions(
+            product_allowances[0],
+            product_allowances[1],
+            product_allowances[2],
+            display_unit=form.cleaned_data.get("product_dimension_unit") or "mm",
+        ),
     }
     base.update({
         "ok": True,
@@ -980,20 +1313,28 @@ def analyze_container_form(
 
     product_source = form.cleaned_data.get("product_source") or "manual"
     container_source = form.cleaned_data.get("container_source") or "manual"
+    selected_board_construction = get_selected_corrugated_construction(
+        config=config,
+        form=form,
+    )
 
     normalized_inputs = _normalize_manual_container_inputs(
         form, config, product_source, container_source
     )
     messages.extend(normalized_inputs["messages"])
 
-    product, r1, r2, r3 = resolve_product_from_form(
+    nominal_product, r1, r2, r3 = resolve_product_from_form(
         form=form,
         product_source=product_source,
         selected_product=selected_product,
         normalized_product=normalized_inputs["product"],
     )
+    packing_product = apply_product_allowances(
+        nominal_product,
+        normalized_inputs["product_allowances"],
+    )
     product_unit_scene = build_product_unit_scene(
-        product,
+        nominal_product,
         product_shape,
         display_unit=form.cleaned_data.get("product_dimension_unit") or "mm",
     )
@@ -1001,7 +1342,7 @@ def analyze_container_form(
     if mode == "design":
         return _analyze_container_design(
             form,
-            product,
+            nominal_product,
             r1,
             r2,
             r3,
@@ -1010,6 +1351,9 @@ def analyze_container_form(
             selected_product,
             selected_material,
             initial_messages=messages,
+            packing_product=packing_product,
+            product_allowances=normalized_inputs["product_allowances"],
+            selected_board_construction=selected_board_construction,
         )
 
     if r1 == 0 and r2 == 0 and r3 == 0:
@@ -1022,10 +1366,10 @@ def analyze_container_form(
         selected_product=selected_product,
     )
 
-    if product is not None and not messages and product_shape == "cuboid":
+    if packing_product is not None and not messages and product_shape == "cuboid":
         try:
             product_base_image_rel_path = render_product_base_unit(
-                product,
+                nominal_product,
                 media_root or settings.MEDIA_ROOT,
             )
             if product_base_image_rel_path:
@@ -1042,7 +1386,7 @@ def analyze_container_form(
 
             if product_source == "catalogue" and not selected_product:
                 messages.append("Please select a product from the product catalogue.")
-            elif product_source == "manual" and product is None:
+            elif product_source == "manual" and packing_product is None:
                 messages.append("Please enter product dimensions.")
 
             if not messages:
@@ -1058,9 +1402,9 @@ def analyze_container_form(
                 elif container_source == "catalogue" and selected_material is None:
                     messages.append("Please select a packaging item from the catalogue table.")
 
-            if not messages and container is not None and product is not None:
+            if not messages and container is not None and packing_product is not None:
                 render_result = run_mode1_and_render(
-                    product,
+                    packing_product,
                     container,
                     r1,
                     r2,
@@ -1071,19 +1415,22 @@ def analyze_container_form(
                 decorate_product_scene(
                     render_result.threejs_scene,
                     product_shape=product_shape,
-                    product=product,
+                    product=nominal_product,
                 )
                 result = render_result
                 analysis_report = build_container_analysis_report(
                     form=form,
                     result=render_result,
-                    product=product,
+                    product=packing_product,
+                    nominal_product=nominal_product,
+                    product_allowances=normalized_inputs["product_allowances"],
                     container=container,
                     desired_qty=desired_qty,
                     product_source=product_source,
                     mode=mode,
                     selected_product=selected_product,
                     selected_material=selected_material,
+                    selected_board_construction=selected_board_construction,
                 )
                 if getattr(render_result, "image_rel_path", None):
                     image_url = settings.MEDIA_URL + render_result.image_rel_path
@@ -1092,7 +1439,7 @@ def analyze_container_form(
         if action in ("find_top5", "select_candidate"):
             if product_source == "catalogue" and not selected_product:
                 messages.append("Please select a product from the product catalogue.")
-            elif product_source == "manual" and product is None:
+            elif product_source == "manual" and packing_product is None:
                 messages.append("Please enter product dimensions.")
             elif not config.get("catalogue_id"):
                 messages.append("Please select a packaging catalogue.")
@@ -1102,7 +1449,7 @@ def analyze_container_form(
                     materials = get_materials_for_catalogue(config)
 
                 top5 = _score_top5_candidates(
-                    product=product,
+                    product=packing_product,
                     materials=materials,
                     desired_qty=desired_qty,
                     r1=r1,
@@ -1120,7 +1467,7 @@ def analyze_container_form(
                             float(selected_material.part_height),
                         )
                         render_result = run_mode1_and_render(
-                            product,
+                            packing_product,
                             container,
                             r1,
                             r2,
@@ -1132,19 +1479,22 @@ def analyze_container_form(
                         decorate_product_scene(
                             render_result.threejs_scene,
                             product_shape=product_shape,
-                            product=product,
+                            product=nominal_product,
                         )
                         result = render_result
                         analysis_report = build_container_analysis_report(
                             form=form,
                             result=render_result,
-                            product=product,
+                            product=packing_product,
+                            nominal_product=nominal_product,
+                            product_allowances=normalized_inputs["product_allowances"],
                             container=container,
                             desired_qty=desired_qty,
                             product_source=product_source,
                             mode=mode,
                             selected_product=selected_product,
                             selected_material=selected_material,
+                            selected_board_construction=selected_board_construction,
                         )
                         if getattr(render_result, "image_rel_path", None):
                             image_url = settings.MEDIA_URL + render_result.image_rel_path
@@ -1176,14 +1526,22 @@ def analyze_container_capacity(
     mode = form.cleaned_data.get("mode") or "single"
     product_source = form.cleaned_data.get("product_source") or "manual"
     container_source = form.cleaned_data.get("container_source") or "manual"
+    selected_board_construction = get_selected_corrugated_construction(
+        config=config,
+        form=form,
+    )
     normalized_inputs = _normalize_manual_container_inputs(
         form, config, product_source, container_source
     )
-    product, r1, r2, r3 = resolve_product_from_form(
+    nominal_product, r1, r2, r3 = resolve_product_from_form(
         form=form,
         product_source=product_source,
         selected_product=selected_product,
         normalized_product=normalized_inputs["product"],
+    )
+    product = apply_product_allowances(
+        nominal_product,
+        normalized_inputs["product_allowances"],
     )
     messages = list(normalized_inputs["messages"])
 
@@ -1212,7 +1570,13 @@ def analyze_container_capacity(
             r3,
         )
         candidates = [
-            _add_container_design_metrics(row, form, product_source, selected_product)
+            _add_container_design_metrics(
+                row,
+                form,
+                product_source,
+                selected_product,
+                selected_board_construction=selected_board_construction,
+            )
             for row in design["candidates"]
         ]
         if not candidates:
@@ -1260,6 +1624,21 @@ def analyze_container_capacity(
         container_source,
         selected_material,
     )
+    weight_detail = _resolve_container_weight(
+        form=form,
+        container_source=container_source,
+        selected_material=selected_material,
+        container=container,
+        config=config,
+        selected_board_construction=selected_board_construction,
+    )
+    requested_for_weight = (
+        int(max_quantity or 0) if mode == "single" else int(desired_quantity or 1)
+    )
+    product_weight = _resolve_product_weight(form, product_source, selected_product)
+    net_weight = product_weight * requested_for_weight if product_weight is not None else None
+    tare_g = weight_detail.get("tare_g")
+    gross_weight = net_weight + tare_g if net_weight is not None and tare_g is not None else None
     return {
         "ok": True,
         "messages": [],
@@ -1268,6 +1647,13 @@ def analyze_container_capacity(
             "container": container,
             "max_quantity": int(max_quantity or 0),
             "desired_quantity": int(desired_quantity or 1),
+            "net_content_weight_g": _round_or_none(net_weight, 3),
+            "carton_tare_g": _round_or_none(tare_g, 3),
+            "gross_carton_weight_g": _round_or_none(gross_weight, 3),
+            "carton_tare_source": weight_detail.get("source"),
+            "carton_tare_source_display": weight_detail.get("source_label"),
+            "weight_source": weight_detail.get("source"),
+            "weight_source_display": weight_detail.get("source_label"),
             **dimension_contract,
         },
     }

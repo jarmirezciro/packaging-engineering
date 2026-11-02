@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "cartons-per-pallet-case-design-exploration",
+  "scene_family": "comparison",
+  "camera": "clean three-quarter isometric view with matched scale for two pallet stacks",
+  "materials": "dark teal studio backdrop, restrained cardboard pallets, teal corrugated cases, crisp edges, soft premium logistics lighting",
+  "lighting": "soft directional studio light from upper left with controlled shadows and clear separation between the two stacks",
+  "blending_strategy": "transparent_alpha",
+  "image_mode": "evidence_derived",
+  "subjects": ["pallet", "corrugated_box", "abstract_geometry"],
+  "reserved_blank_zones": ["left_text_zone"],
+  "exclusions": ["text", "logos", "people", "screenshots", "watermarks"],
+  "evidence_asset_paths": [
+    "static/img/blog/cartons-per-pallet-case-design-exploration/case-hierarchy.svg",
+    "static/img/blog/cartons-per-pallet-case-design-exploration/case-design-tradeoff.webp"
+  ]
+}

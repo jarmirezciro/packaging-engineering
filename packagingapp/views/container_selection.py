@@ -25,7 +25,9 @@ from ..tools.container.service import (
     get_packaging_catalogues,
     get_product_catalogues,
     get_products_for_catalogue,
+    get_corrugated_materials,
     get_selected_material,
+    get_selected_corrugated_construction,
     get_selected_product,
 )
 from ..tools.container.state import default_container_config
@@ -110,6 +112,9 @@ def _read_raw_container_config(
         "product_w": source.get("product_w", cfg["product_w"]),
         "product_h": source.get("product_h", cfg["product_h"]),
         "product_dimension_unit": source.get("product_dimension_unit", cfg["product_dimension_unit"]),
+        "product_allowance_l": source.get("product_allowance_l", cfg["product_allowance_l"]),
+        "product_allowance_w": source.get("product_allowance_w", cfg["product_allowance_w"]),
+        "product_allowance_h": source.get("product_allowance_h", cfg["product_allowance_h"]),
         "product_weight": source.get("product_weight", cfg["product_weight"]),
         "product_mass_unit": source.get("product_mass_unit", cfg["product_mass_unit"]),
         "desired_qty": source.get("desired_qty", cfg["desired_qty"]),
@@ -125,6 +130,13 @@ def _read_raw_container_config(
         "box_w": source.get("box_w", cfg["box_w"]),
         "box_h": source.get("box_h", cfg["box_h"]),
         "box_thickness_mm": source.get("box_thickness_mm", cfg["box_thickness_mm"]),
+        "corrugated_material_id": source.get(
+            "corrugated_material_id", cfg["corrugated_material_id"]
+        ),
+        "custom_combined_grammage_g_m2": source.get(
+            "custom_combined_grammage_g_m2",
+            cfg["custom_combined_grammage_g_m2"],
+        ),
         "container_dimension_unit": source.get("container_dimension_unit", cfg["container_dimension_unit"]),
         "box_weight": source.get("box_weight", cfg["box_weight"]),
         "box_max_payload": source.get("box_max_payload", cfg["box_max_payload"]),
@@ -148,6 +160,9 @@ def _build_shared_container_ui_contract(prefix=""):
         "product_w": f"product_w{suffix}",
         "product_h": f"product_h{suffix}",
         "product_dimension_unit": f"product_dimension_unit{suffix}",
+        "product_allowance_l": f"product_allowance_l{suffix}",
+        "product_allowance_w": f"product_allowance_w{suffix}",
+        "product_allowance_h": f"product_allowance_h{suffix}",
         "product_weight": f"product_weight{suffix}",
         "product_mass_unit": f"product_mass_unit{suffix}",
         "desired_qty": f"desired_qty{suffix}",
@@ -162,6 +177,8 @@ def _build_shared_container_ui_contract(prefix=""):
         "box_w": f"box_w{suffix}",
         "box_h": f"box_h{suffix}",
         "box_thickness_mm": f"box_thickness_mm{suffix}",
+        "corrugated_material_id": f"corrugated_material_id{suffix}",
+        "custom_combined_grammage_g_m2": f"custom_combined_grammage_g_m2{suffix}",
         "container_dimension_unit": f"container_dimension_unit{suffix}",
         "box_weight": f"box_weight{suffix}",
         "box_max_payload": f"box_max_payload{suffix}",
@@ -225,8 +242,12 @@ def _build_shared_container_ui_contract(prefix=""):
             "container_catalogue_section": f"containerCatalogueSection{suffix}",
             "manual_product_fields": f"manualProductFields{suffix}",
             "manual_rotation_fields": f"manualRotationFields{suffix}",
+            "additional_parameters": f"productAdditionalParameters{suffix}",
+            "additional_parameters_toggle": f"productAdditionalParametersToggle{suffix}",
             "product_shape": f"id_product_shape{suffix}",
             "manual_container_fields": f"manualContainerFields{suffix}",
+            "corrugated_material": f"corrugatedMaterial{suffix}",
+            "custom_corrugated_grammage": f"customCorrugatedGrammage{suffix}",
             "selected_product_id": f"selected_product_id{suffix}",
             "container_id": f"container_id{suffix}",
             "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
@@ -300,8 +321,7 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
         container_l = selected_material.part_length
         container_w = selected_material.part_width
         container_h = selected_material.part_height
-        container_tare_kg = getattr(selected_material, "part_weight", None)
-        container_tare = kg_to_g(container_tare_kg) if container_tare_kg is not None else None
+        container_tare = analysis_report.get("container_tare")
         payload_capacity = analysis_report.get("payload_capacity")
     else:
         container_part_number = "Manual packaging"
@@ -311,7 +331,7 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
         container_l = form.cleaned_data.get("box_l")
         container_w = form.cleaned_data.get("box_w")
         container_h = form.cleaned_data.get("box_h")
-        container_tare = form.cleaned_data.get("box_weight")
+        container_tare = analysis_report.get("container_tare")
         payload_capacity = form.cleaned_data.get("box_max_payload")
 
     return {
@@ -322,6 +342,9 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
             "id": product_id,
             "name": product_name or "—",
             "dimensions": analysis_report.get("product_dimensions_display"),
+            "nominal_dimensions": analysis_report.get("nominal_product_dimensions_display"),
+            "effective_dimensions": analysis_report.get("effective_product_dimensions_display"),
+            "allowances": analysis_report.get("product_allowances_display"),
             "weight": analysis_report.get("product_weight_display"),
             "desired_qty": f"{form.cleaned_data.get('desired_qty') or 1} pcs",
             "rotations": _rotation_display(r1, r2, r3),
@@ -338,6 +361,9 @@ def _build_single_export_payload(*, form, analysis, selected_product, selected_m
             "box_thickness_display": analysis_report.get("box_thickness_display"),
             "box_thickness_assumed": analysis_report.get("box_thickness_assumed", False),
             "tare": analysis_report.get("container_tare_display"),
+            "tare_source": analysis_report.get("carton_tare_source_display"),
+            "corrugated_material": analysis_report.get("corrugated_material_name"),
+            "gross_carton_weight": analysis_report.get("gross_carton_weight_display"),
             "payload_capacity": analysis_report.get("payload_capacity_display"),
         },
         "analysis_report": analysis_report,
@@ -484,6 +510,12 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
                 display_unit=form.cleaned_data.get("container_dimension_unit") or "mm",
             ),
         }
+        selected_candidate.update({
+            "tare": analysis_report.get("container_tare_display"),
+            "tare_source": analysis_report.get("carton_tare_source_display"),
+            "corrugated_material": analysis_report.get("corrugated_material_name"),
+            "gross_carton_weight": analysis_report.get("gross_carton_weight_display"),
+        })
 
     return {
         "report_type": "optimal",
@@ -542,6 +574,9 @@ def _build_design_export_payload(*, form, analysis, selected_product):
             if selected_product
             else f"{form.cleaned_data.get('product_l')} × {form.cleaned_data.get('product_w')} × {form.cleaned_data.get('product_h')} {form.cleaned_data.get('product_dimension_unit') or 'mm'}"
         ),
+        "nominal_dimensions": report.get("nominal_product_dimensions_display"),
+        "effective_dimensions": report.get("effective_product_dimensions_display"),
+        "allowances": report.get("product_allowances_display"),
         "weight": (
             format_mass(
                 selected_product.weight,
@@ -577,6 +612,10 @@ def _build_design_export_payload(*, form, analysis, selected_product):
             "box_thickness_mm": selected.get("box_thickness_mm"),
             "box_thickness_display": selected.get("box_thickness_display"),
             "box_thickness_assumed": selected.get("box_thickness_assumed", False),
+            "tare": selected.get("carton_tare_display"),
+            "tare_source": selected.get("carton_tare_source_display"),
+            "corrugated_material": selected.get("corrugated_material_name"),
+            "gross_carton_weight": selected.get("gross_carton_weight_display"),
         },
         "analysis_report": analysis_payload,
         "selected_candidate": selected,
@@ -633,6 +672,8 @@ def _build_container_selection_page_context(
 
     selected_product = get_selected_product(config, user=catalogue_user)
     selected_material = get_selected_material(config, user=catalogue_user)
+    corrugated_materials = get_corrugated_materials()
+    selected_corrugated_material = get_selected_corrugated_construction(config)
 
     products = get_products_for_catalogue(config, user=catalogue_user)
     materials = get_materials_for_catalogue(config, user=catalogue_user)
@@ -653,7 +694,12 @@ def _build_container_selection_page_context(
         selected_product=selected_product,
         selected_material=selected_material,
     )
-    apply_catalogue_choices(form, packaging_catalogues, product_catalogues)
+    apply_catalogue_choices(
+        form,
+        packaging_catalogues,
+        product_catalogues,
+        corrugated_materials=corrugated_materials,
+    )
 
     result = None
     image_url = None
@@ -670,7 +716,12 @@ def _build_container_selection_page_context(
     form_is_valid = form.is_valid() if request.method == "POST" else True
     if run_initial_analysis and request.method != "POST":
         analysis_form = form.__class__(config)
-        apply_catalogue_choices(analysis_form, packaging_catalogues, product_catalogues)
+        apply_catalogue_choices(
+            analysis_form,
+            packaging_catalogues,
+            product_catalogues,
+            corrugated_materials=corrugated_materials,
+        )
         form_is_valid = analysis_form.is_valid()
 
     if (request.method == "POST" or run_initial_analysis) and form_is_valid:
@@ -795,6 +846,8 @@ def _build_container_selection_page_context(
 
         "products": products,
         "materials": materials,
+        "corrugated_materials": corrugated_materials,
+        "selected_corrugated_material": selected_corrugated_material,
         "selected_product": selected_product,
         "selected_material": selected_material,
 

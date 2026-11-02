@@ -1,0 +1,186 @@
+<hr class="app-divider">
+
+<div class="d-flex justify-content-between align-items-start gap-3 mb-2 product-allowance-header">
+    <div>
+        <div class="app-form-section-title mb-0">Additional parameters</div>
+        <div class="app-form-note">Optional product dimensional allowance.</div>
+    </div>
+    <button type="button"
+            class="btn btn-app-outline btn-sm flex-shrink-0"
+            id="{{ ui.ids.additional_parameters_toggle }}"
+            aria-controls="{{ ui.ids.additional_parameters }}"
+            aria-expanded="false"
+            onclick="KolliPackProductAllowance.toggle('{{ ui.ids.additional_parameters }}', this)">
+        <i class="bi bi-chevron-down me-2" aria-hidden="true"></i>
+        <span>Show Advanced</span>
+    </button>
+</div>
+
+<div id="{{ ui.ids.additional_parameters }}"
+     data-product-allowance-panel
+     data-product-dimension-group="{{ ui.unit_selectors.product_dimensions.group }}"
+     data-nominal-length-name="{{ ui.names.product_l }}"
+     data-nominal-width-name="{{ ui.names.product_w }}"
+     data-nominal-height-name="{{ ui.names.product_h }}"
+     data-allowance-length-name="{{ ui.names.product_allowance_l }}"
+     data-allowance-width-name="{{ ui.names.product_allowance_w }}"
+     data-allowance-height-name="{{ ui.names.product_allowance_h }}"
+     data-product-source="{{ product_source|default:'manual' }}"
+     data-catalogue-nominal-length="{{ selected_product.product_length|default:'' }}"
+     data-catalogue-nominal-width="{{ selected_product.product_width|default:'' }}"
+     data-catalogue-nominal-height="{{ selected_product.product_height|default:'' }}"
+     hidden>
+    <div class="tool-compact-grid-three">
+        <div class="tool-field-group mb-0">
+            <label class="form-label">Length allowance (<span data-unit-label data-unit-group="{{ ui.unit_selectors.product_dimensions.group }}">{{ values.product_dimension_unit|default:'mm' }}</span>)</label>
+            {% if mode == "workflow" %}
+                <input type="number" step="any" min="0" class="form-control"
+                       name="{{ ui.names.product_allowance_l }}"
+                       data-unit-input data-unit-group="{{ ui.unit_selectors.product_dimensions.group }}"
+                       value="{{ values.product_allowance_l|default:'0' }}">
+            {% else %}
+                {{ form.product_allowance_l }}
+            {% endif %}
+        </div>
+        <div class="tool-field-group mb-0">
+            <label class="form-label">Width allowance (<span data-unit-label data-unit-group="{{ ui.unit_selectors.product_dimensions.group }}">{{ values.product_dimension_unit|default:'mm' }}</span>)</label>
+            {% if mode == "workflow" %}
+                <input type="number" step="any" min="0" class="form-control"
+                       name="{{ ui.names.product_allowance_w }}"
+                       data-unit-input data-unit-group="{{ ui.unit_selectors.product_dimensions.group }}"
+                       value="{{ values.product_allowance_w|default:'0' }}">
+            {% else %}
+                {{ form.product_allowance_w }}
+            {% endif %}
+        </div>
+        <div class="tool-field-group mb-0">
+            <label class="form-label">Height allowance (<span data-unit-label data-unit-group="{{ ui.unit_selectors.product_dimensions.group }}">{{ values.product_dimension_unit|default:'mm' }}</span>)</label>
+            {% if mode == "workflow" %}
+                <input type="number" step="any" min="0" class="form-control"
+                       name="{{ ui.names.product_allowance_h }}"
+                       data-unit-input data-unit-group="{{ ui.unit_selectors.product_dimensions.group }}"
+                       value="{{ values.product_allowance_h|default:'0' }}">
+            {% else %}
+                {{ form.product_allowance_h }}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="app-form-note mt-2">
+        Added once to each product's corresponding dimension for packing calculations. Defaults to zero. Nominal product size remains unchanged.
+    </div>
+
+    <div class="tool-summary-strip mt-2" data-effective-dimensions-summary>
+        <div class="tool-summary-main"><strong>Effective dimensions used for packing</strong></div>
+        <div class="tool-summary-meta" data-effective-dimensions>—</div>
+    </div>
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    function numeric(value) {
+        if (value === "" || value === null || value === undefined) return null;
+        var parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    function format(value) {
+        if (!Number.isFinite(value)) return "—";
+        if (Object.is(value, -0) || value === 0) return "0";
+        return value.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
+    }
+
+    function field(form, name) {
+        if (!form || !name) return null;
+        return form.querySelector('[name="' + CSS.escape(name) + '"]');
+    }
+
+    function update(panel) {
+        var form = panel.closest("form");
+        var names = panel.dataset;
+        var nominalInputs = [
+            field(form, names.nominalLengthName),
+            field(form, names.nominalWidthName),
+            field(form, names.nominalHeightName),
+        ];
+        var allowance = [
+            field(form, names.allowanceLengthName),
+            field(form, names.allowanceWidthName),
+            field(form, names.allowanceHeightName),
+        ].map(function (input) {
+            var value = numeric(input && input.value);
+            return value === null ? 0 : value;
+        });
+        var summary = panel.querySelector("[data-effective-dimensions]");
+        var unitInput = form && form.querySelector(
+            'input[data-unit-hidden][data-unit-group="' + CSS.escape(names.productDimensionGroup) + '"]'
+        );
+        var unit = unitInput && unitInput.value ? unitInput.value : "mm";
+        var nominal = nominalInputs.map(function (input) { return numeric(input && input.value); });
+        if (names.productSource === "catalogue") {
+            var catalogueNominal = [
+                numeric(names.catalogueNominalLength),
+                numeric(names.catalogueNominalWidth),
+                numeric(names.catalogueNominalHeight),
+            ];
+            if (catalogueNominal.every(function (value) { return value !== null; })) {
+                var lengthFactors = { mm: 1, cm: 10, m: 1000, in: 25.4, ft: 304.8 };
+                var factor = lengthFactors[String(unit).toLowerCase()] || 1;
+                nominal = catalogueNominal.map(function (value) { return value / factor; });
+            }
+        }
+        if (!summary || nominal.some(function (value) { return value === null; })) {
+            if (summary) summary.textContent = "—";
+            return;
+        }
+        summary.textContent = nominal.map(function (value, index) {
+            return format(value + allowance[index]);
+        }).join(" × ") + " " + unit;
+    }
+
+    function bind(panel) {
+        if (panel.dataset.productAllowanceBound === "true") return;
+        panel.dataset.productAllowanceBound = "true";
+        var form = panel.closest("form");
+        var names = panel.dataset;
+        [
+            names.nominalLengthName, names.nominalWidthName, names.nominalHeightName,
+            names.allowanceLengthName, names.allowanceWidthName, names.allowanceHeightName,
+        ].forEach(function (name) {
+            var input = field(form, name);
+            if (input) input.addEventListener("input", function () { update(panel); });
+        });
+        document.addEventListener("kollipack:unit-changed", function (event) {
+            if (event.detail && event.detail.group === names.productDimensionGroup) update(panel);
+        });
+        update(panel);
+    }
+
+    window.KolliPackProductAllowance = window.KolliPackProductAllowance || {
+        toggle: function (panelId, button) {
+            var panel = document.getElementById(panelId);
+            if (!panel) return;
+            var expanded = panel.hasAttribute("hidden");
+            if (expanded) panel.removeAttribute("hidden");
+            else panel.setAttribute("hidden", "");
+            if (button) {
+                button.setAttribute("aria-expanded", expanded ? "true" : "false");
+                var text = button.querySelector("span");
+                if (text) text.textContent = expanded ? "Hide Advanced" : "Show Advanced";
+                var icon = button.querySelector("i");
+                if (icon) icon.className = expanded ? "bi bi-chevron-up me-2" : "bi bi-chevron-down me-2";
+            }
+            bind(panel);
+        },
+    };
+
+    function init() {
+        document.querySelectorAll("[data-product-allowance-panel]").forEach(bind);
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+    else init();
+})();
+</script>

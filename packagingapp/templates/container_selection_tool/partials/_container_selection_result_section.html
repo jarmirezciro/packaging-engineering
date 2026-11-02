@@ -41,6 +41,18 @@
                 </div>
             {% endif %}
 
+            {% if analysis_report %}
+                <div class="tool-summary-strip mb-3">
+                    <div class="tool-summary-main mb-2"><strong>Carton weight</strong></div>
+                    <div class="row g-2 small">
+                        <div class="col-12 col-md-4"><span class="text-muted">Net contents</span><br>{% if analysis_report.has_product_weight %}<strong>{{ analysis_report.net_weight_display }}</strong>{% else %}<span class="text-muted">Not available</span>{% endif %}</div>
+                        <div class="col-12 col-md-4"><span class="text-muted">Empty carton tare</span><br>{% if analysis_report.has_container_tare %}<strong>{{ analysis_report.carton_tare_display }}</strong>{% else %}<span class="text-muted">Not included</span>{% endif %}</div>
+                        <div class="col-12 col-md-4"><span class="text-muted">Gross carton weight</span><br>{% if analysis_report.has_gross_carton_weight %}<strong>{{ analysis_report.gross_carton_weight_display }}</strong>{% else %}<span class="text-muted">Not available</span>{% endif %}</div>
+                    </div>
+                    <div class="tool-summary-meta mt-2">Tare source: {{ analysis_report.carton_tare_source_display }}</div>
+                </div>
+            {% endif %}
+
 
             {% if threejs_scene %}
                 <div class="container-threejs-panel mt-3">
@@ -212,6 +224,10 @@
                                     </td>
                                 </tr>
                                 <tr>
+                                    <th scope="row" class="fw-normal text-muted">Carton tare source</th>
+                                    <td class="text-end">{{ analysis_report.carton_tare_source_display }}</td>
+                                </tr>
+                                <tr>
                                     <th scope="row" class="fw-normal text-muted">Payload usage</th>
                                     <td class="text-end">
                                         {% if analysis_report.has_payload_usage %}
@@ -233,7 +249,7 @@
                     {% endif %}
                     {% if not analysis_report.has_container_tare or not analysis_report.has_payload_capacity %}
                         <div class="tool-summary-meta mt-2">
-                            {% if not analysis_report.has_container_tare %}Packaging tare is needed for total weight.{% endif %}
+                            {% if not analysis_report.has_container_tare %}Carton tare is not included; select a corrugated material or provide an authoritative tare when applicable.{% endif %}
                             {% if not analysis_report.has_payload_capacity %} Payload capacity is not currently available in the packaging material record.{% endif %}
                         </div>
                     {% endif %}

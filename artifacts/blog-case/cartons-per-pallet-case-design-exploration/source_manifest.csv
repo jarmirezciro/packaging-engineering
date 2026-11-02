@@ -1,0 +1,15 @@
+source_filename,package_relative_file,evidence_role,interpretation,sha256,width_px,height_px
+Carton.png,assets/capepack/capepack_primary_carton_input.png,CapePack source first stage,"6x5x8 carton, gross 2.25lb; source image",530862f5f241aa1f3bf52787bbeb38771fb614859c62418eacae0a203ababa5c,1280,957
+Case.png,assets/capepack/capepack_case_input_12_to_24.png,CapePack source second stage,RSC case thickness .16 in; min12 max24; original screenshot,106afe62dbb51ed5110470d9c96e7fca46353e2a2d7c6f7b02a0fffcc1379cfb,1275,952
+pallet.png,assets/capepack/capepack_48x40_pallet_input.png,CapePack source third stage,"48x40x5.5 in pallet, max height 50 in; source image",7c870d1c5a16c924566e41698c085066222914e760c76ac2cf544b1025dfaaf8,1290,957
+result.png,assets/capepack/capepack_216_result.png,CapePack 216 reference result,"9 cases/layer x2, 216 primary cartons; source screenshot",1f7fb41ea4d317f6562b5ef1e57dbfebb40482ab510ab12816e8c4beb0a844e9,1287,952
+image(20261031-151909).png,assets/capepack/capepack_240_result.png,CapePack 240 later result,"4 cases/layer x5, 240 primary cartons; source screenshot",f84b7991b9acb0ce82bc08f49ec8dc5e350fe9d91f3c21ca8321db9a3c942359,897,707
+image(20261031-153717).png,assets/capepack/capepack_case_settings_view.png,CapePack adjusted case settings screenshot,Max OD input and 240-case inset; relationship unresolved,35a910a9ad21dc73f4fbb694e5c72150b40b5ccbaf375f8b626e30b46b277d12,882,660
+case_settings_crop.png,assets/capepack/capepack_case_settings_crop.png,CapePack adjusted settings crop,Shows max OD seemingly 20x20x10; 20.32 OD conflict; preserve,ff3f0a0cea157ac054c7be0e178193ab24a580702781dafc0e5ecafb48209f34,1284,940
+image(10).png,assets/kollipack/kollipack_240_case.png,KolliPack 240 RSC design mode,"20x18x8 internal case, 4x3x1; source screenshot",ddd30014efdf5d63195e2492a1c773fad55f6df65243a7993fc4a3d1518c0ab1,1782,911
+image(20261031-095255).png,assets/kollipack/kollipack_design_alternatives.png,KolliPack design alternatives,Contains 216 and 240 candidates in table,b980d18ab2026f7e7e4db39666f8d0a26bbd1d2c7fbcda9650a643ecdd9f4664,1792,697
+image(20261031-095324).png,assets/kollipack/kollipack_240_pallet.png,KolliPack 240 pallet result,"4 cases/layer x5, 240 cartons",8c81031cfbe5ac583b2481679cabcf8533b89a8d034cfaa37501dfa686c8bbb1,1807,882
+image(20261031-095338).png,assets/kollipack/kollipack_240_pallet_options.png,KolliPack pallet alternatives table,240 options and usage percentages,fc1a794c827fd55330936503183c4512a715413dccb7a51d59788da0d92019ec,1796,257
+image(20261031-095438).png,assets/kollipack/kollipack_216_case.png,KolliPack 216 RSC design mode,"15x12x16 internal case, 3x2x2",b30c651b850858257f60a7671f2e26da9eddc5740c2eec304b8b38f53a1a3aa0,1795,912
+image(20261031-095506).png,assets/kollipack/kollipack_216_pallet.png,KolliPack 216 pallet result,"9 cases/layer x2, 216 cartons",ef2b38304fa85caf102938fb0c7213c564f390249ddb4d5898b6c81b06f94901,1801,861
+image(20261031-150939).png,assets/reference/user_packaging_hierarchy_reference.png,Visual concept reference,User's preferred simple hierarchy visual; no copied content,bb374661e77dcf10967a208157ff8686420703e82fef5ef372f0fb474b228812,510,439

@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1120" viewBox="0 0 1800 1120" role="img" aria-labelledby="title desc">
+  <title id="title">Same 12 cartons, different case geometry, different pallet result</title>
+  <desc id="desc">Editable comparison of a taller 216-carton pallet layout and a flatter 240-carton pallet layout, including the 12-carton case arrangements.</desc>
+  <defs>
+    <style>
+      .title { font: 700 42px Arial, sans-serif; fill: #203b4b; }
+      .subtitle { font: 24px Arial, sans-serif; fill: #61717d; }
+      .panel { fill: #ffffff; stroke: #d7dfe4; stroke-width: 3; }
+      .heading { font: 700 31px Arial, sans-serif; fill: #203b4b; }
+      .heading-green { font: 700 31px Arial, sans-serif; fill: #0b9476; }
+      .label { font: 700 23px Arial, sans-serif; fill: #203b4b; }
+      .number { font: 700 46px Arial, sans-serif; fill: #203b4b; }
+      .number-green { font: 700 46px Arial, sans-serif; fill: #0b9476; }
+      .small { font: 20px Arial, sans-serif; fill: #61717d; }
+      .box-top { fill: #e6b36e; stroke: #8b5d34; stroke-width: 2; }
+      .box-front { fill: #c87d3e; stroke: #8b5d34; stroke-width: 2; }
+      .box-side { fill: #a85c32; stroke: #8b5d34; stroke-width: 2; }
+      .case-floor { fill: #ad6838; stroke: #8b5d34; stroke-width: 2; }
+      .case-wall { fill: #cf8d4a; stroke: #8b5d34; stroke-width: 2; }
+      .case-flap { fill: #e6b36e; stroke: #8b5d34; stroke-width: 2; }
+      .pallet { fill: #d1a064; stroke: #8b5d34; stroke-width: 2; }
+      .pallet-runner { fill: #9b6336; stroke: #704321; stroke-width: 2; }
+      .rule { stroke: #d7dfe4; stroke-width: 2; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1120" fill="#f6f8fa"/>
+  <text x="70" y="84" class="title">Same 12 cartons. Different case geometry. Different pallet result.</text>
+  <text x="70" y="123" class="subtitle">Editable geometry source for the two verified configurations in the fixed CapePack / KolliPack case.</text>
+
+  <g id="design-a">
+    <rect x="55" y="165" width="805" height="885" rx="24" class="panel"/>
+    <text x="95" y="230" class="heading">A · 216 CARTONS / PALLET</text>
+    <text x="95" y="270" class="subtitle">Taller 15 × 12 × 16 in ID case</text>
+
+    <!-- Open RSC with 3 × 2 × 2 cartons -->
+    <polygon points="300,505 690,390 690,520 300,640" class="case-floor"/>
+    <polygon points="300,505 155,420 155,535 300,640" class="case-wall"/>
+    <polygon points="690,390 690,520 530,565 530,435" class="case-wall"/>
+    <polygon points="155,420 300,365 300,420 175,466" class="case-flap"/>
+    <polygon points="530,435 690,390 690,330 530,375" class="case-flap"/>
+    <g id="case-a-cartons">
+      <g transform="translate(220,470)">
+        <polygon points="0,0 60,-20 100,0 40,20" class="box-top"/><polygon points="0,0 40,20 40,65 0,45" class="box-front"/><polygon points="40,20 100,0 100,45 40,65" class="box-side"/>
+      </g>
+      <g transform="translate(330,438)">
+        <polygon points="0,0 60,-20 100,0 40,20" class="box-top"/><polygon points="0,0 40,20 40,65 0,45" class="box-front"/><polygon points="40,20 100,0 100,45 40,65" class="box-side"/>
+      </g>
+      <g transform="translate(440,406)">
+        <polygon points="0,0 60,-20 100,0 40,20" class="box-top"/><polygon points="0,0 40,20 40,65 0,45" class="box-front"/><polygon points="40,20 100,0 100,45 40,65" class="box-side"/>
+      </g>
+      <g transform="translate(245,525)">
+        <polygon points="0,0 60,-20 100,0 40,20" class="box-top"/><polygon points="0,0 40,20 40,65 0,45" class="box-front"/><polygon points="40,20 100,0 100,45 40,65" class="box-side"/>
+      </g>
+      <g transform="translate(355,493)">
+        <polygon points="0,0 60,-20 100,0 40,20" class="box-top"/><polygon points="0,0 40,20 40,65 0,45" class="box-front"/><polygon points="40,20 100,0 100,45 40,65" class="box-side"/>
+      </g>
+      <g transform="translate(465,461)">
+        <polygon points="0,0 60,-20 100,0 40,20" class="box-top"/><polygon points="0,0 40,20 40,65 0,45" class="box-front"/><polygon points="40,20 100,0 100,45 40,65" class="box-side"/>
+      </g>
+    </g>
+    <text x="400" y="690" text-anchor="middle" class="label">3 × 2 × 2 cartons</text>
+    <line x1="110" y1="715" x2="805" y2="715" class="rule"/>
+    <text x="95" y="780" class="label">9 cases / layer × 2 layers = 18 cases</text>
+
+    <!-- Two layers of 3 × 3 cases on a pallet -->
+    <g id="pallet-a" transform="translate(125,820)">
+      <polygon points="0,85 330,0 560,80 225,170" class="pallet"/>
+      <polygon points="35,128 70,138 70,185 35,175" class="pallet-runner"/>
+      <polygon points="210,171 245,181 245,228 210,218" class="pallet-runner"/>
+      <polygon points="420,115 455,125 455,172 420,162" class="pallet-runner"/>
+      <g id="a-cases">
+        <g transform="translate(65,60)"><rect width="82" height="42" class="box-front"/><polygon points="0,0 42,-15 124,-15 82,0" class="box-top"/><polygon points="82,0 124,-15 124,27 82,42" class="box-side"/></g>
+        <g transform="translate(160,35)"><rect width="82" height="42" class="box-front"/><polygon points="0,0 42,-15 124,-15 82,0" class="box-top"/><polygon points="82,0 124,-15 124,27 82,42" class="box-side"/></g>
+        <g transform="translate(255,10)"><rect width="82" height="42" class="box-front"/><polygon points="0,0 42,-15 124,-15 82,0" class="box-top"/><polygon points="82,0 124,-15 124,27 82,42" class="box-side"/></g>
+        <g transform="translate(125,105)"><rect width="82" height="42" class="box-front"/><polygon points="0,0 42,-15 124,-15 82,0" class="box-top"/><polygon points="82,0 124,-15 124,27 82,42" class="box-side"/></g>
+        <g transform="translate(220,80)"><rect width="82" height="42" class="box-front"/><polygon points="0,0 42,-15 124,-15 82,0" class="box-top"/><polygon points="82,0 124,-15 124,27 82,42" class="box-side"/></g>
+        <g transform="translate(315,55)"><rect width="82" height="42" class="box-front"/><polygon points="0,0 42,-15 124,-15 82,0" class="box-top"/><polygon points="82,0 124,-15 124,27 82,42" class="box-side"/></g>
+      </g>
+    </g>
+    <text x="455" y="1010" class="number">216</text>
+    <text x="455" y="1037" class="small">primary cartons / pallet</text>
+  </g>
+
+  <g id="design-b">
+    <rect x="940" y="165" width="805" height="885" rx="24" class="panel"/>
+    <text x="980" y="230" class="heading-green">B · 240 CARTONS / PALLET</text>
+    <text x="980" y="270" class="subtitle">Flatter 20 × 18 × 8 in ID case</text>
+
+    <!-- Open RSC with 4 × 3 × 1 cartons -->
+    <polygon points="1185,505 1575,390 1575,520 1185,640" class="case-floor"/>
+    <polygon points="1185,505 1040,420 1040,535 1185,640" class="case-wall"/>
+    <polygon points="1575,390 1575,520 1415,565 1415,435" class="case-wall"/>
+    <polygon points="1040,420 1185,365 1185,420 1060,466" class="case-flap"/>
+    <polygon points="1415,435 1575,390 1575,330 1415,375" class="case-flap"/>
+    <g id="case-b-cartons">
+      <g transform="translate(1085,505)"><polygon points="0,0 60,-20 100,0 40,20" class="box-top"/><polygon points="0,0 40,20 40,65 0,45" class="box-front"/><polygon points="40,20 100,0 100,45 40,65" class="box-side"/></g>
+      <g transform="translate(1195,473)"><polygon points="0,0 60,-20 100,0 40,20" class="box-top"/><polygon points="0,0 40,20 40,65 0,45" class="box-front"/><polygon points="40,20 100,0 100,45 40,65" class="box-side"/></g>
+      <g transform="translate(1305,441)"><polygon points="0,0 60,-20 100,0 40,20" class="box-top"/><polygon points="0,0 40,20 40,65 0,45" class="box-front"/><polygon points="40,20 100,0 100,45 40,65" class="box-side"/></g>
+      <g transform="translate(1415,409)"><polygon points="0,0 60,-20 100,0 40,20" class="box-top"/><polygon points="0,0 40,20 40,65 0,45" class="box-front"/><polygon points="40,20 100,0 100,45 40,65" class="box-side"/></g>
+    </g>
+    <text x="1340" y="690" text-anchor="middle" class="label">4 × 3 × 1 cartons</text>
+    <line x1="995" y1="715" x2="1690" y2="715" class="rule"/>
+    <text x="980" y="780" class="label">4 cases / layer × 5 layers = 20 cases</text>
+
+    <!-- Five layers of 2 × 2 cases on a pallet -->
+    <g id="pallet-b" transform="translate(1065,820)">
+      <polygon points="0,85 330,0 560,80 225,170" class="pallet"/>
+      <polygon points="35,128 70,138 70,185 35,175" class="pallet-runner"/>
+      <polygon points="210,171 245,181 245,228 210,218" class="pallet-runner"/>
+      <polygon points="420,115 455,125 455,172 420,162" class="pallet-runner"/>
+      <g id="b-cases">
+        <g transform="translate(125,92)"><rect width="92" height="42" class="box-front"/><polygon points="0,0 42,-15 134,-15 92,0" class="box-top"/><polygon points="92,0 134,-15 134,27 92,42" class="box-side"/></g>
+        <g transform="translate(250,58)"><rect width="92" height="42" class="box-front"/><polygon points="0,0 42,-15 134,-15 92,0" class="box-top"/><polygon points="92,0 134,-15 134,27 92,42" class="box-side"/></g>
+        <g transform="translate(158,50)"><rect width="92" height="42" class="box-front"/><polygon points="0,0 42,-15 134,-15 92,0" class="box-top"/><polygon points="92,0 134,-15 134,27 92,42" class="box-side"/></g>
+        <g transform="translate(283,16)"><rect width="92" height="42" class="box-front"/><polygon points="0,0 42,-15 134,-15 92,0" class="box-top"/><polygon points="92,0 134,-15 134,27 92,42" class="box-side"/></g>
+      </g>
+      <g opacity="0.78" transform="translate(0,-42)"><use href="#b-cases"/></g>
+      <g opacity="0.58" transform="translate(0,-84)"><use href="#b-cases"/></g>
+    </g>
+    <text x="1355" y="1010" class="number-green">240</text>
+    <text x="1355" y="1037" class="small">primary cartons / pallet</text>
+  </g>
+</svg>

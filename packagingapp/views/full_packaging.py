@@ -75,6 +75,7 @@ from ..tools.container.service import (
     get_packaging_catalogues as get_container_packaging_catalogues,
     get_product_catalogues as get_container_product_catalogues,
     get_products_for_catalogue as get_container_products_for_catalogue,
+    get_corrugated_materials as get_container_corrugated_materials,
     get_selected_material as get_container_selected_material,
     get_selected_product as get_container_selected_product,
 )
@@ -209,6 +210,7 @@ def _save_workflow(request, workflow):
         step.pop("selected_pallet_material", None)
         step.pop("box_materials", None)
         step.pop("pallet_materials", None)
+        step.pop("corrugated_materials", None)
     request.session[_workflow_session_key(request)] = workflow
     request.session.modified = True
 
@@ -1191,6 +1193,12 @@ def _apply_payload_to_config(cfg, step_type, payload):
         cfg["product_l"] = _canonical_input(length, "mm", convert_length, display_unit)
         cfg["product_w"] = _canonical_input(width, "mm", convert_length, display_unit)
         cfg["product_h"] = _canonical_input(height, "mm", convert_length, display_unit)
+        # The inherited dimensions are already the effective output of the
+        # previous packaging step. Do not apply that step's product allowance
+        # again when this load unit becomes the next step's input.
+        cfg["product_allowance_l"] = "0"
+        cfg["product_allowance_w"] = "0"
+        cfg["product_allowance_h"] = "0"
     if weight_g not in (None, "", "None"):
         display_unit = cfg.get("product_mass_unit", "g")
         cfg["product_weight"] = _canonical_input(weight_g, "g", convert_mass, display_unit)
@@ -1635,6 +1643,7 @@ def _prepare_container_step_view_model(step, idx):
 
     packaging_catalogues = get_container_packaging_catalogues()
     product_catalogues = get_container_product_catalogues()
+    corrugated_materials = get_container_corrugated_materials()
 
     selected_product = get_container_selected_product(cfg) if idx == 0 else None
     selected_material = get_container_selected_material(cfg)
@@ -1649,7 +1658,12 @@ def _prepare_container_step_view_model(step, idx):
         selected_product=selected_product,
         selected_material=selected_material,
     )
-    apply_container_catalogue_choices(form, packaging_catalogues, product_catalogues)
+    apply_container_catalogue_choices(
+        form,
+        packaging_catalogues,
+        product_catalogues,
+        corrugated_materials=corrugated_materials,
+    )
 
     step["assistant_result_stale"] = False
     retained_result = any(
@@ -1696,6 +1710,7 @@ def _prepare_container_step_view_model(step, idx):
 
     step["products"] = products
     step["materials"] = materials
+    step["corrugated_materials"] = corrugated_materials
     annotate_product_picker_rows(
         step["products"],
         length_unit=cfg.get("product_dimension_unit") or "mm",
@@ -1805,6 +1820,9 @@ def _normalized_container_post(cfg):
         "product_w": cfg.get("product_w", ""),
         "product_h": cfg.get("product_h", ""),
         "product_dimension_unit": cfg.get("product_dimension_unit", "mm"),
+        "product_allowance_l": cfg.get("product_allowance_l", "0"),
+        "product_allowance_w": cfg.get("product_allowance_w", "0"),
+        "product_allowance_h": cfg.get("product_allowance_h", "0"),
         "product_weight": cfg.get("product_weight", ""),
         "product_mass_unit": cfg.get("product_mass_unit", "g"),
         "desired_qty": cfg.get("desired_qty", "1"),
@@ -1816,6 +1834,10 @@ def _normalized_container_post(cfg):
         "box_w": cfg.get("box_w", ""),
         "box_h": cfg.get("box_h", ""),
         "box_thickness_mm": cfg.get("box_thickness_mm", ""),
+        "corrugated_material_id": cfg.get("corrugated_material_id", ""),
+        "custom_combined_grammage_g_m2": cfg.get(
+            "custom_combined_grammage_g_m2", ""
+        ),
         "container_dimension_unit": cfg.get("container_dimension_unit", "mm"),
         "box_weight": cfg.get("box_weight", ""),
         "box_max_payload": cfg.get("box_max_payload", ""),
@@ -1859,6 +1881,7 @@ def _store_container_assistant_result_snapshot(step, steps, idx, user):
         form,
         get_container_packaging_catalogues(user),
         get_container_product_catalogues(user),
+        corrugated_materials=get_container_corrugated_materials(),
     )
     form.is_valid()
     try:
@@ -1887,6 +1910,7 @@ def _build_container_non_design_workflow_payload(
     selected_product,
     selected_material,
     upstream,
+    analysis_report=None,
 ):
     desired_qty = _to_int(cfg.get("desired_qty"), 1) or 1
     if (
@@ -1934,16 +1958,48 @@ def _build_container_non_design_workflow_payload(
         "source_step_type": "container",
         "package_type": "container",
     }
-    return _enrich_package_payload_weight(
-        payload,
-        product_weight_kg=_resolve_product_weight_kg(cfg, selected_product),
-        packaging_weight_kg=_resolve_packaging_weight_kg(
-            cfg,
-            "box_weight",
-            selected_material,
-            source_key="container_source",
-        ),
+    report = analysis_report or {}
+    report_gross_weight_g = _to_float(
+        report.get("gross_carton_weight_g")
+        or report.get("total_weight_current"),
+        None,
     )
+    if report_gross_weight_g is not None:
+        _set_payload_weight_kg(payload, g_to_kg(report_gross_weight_g))
+        if report.get("net_weight") is not None:
+            payload["net_content_weight_g"] = float(report["net_weight"])
+        if report.get("carton_tare_g") is not None:
+            payload["carton_tare_g"] = float(report["carton_tare_g"])
+        payload["carton_tare_source"] = report.get("carton_tare_source") or "unavailable"
+        payload["carton_tare_source_display"] = report.get(
+            "carton_tare_source_display"
+        ) or "Not included"
+        payload["weight_source"] = report.get("weight_source") or "unavailable"
+        payload["weight_source_display"] = report.get(
+            "weight_source_display"
+        ) or "Not included"
+        return payload
+
+    product_weight_kg = _resolve_product_weight_kg(cfg, selected_product)
+    packaging_weight_kg = _resolve_packaging_weight_kg(
+        cfg,
+        "box_weight",
+        selected_material,
+        source_key="container_source",
+    )
+    if product_weight_kg is not None or packaging_weight_kg is None:
+        return _enrich_package_payload_weight(
+            payload,
+            product_weight_kg=product_weight_kg,
+            packaging_weight_kg=packaging_weight_kg,
+        )
+    payload["carton_tare_source"] = "manual" if packaging_weight_kg is not None else "unavailable"
+    payload["carton_tare_source_display"] = (
+        "Manually supplied" if packaging_weight_kg is not None else "Not included"
+    )
+    payload["weight_source"] = "unavailable"
+    payload["weight_source_display"] = "Not included"
+    return payload
 
 
 def _process_container_step(step, steps, idx, post):
@@ -1986,6 +2042,18 @@ def _process_container_step(step, steps, idx, post):
     cfg["product_dimension_unit"] = post.get(
         f"product_dimension_unit{suffix}",
         post.get(f"product_dimension_unit_{idx}", cfg.get("product_dimension_unit", "mm")),
+    )
+    cfg["product_allowance_l"] = post.get(
+        f"product_allowance_l{suffix}",
+        post.get(f"product_allowance_l_{idx}", cfg.get("product_allowance_l", "0")),
+    )
+    cfg["product_allowance_w"] = post.get(
+        f"product_allowance_w{suffix}",
+        post.get(f"product_allowance_w_{idx}", cfg.get("product_allowance_w", "0")),
+    )
+    cfg["product_allowance_h"] = post.get(
+        f"product_allowance_h{suffix}",
+        post.get(f"product_allowance_h_{idx}", cfg.get("product_allowance_h", "0")),
     )
     cfg["product_weight"] = post.get(
         f"product_weight{suffix}",
@@ -2034,6 +2102,20 @@ def _process_container_step(step, steps, idx, post):
     cfg["box_thickness_mm"] = post.get(
         f"box_thickness_mm{suffix}",
         post.get(f"box_thickness_mm_{idx}", cfg.get("box_thickness_mm", "")),
+    )
+    cfg["corrugated_material_id"] = post.get(
+        f"corrugated_material_id{suffix}",
+        post.get(
+            f"corrugated_material_id_{idx}",
+            cfg.get("corrugated_material_id", ""),
+        ),
+    )
+    cfg["custom_combined_grammage_g_m2"] = post.get(
+        f"custom_combined_grammage_g_m2{suffix}",
+        post.get(
+            f"custom_combined_grammage_g_m2_{idx}",
+            cfg.get("custom_combined_grammage_g_m2", ""),
+        ),
     )
     cfg["box_weight"] = post.get(
         f"box_weight{suffix}",
@@ -2086,6 +2168,15 @@ def _process_container_step(step, steps, idx, post):
         form,
         get_container_packaging_catalogues(),
         get_container_product_catalogues(),
+        # An empty board selector is valid and needs no database lookup. This
+        # keeps the capacity-only adapter usable by pure-service callers while
+        # still validating a persisted board selection against the active
+        # catalogue when one is present.
+        corrugated_materials=(
+            get_container_corrugated_materials()
+            if cfg.get("corrugated_material_id") not in (None, "")
+            else None
+        ),
     )
 
     result_payload = None
@@ -2150,6 +2241,7 @@ def _process_container_step(step, steps, idx, post):
                 selected_product,
                 selected_material,
                 _selected_input_for_step(steps, idx),
+                analysis_report=analysis_report,
             )
     else:
         messages = [str(err) for err in form.non_field_errors()]
@@ -2247,6 +2339,18 @@ def _process_bag_step(step, steps, idx, post):
     cfg["product_dimension_unit"] = post.get(
         f"product_dimension_unit{suffix}",
         post.get(f"product_dimension_unit_{idx}", cfg.get("product_dimension_unit", "mm")),
+    )
+    cfg["product_allowance_l"] = post.get(
+        f"product_allowance_l{suffix}",
+        post.get(f"product_allowance_l_{idx}", cfg.get("product_allowance_l", "0")),
+    )
+    cfg["product_allowance_w"] = post.get(
+        f"product_allowance_w{suffix}",
+        post.get(f"product_allowance_w_{idx}", cfg.get("product_allowance_w", "0")),
+    )
+    cfg["product_allowance_h"] = post.get(
+        f"product_allowance_h{suffix}",
+        post.get(f"product_allowance_h_{idx}", cfg.get("product_allowance_h", "0")),
     )
     cfg["product_weight"] = post.get(
         f"product_weight{suffix}",
@@ -2595,6 +2699,15 @@ def _evaluate_container_capacity_step(step, temporary_steps, idx):
         form,
         get_container_packaging_catalogues(),
         get_container_product_catalogues(),
+        # An empty board selector is valid and needs no database lookup. This
+        # keeps the capacity-only adapter usable by pure-service callers while
+        # still validating a persisted board selection against the active
+        # catalogue when one is present.
+        corrugated_materials=(
+            get_container_corrugated_materials()
+            if cfg.get("corrugated_material_id") not in (None, "")
+            else None
+        ),
     )
     if not form.is_valid():
         return None
@@ -2619,6 +2732,7 @@ def _evaluate_container_capacity_step(step, temporary_steps, idx):
         selected_product,
         selected_material,
         upstream,
+        analysis_report=analysis.get("result"),
     )
 
 

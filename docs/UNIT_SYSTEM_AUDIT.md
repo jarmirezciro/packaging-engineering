@@ -58,6 +58,8 @@ Exact definitions:
 | Container Selection | catalogue product weight | kg | catalogue row/summary: kg | kg -> g in shared Container service | g report fields | `kg_to_g` occurs once at the service/form boundary. |
 | Container Selection | manual packaging tare / max payload | — | g | g | g report fields | Payload remains informational for current Container capacity. |
 | Container Selection | catalogue packaging tare | kg | catalogue row/summary: kg | kg -> g in shared Container service | g report fields | No catalogue payload model field currently exists. |
+| Container Selection | corrugated combined grammage | g/m² | g/m² | g/m² | g/m² | Active construction or positive custom value; used only by the FEFCO 0201 tare adapter. |
+| Container Selection | calculated carton tare / gross carton weight | — | selected container mass unit | g | g report fields | Candidate dimensions use internal mm; finished material mass excludes scrap; gross is net contents plus one tare. |
 | Bag Selection | manual product L/W/H and bag L/W | — | mm | mm | mm | Sealing/tolerance geometry remains unchanged. |
 | Bag Selection | manual product, bag tare, max payload | — | g | g | g report fields | Payload feasibility/report contract is gram-based. |
 | Bag Selection | catalogue product / bag tare | kg | catalogue row/summary: kg | kg -> g in shared Bag service | g report fields | Conversion is not performed inside the bag engine. |
@@ -73,6 +75,7 @@ Exact definitions:
 | Transport Container | transport-unit tare / max payload | catalogue/manual kg | kg | kg | kg | Catalogue `2200 kg` remains `2200 kg`. Tare is excluded from payload and added to gross. |
 | Packaging Flow | selected step physical mass | session JSON | kg authoritative; g derived | kg authoritative | downstream-specific | `weight_kg` is authoritative; `weight_g` is derived without display rounding. |
 | Packaging Flow | Container/Bag -> Palletization | session JSON | — | derived `weight_g` | Palletization g | No catalogue value is reinterpreted as grams. |
+| Packaging Flow | Container gross carton output | session JSON | — | authoritative `weight_kg` plus derived `weight_g` | Palletization g / Transport kg | The Container report's gross is copied once; downstream stages do not re-add the same carton tare. |
 | Packaging Flow | Container/Bag/Palletization -> Transport | session JSON | — | authoritative `weight_kg` | Transport kg | Legacy g-only payloads are read once and adapted to kg for session compatibility. |
 | Packaging Flow | palletized load | session JSON | kg/g pair | kg authoritative | Transport kg | Upstream package kg × cartons + catalogue pallet tare kg. |
 | Corrugated strength | box L/W/H, joint, sheet margin, pallet dimensions/heights | — | mm | `Decimal` mm | specialized mm/m equations | No equation or constant changed. |
@@ -259,6 +262,19 @@ Container/Bag gram boundary exactly once, Packaging kg still crosses the
 Palletization gram boundary exactly once, and Transport continues to consume
 kg directly. Displaying a catalogue value as `lb` or `in` cannot alter those
 paths.
+
+## Product dimensional allowance unit boundary
+
+Container Selection and Bag Selection dimensional allowances share the existing
+product-dimension unit group and browser conversion behavior. Manual allowance
+values are converted at the service boundary with the selected `mm`, `cm`, `m`,
+`in`, or `ft` unit and then stored transiently as canonical millimetres for
+packing. Catalogue product fields remain canonical millimetres at the service
+boundary, while the existing catalogue picker converts them through the same
+shared selector used by the allowance fields.
+
+Nominal catalogue/manual values, effective packing values, and allowances are
+reported separately; no catalogue schema or engine unit contract changes.
 
 Excel upload/download and other bulk interfaces remain Metric-only (`mm` and
 `kg`) and do not depend on the current catalogue display state. Three.js

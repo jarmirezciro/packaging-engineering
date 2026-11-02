@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="975" viewBox="0 0 1360 975">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#8a9cac"/></marker></defs>
+<rect x="0" y="0" width="1360" height="975" fill="#ffffff"/>
+<text x="680" y="50" fill="#19364f" font-size="30" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">One primary carton → two case designs → two pallet outcomes</text>
+<text x="680" y="81" fill="#657789" font-size="18" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">An engineering hierarchy for this exact 12-carton RSC benchmark</text>
+<polygon points="680.0,200.0 647.8,187.4 647.8,136.5 680.0,149.1" fill="#dc8d27" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<polygon points="680.0,200.0 718.6,184.9 718.6,134.0 680.0,149.1" fill="#e8a448" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<polygon points="680.0,149.1 718.6,134.0 686.4,121.4 647.8,136.5" fill="#f7c66a" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<text x="680" y="118" fill="#223c53" font-size="21" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">PRIMARY CARTON</text>
+<text x="680" y="246" fill="#19364f" font-size="19" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">6 × 5 × 8 in  |  2.25 lb  |  8 in vertical</text>
+<path d="M 650,275 L 340,360" stroke="#8a9cac" stroke-width="2.8" fill="none" marker-end="url(#arrow)" />
+<path d="M 710,275 L 1020,360" stroke="#8a9cac" stroke-width="2.8" fill="none" marker-end="url(#arrow)" />
+<rect x="45" y="341" width="600" height="602" rx="20" fill="#f7fafc" stroke="#d5e0ea" stroke-width="2"/>
+<rect x="715" y="341" width="600" height="602" rx="20" fill="#f7fafc" stroke="#d5e0ea" stroke-width="2"/>
+<text x="345" y="385" fill="#2a4d67" font-size="22" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">A · REFERENCE CASE</text>
+<text x="1015" y="385" fill="#2a4d67" font-size="22" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">B · FLATTER ALTERNATIVE</text>
+<text x="345" y="413" fill="#55697c" font-size="16" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">12 cartons per RSC case</text>
+<text x="1015" y="413" fill="#55697c" font-size="16" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">12 cartons per RSC case</text>
+<polygon points="345.0,552.0 290.7,530.8 290.7,459.2 345.0,480.4" fill="#dc8d27" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<polygon points="345.0,552.0 412.9,525.5 412.9,453.9 345.0,480.4" fill="#e8a448" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<polygon points="345.0,480.4 412.9,453.9 358.6,432.7 290.7,459.2" fill="#f7c66a" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<line x1="367.6" y1="471.6" x2="313.3" y2="450.4" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="390.2" y1="462.8" x2="336.0" y2="441.6" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="317.9" y1="469.8" x2="385.7" y2="443.3" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="345.0" y1="516.2" x2="412.9" y2="489.7" stroke="#835014" stroke-width="1.4"  />
+<line x1="345.0" y1="516.2" x2="290.7" y2="495.0" stroke="#835014" stroke-width="1.4"  />
+<polygon points="1015.0,550.0 933.6,518.2 933.6,482.4 1015.0,514.2" fill="#dc8d27" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<polygon points="1015.0,550.0 1105.5,514.6 1105.5,478.9 1015.0,514.2" fill="#e8a448" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<polygon points="1015.0,514.2 1105.5,478.9 1024.0,447.0 933.6,482.4" fill="#f7c66a" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<line x1="1037.6" y1="505.4" x2="956.2" y2="473.6" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="1060.2" y1="496.5" x2="978.8" y2="464.7" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="1082.9" y1="487.7" x2="1001.4" y2="455.9" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="987.9" y1="503.6" x2="1078.3" y2="468.3" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="960.7" y1="493.0" x2="1051.2" y2="457.6" stroke="#8a5a1c" stroke-width="1.1"  />
+<text x="345" y="594" fill="#19364f" font-size="18" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">3 × 2 × 2 cartons per case</text>
+<text x="1015" y="594" fill="#19364f" font-size="18" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">4 × 3 × 1 cartons per case</text>
+<text x="345" y="620" fill="#55697c" font-size="16" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">Case ID 15 × 12 × 16 in</text>
+<text x="1015" y="620" fill="#55697c" font-size="16" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">Case ID 20 × 18 × 8 in</text>
+<text x="345" y="645" fill="#55697c" font-size="16" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">Case OD 15.32 × 12.32 × 16.64 in</text>
+<text x="1015" y="645" fill="#55697c" font-size="16" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">Case OD 20.32 × 18.32 × 8.64 in</text>
+<path d="M 345,662 L 345,715" stroke="#8a9cac" stroke-width="2.8" fill="none" marker-end="url(#arrow)" />
+<path d="M 1015,662 L 1015,715" stroke="#8a9cac" stroke-width="2.8" fill="none" marker-end="url(#arrow)" />
+<polygon points="345.0,837.0 251.7,800.6 251.7,717.6 345.0,754.0" fill="#397a97" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<polygon points="345.0,837.0 461.0,791.7 461.0,708.7 345.0,754.0" fill="#5693ad" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<polygon points="345.0,754.0 461.0,708.7 367.7,672.2 251.7,717.6" fill="#9bc0d0" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<line x1="383.7" y1="738.9" x2="290.4" y2="702.5" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="422.3" y1="723.8" x2="329.1" y2="687.3" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="313.9" y1="741.9" x2="429.9" y2="696.5" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="282.8" y1="729.7" x2="398.8" y2="684.4" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="345.0" y1="795.5" x2="461.0" y2="750.2" stroke="#835014" stroke-width="1.4"  />
+<line x1="345.0" y1="795.5" x2="251.7" y2="759.1" stroke="#835014" stroke-width="1.4"  />
+<polygon points="1015.0,837.0 922.6,800.9 922.6,693.1 1015.0,729.3" fill="#397a97" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<polygon points="1015.0,837.0 1117.5,796.9 1117.5,689.2 1015.0,729.3" fill="#5693ad" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<polygon points="1015.0,729.3 1117.5,689.2 1025.1,653.1 922.6,693.1" fill="#9bc0d0" stroke="#43576e" stroke-width="2" stroke-linejoin="round" />
+<line x1="1066.3" y1="709.2" x2="973.8" y2="673.1" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="968.8" y1="711.2" x2="1071.3" y2="671.1" stroke="#8a5a1c" stroke-width="1.1"  />
+<line x1="1015.0" y1="815.5" x2="1117.5" y2="775.4" stroke="#835014" stroke-width="1.4"  />
+<line x1="1015.0" y1="815.5" x2="922.6" y2="779.3" stroke="#835014" stroke-width="1.4"  />
+<line x1="1015.0" y1="793.9" x2="1117.5" y2="753.8" stroke="#835014" stroke-width="1.4"  />
+<line x1="1015.0" y1="793.9" x2="922.6" y2="757.8" stroke="#835014" stroke-width="1.4"  />
+<line x1="1015.0" y1="772.4" x2="1117.5" y2="732.3" stroke="#835014" stroke-width="1.4"  />
+<line x1="1015.0" y1="772.4" x2="922.6" y2="736.2" stroke="#835014" stroke-width="1.4"  />
+<line x1="1015.0" y1="750.8" x2="1117.5" y2="710.7" stroke="#835014" stroke-width="1.4"  />
+<line x1="1015.0" y1="750.8" x2="922.6" y2="714.7" stroke="#835014" stroke-width="1.4"  />
+<text x="345" y="853" fill="#19364f" font-size="18" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">3 × 3 cases/layer · 2 layers</text>
+<text x="1015" y="853" fill="#19364f" font-size="18" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">2 × 2 cases/layer · 5 layers</text>
+<text x="345" y="940" fill="#55697c" font-size="15" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">48 × 40 in pallet</text>
+<text x="1015" y="940" fill="#55697c" font-size="15" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">48 × 40 in pallet</text>
+<text x="345" y="890" fill="#174968" font-size="36" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">216</text>
+<text x="1015" y="890" fill="#174968" font-size="36" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">240</text>
+<text x="345" y="920" fill="#55697c" font-size="17" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">individual cartons / pallet</text>
+<text x="1015" y="920" fill="#55697c" font-size="17" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">individual cartons / pallet</text>
+<text x="680" y="961" fill="#78899a" font-size="15" font-family="Arial, sans-serif" font-weight="400" text-anchor="middle">Schematic illustration · not to scale · geometry checked against the shared backend</text>
+</svg>

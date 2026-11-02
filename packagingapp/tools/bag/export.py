@@ -285,6 +285,9 @@ def build_bag_selection_single_pdf(export_payload):
         ("Product ID", product.get("id")),
         ("Name", product.get("name")),
         ("Dimensions", product.get("dimensions")),
+        ("Nominal dims", product.get("nominal_dimensions")),
+        ("Effective dims", product.get("effective_dimensions")),
+        ("Dimensional allowance", product.get("allowances")),
         ("Weight", product.get("weight")),
         ("Orientation", product.get("orientation")),
     ], [28 * mm, 54 * mm])
@@ -399,6 +402,9 @@ def build_bag_selection_optimal_pdf(export_payload):
         ("Product ID", product.get("id")),
         ("Name", product.get("name")),
         ("Dimensions", product.get("dimensions")),
+        ("Nominal dims", product.get("nominal_dimensions")),
+        ("Effective dims", product.get("effective_dimensions")),
+        ("Dimensional allowance", product.get("allowances")),
         ("Weight", product.get("weight")),
         ("Target quantity", product.get("desired_qty")),
     ], [34 * mm, 72 * mm])

@@ -26,6 +26,7 @@ from ..tools.container.service import (
     apply_catalogue_choices,
     build_container_form,
     get_materials_for_catalogue,
+    get_corrugated_materials,
     get_packaging_catalogues,
     get_product_catalogues,
     get_selected_material,
@@ -338,6 +339,7 @@ def _build_current_form(config, user):
         form,
         get_packaging_catalogues(user),
         get_product_catalogues(user),
+        corrugated_materials=get_corrugated_materials(),
     )
     form.is_valid()
     return form, selected_product, selected_material, materials

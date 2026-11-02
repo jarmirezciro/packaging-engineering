@@ -60,6 +60,23 @@ required_bag_width
 required_bag_length
 ```
 
+## Product dimensional allowance
+
+Bag Selection uses the same shared product-dimension transformation as
+Container Selection. Each optional length, width, and height allowance is
+converted to canonical millimetres and added once to the matching nominal axis
+before the existing bag-sizing, Design, Single, Optimal, and capacity-only
+calculations run. Existing sealing, fit-tolerance, material, and arrangement
+formulas are unchanged.
+
+Nominal product dimensions remain the physical values used by the product
+Three.js scene and catalogue data; effective dimensions are separate transient
+packing inputs and report fields. Blank/missing allowances are zero for
+backward compatibility. Catalogue-backed product fields and allowances use
+the same active product-dimension selector as manual entries; catalogue
+dimensions remain canonical millimetres at the service boundary and are
+converted for display by the picker.
+
 ## Assumptions
 
 Unless current code says otherwise:

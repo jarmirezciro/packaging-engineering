@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "cartons-per-pallet-case-design-exploration",
+  "composition": "comparison",
+  "hook_primary": "216 → 240",
+  "hook_secondary": "CARTONS / PALLET",
+  "support_line": "Same 12-carton case quantity. Different geometry.",
+  "scene_subject": "two verified palletized corrugated-case layouts: a lower 3 × 3 two-layer stack and a flatter-footprint 2 × 2 five-layer stack",
+  "image_mode": "evidence_derived",
+  "screenshots_allowed": false,
+  "supported_claims": [
+    {
+      "text": "216 → 240",
+      "evidence": "The supplied fixture records 216 and 240 primary cartons per pallet for two different 12-carton case geometries.",
+      "source": "artifacts/blog-case/cartons-per-pallet-case-design-exploration/benchmark_fixture.json"
+    },
+    {
+      "text": "12",
+      "evidence": "The benchmark fixes the designed quantity at 12 primary cartons per RSC case.",
+      "source": "artifacts/blog-case/cartons-per-pallet-case-design-exploration/benchmark_fixture.json"
+    }
+  ],
+  "evidence_asset_paths": [
+    "static/img/blog/cartons-per-pallet-case-design-exploration/case-hierarchy.svg",
+    "static/img/blog/cartons-per-pallet-case-design-exploration/parity-216-cape-kollipack.webp",
+    "static/img/blog/cartons-per-pallet-case-design-exploration/parity-240-cape-kollipack.webp"
+  ],
+  "reference_standard": "thumbnail-design-system-v1"
+}

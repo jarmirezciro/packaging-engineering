@@ -137,6 +137,24 @@ region, Design candidates, standalone Container Selection, and Packaging Flow.
 - render the selected candidate, not a different default candidate;
 - if desired quantity is lower than capacity, the clean image may draw only the desired quantity while still reporting maximum capacity separately.
 
+## Product dimensional allowance
+
+Container Selection accepts optional `product_allowance_l`,
+`product_allowance_w`, and `product_allowance_h` inputs. The shared
+`packagingapp.tools.product_dimensions` helper converts those values to
+canonical millimetres and adds each allowance once to its corresponding
+nominal product axis before Design, Single, Optimal, or capacity-only engine
+entry points are called. The existing packing algorithms, rotation mapping,
+container thickness calculation, and ranking remain unchanged.
+
+Nominal dimensions remain the catalogue/manual physical values used by the
+product Three.js scene and product detail. Effective dimensions are transient
+packing inputs and are exposed separately in JSON-safe reports/exports. Manual
+and catalogue allowances use the active shared product-dimension unit; the
+catalogue picker converts its canonical millimetre dimensions for display.
+Missing or blank allowance fields normalize to zero, preserving older sessions
+and submissions.
+
 ## Assumptions
 
 - product and packaging are axis-aligned rectangular cuboids;
@@ -168,6 +186,42 @@ axes. When the 4 mm default is required, the JSON-safe result contract marks
 the thickness as assumed so Detailed Analysis and downstream consumers can
 explain the estimate.
 
+## Carton tare and corrugated-board selection
+
+Container Selection exposes an optional active `CorrugatedBoardConstruction`
+choice plus a custom combined grammage. The choice is a weight input only: it
+does not change box thickness, internal dimensions, external-dimension
+resolution, packing capacity, or the product renderer.
+
+For an eligible manual box or catalogue `BOX`, the shared tare adapter reuses
+the existing FEFCO 0201 geometry provider and `calculate_material()` with zero
+product mass. It returns the finished material mass from the candidate's own
+internal L/W/H dimensions and selected grammage; blank production-sheet scrap
+is not included. Design candidates therefore calculate tare independently,
+rather than copying the selected row's result.
+
+The generic weight-source precedence is:
+
+1. non-null catalogue `PackagingMaterial.part_weight`;
+2. explicit manual `box_weight`, converted once to canonical grams;
+3. calculated FEFCO 0201 material tare for an eligible box;
+4. unavailable.
+
+The FEFCO estimate is not applied to catalogue `CRATE`, `CONTAINER`, or
+`TRAILER` records. A missing product weight leaves tare available but leaves
+gross carton weight unavailable; gross weight is calculated only as
+`net contents + one carton tare`. The JSON-safe report carries the numeric
+weight, source, reason, material, grammage, effective area, and FEFCO code so
+standalone, Design, Optimal, and Packaging Flow consumers share the same
+contract.
+
+When a Container result enters Packaging Flow, its authoritative gross carton
+weight is copied once into the downstream payload's canonical `weight_kg`
+(with derived `weight_g`). Downstream Palletization and Transport consume that
+payload; they do not add the same carton tare again. Changing dimensions,
+quantity, board selection, grammage, or weight input invalidates the normal
+step result and rebuilds the dependent payload.
+
 ## Invariants
 
 - no product crosses container bounds;
@@ -197,6 +251,13 @@ explain the estimate.
 - desired draw limit does not change maximum count;
 - selected Top-5 result controls the exported image;
 - product plus packaging weight respects max payload;
+- carton tare uses each Design candidate's dimensions and selected grammage;
+- catalogue tare, manual tare, calculated eligible-box tare, and unavailable
+  weight sources follow the same precedence in Single, Optimal, Design, and
+  Packaging Flow cases;
+- unknown product weight does not turn carton tare into gross weight;
+- CRATE/CONTAINER/TRAILER catalogue rows do not receive an RSC material
+  estimate;
 - standalone, Flow, and report counts agree for equivalent single-product fixtures;
 - Multi-product Container Selection reproduces the same placements/graphics for an equivalent one-row fixture;
 - clean-render and product-detail improvements appear in the multi-product result and report where applicable.
@@ -225,9 +286,12 @@ then generation order.
 Only after grouping are candidates ranked by cubicity
 (`min(L, W, H) / max(L, W, H)`) descending, additional capacity ascending,
 internal volume ascending, and a stable canonical tie-breaker; ranks and IDs are
-then assigned. Design Mode optionally reports net-content product weight only;
-container tare, total package weight, and payload metrics are not inputs or
-serialized results. Single and Optimal modes keep their existing evaluation.
+then assigned. Design Mode optionally reports net-content product weight;
+when a manual/carton-eligible corrugated material or authoritative tare is
+available, it also reports the candidate-specific empty-carton tare and gross
+carton weight. Tare is a derived result, not a Design ranking input, and
+payload metrics remain outside Design. Single and Optimal modes keep their
+existing evaluation.
 Selection Mode continues to use `MainBox` and its existing leftover-space logic.
 The extraction preserves Container Design's existing candidate dimensions,
 ordering, representative choices, render geometry, and candidate identifiers.

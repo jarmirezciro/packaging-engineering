@@ -124,8 +124,34 @@ def build_design_candidate_payload(source_type, candidate, upstream=None):
     if candidate.get("net_content_weight") is not None:
         net_content_weight_g = float(candidate.get("net_content_weight"))
         common["net_content_weight_g"] = net_content_weight_g
+    gross_weight_g = candidate.get("gross_carton_weight_g")
+    if gross_weight_g is None:
+        gross_weight_g = candidate.get("gross_carton_weight")
+    if gross_weight_g is not None:
+        gross_weight_g = float(gross_weight_g)
+        common["weight_g"] = gross_weight_g
+        common["weight_kg"] = float(g_to_kg(gross_weight_g))
+    elif candidate.get("net_content_weight") is not None:
+        # Preserve the historical Design payload for cases with no known or
+        # estimated carton tare.
+        net_content_weight_g = float(candidate.get("net_content_weight"))
         common["weight_g"] = net_content_weight_g
         common["weight_kg"] = float(g_to_kg(net_content_weight_g))
+    for source_key in (
+        "container_tare",
+        "carton_tare_g",
+        "carton_tare_source",
+        "carton_tare_source_display",
+        "weight_source",
+        "weight_source_display",
+        "corrugated_material_id",
+        "corrugated_material_name",
+        "combined_grammage_g_m2",
+        "effective_box_area_m2",
+        "fefco_code",
+    ):
+        if candidate.get(source_key) is not None:
+            common[source_key] = candidate.get(source_key)
     return common
 
 

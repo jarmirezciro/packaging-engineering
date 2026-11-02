@@ -1,7 +1,10 @@
 from decimal import Decimal
 
+import math
+
 from django import forms
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.validators import DecimalValidator
 from django.core.files.uploadedfile import UploadedFile
 
@@ -403,6 +406,15 @@ class PackagingMaterialImagesZipUploadForm(forms.Form):
         help_text="Upload a .zip containing packaging material pictures."
     )
 
+
+class NonNegativeFiniteFloatField(forms.FloatField):
+    """Optional numeric input that rejects NaN and infinity explicitly."""
+
+    def validate(self, value):
+        super().validate(value)
+        if value is not None and not math.isfinite(value):
+            raise ValidationError("Enter a finite number.")
+
 ###
 # Container Selection Form
 ###
@@ -478,6 +490,36 @@ class ContainerSelectionMode1Form(forms.Form):
         choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
         initial="mm",
         widget=forms.HiddenInput(),
+    )
+    product_allowance_l = NonNegativeFiniteFloatField(
+        min_value=0,
+        initial=0,
+        required=False,
+        label="Length allowance",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any", "min": "0",
+            "data-unit-input": "true", "data-unit-group": "container-product-dimensions",
+        }),
+    )
+    product_allowance_w = NonNegativeFiniteFloatField(
+        min_value=0,
+        initial=0,
+        required=False,
+        label="Width allowance",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any", "min": "0",
+            "data-unit-input": "true", "data-unit-group": "container-product-dimensions",
+        }),
+    )
+    product_allowance_h = NonNegativeFiniteFloatField(
+        min_value=0,
+        initial=0,
+        required=False,
+        label="Height allowance",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any", "min": "0",
+            "data-unit-input": "true", "data-unit-group": "container-product-dimensions",
+        }),
     )
     product_weight = forms.FloatField(
         min_value=0,
@@ -576,6 +618,24 @@ class ContainerSelectionMode1Form(forms.Form):
         ),
     )
 
+    corrugated_material_id = forms.ChoiceField(
+        required=False,
+        label="Corrugated board material",
+        choices=(("", "No carton tare calculation"),),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    custom_combined_grammage_g_m2 = forms.DecimalField(
+        required=False,
+        label="Combined grammage (g/m²)",
+        min_value=Decimal("0.0001"),
+        widget=forms.NumberInput(attrs={
+            "class": "form-control",
+            "step": "any",
+            "min": "0.0001",
+        }),
+    )
+
     box_weight = forms.FloatField(
         min_value=0,
         required=False,
@@ -607,6 +667,14 @@ class ContainerSelectionMode1Form(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        if (
+            cleaned.get("corrugated_material_id") == "custom"
+            and cleaned.get("custom_combined_grammage_g_m2") is None
+        ):
+            self.add_error(
+                "custom_combined_grammage_g_m2",
+                "Enter a positive combined grammage for the custom material.",
+            )
         if cleaned.get("mode") != "design":
             return cleaned
         if cleaned.get("desired_qty") is None:
@@ -828,6 +896,37 @@ class BagSelectionForm(forms.Form):
         choices=[(item["value"], item["symbol"]) for item in LENGTH_UNIT_OPTIONS],
         initial="mm",
         widget=forms.HiddenInput(),
+    )
+
+    product_allowance_l = NonNegativeFiniteFloatField(
+        min_value=0,
+        initial=0,
+        required=False,
+        label="Length allowance",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any", "min": "0",
+            "data-unit-input": "true", "data-unit-group": "bag-product-dimensions",
+        }),
+    )
+    product_allowance_w = NonNegativeFiniteFloatField(
+        min_value=0,
+        initial=0,
+        required=False,
+        label="Width allowance",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any", "min": "0",
+            "data-unit-input": "true", "data-unit-group": "bag-product-dimensions",
+        }),
+    )
+    product_allowance_h = NonNegativeFiniteFloatField(
+        min_value=0,
+        initial=0,
+        required=False,
+        label="Height allowance",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any", "min": "0",
+            "data-unit-input": "true", "data-unit-group": "bag-product-dimensions",
+        }),
     )
 
     product_weight = forms.FloatField(

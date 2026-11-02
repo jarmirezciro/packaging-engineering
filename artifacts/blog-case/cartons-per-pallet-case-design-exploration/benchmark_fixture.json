@@ -1,0 +1,26 @@
+{
+  "benchmark_id": "case01-cape-pack-12-carton-rsc-two-pallet-layouts",
+  "prepared_date": "2026-10-31",
+  "source_video": "https://www.youtube.com/watch?v=9be4hp7gRf4",
+  "reference_product": "CapePack Arrange (screenshot evidence; version unverified)",
+  "independent_product": "KolliPack (screenshot evidence; version/branch to verify)",
+  "purpose": "Reproduce two pictured case/pallet configurations at 12 cartons per case; not a full optimizer competition",
+  "primary_carton": {"dimensions_in": [6,5,8], "gross_weight_lb": 2.25, "net_weight_lb_source_only": 2.0, "allowed_vertical_original_axes": ["height"], "desired_qty_per_case": 12},
+  "rsc": {"board_thickness_in": 0.16, "material_thicknesses_LWH": [2,2,4], "partitions": false, "basis_weight_lb_per_msf_source_only": 112},
+  "cape_pack_source_range_qty_per_case": [12,24],
+  "benchmark_fixed_qty_per_case": 12,
+  "reference_pallet": {"dimensions_LWH_in": [48,40,5.5], "pallet_tare_lb": 50, "overhang_LW_in": [0,0], "max_overall_height_in": 50, "max_product_load_lb": 2000},
+  "kollipack_screenshot_catalogue_pallet": {"dimensions_LWH_in": [47.992,40,5.551], "pallet_tare_lb_recorded": 0},
+  "cases": [
+    {"id":"baseline_216", "internal_LWH_in": [15,12,16], "external_LWH_in": [15.32,12.32,16.64], "cartons_arrangement": [3,2,2], "cases_per_layer": 9, "layers": 2, "cases_per_pallet": 18, "base_cartons_per_pallet": 216, "cape_pallet_total_height_in": 38.78, "kollipack_screenshot_total_height_in": 38.831, "cape_floor_utilization_pct": 88.5, "cape_cube_utilization_pct": 66.2, "base_carton_content_weight_lb": 486},
+    {"id":"alternative_240", "internal_LWH_in": [20,18,8], "external_LWH_in": [20.32,18.32,8.64], "cartons_arrangement": [4,3,1], "cases_per_layer": 4, "layers": 5, "cases_per_pallet": 20, "base_cartons_per_pallet": 240, "cape_pallet_total_height_in": 48.7, "kollipack_screenshot_total_height_in": 48.751, "cape_floor_utilization_pct": 77.6, "cape_cube_utilization_pct": 75.3, "kollipack_floor_utilization_pct": 77.57, "kollipack_cube_utilization_pct": 75.39, "base_carton_content_weight_lb": 540}
+  ],
+  "caveats": [
+    "Unverified link between reference settings max outside dimensions 20x20x10 and 20.32-in case OD in output",
+    "No current backend verification in this handoff; screenshots are source inputs",
+    "No physical case compression, stability, material cost or manufacturing validation",
+    "Different pallet catalogue height/tare for reported screenshots",
+    "Source allowed qty range12-24; study fixes 12",
+    "TOPS Pro is NOT independently benchmarked"
+  ]
+}

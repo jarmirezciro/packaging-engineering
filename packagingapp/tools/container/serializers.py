@@ -28,6 +28,9 @@ def sanitize_container_config_for_session(config):
         "product_w": _safe_str(base.get("product_w") or ""),
         "product_h": _safe_str(base.get("product_h") or ""),
         "product_dimension_unit": _safe_str(base.get("product_dimension_unit") or "mm"),
+        "product_allowance_l": _safe_str(base.get("product_allowance_l") or "0"),
+        "product_allowance_w": _safe_str(base.get("product_allowance_w") or "0"),
+        "product_allowance_h": _safe_str(base.get("product_allowance_h") or "0"),
         "product_weight": _safe_str(base.get("product_weight") or ""),
         "product_mass_unit": _safe_str(base.get("product_mass_unit") or "g"),
         "desired_qty": _safe_str(base.get("desired_qty") or "1"),
@@ -43,6 +46,10 @@ def sanitize_container_config_for_session(config):
         "box_w": _safe_str(base.get("box_w") or ""),
         "box_h": _safe_str(base.get("box_h") or ""),
         "box_thickness_mm": _safe_str(base.get("box_thickness_mm") or ""),
+        "corrugated_material_id": _safe_str(base.get("corrugated_material_id") or ""),
+        "custom_combined_grammage_g_m2": _safe_str(
+            base.get("custom_combined_grammage_g_m2") or ""
+        ),
         "container_dimension_unit": _safe_str(base.get("container_dimension_unit") or "mm"),
         "box_weight": _safe_str(base.get("box_weight") or ""),
         "box_max_payload": _safe_str(base.get("box_max_payload") or ""),

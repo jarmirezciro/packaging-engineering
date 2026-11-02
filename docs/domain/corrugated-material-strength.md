@@ -18,10 +18,15 @@ Included in this version:
 - orthogonal column-aligned/interlocked preview with the same simplified load model;
 - Light, Normal, Demanding and Custom distribution factors;
 - backend-generated responsive SVG blank preview;
-- JSON-safe calculation results and a prefix-safe UI contract for future workflow use;
+- JSON-safe calculation results and a prefix-safe UI contract for shared consumers;
 - a report using the existing ReportLab convention.
 
-Packaging Flow, customer-owned materials, supplier proposal comparison, price/cost, automatic nesting, production-sheet optimization, additional FEFCO styles, creep/humidity/vibration models and finite-element analysis are intentionally out of scope.
+The full Corrugated Material & Strength engineering workflow in Packaging Flow,
+customer-owned materials, supplier proposal comparison, price/cost, automatic
+nesting, production-sheet optimization, additional FEFCO styles,
+creep/humidity/vibration models and finite-element analysis are intentionally
+out of scope. A small Container Selection tare adapter is in scope and reuses
+the existing FEFCO 0201 geometry and material engines.
 
 ## Architecture
 
@@ -42,19 +47,21 @@ Calculation service (service.py)
 Admin-managed board catalogue (CorrugatedBoardConstruction)
 ```
 
-The future consumer is deliberately not implemented:
+The standalone Corrugated Material & Strength page remains the full engineering
+surface. Container Selection uses a deliberately small shared adapter rather
+than duplicating the geometry or material formulas:
 
 ```text
-Packaging Flow step
+Container Selection tare adapter
       │
-Same shared UI contract
+FEFCO 0201 geometry provider + material engine
       │
-Same partials
+JSON-safe carton tare/source contract
       │
-Same calculation service
+Packaging Flow → Palletization → Transport
 ```
 
-`contracts.py` exposes `build_shared_corrugated_material_ui_contract()` and prefix helpers. Standalone names are unprefixed; a future workflow step using prefix `3` receives names and IDs such as `3_box_length_mm`. The current standalone view stores only the serialized result and inputs in the session.
+`contracts.py` exposes `build_shared_corrugated_material_ui_contract()` and prefix helpers. Standalone names are unprefixed; embedded consumers keep their own prefixed form state and consume only JSON-safe outputs. Container tare calculation is limited to eligible RSC-style boxes and does not expand this tool's supported FEFCO geometry scope.
 
 ## Board model and Admin workflow
 

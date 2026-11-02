@@ -91,6 +91,38 @@
             </div>
         {% endif %}
 
+        <div class="tool-field-group mt-3 mb-0">
+            <label class="form-label" for="{{ container_ui.ids.corrugated_material }}">Corrugated board material</label>
+            {% if mode == "workflow" %}
+                <select name="{{ container_ui.names.corrugated_material_id }}"
+                        id="{{ container_ui.ids.corrugated_material }}"
+                        class="form-select">
+                    <option value="" {% if not container_values.corrugated_material_id %}selected{% endif %}>No carton tare calculation</option>
+                    <option value="custom" {% if container_values.corrugated_material_id == "custom" %}selected{% endif %}>Custom grammage</option>
+                    {% for board in corrugated_materials %}
+                        <option value="{{ board.id }}" {% if container_values.corrugated_material_id == board.id|stringformat:"s" %}selected{% endif %}>
+                            {{ board.name }} — {{ board.get_wall_type_display }}, {{ board.flute_display }}-flute — {{ board.combined_grammage_g_m2|floatformat:1 }} g/m²
+                        </option>
+                    {% endfor %}
+                </select>
+            {% else %}
+                {{ form.corrugated_material_id }}
+            {% endif %}
+            <div class="app-form-note mt-1">Used only for an estimated empty RSC carton tare; it does not change box thickness or packing geometry.</div>
+        </div>
+
+        <div id="{{ container_ui.ids.custom_corrugated_grammage }}"
+             class="tool-field-group mt-2 mb-0"
+             {% if container_values.corrugated_material_id != "custom" %}style="display:none"{% endif %}>
+            <label class="form-label" for="{{ container_ui.names.custom_combined_grammage_g_m2 }}">Combined grammage (g/m²)</label>
+            {% if mode == "workflow" %}
+                <input type="number" name="{{ container_ui.names.custom_combined_grammage_g_m2 }}" class="form-control" step="any" min="0.0001" value="{{ container_values.custom_combined_grammage_g_m2|default:'' }}">
+            {% else %}
+                {{ form.custom_combined_grammage_g_m2 }}
+                {% if form.custom_combined_grammage_g_m2.errors %}<div class="text-danger small mt-1">{{ form.custom_combined_grammage_g_m2.errors|join:", " }}</div>{% endif %}
+            {% endif %}
+        </div>
+
         <div id="{{ container_ui.ids.design_packaging_fields }}">
             <div class="alert alert-light border small">Internal length, width, and height are calculated outputs in Design Mode.</div>
             <div class="app-form-actions tool-card-actions"><button type="button" class="btn btn-app-primary btn-sm" onclick="containerSelectionRunDesign('{{ container_ui.prefix }}')"><i class="bi bi-rulers me-2"></i>Generate Designs</button></div>

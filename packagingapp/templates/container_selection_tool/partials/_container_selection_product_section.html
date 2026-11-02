@@ -285,6 +285,8 @@
             </div>
         </div>
 
+        {% include "shared/_product_dimensional_allowance.html" with ui=container_ui values=container_values product_source=current_product_source selected_product=selected_product %}
+
         {% if selected_product %}
             <div class="tool-summary-strip">
                 <div class="tool-summary-main"><strong>{{ selected_product_summary.title }}</strong></div>
