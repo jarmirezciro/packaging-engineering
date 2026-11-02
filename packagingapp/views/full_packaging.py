@@ -1729,8 +1729,9 @@ def _prepare_container_step_view_model(step, idx):
     step["product_unit_scene"] = step.get("product_unit_scene") or (step.get("result") or {}).get("product_unit_scene")
     if not step["product_unit_scene"]:
         step["product_unit_scene"] = build_product_unit_scene(
-            _resolve_product_for_container(cfg, selected_product),
+            _resolve_product_for_container(cfg, selected_product)[0],
             cfg.get("product_shape"),
+            display_unit=cfg.get("product_dimension_unit") or "mm",
         )
     step["product_base_image_url"] = step.get("product_base_image_url") or (step.get("result") or {}).get("product_base_image_url")
 
@@ -1786,6 +1787,7 @@ def _prepare_bag_step_view_model(step, idx):
         step["product_unit_scene"] = build_product_unit_scene(
             _resolve_product_for_bag(cfg, selected_product),
             cfg.get("product_shape"),
+            display_unit=cfg.get("product_dimension_unit") or "mm",
         )
     step["design_candidates"] = step.get("design_candidates") or []
     step["selected_design_candidate_id"] = step.get("selected_design_candidate_id") or cfg.get("selected_design_candidate_id") or ""

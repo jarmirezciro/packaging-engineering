@@ -86,7 +86,7 @@ Exact definitions:
 | Bag Three.js | scene `units` | — | mm | mm | mm | `units = "mm"`; coordinates unchanged. |
 | Pallet Three.js | scene `units` | — | mm | mm | mm | Serializer explicitly emits `units = "mm"`; coordinates unchanged. |
 | Transport Three.js | scene `units` | — | mm | mm | mm | `units = "mm"`; coordinates unchanged. |
-| Product-unit Three.js | scene `unit` | — | mm | mm | mm | `unit = "mm"`; visualization-only shapes retain bounding dimensions. |
+| Product-unit Three.js | scene `geometryUnit` / `displayUnit` | — | mm / selected length unit | mm | mm geometry; selected-unit labels | `productDefinition` remains canonical mm; only dimension annotations use `displayUnit`. |
 
 ## Conversion boundaries
 

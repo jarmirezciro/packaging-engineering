@@ -78,6 +78,24 @@
         return unitKey(hidden ? hidden.value : "", quantity);
     }
 
+    function canonicalValue(input, quantity) {
+        if (!input) return null;
+        const stored = numericValue(input.dataset && input.dataset.unitCanonicalValue);
+        if (stored !== null) return stored;
+
+        const visible = numericValue(input.value);
+        if (visible === null) return null;
+        const unit = currentUnit(input.dataset.unitGroup, quantity);
+        return visible * FACTORS_TO_BASE[quantity][unit];
+    }
+
+    function fromCanonicalValue(value, unit, quantity) {
+        const numeric = numericValue(value);
+        if (numeric === null) return null;
+        const targetUnit = unitKey(unit, quantity);
+        return numeric / FACTORS_TO_BASE[quantity][targetUnit];
+    }
+
     function updateOptionState(selector, selectedUnit) {
         selector.querySelectorAll("[data-unit-option]").forEach((option) => {
             const selected = option.dataset.unit === selectedUnit;
@@ -251,6 +269,12 @@
         }
     }
 
+    function notifyUnitChanged(group, quantity, unit) {
+        document.dispatchEvent(new CustomEvent("kollipack:unit-changed", {
+            detail: { group, quantity, unit },
+        }));
+    }
+
     function chooseUnit(selector, selectedUnit) {
         const group = selector.dataset.unitGroup;
         const quantity = selector.dataset.unitQuantity;
@@ -259,6 +283,7 @@
         convertGroup(group, quantity, fromUnit, toUnit);
         convertDisplayGroup(group, quantity, toUnit);
         setVisibleUnit(group, toUnit);
+        notifyUnitChanged(group, quantity, toUnit);
         rememberUnit(selector.dataset.unitStorageKey, toUnit);
         updateUrlParam(selector.dataset.unitUrlParam, toUnit);
         closeAll();
@@ -279,6 +304,7 @@
             });
         });
 
+        const notifiedGroups = new Set();
         document.querySelectorAll("[data-unit-selector]").forEach((selector) => {
             if (selector.dataset.unitSelectorBound === "true") return;
             selector.dataset.unitSelectorBound = "true";
@@ -318,6 +344,10 @@
                 convertDisplayGroup(group, quantity, selected);
             }
             setVisibleUnit(group, selected);
+            if (!notifiedGroups.has(group)) {
+                notifyUnitChanged(group, quantity, selected);
+                notifiedGroups.add(group);
+            }
         });
 
         if (document.documentElement.dataset.unitSelectorDocumentBound !== "true") {
@@ -335,7 +365,15 @@
         }
     }
 
-    window.KolliPackUnitSelector = Object.freeze({ init, setCanonicalValue, setCanonicalDisplay });
+    window.KolliPackUnitSelector = Object.freeze({
+        init,
+        setCanonicalValue,
+        setCanonicalDisplay,
+        getCanonicalValue: canonicalValue,
+        getGroupUnit: currentUnit,
+        fromCanonicalValue,
+        normalizeUnit: unitKey,
+    });
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
     else init();

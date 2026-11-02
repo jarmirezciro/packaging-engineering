@@ -34,6 +34,9 @@
          class="product-unit-threejs-viewer"
          data-product-unit-threejs-viewer
          {% if scene %}data-scene-script="{{ scene_id }}"{% endif %}
+         {% if product_source %}data-product-unit-source="{{ product_source }}"{% endif %}
+         {% if dimension_unit_input_name %}data-product-unit-dimension-unit-input="{{ dimension_unit_input_name }}"{% endif %}
+         {% if dimension_unit_group %}data-product-unit-dimension-group="{{ dimension_unit_group }}"{% endif %}
          {% if live %}
          data-product-unit-live
          data-product-unit-length-input="{{ length_input_name }}"

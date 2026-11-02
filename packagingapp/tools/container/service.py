@@ -902,6 +902,7 @@ def _analyze_container_design(
         "product_unit_scene": build_product_unit_scene(
             product,
             form.cleaned_data.get("product_shape"),
+            display_unit=form.cleaned_data.get("product_dimension_unit") or "mm",
         ),
         "analysis_report": None,
         "product_base_image_rel_path": "",
@@ -991,7 +992,11 @@ def analyze_container_form(
         selected_product=selected_product,
         normalized_product=normalized_inputs["product"],
     )
-    product_unit_scene = build_product_unit_scene(product, product_shape)
+    product_unit_scene = build_product_unit_scene(
+        product,
+        product_shape,
+        display_unit=form.cleaned_data.get("product_dimension_unit") or "mm",
+    )
 
     if mode == "design":
         return _analyze_container_design(

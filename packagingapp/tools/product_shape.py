@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from math import isclose, isfinite
 
+from ..units import LENGTH_UNITS
+
 
 PRODUCT_SHAPE_CHOICES = (
     ("cuboid", "Rectangular / cuboid"),
@@ -35,8 +37,13 @@ def normalize_product_shape(value):
     return normalized if normalized in ALLOWED_PRODUCT_SHAPES else "cuboid"
 
 
-def build_product_unit_scene(product, product_shape, unit="mm"):
-    """Build the JSON-safe scene contract for a canonical base product unit."""
+def _normalize_display_unit(value):
+    token = str(value or "mm").strip().lower()
+    return token if token in LENGTH_UNITS else "mm"
+
+
+def build_product_unit_scene(product, product_shape, display_unit="mm"):
+    """Build a JSON-safe scene with canonical geometry and display metadata."""
     if not product:
         return None
 
@@ -60,7 +67,8 @@ def build_product_unit_scene(product, product_shape, unit="mm"):
             "height": round(height, 6),
         },
         "orientationIndex": 0,
-        "unit": str(unit or "mm"),
+        "geometryUnit": "mm",
+        "displayUnit": _normalize_display_unit(display_unit),
         "showBoundingBox": normalized_shape != "cuboid",
     }
 

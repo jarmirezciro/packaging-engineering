@@ -24,6 +24,25 @@ function finitePositive(value) {
     return Number.isFinite(number) && number > 0 ? number : null;
 }
 
+function unitSelectorApi() {
+    return window.KolliPackUnitSelector || null;
+}
+
+function normalizeDisplayUnit(value) {
+    const api = unitSelectorApi();
+    return api && api.normalizeUnit
+        ? api.normalizeUnit(value, "length")
+        : String(value || "mm").trim().toLowerCase() || "mm";
+}
+
+function displayDimensionValue(canonicalValue, displayUnit) {
+    const api = unitSelectorApi();
+    const converted = api && api.fromCanonicalValue
+        ? api.fromCanonicalValue(canonicalValue, displayUnit, "length")
+        : canonicalValue;
+    return Number.isFinite(Number(converted)) ? Number(converted) : canonicalValue;
+}
+
 function normalizeProductData(value) {
     if (!value) return null;
     const definition = value.productDefinition || value;
@@ -36,7 +55,10 @@ function normalizeProductData(value) {
     return {
         productShape,
         productDefinition: { length, width, height },
-        unit: String(value.unit || "mm"),
+        geometryUnit: String(value.geometryUnit || "mm"),
+        displayUnit: normalizeDisplayUnit(
+            value.displayUnit || value.unit || "mm",
+        ),
         showBoundingBox: value.showBoundingBox === undefined
             ? productShape !== "cuboid"
             : Boolean(value.showBoundingBox),
@@ -49,7 +71,12 @@ function readScene(element) {
     if (!script) return null;
 
     try {
-        return normalizeProductData(JSON.parse(script.textContent || "{}"));
+        const scene = normalizeProductData(JSON.parse(script.textContent || "{}"));
+        const unitControl = productDimensionUnitControl(element);
+        if (scene && unitControl && unitControl.value) {
+            scene.displayUnit = normalizeDisplayUnit(unitControl.value);
+        }
+        return scene;
     } catch (error) {
         return null;
     }
@@ -62,27 +89,51 @@ function findNamedControl(scope, name) {
     ) || null;
 }
 
-function liveProductControls(element) {
-    if (!element.hasAttribute("data-product-unit-live")) return null;
-    const scope = element.closest("[data-container-tool-root], [data-bag-tool-root]")
+function productControlScope(element) {
+    const toolRoot = element.closest("[data-container-tool-root], [data-bag-tool-root]");
+    return toolRoot?.closest("form")
+        || toolRoot
         || element.closest("form")
         || document;
+}
+
+function productDimensionUnitControl(element) {
+    const name = element.dataset.productUnitDimensionUnitInput;
+    return name ? findNamedControl(productControlScope(element), name) : null;
+}
+
+function liveProductControls(element) {
+    if (!element.hasAttribute("data-product-unit-live")
+        || element.dataset.productUnitSource === "catalogue") return null;
+    const scope = productControlScope(element);
     return {
         length: findNamedControl(scope, element.dataset.productUnitLengthInput),
         width: findNamedControl(scope, element.dataset.productUnitWidthInput),
         height: findNamedControl(scope, element.dataset.productUnitHeightInput),
         shape: findNamedControl(scope, element.dataset.productUnitShapeInput),
+        unit: productDimensionUnitControl(element),
     };
+}
+
+function readCanonicalLiveDimension(control) {
+    const api = unitSelectorApi();
+    const canonical = api && api.getCanonicalValue
+        ? api.getCanonicalValue(control, "length")
+        : null;
+    return finitePositive(canonical) || finitePositive(control.value);
 }
 
 function readLiveProduct(controls) {
     if (!controls || !controls.length || !controls.width || !controls.height) return null;
     return normalizeProductData({
-        length: controls.length.value,
-        width: controls.width.value,
-        height: controls.height.value,
-        shape: controls.shape ? controls.shape.value : "cuboid",
-        unit: "mm",
+        productDefinition: {
+            length: readCanonicalLiveDimension(controls.length),
+            width: readCanonicalLiveDimension(controls.width),
+            height: readCanonicalLiveDimension(controls.height),
+        },
+        productShape: controls.shape ? controls.shape.value : "cuboid",
+        geometryUnit: "mm",
+        displayUnit: controls.unit ? controls.unit.value : "mm",
     });
 }
 
@@ -188,7 +239,7 @@ function addDimensionGuide({
     group.add(sprite);
 }
 
-function addDimensionGuides(group, definition, unit) {
+function addDimensionGuides(group, definition, displayUnit) {
     const { length, width, height } = definition;
     const sceneScale = Math.max(length, width, height);
     const offset = sceneScale * 0.18;
@@ -201,6 +252,9 @@ function addDimensionGuides(group, definition, unit) {
     const yMax = height / 2;
     const zMin = -width / 2;
     const zMax = width / 2;
+    const labelValue = (value) => formatDimension(
+        displayDimensionValue(value, displayUnit),
+    );
 
     const lengthY = yMin - offset;
     const lengthZ = zMax + offset * 0.12;
@@ -213,7 +267,7 @@ function addDimensionGuides(group, definition, unit) {
             new THREE.Vector3(xMax, yMin, zMax),
         ],
         labelPosition: new THREE.Vector3(-length * 0.12, lengthY - labelDrop, lengthZ),
-        label: `Length — ${formatDimension(length)} ${unit}`,
+        label: `Length — ${labelValue(length)} ${displayUnit}`,
         sceneScale,
         lineMaterial,
         arrowMaterial,
@@ -230,7 +284,7 @@ function addDimensionGuides(group, definition, unit) {
             new THREE.Vector3(xMax, yMin, zMax),
         ],
         labelPosition: new THREE.Vector3(widthX + labelDrop * 0.8, widthY - labelDrop, 0),
-        label: `Width — ${formatDimension(width)} ${unit}`,
+        label: `Width — ${labelValue(width)} ${displayUnit}`,
         sceneScale,
         lineMaterial,
         arrowMaterial,
@@ -247,7 +301,7 @@ function addDimensionGuides(group, definition, unit) {
             new THREE.Vector3(xMin, yMax, zMin),
         ],
         labelPosition: new THREE.Vector3(heightX - labelDrop, 0, heightZ),
-        label: `Height — ${formatDimension(height)} ${unit}`,
+        label: `Height — ${labelValue(height)} ${displayUnit}`,
         sceneScale,
         lineMaterial,
         arrowMaterial,
@@ -419,7 +473,7 @@ function createViewerEnvironment(element) {
         } else if (productData.showBoundingBox) {
             addProductEdges(root, productDefinition, 0.24);
         }
-        addDimensionGuides(root, productDefinition, productData.unit);
+        addDimensionGuides(root, productDefinition, productData.displayUnit);
         root.quaternion.copy(orientationQuaternion(currentOrientationIndex));
         hasProduct = true;
         fitCurrentProduct();
@@ -522,6 +576,21 @@ function initViewer(element) {
             );
         });
     });
+
+    const dimensionUnitGroup = element.dataset.productUnitDimensionGroup;
+    if (dimensionUnitGroup) {
+        document.addEventListener("kollipack:unit-changed", (event) => {
+            if (event.detail?.group !== dimensionUnitGroup) return;
+            const currentProduct = productControls
+                ? readLiveProduct(productControls)
+                : readScene(element);
+            if (!currentProduct) return;
+            currentProduct.displayUnit = normalizeDisplayUnit(
+                event.detail.unit,
+            );
+            controller.updateProduct(currentProduct);
+        });
+    }
 
     if (productControls) {
         const refreshFromInputs = () => {

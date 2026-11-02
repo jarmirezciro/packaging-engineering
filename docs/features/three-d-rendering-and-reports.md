@@ -48,6 +48,12 @@ an initial/fallback contract for existing consumers. The preview always uses
 the canonical product orientation: Three.js X is product length, Y is product
 height, and Z is product width. Dimension guides and canvas-texture labels use
 the current bounding dimensions for every approved visualization-only shape.
+The scene contract separates `geometryUnit: "mm"` from `displayUnit`: the
+product definition and all Three.js geometry stay in canonical millimetres,
+while labels convert through the shared browser unit-selector state. Live
+manual inputs read the selector's `data-unit-canonical-value`; catalogue
+products use their canonical scene definition and the same local display unit.
+Unit-group changes refresh labels without changing physical geometry.
 
 The product-input preview updates its product group without recreating the
 renderer, camera, OrbitControls, lighting, or canvas. Container and Bag

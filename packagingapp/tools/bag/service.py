@@ -588,6 +588,7 @@ def _analyze_bag_design(
     product_unit_scene = build_product_unit_scene(
         product,
         config.get("product_shape"),
+        display_unit=config.get("product_dimension_unit") or "mm",
     )
     if product is None or any(float(value) <= 0 for value in product):
         messages.append("Enter product length, width, and height greater than zero in millimetres.")
@@ -715,6 +716,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
     product_unit_scene = build_product_unit_scene(
         product,
         cfg.get("product_shape"),
+        display_unit=cfg.get("product_dimension_unit") or "mm",
     )
 
     if mode == "design":

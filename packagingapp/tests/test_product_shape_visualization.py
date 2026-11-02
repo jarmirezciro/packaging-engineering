@@ -213,11 +213,30 @@ class ProductShapeSceneTests(SimpleTestCase):
                     "height": 80.25,
                 },
                 "orientationIndex": 0,
-                "unit": "mm",
+                "geometryUnit": "mm",
+                "displayUnit": "mm",
                 "showBoundingBox": True,
             },
         )
         json.dumps(scene)
+
+    def test_product_unit_scene_separates_canonical_geometry_from_display_unit(self):
+        scene = build_product_unit_scene(
+            (63.246, 63.246, 254),
+            "cuboid",
+            display_unit="in",
+        )
+        self.assertEqual(scene["geometryUnit"], "mm")
+        self.assertEqual(scene["displayUnit"], "in")
+        self.assertEqual(
+            scene["productDefinition"],
+            {"length": 63.246, "width": 63.246, "height": 254.0},
+        )
+
+    def test_product_unit_scene_rejects_unknown_display_unit_to_metric(self):
+        scene = build_product_unit_scene(ASYMMETRIC_PRODUCT, "cuboid", display_unit="yard")
+        self.assertEqual(scene["geometryUnit"], "mm")
+        self.assertEqual(scene["displayUnit"], "mm")
 
     def test_product_unit_scene_rejects_invalid_dimensions(self):
         for product in (
@@ -530,6 +549,53 @@ class ProductShapeSceneTests(SimpleTestCase):
         )
         self.assertEqual(bag_analysis["product_unit_scene"]["orientationIndex"], 0)
 
+    def test_catalogue_scene_keeps_mm_geometry_with_selected_display_unit(self):
+        catalogue_product = SimpleNamespace(
+            product_length=63.246,
+            product_width=63.246,
+            product_height=254,
+            desired_qty=1,
+            rotation_1=True,
+            rotation_2=True,
+            rotation_3=True,
+        )
+        container_form = SimpleNamespace(cleaned_data={
+            "mode": "single",
+            "action": "refresh",
+            "product_source": "catalogue",
+            "product_dimension_unit": "in",
+            "product_shape": "cuboid",
+            "r1": True,
+            "r2": True,
+            "r3": True,
+        })
+        container = analyze_container_form(
+            form=container_form,
+            config={},
+            selected_product=catalogue_product,
+            materials=[],
+        )
+        bag = analyze_bag_config(
+            {
+                "mode": "single",
+                "action": "refresh",
+                "product_source": "catalogue",
+                "product_dimension_unit": "in",
+                "product_shape": "cuboid",
+            },
+            action="refresh",
+            selected_product=catalogue_product,
+            materials=[],
+        )
+
+        for scene in (container["product_unit_scene"], bag["product_unit_scene"]):
+            self.assertEqual(scene["geometryUnit"], "mm")
+            self.assertEqual(scene["displayUnit"], "in")
+            self.assertEqual(
+                scene["productDefinition"],
+                {"length": 63.246, "width": 63.246, "height": 254.0},
+            )
+
 
 class ProductUnitWorkflowTests(SimpleTestCase):
     @patch("packagingapp.views.full_packaging.get_container_selected_product", return_value=None)
@@ -549,6 +615,29 @@ class ProductUnitWorkflowTests(SimpleTestCase):
             "containerProductUnitViewer_2",
         )
         json.dumps(step["product_unit_scene"])
+
+    @patch("packagingapp.views.full_packaging.get_container_selected_product", return_value=None)
+    @patch("packagingapp.views.full_packaging.get_container_selected_material", return_value=None)
+    @patch("packagingapp.views.full_packaging.get_container_products_for_catalogue", return_value=[])
+    @patch("packagingapp.views.full_packaging.get_container_materials_for_catalogue", return_value=[])
+    @patch("packagingapp.views.full_packaging.get_container_packaging_catalogues", return_value=[])
+    @patch("packagingapp.views.full_packaging.get_container_product_catalogues", return_value=[])
+    def test_container_step_scene_keeps_local_display_unit(self, *_mocks):
+        step = _new_container_step()
+        step["config"].update({
+            "product_source": "manual",
+            "product_l": "2.49",
+            "product_w": "2.49",
+            "product_h": "10",
+            "product_dimension_unit": "in",
+        })
+        _prepare_container_step_view_model(step, 0)
+        self.assertEqual(step["product_unit_scene"]["geometryUnit"], "mm")
+        self.assertEqual(step["product_unit_scene"]["displayUnit"], "in")
+        self.assertEqual(
+            step["product_unit_scene"]["productDefinition"],
+            {"length": 63.246, "width": 63.246, "height": 254.0},
+        )
 
     @patch("packagingapp.views.full_packaging.get_bag_selected_product", return_value=None)
     @patch("packagingapp.views.full_packaging.get_bag_selected_material", return_value=None)
@@ -904,6 +993,9 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
         viewer = (root / "static/js/product_unit_threejs_viewer.js").read_text(
             encoding="utf-8"
         )
+        unit_selector = (root / "static/js/unit_selector.js").read_text(
+            encoding="utf-8"
+        )
         partial = (
             root / "packagingapp/templates/shared/_product_unit_threejs_panel.html"
         ).read_text(encoding="utf-8")
@@ -916,6 +1008,8 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
         self.assertIn("data-product-unit-width-input", partial)
         self.assertIn("data-product-unit-height-input", partial)
         self.assertIn("data-product-unit-shape-input", partial)
+        self.assertIn("data-product-unit-dimension-unit-input", partial)
+        self.assertIn("data-product-unit-dimension-group", partial)
         self.assertIn("product-unit-threejs-panel--input", partial)
         for restriction, dimension in (
             ("R1", "Length"),
@@ -948,6 +1042,16 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
         )
         self.assertIn("const viewerInstances = new WeakMap()", viewer)
         self.assertIn("function liveProductControls(element)", viewer)
+        self.assertIn("getCanonicalValue", viewer)
+        self.assertIn("fromCanonicalValue", viewer)
+        self.assertIn('"kollipack:unit-changed"', viewer)
+        self.assertIn('displayUnit', viewer)
+        self.assertIn('geometryUnit', viewer)
+        self.assertNotIn('unit: "mm"', viewer)
+        self.assertIn("unitCanonicalValue", unit_selector)
+        self.assertIn("getCanonicalValue: canonicalValue", unit_selector)
+        self.assertIn("fromCanonicalValue", unit_selector)
+        self.assertIn('"kollipack:unit-changed"', unit_selector)
         self.assertIn(
             'element.closest("[data-container-tool-root], [data-bag-tool-root]")',
             viewer,
@@ -979,7 +1083,7 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
             scripts = (root / relative_path).read_text(encoding="utf-8")
             self.assertIn(
                 "product_unit_threejs_viewer.js' %}"
-                "?v=20260807-live-product-unit",
+                "?v=20261102-product-unit-display",
                 scripts,
             )
 
@@ -998,6 +1102,8 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
             self.assertEqual(product_template.count("_product_unit_threejs_panel"), 1)
             self.assertIn("live=True", product_template)
             self.assertIn("input_context=True", product_template)
+            self.assertIn("dimension_unit_input_name=", product_template)
+            self.assertIn("dimension_unit_group=", product_template)
             self.assertIn("length_input_name=", product_template)
             self.assertIn("shape_input_name=", product_template)
 
