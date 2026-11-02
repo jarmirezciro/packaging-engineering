@@ -3,6 +3,7 @@ import logging
 
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
+from django.test.testcases import DatabaseOperationForbidden
 from django.http import Http404, HttpResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
@@ -76,6 +77,8 @@ from ..tools.container.service import (
     get_product_catalogues as get_container_product_catalogues,
     get_products_for_catalogue as get_container_products_for_catalogue,
     get_corrugated_materials as get_container_corrugated_materials,
+    get_corrugated_material_options as get_container_corrugated_material_options,
+    apply_manual_rsc_design_defaults as apply_container_manual_rsc_design_defaults,
     get_selected_material as get_container_selected_material,
     get_selected_product as get_container_selected_product,
 )
@@ -211,6 +214,7 @@ def _save_workflow(request, workflow):
         step.pop("box_materials", None)
         step.pop("pallet_materials", None)
         step.pop("corrugated_materials", None)
+        step.pop("corrugated_material_options", None)
     request.session[_workflow_session_key(request)] = workflow
     request.session.modified = True
 
@@ -255,6 +259,7 @@ def _new_container_step(user=None):
         "selected_design_candidate_id": "",
         "pending_result": None,
         "config": config,
+        "new_container_config": True,
     }
 
 
@@ -603,6 +608,11 @@ def _build_case_workflow(case_slug):
     product = preset["product"]
     display_units = preset.get("display_units") or {}
     box_step = _new_container_step()
+    # Article/case presets are existing validation configurations, not new
+    # blank Design-mode forms. Preserve their historical no-material/default
+    # thickness inputs while the interactive new-design defaults remain active
+    # for genuinely new workflow steps.
+    box_step["new_container_config"] = False
     steps.append(box_step)
     box_post = {
         "mode_0": "design",
@@ -1644,6 +1654,23 @@ def _prepare_container_step_view_model(step, idx):
     packaging_catalogues = get_container_packaging_catalogues()
     product_catalogues = get_container_product_catalogues()
     corrugated_materials = get_container_corrugated_materials()
+    new_container_config = bool(step.get("new_container_config"))
+    cfg = apply_container_manual_rsc_design_defaults(
+        cfg,
+        enabled=new_container_config,
+    )
+    corrugated_material_choices = corrugated_materials
+    try:
+        corrugated_material_options = get_container_corrugated_material_options(
+            corrugated_materials,
+            dimension_unit=cfg.get("container_dimension_unit") or "mm",
+        )
+    except DatabaseOperationForbidden:
+        # Pure workflow tests intentionally run without a database. Their
+        # persisted state remains testable; catalogue choices are omitted
+        # until a real request can load the active catalogue.
+        corrugated_material_options = []
+        corrugated_material_choices = None
 
     selected_product = get_container_selected_product(cfg) if idx == 0 else None
     selected_material = get_container_selected_material(cfg)
@@ -1662,7 +1689,8 @@ def _prepare_container_step_view_model(step, idx):
         form,
         packaging_catalogues,
         product_catalogues,
-        corrugated_materials=corrugated_materials,
+        corrugated_materials=corrugated_material_choices,
+        container_dimension_unit=cfg.get("container_dimension_unit") or "mm",
     )
 
     step["assistant_result_stale"] = False
@@ -1711,6 +1739,7 @@ def _prepare_container_step_view_model(step, idx):
     step["products"] = products
     step["materials"] = materials
     step["corrugated_materials"] = corrugated_materials
+    step["corrugated_material_options"] = corrugated_material_options
     annotate_product_picker_rows(
         step["products"],
         length_unit=cfg.get("product_dimension_unit") or "mm",
@@ -1735,6 +1764,7 @@ def _prepare_container_step_view_model(step, idx):
     step["current_mode"] = cfg.get("mode") or "single"
     step["current_product_source"] = cfg.get("product_source") or "manual"
     step["current_container_source"] = cfg.get("container_source") or "manual"
+    step["new_container_config"] = new_container_config
     step["container_top5_rows"] = _inflate_container_top5_rows(step.get("top5", []))
     step["design_candidates"] = step.get("design_candidates") or []
     step["selected_design_candidate_id"] = step.get("selected_design_candidate_id") or cfg.get("selected_design_candidate_id") or ""
@@ -1834,7 +1864,11 @@ def _normalized_container_post(cfg):
         "box_w": cfg.get("box_w", ""),
         "box_h": cfg.get("box_h", ""),
         "box_thickness_mm": cfg.get("box_thickness_mm", ""),
+        "box_thickness_user_override": cfg.get("box_thickness_user_override", ""),
         "corrugated_material_id": cfg.get("corrugated_material_id", ""),
+        "corrugated_material_user_selected": cfg.get(
+            "corrugated_material_user_selected", ""
+        ),
         "custom_combined_grammage_g_m2": cfg.get(
             "custom_combined_grammage_g_m2", ""
         ),
@@ -2004,6 +2038,10 @@ def _build_container_non_design_workflow_payload(
 
 def _process_container_step(step, steps, idx, post):
     existing_cfg = step.get("config") or {}
+    legacy_thickness_override = (
+        "box_thickness_user_override" not in existing_cfg
+        and str(existing_cfg.get("box_thickness_mm") or "").strip() != ""
+    )
     cfg = default_container_config()
     cfg.update(existing_cfg)
 
@@ -2103,11 +2141,30 @@ def _process_container_step(step, steps, idx, post):
         f"box_thickness_mm{suffix}",
         post.get(f"box_thickness_mm_{idx}", cfg.get("box_thickness_mm", "")),
     )
+    cfg["box_thickness_user_override"] = post.get(
+        f"box_thickness_user_override{suffix}",
+        post.get(
+            f"box_thickness_user_override_{idx}",
+            cfg.get("box_thickness_user_override", ""),
+        ),
+    )
+    if legacy_thickness_override and not str(
+        post.get(f"box_thickness_user_override{suffix}", post.get(f"box_thickness_user_override_{idx}", ""))
+        or ""
+    ).strip():
+        cfg["box_thickness_user_override"] = "1"
     cfg["corrugated_material_id"] = post.get(
         f"corrugated_material_id{suffix}",
         post.get(
             f"corrugated_material_id_{idx}",
             cfg.get("corrugated_material_id", ""),
+        ),
+    )
+    cfg["corrugated_material_user_selected"] = post.get(
+        f"corrugated_material_user_selected{suffix}",
+        post.get(
+            f"corrugated_material_user_selected_{idx}",
+            cfg.get("corrugated_material_user_selected", ""),
         ),
     )
     cfg["custom_combined_grammage_g_m2"] = post.get(
@@ -2144,6 +2201,10 @@ def _process_container_step(step, steps, idx, post):
         cfg["selected_product_id"] = ""
         cfg = _apply_payload_to_config(cfg, step.get("type"), _selected_input_for_step(steps, idx))
 
+    cfg = apply_container_manual_rsc_design_defaults(
+        cfg,
+        enabled=bool(step.get("new_container_config")),
+    )
     cfg = sanitize_container_config_for_session(cfg)
 
     selected_product = get_container_selected_product(cfg) if idx == 0 else None

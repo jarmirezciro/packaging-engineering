@@ -4,6 +4,7 @@ from ...access import visible_packaging_catalogues, visible_product_catalogues
 from ...forms import ContainerSelectionMode1Form
 from ...models import (
     CorrugatedBoardConstruction,
+    CorrugatedECTReferenceGrade,
     PackagingCatalogue,
     PackagingMaterial,
     ProductCatalogue,
@@ -45,6 +46,13 @@ from .dimensions import (
     resolve_external_carton_dimensions,
 )
 from .carton_tare import calculate_rsc_carton_tare
+from .corrugated_material import (
+    DEFAULT_MANUAL_RSC_MATERIAL_CODE,
+    DEFAULT_MANUAL_RSC_CALIPER_MM,
+    build_corrugated_material_options,
+    corrugated_material_option,
+    resolve_corrugated_caliper,
+)
 
 
 # Packaging types that behave like rectangular/cuboid containers in this module.
@@ -122,6 +130,23 @@ def get_corrugated_materials():
     )
 
 
+def get_corrugated_material_options(constructions=None, *, dimension_unit="mm"):
+    """Return board options with canonical values and current display units."""
+    boards = list(
+        constructions if constructions is not None else get_corrugated_materials()
+    )
+    if not boards:
+        return []
+    reference_grades = CorrugatedECTReferenceGrade.objects.filter(
+        is_active=True
+    ).order_by("flute_family", "ect_lb_in", "code")
+    return build_corrugated_material_options(
+        boards,
+        reference_grades,
+        dimension_unit=dimension_unit,
+    )
+
+
 def get_selected_corrugated_construction(config=None, form=None):
     """Resolve one active board construction, or ``None`` for custom/none."""
     cleaned = getattr(form, "cleaned_data", {}) or {}
@@ -134,18 +159,24 @@ def get_selected_corrugated_construction(config=None, form=None):
     raw_id = str(raw_id or "").strip()
     if not raw_id or raw_id == "custom":
         return None
+    materials = get_corrugated_materials()
+    by_code = materials.filter(code=raw_id).first()
+    if by_code is not None:
+        return by_code
     try:
-        return get_corrugated_materials().filter(pk=int(raw_id)).first()
+        return materials.filter(pk=int(raw_id)).first()
     except (TypeError, ValueError):
         return None
 
 
 def _corrugated_material_label(construction):
-    grammage = getattr(construction, "combined_grammage_g_m2", None)
-    grammage_text = f"{float(grammage):.1f}" if grammage is not None else "—"
-    wall = construction.get_wall_type_display()
-    flute = construction.flute_display or "—"
-    return f"{construction.name} — {wall}, {flute}-flute — {grammage_text} g/m²"
+    reference_grades = CorrugatedECTReferenceGrade.objects.filter(
+        is_active=True
+    ).order_by("flute_family", "ect_lb_in", "code")
+    return corrugated_material_option(
+        construction,
+        resolve_corrugated_caliper(construction, reference_grades),
+    )["label"]
 
 
 def build_hydrated_post_data(raw_post, config, selected_product=None, selected_material=None):
@@ -240,6 +271,7 @@ def apply_catalogue_choices(
     packaging_catalogues,
     product_catalogues,
     corrugated_materials=None,
+    container_dimension_unit="mm",
 ):
     form.fields["catalogue_id"].choices = [("", "— Select —")] + [
         (str(c.id), c.name) for c in packaging_catalogues
@@ -251,13 +283,50 @@ def apply_catalogue_choices(
     # SimpleTestCase fixtures. Views pass the active construction queryset when
     # they render a customer-facing form.
     constructions = list(corrugated_materials) if corrugated_materials is not None else []
-    form.fields["corrugated_material_id"].choices = [
-        ("", "No carton tare calculation"),
-        ("custom", "Custom grammage"),
-    ] + [
-        (str(construction.id), _corrugated_material_label(construction))
-        for construction in constructions
-    ]
+    options = get_corrugated_material_options(
+        constructions,
+        dimension_unit=container_dimension_unit,
+    ) if constructions else []
+    current_value = ""
+    if getattr(form, "is_bound", False):
+        current_value = str(form.data.get("corrugated_material_id") or "")
+    else:
+        current_value = str(form.initial.get("corrugated_material_id") or "")
+    choices = [("", "No carton tare calculation")]
+    if current_value == "custom":
+        # Compatibility only: new configurations never receive this option.
+        choices.append(("custom", "Legacy custom material (preserved)"))
+    for option in options:
+        choices.append((option["code"], option["label"]))
+        # Persisted pre-4B sessions used numeric primary keys.  Keep the old
+        # value valid while all newly created selections use the stable code.
+        if option["id"] and option["id"] != option["code"] and current_value == option["id"]:
+            choices.append((option["id"], option["label"]))
+    form.fields["corrugated_material_id"].choices = choices
+
+
+def apply_manual_rsc_design_defaults(config, *, enabled=False):
+    """Apply defaults only to a newly created manual Design configuration."""
+    if not enabled or not config:
+        return config
+    if (
+        config.get("mode") != "design"
+        or config.get("container_source") != "manual"
+        or config.get("corrugated_material_id")
+        or str(config.get("corrugated_material_user_selected") or "") == "1"
+    ):
+        return config
+    config = dict(config)
+    config["corrugated_material_id"] = DEFAULT_MANUAL_RSC_MATERIAL_CODE
+    config["box_thickness_user_override"] = "0"
+    if not config.get("box_thickness_mm") and not str(
+        config.get("box_thickness_user_override") or ""
+    ) == "1":
+        unit = config.get("container_dimension_unit") or "mm"
+        config["box_thickness_mm"] = str(
+            convert_length(DEFAULT_MANUAL_RSC_CALIPER_MM, "mm", unit)
+        )
+    return config
 
 
 def resolve_product_from_form(form, product_source, selected_product, normalized_product=None):
@@ -320,11 +389,39 @@ def resolve_container_from_form(form, container_source, selected_material, norma
     return (float(bl), float(bw), float(bh))
 
 
+def _resolve_board_caliper(selected_board_construction):
+    """Resolve one selected construction's finished-board caliper."""
+    if selected_board_construction is None:
+        return resolve_corrugated_caliper(None)
+    cached = getattr(selected_board_construction, "_resolved_corrugated_caliper", None)
+    if cached is not None:
+        return cached
+    # Lightweight test doubles and legacy callers may only provide grammage;
+    # they must not trigger a hidden catalogue query.
+    if not hasattr(selected_board_construction, "flute_1") and not hasattr(
+        selected_board_construction, "caliper_mm"
+    ):
+        return resolve_corrugated_caliper(selected_board_construction)
+    actual = resolve_corrugated_caliper(selected_board_construction)
+    if actual.source == "actual":
+        return actual
+    reference_grades = CorrugatedECTReferenceGrade.objects.filter(
+        is_active=True
+    ).order_by("flute_family", "ect_lb_in", "code")
+    resolved = resolve_corrugated_caliper(selected_board_construction, reference_grades)
+    try:
+        selected_board_construction._resolved_corrugated_caliper = resolved
+    except (AttributeError, TypeError):
+        pass
+    return resolved
+
+
 def resolve_container_dimension_contract(
     form,
     container,
     container_source,
     selected_material=None,
+    selected_board_construction=None,
 ):
     """Return the shared JSON-safe internal/external carton dimension contract."""
     if container is None:
@@ -340,15 +437,21 @@ def resolve_container_dimension_contract(
             thickness_source=EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
         )
 
+    thickness_mm = _resolve_manual_quantity(
+        form,
+        "box_thickness_mm",
+        "container_dimension_unit",
+        convert_length,
+        "mm",
+    )
+    if thickness_mm is None:
+        thickness_mm = _resolve_board_caliper(
+            selected_board_construction
+        ).value_mm
+
     return resolve_external_carton_dimensions(
         *container,
-        thickness_mm=_resolve_manual_quantity(
-            form,
-            "box_thickness_mm",
-            "container_dimension_unit",
-            convert_length,
-            "mm",
-        ),
+        thickness_mm=thickness_mm,
         thickness_source=EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
     )
 
@@ -820,7 +923,9 @@ def _resolve_container_weight(
                 config=config,
                 form=form,
             )
-        selected_id = getattr(selected_board_construction, "pk", None)
+        selected_id = getattr(selected_board_construction, "code", None)
+        if not selected_id:
+            selected_id = getattr(selected_board_construction, "pk", None)
         return {
             "tare_g": _safe_float(tare.finished_box_weight_g),
             "source": "estimated_material",
@@ -932,6 +1037,7 @@ def build_container_analysis_report(
         container,
         container_source,
         selected_material,
+        selected_board_construction=selected_board_construction,
     )
     container_weight = _resolve_container_weight(
         form=form,
@@ -940,6 +1046,7 @@ def build_container_analysis_report(
         container=container,
         selected_board_construction=selected_board_construction,
     )
+    selected_caliper = _resolve_board_caliper(selected_board_construction)
     container_tare = container_weight.get("tare_g")
     payload_capacity = _resolve_payload_capacity(form, container_source, selected_material)
 
@@ -993,6 +1100,9 @@ def build_container_analysis_report(
             container_weight.get("effective_box_area_m2"), 9
         ),
         "fefco_code": container_weight.get("fefco_code"),
+        "corrugated_caliper_mm": _round_or_none(selected_caliper.value_mm, 3),
+        "corrugated_caliper_source": selected_caliper.source,
+        "corrugated_caliper_source_display": selected_caliper.source_label,
         "payload_capacity": _round_or_none(payload_capacity, 3),
         "net_weight": _round_or_none(net_weight, 3),
         "total_weight_current": _round_or_none(total_weight_current, 3),
@@ -1084,18 +1194,15 @@ def _add_container_design_metrics(
     product_weight = _resolve_product_weight(form, product_source, selected_product)
     quantity = int(row["design_quantity"])
     net_weight = product_weight * quantity if product_weight is not None else None
-    dimension_contract = resolve_external_carton_dimensions(
-        row["container_length"],
-        row["container_width"],
-        row["container_height"],
-        thickness_mm=_resolve_manual_quantity(
-            form,
-            "box_thickness_mm",
-            "container_dimension_unit",
-            convert_length,
-            "mm",
+    dimension_contract = resolve_container_dimension_contract(
+        form,
+        (
+            row["container_length"],
+            row["container_width"],
+            row["container_height"],
         ),
-        thickness_source=EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
+        "manual",
+        selected_board_construction=selected_board_construction,
     )
     container_weight = _resolve_container_weight(
         form=form,
@@ -1108,6 +1215,7 @@ def _add_container_design_metrics(
         ),
         selected_board_construction=selected_board_construction,
     )
+    selected_caliper = _resolve_board_caliper(selected_board_construction)
     container_tare = container_weight.get("tare_g")
     gross_weight = net_weight + container_tare if net_weight is not None and container_tare is not None else None
     row.update({
@@ -1148,6 +1256,9 @@ def _add_container_design_metrics(
             container_weight.get("effective_box_area_m2"), 9
         ),
         "fefco_code": container_weight.get("fefco_code"),
+        "corrugated_caliper_mm": _round_or_none(selected_caliper.value_mm, 3),
+        "corrugated_caliper_source": selected_caliper.source,
+        "corrugated_caliper_source_display": selected_caliper.source_label,
         "container_dimensions_display": format_dimensions(
             row["container_length"],
             row["container_width"],

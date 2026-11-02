@@ -17,6 +17,13 @@
        id="{{ container_ui.ids.selected_design_candidate_id }}"
        value="{{ selected_design_candidate_id|default:container_values.selected_design_candidate_id|default:'' }}">
 
+<input type="hidden"
+       name="{{ container_ui.names.box_thickness_user_override }}"
+       value="{{ container_values.box_thickness_user_override|default:'' }}">
+<input type="hidden"
+       name="{{ container_ui.names.corrugated_material_user_selected }}"
+       value="{{ container_values.corrugated_material_user_selected|default:'' }}">
+
 <input type="hidden" name="{{ container_ui.names.product_dimension_unit }}"
        id="{{ container_ui.unit_selectors.product_dimensions.hidden_id }}"
        value="{{ container_values.product_dimension_unit|default:'mm' }}"
@@ -57,6 +64,7 @@
 <div id="{{ container_ui.ids.root }}"
      data-container-tool-root
      data-container-prefix="{{ container_ui.prefix|default:'' }}"
+     data-new-container-config="{% if new_container_config %}true{% else %}false{% endif %}"
      {% if assistant_ui_enabled %}data-assistant-state-fields="{{ container_ui.ids.assistant_state_fields }}"{% endif %}>
     {% include "container_selection_tool/partials/_container_selection_tool.html" %}
 </div>

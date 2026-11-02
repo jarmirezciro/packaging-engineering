@@ -26,6 +26,8 @@ from ..tools.container.service import (
     get_product_catalogues,
     get_products_for_catalogue,
     get_corrugated_materials,
+    get_corrugated_material_options,
+    apply_manual_rsc_design_defaults,
     get_selected_material,
     get_selected_corrugated_construction,
     get_selected_product,
@@ -130,8 +132,15 @@ def _read_raw_container_config(
         "box_w": source.get("box_w", cfg["box_w"]),
         "box_h": source.get("box_h", cfg["box_h"]),
         "box_thickness_mm": source.get("box_thickness_mm", cfg["box_thickness_mm"]),
+        "box_thickness_user_override": source.get(
+            "box_thickness_user_override", cfg["box_thickness_user_override"]
+        ),
         "corrugated_material_id": source.get(
             "corrugated_material_id", cfg["corrugated_material_id"]
+        ),
+        "corrugated_material_user_selected": source.get(
+            "corrugated_material_user_selected",
+            cfg["corrugated_material_user_selected"],
         ),
         "custom_combined_grammage_g_m2": source.get(
             "custom_combined_grammage_g_m2",
@@ -177,7 +186,9 @@ def _build_shared_container_ui_contract(prefix=""):
         "box_w": f"box_w{suffix}",
         "box_h": f"box_h{suffix}",
         "box_thickness_mm": f"box_thickness_mm{suffix}",
+        "box_thickness_user_override": f"box_thickness_user_override{suffix}",
         "corrugated_material_id": f"corrugated_material_id{suffix}",
+        "corrugated_material_user_selected": f"corrugated_material_user_selected{suffix}",
         "custom_combined_grammage_g_m2": f"custom_combined_grammage_g_m2{suffix}",
         "container_dimension_unit": f"container_dimension_unit{suffix}",
         "box_weight": f"box_weight{suffix}",
@@ -669,10 +680,19 @@ def _build_container_selection_page_context(
             and request.method == "GET"
         ),
     )
+    new_container_config = initial_config is None and request.method == "GET"
+    config = apply_manual_rsc_design_defaults(
+        config,
+        enabled=new_container_config,
+    )
 
     selected_product = get_selected_product(config, user=catalogue_user)
     selected_material = get_selected_material(config, user=catalogue_user)
     corrugated_materials = get_corrugated_materials()
+    corrugated_material_options = get_corrugated_material_options(
+        corrugated_materials,
+        dimension_unit=config.get("container_dimension_unit") or "mm",
+    )
     selected_corrugated_material = get_selected_corrugated_construction(config)
 
     products = get_products_for_catalogue(config, user=catalogue_user)
@@ -699,6 +719,7 @@ def _build_container_selection_page_context(
         packaging_catalogues,
         product_catalogues,
         corrugated_materials=corrugated_materials,
+        container_dimension_unit=config.get("container_dimension_unit") or "mm",
     )
 
     result = None
@@ -721,6 +742,7 @@ def _build_container_selection_page_context(
             packaging_catalogues,
             product_catalogues,
             corrugated_materials=corrugated_materials,
+            container_dimension_unit=config.get("container_dimension_unit") or "mm",
         )
         form_is_valid = analysis_form.is_valid()
 
@@ -847,6 +869,7 @@ def _build_container_selection_page_context(
         "products": products,
         "materials": materials,
         "corrugated_materials": corrugated_materials,
+        "corrugated_material_options": corrugated_material_options,
         "selected_corrugated_material": selected_corrugated_material,
         "selected_product": selected_product,
         "selected_material": selected_material,
@@ -857,6 +880,7 @@ def _build_container_selection_page_context(
         "current_mode": config.get("mode") or "single",
         "current_product_source": config.get("product_source") or "manual",
         "current_container_source": config.get("container_source") or "manual",
+        "new_container_config": new_container_config,
 
         "mode": mode,
         "prefix": "",

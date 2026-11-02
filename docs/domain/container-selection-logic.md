@@ -189,9 +189,27 @@ explain the estimate.
 ## Carton tare and corrugated-board selection
 
 Container Selection exposes an optional active `CorrugatedBoardConstruction`
-choice plus a custom combined grammage. The choice is a weight input only: it
-does not change box thickness, internal dimensions, external-dimension
-resolution, packing capacity, or the product renderer.
+choice. New selections use the construction's stable code; older numeric-ID
+and legacy custom-grammage session values remain readable without being
+offered as new catalogue choices. The board choice supplies tare grammage and
+a resolved finished-board caliper. Caliper priority is a valid construction
+`caliper_mm`, then the lowest-ECT active `CorrugatedECTReferenceGrade` for the
+construction's flute family, then unavailable. Nominal flute height is never
+used as caliper.
+
+The selected caliper is a suggestion for the existing Box thickness input.
+Users can override it explicitly; the override is preserved across unit
+changes and Packaging Flow posts. External dimensions continue to use the
+final thickness with `L + 2t`, `W + 2t`, and `H + 4t`. A new manual Design
+configuration defaults to stable construction code `FEFCO_C_175_140_175`,
+whose catalogue grammage is 560.2 g/m² and whose reference caliper is 4.08
+mm. Existing sessions and explicit no-material selections are not changed.
+
+Grammage is stored and calculated in canonical g/m². Imperial presentation
+uses the dedicated areal-density conversion `1 lb/MSF = 4.8824276 g/m²` and
+does not route through mass conversion. Metric labels show g/m² and mm;
+imperial labels show lb/MSF and inches, and update through the shared unit
+change event without a reload.
 
 For an eligible manual box or catalogue `BOX`, the shared tare adapter reuses
 the existing FEFCO 0201 geometry provider and `calculate_material()` with zero
@@ -258,6 +276,12 @@ step result and rebuilds the dependent payload.
 - unknown product weight does not turn carton tare into gross weight;
 - CRATE/CONTAINER/TRAILER catalogue rows do not receive an RSC material
   estimate;
+- reference caliper resolves for A/B/C/E/F/N/EB/BC families without inferring
+  ECT or using nominal flute height;
+- metric and imperial material labels preserve the canonical grammage and
+  caliper through unit changes;
+- an explicit thickness override changes external dimensions but not material
+  grammage or tare, and remains intact through Full Packaging inheritance;
 - standalone, Flow, and report counts agree for equivalent single-product fixtures;
 - Multi-product Container Selection reproduces the same placements/graphics for an equivalent one-row fixture;
 - clean-render and product-detail improvements appear in the multi-product result and report where applicable.

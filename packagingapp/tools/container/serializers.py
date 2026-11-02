@@ -14,8 +14,14 @@ def _safe_str(value, default=""):
 
 
 def sanitize_container_config_for_session(config):
+    original = config or {}
     base = default_container_config()
-    base.update(config or {})
+    base.update(original)
+    thickness_override = base.get("box_thickness_user_override")
+    if "box_thickness_user_override" not in original:
+        # Existing sessions with an explicit thickness must keep behaving as
+        # manual overrides after the new auto-caliper state is introduced.
+        thickness_override = bool(str(base.get("box_thickness_mm") or "").strip())
 
     return {
         "mode": normalize_selection_mode(base),
@@ -46,7 +52,11 @@ def sanitize_container_config_for_session(config):
         "box_w": _safe_str(base.get("box_w") or ""),
         "box_h": _safe_str(base.get("box_h") or ""),
         "box_thickness_mm": _safe_str(base.get("box_thickness_mm") or ""),
+        "box_thickness_user_override": "1" if _as_bool(thickness_override) else "",
         "corrugated_material_id": _safe_str(base.get("corrugated_material_id") or ""),
+        "corrugated_material_user_selected": "1" if _as_bool(
+            base.get("corrugated_material_user_selected")
+        ) else "",
         "custom_combined_grammage_g_m2": _safe_str(
             base.get("custom_combined_grammage_g_m2") or ""
         ),

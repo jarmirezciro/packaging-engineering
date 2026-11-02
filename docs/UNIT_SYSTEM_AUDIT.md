@@ -58,7 +58,8 @@ Exact definitions:
 | Container Selection | catalogue product weight | kg | catalogue row/summary: kg | kg -> g in shared Container service | g report fields | `kg_to_g` occurs once at the service/form boundary. |
 | Container Selection | manual packaging tare / max payload | — | g | g | g report fields | Payload remains informational for current Container capacity. |
 | Container Selection | catalogue packaging tare | kg | catalogue row/summary: kg | kg -> g in shared Container service | g report fields | No catalogue payload model field currently exists. |
-| Container Selection | corrugated combined grammage | g/m² | g/m² | g/m² | g/m² | Active construction or positive custom value; used only by the FEFCO 0201 tare adapter. |
+| Container Selection | corrugated combined grammage | g/m² | g/m² or lb/MSF | g/m² | g/m² | Active construction value; imperial display uses the dedicated 4.8824276 g/m² per lb/MSF area-density factor. |
+| Container Selection | corrugated finished-board caliper | mm | mm or in | mm | mm | Construction caliper, then lowest-ECT flute-family reference caliper; nominal flute height is never used. |
 | Container Selection | calculated carton tare / gross carton weight | — | selected container mass unit | g | g report fields | Candidate dimensions use internal mm; finished material mass excludes scrap; gross is net contents plus one tare. |
 | Bag Selection | manual product L/W/H and bag L/W | — | mm | mm | mm | Sealing/tolerance geometry remains unchanged. |
 | Bag Selection | manual product, bag tare, max payload | — | g | g | g report fields | Payload feasibility/report contract is gram-based. |

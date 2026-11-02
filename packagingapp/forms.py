@@ -614,8 +614,14 @@ class ContainerSelectionMode1Form(forms.Form):
             attrs={
                 "class": "form-control", "step": "any", "min": "0.0001",
                 "data-unit-input": "true", "data-unit-group": "container-packaging-dimensions",
+                "data-box-thickness-input": "true",
             }
         ),
+    )
+
+    box_thickness_user_override = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
     )
 
     corrugated_material_id = forms.ChoiceField(
@@ -634,6 +640,11 @@ class ContainerSelectionMode1Form(forms.Form):
             "step": "any",
             "min": "0.0001",
         }),
+    )
+
+    corrugated_material_user_selected = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
     )
 
     box_weight = forms.FloatField(
