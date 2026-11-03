@@ -5,6 +5,7 @@ import os
 import uuid
 import hashlib
 import json
+import time
 from dataclasses import dataclass
 from typing import Tuple, Optional, List
 
@@ -23,6 +24,7 @@ from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordin
     allowed_product_orientations,
 )
 from packagingapp.utils.box_selection.numeric import count_fitting_units
+from packagingapp.utils.box_selection.mosaic import search_mosaic_placements
 from packagingapp.utils.package_design_arrangements import build_canonical_design_arrangements
 
 
@@ -46,6 +48,25 @@ class Mode1Result:
     image_rel_path: str
     threejs_scene: Optional[dict] = None
     placements: Tuple[Placement, ...] = ()
+    candidate_family: str = "legacy"
+    legacy_quantity: int = 0
+    mosaic_quantity: int = 0
+
+
+@dataclass(frozen=True)
+class PackingComparison:
+    """JSON-safe benchmark summary for legacy versus shared mosaics."""
+
+    legacy_quantity: int
+    mosaic_quantity: int
+    selected_quantity: int
+    winning_family: str
+    geometry_valid: bool
+    legacy_seconds: float
+    mosaic_seconds: float
+    combined_seconds: float
+    mosaic_candidate_count: int
+    mosaic_resource_limited: bool
 
 
 @dataclass(frozen=True)
@@ -337,9 +358,108 @@ def _calculate_pilot_solution(
 
 
 def calculate_placements(product: Dims, container: Dims, r1: int, r2: int, r3: int) -> List[Placement]:
-    """Return the authoritative pilot-parity product placement collection."""
+    """Return the better of legacy and independently validated mosaic geometry."""
+    selection = _select_packing_solution(product, container, r1, r2, r3)
+    return selection[0]
+
+
+def calculate_legacy_placements(
+    product: Dims, container: Dims, r1: int, r2: int, r3: int
+) -> List[Placement]:
+    """Expose the unchanged MainBox baseline for regression and benchmarking."""
     placements, _regions = _calculate_pilot_solution(product, container, r1, r2, r3)
     return placements
+
+
+def _select_packing_solution(
+    product: Dims,
+    container: Dims,
+    r1: int,
+    r2: int,
+    r3: int,
+):
+    """Evaluate legacy first; accept Mosaic only on a strict valid gain."""
+    legacy_started = time.perf_counter()
+    legacy_placements, legacy_regions = _calculate_pilot_solution(
+        product, container, r1, r2, r3
+    )
+    legacy_seconds = time.perf_counter() - legacy_started
+
+    mosaic_started = time.perf_counter()
+    try:
+        mosaic = search_mosaic_placements(
+            product,
+            container,
+            r1,
+            r2,
+            r3,
+            legacy_quantity=len(legacy_placements),
+        )
+    except Exception:
+        # An optional candidate family must never suppress a valid MainBox
+        # result. Tests exercise this fail-closed boundary explicitly.
+        mosaic = None
+    mosaic_seconds = time.perf_counter() - mosaic_started
+
+    mosaic_quantity = mosaic.quantity if mosaic is not None else 0
+    if (
+        mosaic is not None
+        and not mosaic.validation_error
+        and mosaic_quantity > len(legacy_placements)
+    ):
+        placements = [
+            Placement(
+                origin=placement.origin,
+                dimensions=placement.dimensions,
+                level=placement.layer,
+                region_type=f"mosaic:{mosaic.family}",
+            )
+            for placement in mosaic.placements
+        ]
+        return (
+            placements,
+            [],
+            mosaic.family,
+            len(legacy_placements),
+            mosaic_quantity,
+            legacy_seconds,
+            mosaic_seconds,
+            mosaic.candidate_count,
+            mosaic.resource_limited,
+            not bool(mosaic.validation_error),
+        )
+
+    return (
+        legacy_placements,
+        legacy_regions,
+        "legacy",
+        len(legacy_placements),
+        mosaic_quantity,
+        legacy_seconds,
+        mosaic_seconds,
+        mosaic.candidate_count if mosaic is not None else 0,
+        mosaic.resource_limited if mosaic is not None else False,
+        not bool(mosaic.validation_error) if mosaic is not None else False,
+    )
+
+
+def compare_packing_candidates(
+    product: Dims, container: Dims, r1: int, r2: int, r3: int
+) -> PackingComparison:
+    """Return deterministic quantities plus measured timings for benchmarks."""
+    selection = _select_packing_solution(product, container, r1, r2, r3)
+    return PackingComparison(
+        legacy_quantity=selection[3],
+        mosaic_quantity=selection[4],
+        selected_quantity=len(selection[0]),
+        winning_family=selection[2],
+        geometry_valid=selection[9],
+        legacy_seconds=selection[5],
+        mosaic_seconds=selection[6],
+        combined_seconds=selection[5] + selection[6],
+        mosaic_candidate_count=selection[7],
+        mosaic_resource_limited=selection[8],
+    )
 
 
 def compute_max_quantity_only(product: Dims, container: Dims, r1: int, r2: int, r3: int) -> int:
@@ -518,7 +638,22 @@ def run_mode1_and_render(product: Dims,
     clean_render = str(render_style or "").lower() == "clean"
     show_debug_subboxes = not clean_render
     threejs_scene = _build_threejs_scene(container)
-    placements, packed_regions = _calculate_pilot_solution(product, container, r1, r2, r3)
+    selection = _select_packing_solution(product, container, r1, r2, r3)
+    (
+        placements,
+        packed_regions,
+        candidate_family,
+        legacy_quantity,
+        mosaic_quantity,
+        _legacy_seconds,
+        _mosaic_seconds,
+        _candidate_count,
+        _resource_limited,
+        _geometry_valid,
+    ) = selection
+    threejs_scene["candidateFamily"] = candidate_family
+    threejs_scene["legacyQuantity"] = legacy_quantity
+    threejs_scene["mosaicQuantity"] = mosaic_quantity
     allowed_orientations = allowed_product_orientations(product, r1, r2, r3)
     max_qty = len(placements)
     rendered_placements = placements
@@ -628,6 +763,9 @@ def run_mode1_and_render(product: Dims,
         image_rel_path=rel_path,
         threejs_scene=threejs_scene,
         placements=tuple(placements),
+        candidate_family=candidate_family,
+        legacy_quantity=legacy_quantity,
+        mosaic_quantity=mosaic_quantity,
     )
 
 def render_product_base_unit(product: Dims, media_root: str) -> str:

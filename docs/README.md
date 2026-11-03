@@ -44,7 +44,7 @@ Labels used in domain documents:
 | Multi-product Bag/Container | `architecture/shared-tool-contract.md` plus the affected domain document |
 | CSS/templates/JS | `frontend/theme-and-components.md`, `frontend/interactions-and-accessibility.md`; for full-page tool interactions, `frontend/tool-scroll-preservation.md` |
 | Bag logic | `domain/bag-selection-logic.md` |
-| Container/box selection | `domain/container-selection-logic.md` |
+| Container/box selection | `domain/container-selection-logic.md`, then `domain/shared-mosaic-patterns.md` for Selection Mode mosaic candidates |
 | Palletization | `domain/palletization-logic.md` |
 | Corrugated material and strength | `domain/corrugated-material-strength.md` |
 | Transport packing algorithms/modes | `domain/transport-container-engine.md`, then `engineering/testing-and-verification.md` |

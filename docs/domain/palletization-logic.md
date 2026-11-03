@@ -49,6 +49,13 @@ Exact height and footprint equality remain feasible.
 
 ## Pattern families
 
+**Stage 1 shared-library note:** Container Selection now consumes the
+tool-independent geometry in `shared-mosaic-patterns.md`. Palletization's
+runtime engine remains on the original implementations during Stage 1, with
+representative geometry-parity tests protecting the temporary duplication.
+Migrating Palletization and removing that duplication is a separate Stage 2
+task after benchmark approval.
+
 The project has discussed and implemented/refined these engineered pattern families:
 
 - Block

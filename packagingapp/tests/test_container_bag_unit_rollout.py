@@ -103,7 +103,7 @@ class ContainerManualUnitBoundaryTests(SimpleTestCase):
                 self.assertTrue(form.is_valid(), form.errors.as_json())
                 result = analyze_container_capacity(form, data)
                 self.assertTrue(result["ok"], result["messages"])
-                self.assertEqual(result["result"]["max_quantity"], 12)
+                self.assertEqual(result["result"]["max_quantity"], 16)
 
     def test_equivalent_product_and_container_dimensions_normalize_to_same_capacity(self):
         metric_form, metric_data = _container_form(

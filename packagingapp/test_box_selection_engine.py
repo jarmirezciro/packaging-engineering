@@ -6,7 +6,9 @@ from collections import Counter
 from django.test import SimpleTestCase
 
 from .utils.box_selection.engine import (
+    calculate_legacy_placements,
     calculate_placements,
+    compare_packing_candidates,
     compute_max_quantity_only,
     run_mode1_and_render,
 )
@@ -25,7 +27,10 @@ class BoxSelectionPilotParityTests(SimpleTestCase):
         for placement in placements:
             self.assertIn(placement.dimensions, allowed_orientations)
             self.assertIn(placement.level, (0, 1))
-            self.assertIn(placement.region_type, ("main", "residual"))
+            self.assertTrue(
+                placement.region_type in ("main", "residual")
+                or placement.region_type.startswith("mosaic:")
+            )
             self.assertTrue(all(value > 0 for value in placement.dimensions))
             self.assertNotIn(placement.origin, origins)
             origins.add(placement.origin)
@@ -172,11 +177,29 @@ class BoxSelectionPilotParityTests(SimpleTestCase):
                     0,
                     1,
                 )
-                self.assertEqual(len(placements), 12)
+                legacy = calculate_legacy_placements(
+                    product,
+                    container,
+                    0,
+                    0,
+                    1,
+                )
+                comparison = compare_packing_candidates(
+                    product,
+                    container,
+                    0,
+                    0,
+                    1,
+                )
+                self.assertEqual(len(legacy), 12)
+                self.assertEqual(len(placements), 16)
                 self.assertEqual(
                     compute_max_quantity_only(product, container, 0, 0, 1),
-                    12,
+                    16,
                 )
+                self.assertEqual(comparison.legacy_quantity, 12)
+                self.assertEqual(comparison.mosaic_quantity, 16)
+                self.assertEqual(comparison.winning_family, "pinwheel")
                 self.assertTrue(
                     all(
                         placement.dimensions[2] == product[2]

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Determine how many rectangular products fit in a rectangular packaging container, or rank packaging candidates for a required quantity, using allowed orthogonal orientations and the original pilot's bounded residual-space heuristic.
+Determine how many rectangular products fit in a rectangular packaging container, or rank packaging candidates for a required quantity, using allowed orthogonal orientations, the original pilot's bounded residual-space heuristic, and independently validated shared mosaic candidates.
 
 ## Established engine model
 
@@ -69,8 +69,15 @@ multiples.
 8. Retain only the selected main-grid placements from the complete-container result; its provisional residual fills are not final.
 9. Run one complete `MainBox` analysis independently in each of the three root residual regions.
 10. Retain each child result's selected main grid and three direct residual fills, then stop at that pilot-defined depth.
-11. Calculate capacity from the final placement collection and use that same collection for Matplotlib and Three.js.
-12. Apply desired-quantity draw limits only to visualization; do not change the maximum-capacity calculation.
+11. Independently evaluate the shared 2D mosaic-pattern library for each permitted vertical-orientation family and repeat valid layers within container height.
+12. Keep the legacy result on every quantity tie; select Mosaic only for a strictly greater independently validated placement count.
+13. Calculate capacity from the selected final placement collection and use that same collection for Matplotlib and Three.js.
+14. Apply desired-quantity draw limits only to visualization; do not change the maximum-capacity calculation.
+
+The shared Mosaic architecture, supported pattern families, resource bounds,
+and Stage 2 Palletization handover are documented in
+`shared-mosaic-patterns.md`. `MainBox` and the legacy pilot sequence remain
+unchanged and independently testable through `calculate_legacy_placements()`.
 
 The root `MainBox.max_quantity` already includes provisional direct residual fills. It must not be added to the child results because those provisional fills are replaced by the complete child analyses. The final quantity is the root main grid plus the three complete child solutions.
 
@@ -324,7 +331,10 @@ available, it also reports the candidate-specific empty-carton tare and gross
 carton weight. Tare is a derived result, not a Design ranking input, and
 payload metrics remain outside Design. Single and Optimal modes keep their
 existing evaluation.
-Selection Mode continues to use `MainBox` and its existing leftover-space logic.
+Selection Mode continues to evaluate `MainBox` and its existing leftover-space
+logic as the mandatory legacy baseline. It also evaluates shared Mosaic
+candidates independently; only a strictly larger valid Mosaic may replace the
+legacy placement collection, and legacy retains every tie.
 The extraction preserves Container Design's existing candidate dimensions,
 ordering, representative choices, render geometry, and candidate identifiers.
 
