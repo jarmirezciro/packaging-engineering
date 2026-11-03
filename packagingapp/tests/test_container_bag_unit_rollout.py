@@ -72,6 +72,39 @@ def _bag_config(**overrides):
 
 
 class ContainerManualUnitBoundaryTests(SimpleTestCase):
+    def test_reference_capacity_is_stable_for_inch_metric_cm_and_feet_inputs(self):
+        product_mm = (152.4, 101.6, 152.4)
+        container_mm = (384.81, 368.3, 342.9)
+        unit_factors = {
+            "mm": 1.0,
+            "cm": 10.0,
+            "in": 25.4,
+            "ft": 304.8,
+        }
+
+        for unit, factor in unit_factors.items():
+            with self.subTest(unit=unit):
+                form, data = _container_form(
+                    product_l=product_mm[0] / factor,
+                    product_w=product_mm[1] / factor,
+                    product_h=product_mm[2] / factor,
+                    product_dimension_unit=unit,
+                    product_allowance_l="0",
+                    product_allowance_w="0",
+                    product_allowance_h="0",
+                    r1="",
+                    r2="",
+                    r3="on",
+                    box_l=container_mm[0] / factor,
+                    box_w=container_mm[1] / factor,
+                    box_h=container_mm[2] / factor,
+                    container_dimension_unit=unit,
+                )
+                self.assertTrue(form.is_valid(), form.errors.as_json())
+                result = analyze_container_capacity(form, data)
+                self.assertTrue(result["ok"], result["messages"])
+                self.assertEqual(result["result"]["max_quantity"], 12)
+
     def test_equivalent_product_and_container_dimensions_normalize_to_same_capacity(self):
         metric_form, metric_data = _container_form(
             product_l="76.2",

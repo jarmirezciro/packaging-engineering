@@ -54,6 +54,14 @@ nz = floor(region_height / oriented_product_z)
 quantity = nx × ny × nz
 ```
 
+The implementation uses a shared bounded-ULP floor helper for these counts.
+It accepts a next integer only when the required canonical-millimetre extent is
+within a small representation-error bound of the available extent; a genuine
+physical shortfall remains a floor result. The same helper is used by
+`MainBox`, residual candidate calculations, and final placement materialization
+so reported capacity and rendered geometry cannot diverge at exact converted
+multiples.
+
 4. Compare orientation/partition candidates and choose the main subbox arrangement returned by `MainBox`.
 5. Record the orientation used in the main subbox.
 6. Partition the remaining rectangular space into length-, width-, and height-side leftovers without overlap.

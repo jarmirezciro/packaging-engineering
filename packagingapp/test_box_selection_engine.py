@@ -10,6 +10,7 @@ from .utils.box_selection.engine import (
     compute_max_quantity_only,
     run_mode1_and_render,
 )
+from .utils.box_selection.numeric import count_fitting_units
 
 
 class BoxSelectionPilotParityTests(SimpleTestCase):
@@ -129,6 +130,60 @@ class BoxSelectionPilotParityTests(SimpleTestCase):
             calculate_placements((0.0, 200.0, 300.0), self.container, 1, 1, 1),
             [],
         )
+
+    def test_grid_count_tolerates_conversion_ulp_without_overpacking(self):
+        unit = 101.6
+
+        self.assertEqual(count_fitting_units(3 * unit, unit), 3)
+        self.assertEqual(count_fitting_units(304.79999999999995, unit), 3)
+        self.assertEqual(count_fitting_units(3 * unit - 1e-6, unit), 2)
+        self.assertEqual(count_fitting_units(0, unit), 0)
+        self.assertEqual(count_fitting_units(unit, 0), 0)
+
+        self.assertEqual(count_fitting_units(5e-9, 1e-9), 5)
+        self.assertEqual(count_fitting_units(5e9, 1e9), 5)
+
+    def test_reference_grid_is_consistent_across_metric_and_display_unit_values(self):
+        metric_product = (152.4, 101.6, 152.4)
+        metric_container = (384.81, 368.3, 342.9)
+
+        equivalent_inputs = (
+            (metric_product, metric_container),
+            (
+                tuple(value / 10 for value in metric_product),
+                tuple(value / 10 for value in metric_container),
+            ),
+            (
+                tuple(value / 25.4 for value in metric_product),
+                tuple(value / 25.4 for value in metric_container),
+            ),
+            (
+                tuple(value / 304.8 for value in metric_product),
+                tuple(value / 304.8 for value in metric_container),
+            ),
+        )
+
+        for product, container in equivalent_inputs:
+            with self.subTest(product=product, container=container):
+                placements = calculate_placements(
+                    product,
+                    container,
+                    0,
+                    0,
+                    1,
+                )
+                self.assertEqual(len(placements), 12)
+                self.assertEqual(
+                    compute_max_quantity_only(product, container, 0, 0, 1),
+                    12,
+                )
+                self.assertTrue(
+                    all(
+                        placement.dimensions[2] == product[2]
+                        for placement in placements
+                    )
+                )
+                self.assert_valid_geometry(placements, product, container)
 
     def test_single_rotation_flag_applies_to_every_level(self):
         product = (2.0, 3.0, 5.0)

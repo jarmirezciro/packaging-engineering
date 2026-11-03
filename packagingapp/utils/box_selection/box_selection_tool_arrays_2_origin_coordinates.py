@@ -8,6 +8,8 @@ Created on Wed Dec 14 10:30:37 2022
 
 import pandas as pd
 
+from packagingapp.utils.box_selection.numeric import count_fitting_units
+
 
 def _normalize_rotation_flags(r1, r2, r3):
     """
@@ -90,15 +92,15 @@ def box(l, a, h, lc, ac, hc, r1, r2, r3):
     b = [None] * 6
     b_xyz = [None] * 6
 
-    a11 = int(lc / l)
-    a12 = int(lc / a)
-    a13 = int(lc / h)
-    a21 = int(ac / l)
-    a22 = int(ac / a)
-    a23 = int(ac / h)
-    a31 = int(hc / l)
-    a32 = int(hc / a)
-    a33 = int(hc / h)
+    a11 = count_fitting_units(lc, l)
+    a12 = count_fitting_units(lc, a)
+    a13 = count_fitting_units(lc, h)
+    a21 = count_fitting_units(ac, l)
+    a22 = count_fitting_units(ac, a)
+    a23 = count_fitting_units(ac, h)
+    a31 = count_fitting_units(hc, l)
+    a32 = count_fitting_units(hc, a)
+    a33 = count_fitting_units(hc, h)
 
     raw_counts = [
         a11 * a22 * a33,  # (l, a, h)
@@ -175,15 +177,15 @@ def MainBox(l,a,h,lc,ac,hc,r1,r2,r3,origin_coordinates):
     box1[2]=hc
     
     
-    a11=int(lc/l)
-    a12=int(lc/a)
-    a13=int(lc/h)
-    a21=int(ac/l)
-    a22=int(ac/a)
-    a23=int(ac/h)
-    a31=int(hc/l)
-    a32=int(hc/a)
-    a33=int(hc/h)
+    a11 = count_fitting_units(lc, l)
+    a12 = count_fitting_units(lc, a)
+    a13 = count_fitting_units(lc, h)
+    a21 = count_fitting_units(ac, l)
+    a22 = count_fitting_units(ac, a)
+    a23 = count_fitting_units(ac, h)
+    a31 = count_fitting_units(hc, l)
+    a32 = count_fitting_units(hc, a)
+    a33 = count_fitting_units(hc, h)
     
     allowed = _orientation_allowed_flags(r1, r2, r3)
     raw_counts = [

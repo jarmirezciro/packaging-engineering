@@ -22,6 +22,7 @@ from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordin
     MainBox,
     allowed_product_orientations,
 )
+from packagingapp.utils.box_selection.numeric import count_fitting_units
 from packagingapp.utils.package_design_arrangements import build_canonical_design_arrangements
 
 
@@ -214,7 +215,10 @@ def _grid_placements(
     if not all(value > 0 for value in (*region, *orientation)):
         return []
 
-    counts = tuple(int(region[index] / orientation[index]) for index in range(3))
+    counts = tuple(
+        count_fitting_units(region[index], orientation[index])
+        for index in range(3)
+    )
     placements = []
     for ix in range(counts[0]):
         for iy in range(counts[1]):
