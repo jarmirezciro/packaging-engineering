@@ -1,0 +1,15 @@
+{
+  "version": "1.0", "role": "conceptual", "layout": "concept_flow",
+  "purpose": "Explain two separate design allowances and the validation they require.",
+  "headline": "Allowance and overhang",
+  "subtitle": "Two practical parameters that influence case fit and pallet capacity.",
+  "cards": [
+    {"title": "Product allowance", "illustration": "art/allowance_bottle.png", "detail_lines": ["Reserve packing space", "Nominal product unchanged"]},
+    {"title": "Pallet overhang", "illustration": "art/overhang_pallet.png", "detail_lines": ["Load extends past deck", "Check permitted limits"]},
+    {"title": "Engineering check", "illustration": "art/engineering_check.png", "detail_lines": ["Check support and compression", "Confirm handling suitability"]}
+  ],
+  "takeaway": "More geometric freedom still requires practical support and stability checks.",
+  "caption": "Conceptual illustration. Dimensional allowances and pallet overhang affect different levels of the packing problem and do not certify safe load performance.",
+  "alt_text": "Bottle surrounded by a dimensional allowance envelope, pallet load showing overhang, and a separate engineering check.",
+  "source_notes": "Based on user-approved engineering explanation, not a measured compression or transport safety study."
+}

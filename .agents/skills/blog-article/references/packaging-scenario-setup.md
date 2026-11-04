@@ -81,3 +81,9 @@ If any item fails, do not ship the figure; follow `visual-editorial-critic.md`.
 ## Thumbnail distinction
 
 This figure follows the **light in-article** KolliPack graphic style. It is *not* the dark approved thumbnail system. All new blog thumbnails still follow `thumbnail-workflow.md` and the approved thumbnail board.
+
+<!-- BEGIN KOLLILABS-EDITORIAL-FIGURES-V1 -->
+## Reproducible visual execution (KolliLabs Editorial Figures)
+
+Use `../../kollilabs-editorial-figures/SKILL.md` for the approved graphical identity, artwork direction, editable figure-spec contract and deterministic rendering of this setup pattern. This case-setup reference still determines **what physical stages and verified inputs** belong in a scenario. Its approved existing style example remains authoritative; the additional two owner-approved examples in the new skill provide complementary graphical references. Do not use the new skill to copy benchmark values into unrelated cases.
+<!-- END KOLLILABS-EDITORIAL-FIGURES-V1 -->

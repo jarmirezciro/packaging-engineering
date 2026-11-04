@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "role": "conceptual",
+  "layout": "setup_flow",
+  "purpose": "Introduce the physical stages of a bottle-to-pallet case before comparing software results.",
+  "headline": "Benchmark setup",
+  "subtitle": "Three round-bottle configurations: product → RSC shipping carton → pallet",
+  "cards": [
+    {"title": "Round bottle", "illustration": "art/bottle.png", "detail_lines": ["Diameter 2.46–2.523 in", "Height 9.75–10.25 in"]},
+    {"title": "RSC shipping carton", "illustration": "art/rsc_carton.png", "detail_lines": ["15, 20 or 24 bottles/carton", "Board thickness ~0.16 in"]},
+    {"title": "Palletized load", "illustration": "art/pallet_load.png", "detail_lines": ["48 × 40 in pallet", "Maximum height 50 in"]}
+  ],
+  "takeaway": "Same packaging chain; three different bottle-and-carton configurations.",
+  "caption": "Conceptual illustration of bottle, RSC carton and pallet. Bottle counts within the drawn carton are illustrative, not exact packing geometry.",
+  "alt_text": "Three linked stages showing a round bottle, an open corrugated shipping carton, and a palletized carton load.",
+  "source_notes": "User-supplied screenshot evidence of three CapePack / KolliPack bottle benchmarks. Sample artwork cropped from an approved figure; not a new engine reproduction."
+}

@@ -1,0 +1,1617 @@
+{
+  "container_selections": [
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 12,
+      "mosaic_candidate_count": 9,
+      "mosaic_quantity": 16,
+      "mosaic_resource_limited": false,
+      "name": "reference_imperial_equivalent",
+      "selected_geometry_sha256": "25e1185aabc718ebe2ebbf89498cc3d5a14aec736df3cc049ecbc3d06551e39a",
+      "selected_quantity": 16,
+      "winning_family": "pinwheel"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 118,
+      "mosaic_candidate_count": 28,
+      "mosaic_quantity": 100,
+      "mosaic_resource_limited": false,
+      "name": "square",
+      "selected_geometry_sha256": "24e7f1f1ecd3579bb8bc2c077719d93b2b1967c4732a6c0b3d9bcbd5db867623",
+      "selected_quantity": 118,
+      "winning_family": "legacy"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 117,
+      "mosaic_candidate_count": 58,
+      "mosaic_quantity": 114,
+      "mosaic_resource_limited": false,
+      "name": "elongated",
+      "selected_geometry_sha256": "be0f077aeb9a66d22f647d5008d191dfec216df57b83b1ea311fc843dcd20b79",
+      "selected_quantity": 117,
+      "winning_family": "legacy"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 80,
+      "mosaic_candidate_count": 48,
+      "mosaic_quantity": 80,
+      "mosaic_resource_limited": false,
+      "name": "near_cubic",
+      "selected_geometry_sha256": "6f2e4afc1fa0b5ec1c81cb001ac105fdd40d06dbab9f675cf9d73426b6191084",
+      "selected_quantity": 80,
+      "winning_family": "legacy"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 19200,
+      "mosaic_candidate_count": 1,
+      "mosaic_quantity": 19200,
+      "mosaic_resource_limited": false,
+      "name": "small_in_large",
+      "selected_geometry_sha256": "2cc7228b27239f40ee5620b119f50d1aad98a26f1adf9924022a655f3859c664",
+      "selected_quantity": 19200,
+      "winning_family": "legacy"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 4,
+      "mosaic_candidate_count": 1,
+      "mosaic_quantity": 4,
+      "mosaic_resource_limited": false,
+      "name": "tight_fit",
+      "selected_geometry_sha256": "56ba5959adf5e664d9ad7355505e1d503a1d6f83203135754dec9165d987015e",
+      "selected_quantity": 4,
+      "winning_family": "legacy"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 52,
+      "mosaic_candidate_count": 12,
+      "mosaic_quantity": 52,
+      "mosaic_resource_limited": false,
+      "name": "significant_residual",
+      "selected_geometry_sha256": "eea523cce18bf05687ff357190fad96a4f94c96f9f9f21c5bea6389de0910db3",
+      "selected_quantity": 52,
+      "winning_family": "legacy"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 223,
+      "mosaic_candidate_count": 77,
+      "mosaic_quantity": 210,
+      "mosaic_resource_limited": false,
+      "name": "fractional",
+      "selected_geometry_sha256": "44029cd7554ed805b898715204a5064e164ddcd008f68f8830dae65902edb872",
+      "selected_quantity": 223,
+      "winning_family": "legacy"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 108,
+      "mosaic_candidate_count": 13,
+      "mosaic_quantity": 108,
+      "mosaic_resource_limited": false,
+      "name": "r1_only",
+      "selected_geometry_sha256": "df032c0b74df67aed96c0698c739fa14fcda75f350bed54115c6fe829c530e57",
+      "selected_quantity": 108,
+      "winning_family": "legacy"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 108,
+      "mosaic_candidate_count": 6,
+      "mosaic_quantity": 108,
+      "mosaic_resource_limited": false,
+      "name": "r2_only",
+      "selected_geometry_sha256": "6f474146a49ca121e19edc91d79a27f7dd2926595ebcfeada29fb08fddc85d47",
+      "selected_quantity": 108,
+      "winning_family": "legacy"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 108,
+      "mosaic_candidate_count": 1,
+      "mosaic_quantity": 108,
+      "mosaic_resource_limited": false,
+      "name": "r3_only",
+      "selected_geometry_sha256": "155bf3898f31efa6f680c42d0c82a3424d5369ca4306377b44fe6f229bb6283f",
+      "selected_quantity": 108,
+      "winning_family": "legacy"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 105,
+      "mosaic_candidate_count": 32,
+      "mosaic_quantity": 120,
+      "mosaic_resource_limited": false,
+      "name": "combined_rotations",
+      "selected_geometry_sha256": "3c7d5bc41366aac50b7464e559ec0eac7a4c819fe6e2073e8be2ac771ba3bdaf",
+      "selected_quantity": 120,
+      "winning_family": "splitrow"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 21,
+      "mosaic_candidate_count": 11,
+      "mosaic_quantity": 24,
+      "mosaic_resource_limited": false,
+      "name": "single_layer",
+      "selected_geometry_sha256": "8fcc1eaf21a7a9e0c2bebd8e1f5afed1cc299bd3083ee3eb8b08662101fbda99",
+      "selected_quantity": 24,
+      "winning_family": "splitrow"
+    },
+    {
+      "geometry_valid": true,
+      "legacy_quantity": 18,
+      "mosaic_candidate_count": 29,
+      "mosaic_quantity": 16,
+      "mosaic_resource_limited": false,
+      "name": "legacy_residual_wins",
+      "selected_geometry_sha256": "88ad04723f2b870cc3c63ca38aa57dba2d156ef4261357c7806e0d7f4465f1e0",
+      "selected_quantity": 18,
+      "winning_family": "legacy"
+    }
+  ],
+  "enumerations": [
+    {
+      "candidate_count": 10,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "b1d930fac1a4aa6ed1dd1b5a7bac2b4beef67527c791afa9c5543581eb7830df",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "0c6f8f03743d9ac95de86eafdbc2c14d6a604da0d54b4160edfd8cdbfc98cce7",
+          "quantity": 10,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "aa3b33574077876da4d3c70b8718fc61a45977b5cf9dfa250dfdcc5775e087ad",
+          "quantity": 6,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "884a9fae05455dace825e10dfe20c911e99d6beb41c4f34565e9cc1fa7a00b90",
+          "quantity": 8,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "656502b7e7b8c1ed3e7896fd64e589b1f00735cee376d4569520e36c2c8ce128",
+          "quantity": 8,
+          "variant": "primary"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "02aa6622182ce1a7cce857624f9343fcc4c023ec7b15285212303516e0871cb1",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "b0f9a91d2d23454c869a8a2e7c034cd4a078833275078034545f288d7fa792b9",
+          "quantity": 8,
+          "variant": "length:289"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "5c860f5b27d5585c4d369d9873b206bbb6e47f1eba9a24650a373ee6584d807a",
+          "quantity": 8,
+          "variant": "length:578"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "73016ecea29430ff332b678abaa51b3e11248ee49a4a2a3c3a303178136f9f6a",
+          "quantity": 8,
+          "variant": "length:867"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "a7ee7e4177a6f55f94cdc38f293abd5b3bd3056ac50e520c6c3f1da1d4fd265b",
+          "quantity": 10,
+          "variant": "width:411"
+        }
+      ],
+      "name": "splitrow_tops"
+    },
+    {
+      "candidate_count": 16,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "e762a0968a8db7fd30ee4c8c61565dce5c53f2e078685d5e330aa0998ca9cce7",
+          "quantity": 24,
+          "variant": "best"
+        },
+        {
+          "family": "row",
+          "ordered_geometry_sha256": "2d4792ffe3049cfec0e9dc1798a02e67a22dbc73fe54e9d5390acc7700de41e0",
+          "quantity": 18,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "29f4b143df363b28e352a49d72504c5229f1e60f6c65c7b57d774226051feb7f",
+          "quantity": 24,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "2abe782a91f491af62bc59a0b12ec3f62254a0b5508265eed1d45941aa8b7bae",
+          "quantity": 24,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "3459e5e86cf49941f88c9a03e4e8b2dfc3bb4cfd3a99a2702dd2c1719efa3753",
+          "quantity": 16,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "1fa507e8872da6ff7508384c96c4ee82eeb316e8686ad3b6a5a84b583597443c",
+          "quantity": 22,
+          "variant": "rotated"
+        },
+        {
+          "family": "nested_pinwheel",
+          "ordered_geometry_sha256": "52ca8c2dde42b8a85a8227e7344d81a8d81838a9d651191f7ae202341a363f34",
+          "quantity": 18,
+          "variant": "primary"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "90839c51020f340dd70e0f37915ed5182d7a4222a1239dbe090ccc5dab6ae0a3",
+          "quantity": 24,
+          "variant": "length:294"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "dd79d50abb22fb42647da8dbbf1f9f2c9ef3464f1b3c378ad4ada69a1da2a1eb",
+          "quantity": 24,
+          "variant": "length:308"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "b48ed189a75c8ed36bfd05edb0108f0c89b5450907571ea5d7a8ddc7cbcc6d3c",
+          "quantity": 24,
+          "variant": "length:588"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "32badc2ca676f21f7b021a0b8ae06cfd235bd946f4f1da764e8122c2fc3e4e6b",
+          "quantity": 24,
+          "variant": "length:616"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "d9eb969e126ace0ba363b705563d5c09c546aeddeb3157fcb5e24429ab487968",
+          "quantity": 24,
+          "variant": "length:924"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "9598a2bcdba1f5004ac1ab004328871f16c92582a5a54cb1009c12322cf3f244",
+          "quantity": 19,
+          "variant": "width:147"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "655c8d4d50f75bc4a1f512144e9da118ff8f72844771e4fb4110a73df839d487",
+          "quantity": 22,
+          "variant": "width:294"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "8c8e344ad04f5e5c03225740715282b89e483254520648d75b57e3be2dc8beaf",
+          "quantity": 20,
+          "variant": "width:588"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "b4cfade4c81ad2a072f709d823467e369d85ef4fee294b094065e9ffa1aee097",
+          "quantity": 19,
+          "variant": "width:735"
+        }
+      ],
+      "name": "splitrow_na4840"
+    },
+    {
+      "candidate_count": 17,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "750cc4da5a8d8d089f700064985b89aff3604ba8a1ec15ca4cf2da33ad882639",
+          "quantity": 24,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "31d62815b7c6b5d740dcfdd6546efe98203ac5afe4acbf9104aa05cec3f84c54",
+          "quantity": 25,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "bfd0724c09504ae244e3d297d6a27e55ace1e9773481917ef90eb91ed4edb953",
+          "quantity": 20,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "c4daecb960a9183079604626f8ee4b7beeca1a7b0ee7259f384f2ad59d23f350",
+          "quantity": 24,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "5380a956aba38249f57a4bb4c98c585b7dcdf6be880a37f0094fac7cff932147",
+          "quantity": 22,
+          "variant": "primary"
+        },
+        {
+          "family": "nested_pinwheel",
+          "ordered_geometry_sha256": "ad98ab572f610cedca0013dcc6d8aeba4caa742e08be5e6a8a2e33f405bb3b56",
+          "quantity": 22,
+          "variant": "primary"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "f33593d01550d3948bd3ff981d8c977fc3f4349f7ba9386bba48d7433352b538",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "7db7fe125f21fa81b84622a6f3f844cf4df311e203085ba5d887fd78e060e68d",
+          "quantity": 21,
+          "variant": "length:160"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "005592298f0a86e31955b9693b4957c87d0a786aca7c7bdea06082596378739c",
+          "quantity": 24,
+          "variant": "length:320"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "3969783979c562511664aa804b43c88fabe576d3c86987ac931a52d7e33ca3a1",
+          "quantity": 21,
+          "variant": "length:480"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "39de89d64c7a0fe208ed5784bf7d639c6026b95da1a0561589f2cd83e1d3dca2",
+          "quantity": 24,
+          "variant": "length:640"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "cf89977d9f2a4065c6da7f54d7c551609c688992f9ca848e439285b800f45053",
+          "quantity": 21,
+          "variant": "length:800"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "23209816ae93395416d08c8ff2df9de995a2f823ef2fb4b92043ade778ed8465",
+          "quantity": 21,
+          "variant": "length:960"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "f8feed7bfd52e0b1dd7c1458fbc06d5d4f173a422796df13f5a36d348ce773ec",
+          "quantity": 21,
+          "variant": "length:1120"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "d0b5791d8130789f50124c625ac8695ecec37f902bb4e2f46f29b3ca3a0e7c31",
+          "quantity": 25,
+          "variant": "width:160"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "c8f44fdfc61bbdbb2aec9f6dbe9189905a4a6eea874a3ce5e44aa6b56e1903e9",
+          "quantity": 23,
+          "variant": "width:284"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "79b2db7f114ce3119d4d37b4d8d2dca8adc79dc3218b971c19d3b78a9b2e85fe",
+          "quantity": 22,
+          "variant": "width:568"
+        }
+      ],
+      "name": "splitrow_compact_filler"
+    },
+    {
+      "candidate_count": 17,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "d679fca7ace079a74526c34b66e827b598f409405286129e0084370ecc77619e",
+          "quantity": 18,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "655aeb1847c69a655564d083c63791b6125974241131236fe88d3bd9db4c7b86",
+          "quantity": 22,
+          "variant": "primary"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "9b678d616c8c0d4a9d3d81d4908a72fb8fb0e6c11b39430bfe843a009c9c5b54",
+          "quantity": 22,
+          "variant": "swapped"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "438762c31e96e506d57fdec377b782e5e81ea2b85286fe3d0fd9b71516266642",
+          "quantity": 16,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "6022d138d1b41abcb03a5c51885e2b3ff928668d6ac4aa61df11a76e8301f5d1",
+          "quantity": 16,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "e35fbd64df82e1d73a87e02063c4e7b30dfd845a67808bcf106e339c7f731be2",
+          "quantity": 21,
+          "variant": "primary"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "b58ec1ca9b18ee8d68129efdd46c3ca20e3e0fefe88510bd978b285d064a4520",
+          "quantity": 19,
+          "variant": "rotated"
+        },
+        {
+          "family": "nested_pinwheel",
+          "ordered_geometry_sha256": "92d18629e7fc1970a5e5febe2fb61d22b8442fe7502b69d79da73d8a7af99950",
+          "quantity": 12,
+          "variant": "primary"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "472e683212d464c39b6179f9a3b441080138d305e3e7cc166e7c45f977c9602d",
+          "quantity": 16,
+          "variant": "length:146"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "17e263533eb7d618cf4a4acd42a9ff46fbab424f0917788154be110848811e0a",
+          "quantity": 16,
+          "variant": "length:292"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "be56e1afde059232efc8122946128d482c6518ba6b3aab9d9e0798b81fb84001",
+          "quantity": 18,
+          "variant": "length:438"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "c41d95b5afba9336b8812b7528ca124b31de902351c7d312edc29582ca3a9f93",
+          "quantity": 18,
+          "variant": "length:730"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "32111857ed9a6457ba58f6d3b4a1f80811f8a4491d3f18a4e23c2291153481b7",
+          "quantity": 16,
+          "variant": "length:876"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "b69681aebda0cade4dfb8ed2fd917a1408868b9a7bb6b11326e539fae69d1f68",
+          "quantity": 19,
+          "variant": "width:146"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "4f3632e1f57c18429c8c9e4d6d0f99c2411bd7b88a9be83e29f387a60ab08f8c",
+          "quantity": 20,
+          "variant": "width:362"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "d039d197a850adc3c1d191bfe210d7affb94901983e52ad41500b720de38834c",
+          "quantity": 20,
+          "variant": "width:584"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "4bec8b1d188fde7a68a74575be056e3bd90687d2d15b7596ee391a5e171831ba",
+          "quantity": 19,
+          "variant": "width:730"
+        }
+      ],
+      "name": "splitrow_sparse_362"
+    },
+    {
+      "candidate_count": 12,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "64b6eaa9dd393ff23f38bf16ca3ae61e65d1491e039a63a7902ccf16030c2b81",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "927544016fe6aa163c00f97f97a80a9c8f3e44cb24c3fd8af4e410cc2e750a67",
+          "quantity": 11,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "40ccb6c0d5afbcccf7d0686e2cc5a6eaf1177a93e206a3c92681202176c34317",
+          "quantity": 6,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "878839f129c21677d7534acd6a190d52c27c6454dd4ec93eb76c0d2cff3051b5",
+          "quantity": 8,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "0787159f64f09ed37dbdb5397658559985c1d2b1316d244ab9b51fe58225af58",
+          "quantity": 9,
+          "variant": "primary"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "a9cf64e8ed08aa7aa3852774bed01c1a6fbbd3125a4bfad855f5c5e9dc43c258",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "249edb7f487711b80965f2051e4898f2fca485b09ca4e0d050ead047a97d0ace",
+          "quantity": 8,
+          "variant": "length:288"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "7dc0b1ec6266a92a95dddb149a73f2d6736b427d91c7887441bc5b260c7c9981",
+          "quantity": 8,
+          "variant": "length:576"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "fc2f8487f16a0c3e03948330ce0724bfac2ef2aeae3d7bdc9724595fa4e49dae",
+          "quantity": 8,
+          "variant": "length:864"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "c600dfa73b31ee265c42f2b9c83eeb0b4bc4936b717e7fabe972fdf5c042146e",
+          "quantity": 11,
+          "variant": "width:288"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "f22e1444354c288edbef539867c7042da4b6b1cf82bf9d1409d96e82303c38be",
+          "quantity": 10,
+          "variant": "width:364"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "d97dfb734d05bc926a4f5fde785073b3a56f2e03b930ec1d72f65a5be1d8a4ce",
+          "quantity": 10,
+          "variant": "width:576"
+        }
+      ],
+      "name": "splitrow_sparse_364"
+    },
+    {
+      "candidate_count": 11,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "4753ee249cc396deadcede0f92d1c497a9f7ac6f67524f97a616b76ab2851319",
+          "quantity": 21,
+          "variant": "best"
+        },
+        {
+          "family": "row",
+          "ordered_geometry_sha256": "cb4a08f3d23be6f31613b8d06b7d8f3c69d735f86576ac32ee64b5aa408f941d",
+          "quantity": 20,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "b8799446469c9044c4962704f4f58cda8a9c5a4d476a30add0ca0a873d55a29a",
+          "quantity": 24,
+          "variant": "primary"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "43dc0b78a6e33ed387bab90e913d40eb86ba1801ebb893905f77235c674459a9",
+          "quantity": 24,
+          "variant": "swapped"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "9601a289a3d08aa0fbee628722e09805ce09424176b55f6e30026fc9d27b7aa5",
+          "quantity": 24,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "bfcbb6bc00f329676504775f522ce8db6c27986c8df31b62448cb26a588f4f62",
+          "quantity": 24,
+          "variant": "rotated"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "d777cc35631372b22ac8c6b07dcfdf67e43b13e84f0b17dab5a2226e5c3869a6",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "a2095844089538aa6c07d7e2d4b17344da9cb281f1241fee8a586d7b690c489b",
+          "quantity": 21,
+          "variant": "length:510"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "c8daa9927d116ee0f3804432e85c6f0f43fb1baa935d0862a60e81ff2c29be14",
+          "quantity": 21,
+          "variant": "length:690"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "87116fd052b75d3b1addd15c5ab92d4cf8f7361847ce312150baf71a15cbf304",
+          "quantity": 22,
+          "variant": "width:230"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "a2b271644ed92a96c3d5c61805f92a4f0559112606b8a0c0a2cf72e0ed60e473",
+          "quantity": 22,
+          "variant": "width:510"
+        }
+      ],
+      "name": "standard_230_170"
+    },
+    {
+      "candidate_count": 11,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "c9125d2c7405eceef1879c5cc7707ff58908347e8a30d437db30c347ae29c757",
+          "quantity": 18,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "8aaad99e050d66f8c3ea283dee5a93b22cefddfd46648a0bc4e10a7af79eee77",
+          "quantity": 18,
+          "variant": "primary"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "03cc1d012675f9281f629c72fe736e221da7657458cb10daac414aff13113c85",
+          "quantity": 18,
+          "variant": "swapped"
+        },
+        {
+          "family": "brick",
+          "ordered_geometry_sha256": "257af275b31f58803a14ccd76db65c54b0b8d89f110c7ce36381abf199cfc1bc",
+          "quantity": 18,
+          "variant": "best"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "84fdaeb7570a82948219b5945780c1312bf9b7544ca06d989e126d91bc5bf233",
+          "quantity": 16,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "09990934e2f2f2b767c1b4d2a46bfa8b357d7035df38dbfb05f4b8884a240421",
+          "quantity": 16,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "4a91c5d4c80f95253a1b9bba600c38541b8abc166445bcbb7d90bd00ba226eba",
+          "quantity": 18,
+          "variant": "primary"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "0d928c1e8128d33aa09a4649a8d2e8e6b726345b108aa493d9071ae0054a9446",
+          "quantity": 18,
+          "variant": "rotated"
+        },
+        {
+          "family": "nested_pinwheel",
+          "ordered_geometry_sha256": "58fd1b7a371c6ce2e0c441f59fbfed7966bb2d9de79e58103fb9aac789f33575",
+          "quantity": 12,
+          "variant": "primary"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "da7967d6fb4b443c2d0c8556b729bfe4603b04992352b22d825740c98869e139",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "f46ff24122861121f76eecbe21f59b59fa2ecdd3aefb41fe8688c886c8e0d1ab",
+          "quantity": 18,
+          "variant": "length:200"
+        }
+      ],
+      "name": "brick_spiral"
+    },
+    {
+      "candidate_count": 9,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "0afa26845a908e4b87cfb5dda82dbf0b8f2671bb54c453c1f5e0aad850174034",
+          "quantity": 6,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "11dc9840a2d8a294188ac1857900b1c529d3efe6f43a7a46ed17d76b4e9ca2e6",
+          "quantity": 7,
+          "variant": "primary"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "6b8304a96ae9c325445edfb2242f0583a2007ce52ac401c8219a08bc7dfe7894",
+          "quantity": 7,
+          "variant": "swapped"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "06cbfae3ad8ed32145b6519bcb0d7f5440248704faec856e802418218ff26b6d",
+          "quantity": 4,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "0f8e478e1e7cc3ac7be4e17edc51444982943655db4d20361dd814b16f5013f8",
+          "quantity": 8,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "6590faafcbe417339124be51af0123a603c109778771cd4d91007603410fd7be",
+          "quantity": 5,
+          "variant": "primary"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "efc936c638301219eb14641c16209c75066dd32cb4013fafdf29e69eaa62c378",
+          "quantity": 6,
+          "variant": "length:101.6"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "65b9a7cf2b186e106c7d49fdc433aab13d1d37e24bd768ab3009f8f9ad1fa089",
+          "quantity": 7,
+          "variant": "length:152.4"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "f025e7e4dbb01a88ba283e8d48b6c685f785c659a51e2d8dd223e2a118d0d635",
+          "quantity": 7,
+          "variant": "width:152.4"
+        }
+      ],
+      "name": "container_reference"
+    },
+    {
+      "candidate_count": 1,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "d6445111bd20ac2ba6f104c69b88ad7828ccfee2e5fa0ec712eb3e7cdd61f515",
+          "quantity": 36,
+          "variant": "best"
+        }
+      ],
+      "name": "square_carton"
+    },
+    {
+      "candidate_count": 10,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "90278d685b41671f647d70be9623fefde864fc4803a0b817b1e9c8df79f385d3",
+          "quantity": 20,
+          "variant": "best"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "b4efae4b23935c2a057ba18aa0815ccea4efbe966a2e28f257082405420fbea4",
+          "quantity": 12,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "946f550079e0ad180eee8e7e26e2f16cdfaf1bb6e16d33d8995857b4c4e8afc7",
+          "quantity": 14,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "5b3cd1827dad0aaead62986fa075bc08d55b6b618969e81d6b5d02e90c445cae",
+          "quantity": 15,
+          "variant": "primary"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "eff690a7aa6376957cca41404216982405cd688323e1c9aafc08c20a97899942",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "23060a8c6030900079ea7354755b99b0f90bbfe8764f6ea73163356173714225",
+          "quantity": 19,
+          "variant": "length:200"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "d59babc4a3183fdcafb2c7fd8e089ad17a5ae6373112b1c114a805d3cf7bef54",
+          "quantity": 18,
+          "variant": "length:400"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "cb5d13195d6d35755f5e05ca6beb267f7884cba3196ca35af014e1eb5fe30184",
+          "quantity": 18,
+          "variant": "length:600"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "53afe4b2375023505fe17853b95cc27212d5e751fb8141296bd5f1130fb3ff1e",
+          "quantity": 18,
+          "variant": "length:800"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "099070a0b1c215ba1f36fbc61e45fd15476bed07630720192dc4f35f8764dd26",
+          "quantity": 19,
+          "variant": "length:1000"
+        }
+      ],
+      "name": "near_square_carton"
+    },
+    {
+      "candidate_count": 20,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "3116d39126365c42de9d3ee5b9fa0aaef308104be48241825360e1605ba4955a",
+          "quantity": 40,
+          "variant": "best"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "2d16493b02125d12e9346d1ed636ebf4d7687c6d5c4720db210c3a96475f020a",
+          "quantity": 36,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "c110761aeaaccbd04bdd6597c451ca1cc370f3e5e61bfd3443b03182f2af5be9",
+          "quantity": 30,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "aaf6b4b6d58e677277d973804a5e2a856a56c3f28f66d911b6d0578969720557",
+          "quantity": 36,
+          "variant": "rotated"
+        },
+        {
+          "family": "nested_pinwheel",
+          "ordered_geometry_sha256": "29a53e3716d069ee6fc8df562c2d1f788fea5676d7ff73e8d5293bb047c72ebb",
+          "quantity": 28,
+          "variant": "primary"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "27fe16af01c996b4f7aaafdce657b7f60be42ab4b90766d072af628361184534",
+          "quantity": 32,
+          "variant": "length:80"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "d484eca888592ee83fd19a0313b2c467377728b85428a60afbb796d064e2a307",
+          "quantity": 34,
+          "variant": "length:160"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "143368a57763d996a83a1f2d38d997aa6ed821215a0dc9681d4481e84fb4d145",
+          "quantity": 36,
+          "variant": "length:240"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "ad9d011d5f4b4996ea52ed04a4722bae883410d73bdb69d1a4e178b13481fdc9",
+          "quantity": 32,
+          "variant": "length:320"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "1e93879036845aab0d6c11cafeebf0daefe6d6016a2e0b5370cc6df37b3f49e4",
+          "quantity": 30,
+          "variant": "length:400"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "058a1f6d447fa105abc828f918c35a4e5672ea90dcc99e7e56cf191a65edd49b",
+          "quantity": 32,
+          "variant": "length:480"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "9b4c931db14474a0340ff1d6d711627b1c0543c62b5a37df17bebe7796f1f229",
+          "quantity": 34,
+          "variant": "length:560"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "42d22ed9674bb8344e8e532556f1572a3291ea5f9f4edd33862aba1c0446d031",
+          "quantity": 34,
+          "variant": "length:640"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "10661ec8626155fdc4df69a8e54acc7fda4fee85b427117c7918bf09edf4d03d",
+          "quantity": 32,
+          "variant": "length:720"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "b9ed0a21ba4a5ed36116d7435f31980f05f7d37733a2e376eced8234157300a6",
+          "quantity": 30,
+          "variant": "length:800"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "c846a916c0cf2fa59264d1275d579bc8a4844cceb8090acc32c7c50af15aa04d",
+          "quantity": 32,
+          "variant": "length:880"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "02200012aea5ca6227b2b7395a01c981195c7b91682c4a35bbaf4a1c5786eed9",
+          "quantity": 36,
+          "variant": "length:960"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "9abe483e0a2eee6d708a6de0ebdd4fd3d033f18072742c3c8c7864e898a76620",
+          "quantity": 34,
+          "variant": "length:1040"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "14df86c4b3edac94ac47f6cf66126c3fc26132103bc5a48680821133047f7e2e",
+          "quantity": 39,
+          "variant": "width:300"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "9e6a5c6f28f2ae8220758f3f10b124592d85e5d3c9912e28d4835f28e5420714",
+          "quantity": 38,
+          "variant": "width:600"
+        }
+      ],
+      "name": "elongated_carton"
+    },
+    {
+      "candidate_count": 10,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "24d45b1891f56c98eeda0f3175b285a310d6f5bb86e3c26088e19596f100e961",
+          "quantity": 16,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "729db66e7324985b15ca5349a3081cd4fa7ea0a804641c58d1e868ade7862e05",
+          "quantity": 16,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "8edeab31f4de19bffe656d5eb33df32d7208c86eb23efcd91f764f5b7cab039b",
+          "quantity": 16,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "4c1fd8173975ac7e5491da0699fc3aa063b11bfe2ed56cabb17e9a19d00ed380",
+          "quantity": 14,
+          "variant": "rotated"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "0cc353d93d34fe67c747107aad282f996caf9b23ad054411d83d4ca2e3e8429a",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "45acb55069ce91298255b1d86fd6ea49a1758bef9633c10ed774b623b71d6e66",
+          "quantity": 14,
+          "variant": "length:200"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "75834a9c6ed77959cee04f4fcdccc9c0962a23870b523ccbe45ee8c399950f21",
+          "quantity": 12,
+          "variant": "length:400"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "9e05b8f65de7af23cf057aa2e4a1eb4c68dcf7d9e3e33913ff1596e17c770b0e",
+          "quantity": 12,
+          "variant": "length:800"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "657ee50a161bf614ba7796f62d06eba672c00cbddd3232f344e210a4641542e7",
+          "quantity": 14,
+          "variant": "length:1000"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "7ab2e87477e04217433c1f26cc6aab8f4153d1e7da99d605373659c023671d6d",
+          "quantity": 14,
+          "variant": "width:300"
+        }
+      ],
+      "name": "exact_fit"
+    },
+    {
+      "candidate_count": 21,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "44ba28e62fa8667f16c1a08c37a1a5fe63a56a710715986eaf4801a9bdf4b04f",
+          "quantity": 30,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "4ed89d515e2353b3f5610689ca5dd64998975a2290c025b2dae658ca2052d81c",
+          "quantity": 34,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "6393cc4fc8b4e7b1cc0a4fe0591e14159bdaf6bdf96f4800c6ef8463185f9048",
+          "quantity": 34,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "e0afb7b274fdf8ca1aa7bb849c4410f21f3e984c0ac314ac48870e0c3a297396",
+          "quantity": 28,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "71904f23672a87ce17315bb6c3583973a2ab3a042d624321f21775db76dc4c5d",
+          "quantity": 35,
+          "variant": "rotated"
+        },
+        {
+          "family": "nested_pinwheel",
+          "ordered_geometry_sha256": "bdb10a71d90338819d00fe297242b5c1fbdd091774cdc227f663ff1f7ae69488",
+          "quantity": 24,
+          "variant": "primary"
+        },
+        {
+          "family": "nested_pinwheel",
+          "ordered_geometry_sha256": "499f8cd3b02ab6e01c6505d7e936a2093ecbc7e4fc819b47bbe224b908ac14c6",
+          "quantity": 28,
+          "variant": "rotated"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "937420cf491c32e04797e22b08f2e8efd1252126f3c6d4aec33d325c12dcf64f",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "154e9c3d1ce8b9f170cb04718442cb5b820b61acb05a7c9ba8b3b9fb1f96e773",
+          "quantity": 27,
+          "variant": "length:41.7"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "003e73dae693f3904e196de698d2b30d6d09edc0687a85f21592870e4028dc95",
+          "quantity": 30,
+          "variant": "length:83.4"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "e27e98aba9f19b59b9d113fcd4aed6d556af2e3056f1fd86ec553de60ead7d92",
+          "quantity": 27,
+          "variant": "length:125.1"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "4bb93bba9cdecaea03e7730df5802076290a5ac2ae11817dc62fdef905690d93",
+          "quantity": 30,
+          "variant": "length:166.8"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "11c54625c866e7edc8a25db195b054c963e47572def25edeb195f6666ca6f4f1",
+          "quantity": 27,
+          "variant": "length:208.5"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "d7f36f0dd92a8d82271b031d53177d95e227c0fce649dc2afb5b5fbc1f78eec9",
+          "quantity": 30,
+          "variant": "length:250.2"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "512eff8b265b63563b745070e6eb4d0f7098723e9c15b200dde9767641226c66",
+          "quantity": 27,
+          "variant": "length:291.9"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "f0bc51e74bd5fa7dba3527a4bd3bbb8b1a76521dc135033d54de82b4d204d19e",
+          "quantity": 27,
+          "variant": "length:333.6"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "f2fcf9a458a85aca6a6ccb955dbccdcfb834957fe68e1433efc5ac01545e53e9",
+          "quantity": 32,
+          "variant": "width:41.7"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "5bd65f54cb8b910323f45d2266404676ad50db97f9fa335c03b30c0cda4dee5a",
+          "quantity": 34,
+          "variant": "width:73.2"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "5d7f42a6f4c495a87b1a9d38cfae35066639a644ea7075f36034721c5082576c",
+          "quantity": 33,
+          "variant": "width:125.1"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "67ff962bf3f95f8e6ca6f64637356b0ca0f3172f29282835fd0d19c43bb5cefc",
+          "quantity": 33,
+          "variant": "width:146.4"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "7b29aeaf31079b37e107ff189a7a028549d0b14e54ef3ba82786cea52e0d3e82",
+          "quantity": 32,
+          "variant": "width:219.6"
+        }
+      ],
+      "name": "fractional"
+    },
+    {
+      "candidate_count": 22,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "eb88371ad24ddbae0523a468d9e1e277b1f964fae96f1dcebd5856a0ad19ae40",
+          "quantity": 340,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "8095f55d6318bbc53de974f1e02d057bb613ca0fbe380bf67e79fdb011bbdd60",
+          "quantity": 342,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "abce3935853ce3154f51f1ae1d3242686e986fea950fa64b6f9e30cc8828e633",
+          "quantity": 280,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "60da67ee6a8d669cfc41afd597125eb01c23b8ec091dfab3e279ac2df01ff6f4",
+          "quantity": 280,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "fe966501a15faebce35a9954f0b23e0f3dc7b97b2059ab80670ee3be653e8e76",
+          "quantity": 342,
+          "variant": "primary"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "976285c8fb44812a626eca4266df6a5e9584154a6922363b6201ffed3a1f046e",
+          "quantity": 327,
+          "variant": "rotated"
+        },
+        {
+          "family": "nested_pinwheel",
+          "ordered_geometry_sha256": "d0c7d9080c8ae33df80038a88be5b15e82883494078ce253bea0280cd6da50f5",
+          "quantity": 312,
+          "variant": "primary"
+        },
+        {
+          "family": "nested_pinwheel",
+          "ordered_geometry_sha256": "391c3022768c53ac3cddf1c13372d77665fe13e2896c85aaea730f79793cbd79",
+          "quantity": 220,
+          "variant": "rotated"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "c10f5203ec156ea6a940aeffca831dcf3630d91c6aa1d3cba1d72f8971c466a5",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "bf046bc1697d0dfa7303410b2ef97fb06be0e13e319b9c28aab34897b21b0836",
+          "quantity": 331,
+          "variant": "length:40"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "7dead1a0ccbbfd3c18ea2ad4b606bb4e14846623fe8213139f187d8ae52081d4",
+          "quantity": 342,
+          "variant": "length:80"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "51f032c0853ce5df3fb89db9f997665d9d79ce1884b9f36b13318600012bfc92",
+          "quantity": 333,
+          "variant": "length:120"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "038aa5370893b45e2bcd48f37e72375d5913ec6e10a5a1840c6b133dc1c47ecd",
+          "quantity": 330,
+          "variant": "length:160"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "2d3dba5c33bacc04dcb255551c6acc56b29895e227c470f1243513b1f93be170",
+          "quantity": 335,
+          "variant": "length:200"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "351923e17da9ce1272d3ac957c06b5d73451009bafc64da027590abf3bb79d26",
+          "quantity": 340,
+          "variant": "length:360"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "f00910ceb9de9b1e09ed6a14b276b8b61d3efc9f317018f519b04ea2bfd4ba88",
+          "quantity": 330,
+          "variant": "length:400"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "36dd4c7d73a77ab68be97e515be637602cc1eda97fac534cdd24e1b1cfec2de6",
+          "quantity": 336,
+          "variant": "width:70"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "45990eea35770a733d822c77ca848a1bf86433773719b35496dae5fc6bdb4f05",
+          "quantity": 332,
+          "variant": "width:140"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "603f672253b8dbffd50a7d58991fa371963aa78cbf2c131f7b0f15b953d0254f",
+          "quantity": 342,
+          "variant": "width:240"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "78cd9b832cbb6cb242505bf193b6d626b2406cbde1513ebfa3e62c595f2a0c0a",
+          "quantity": 341,
+          "variant": "width:280"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "b3060c3adeaf08930440ae81e8f7e0eebc6e3acee07acb253943191b19a5f174",
+          "quantity": 337,
+          "variant": "width:350"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "ee3c1595a3ac0b20f454e1c7fd44caa272626f3a281f39e679d2afae22689459",
+          "quantity": 333,
+          "variant": "width:420"
+        }
+      ],
+      "name": "beyond_shared_parameter_cap"
+    },
+    {
+      "candidate_count": 2,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "8b0cc2bf2bf90a3f7a91e2a5f36c16cc9ddfe43927ef209889ea6c628dfae067",
+          "quantity": 2,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "e5a6a2ba4d9c0b31f019e654b7d98ee4e1a941095b93253748daab2a679e022f",
+          "quantity": 1,
+          "variant": "length:300"
+        }
+      ],
+      "name": "large_carton"
+    },
+    {
+      "candidate_count": 13,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "0ff95a6e3af4b82a1f8893232a52fb532d00d2579215d9ac0f9463495fde390d",
+          "quantity": 12,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "e3698c9697ff4abe7f54f771d8deaa38f9b053aad309870a3f935c6cf247cb42",
+          "quantity": 13,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "d20b32f88a479e23f69a4389663f0d8f3dd5750d29d0029a09725821507430ca",
+          "quantity": 8,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "d8f2ebcc0c887bb104311171c00a1ffada50472d9a246f5b520687e1b030886b",
+          "quantity": 10,
+          "variant": "rotated"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "d6b198e11ba786fe7c77a068eb83d90500842a070c59b80574db5967caaca8b1",
+          "quantity": 13,
+          "variant": "primary"
+        },
+        {
+          "family": "hybrid_pinwheel",
+          "ordered_geometry_sha256": "3cdb1cf4ad4f39e3200d1fd57e8782eb0ebec9fa76c4d9eebbfe68bed5482429",
+          "quantity": 13,
+          "variant": "rotated"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "718d7e2023ea6db5d43d4404898b04ec29ebff2282afa4d12060b2a9708339ba",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "22a12f23ad536d35dceaa7848ab06a64d2aa801ce4e57568d42c14008871af7d",
+          "quantity": 10,
+          "variant": "length:190"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "5985573b7301ade0ccc68b3d13f938cd4b3df56229b98abafba358e5e858f8ad",
+          "quantity": 12,
+          "variant": "length:380"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "8fc9f35e5fdd24563c853a715b04f781ccb664d7927ae92afb6617e2267ab11a",
+          "quantity": 10,
+          "variant": "length:570"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "c8f339a1da8eef71edaed7d61a264a78092ba64161a394915eef098531c2df15",
+          "quantity": 10,
+          "variant": "length:760"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "ac152c381651c87383a71ccb590cec69b347d47db71261f693c9fa02642f9a4a",
+          "quantity": 13,
+          "variant": "width:190"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "7e32f3766effec5af8010506906e480e3eab69964a08027b188d22612183d1d2",
+          "quantity": 11,
+          "variant": "width:290"
+        }
+      ],
+      "name": "significant_residual"
+    },
+    {
+      "candidate_count": 10,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "f62c103d47be0505f0fbbac232c8298823b57186732f0798019749feae1ee7ec",
+          "quantity": 32,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "00db4b36341564afcdbfea621095ad07ef121213b0a1c33c4455cf6676bf5d60",
+          "quantity": 32,
+          "variant": "primary"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "90b092a2f048ec19a77f0f9e2059b706d014015eaf9e43a2fcb20b6233622e55",
+          "quantity": 32,
+          "variant": "swapped"
+        },
+        {
+          "family": "brick",
+          "ordered_geometry_sha256": "77daada7b28f33c2ce48d5f7d723a39e269d20f7d6d003a8ae64b6e3dd61bf29",
+          "quantity": 32,
+          "variant": "best"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "cb75035b335761c27950154e2772d5e4a5fddb3e7d0ee8ae95a55753c09ac07e",
+          "quantity": 32,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "4c840ad0c5ae0ada7010610e8d55b5b2c65ce004ada9a50d2224d58504544683",
+          "quantity": 32,
+          "variant": "rotated"
+        },
+        {
+          "family": "nested_pinwheel",
+          "ordered_geometry_sha256": "66da75a250872ce710620d8201593f556ea0e2bf414faf47d75f6d5994cfa026",
+          "quantity": 28,
+          "variant": "primary"
+        },
+        {
+          "family": "nested_pinwheel",
+          "ordered_geometry_sha256": "38686b1894e27f723ed58767979778510d75693b1260a86d06c4dc78576ad028",
+          "quantity": 28,
+          "variant": "rotated"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "0b44393e99c2adaf56592e53697ea4bbd7fb2a1cd412e953a7f15628851307a4",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "59c004356af972c6188b489c2be7f78b12947c7e43f3634b92fa6c6babfdfa46",
+          "quantity": 32,
+          "variant": "length:100"
+        }
+      ],
+      "name": "equal_count_alternatives"
+    },
+    {
+      "candidate_count": 0,
+      "candidates": [],
+      "name": "slightly_insufficient"
+    },
+    {
+      "candidate_count": 11,
+      "candidates": [
+        {
+          "family": "block",
+          "ordered_geometry_sha256": "a2eac85aaea2df23be9f0c5afdb888e242e5d862f387b266de06811b54968158",
+          "quantity": 21,
+          "variant": "best"
+        },
+        {
+          "family": "row",
+          "ordered_geometry_sha256": "36f5632d78b5d94deb3388c220b422a499cbce9128c712436ca08e671cfebfad",
+          "quantity": 20,
+          "variant": "best"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "41679f57aa865c4555257d72a1adf507a1827c34a2b196a8457e26ee8638d915",
+          "quantity": 24,
+          "variant": "primary"
+        },
+        {
+          "family": "splitrow",
+          "ordered_geometry_sha256": "248c62c3697991190d8aaa3b2fb3ed5981f84497fad367cd947b9eb46ab454c6",
+          "quantity": 24,
+          "variant": "swapped"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "a4e7edbd6635eca14e69b06884a42095b0091cce5f7323390938c4af64e0d41b",
+          "quantity": 24,
+          "variant": "primary"
+        },
+        {
+          "family": "pinwheel",
+          "ordered_geometry_sha256": "d0d6cb816e2dcf9a503a976288b675a2331c9f42672ac6b15f437a6cd98ece9c",
+          "quantity": 24,
+          "variant": "rotated"
+        },
+        {
+          "family": "centre_filled_pinwheel",
+          "ordered_geometry_sha256": "5db19753a73c08be3a833d5b0dfbc3551086b706d6239ea94fd7a82ef13ca5de",
+          "quantity": 9,
+          "variant": "best"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "7928a57958e7fd8116414a3168e43b7bb319a2d85ced47370819adb5808a2514",
+          "quantity": 21,
+          "variant": "length:20.0787402"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "f956899766ca3707fa03e93b5731824a61e61ac022ef70f63c882d9c641be688",
+          "quantity": 21,
+          "variant": "length:27.1653543"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "10fd8bd88dc4c570ce3255900d446ed0e762d72922784a2f97b5b5ae8d1cad53",
+          "quantity": 22,
+          "variant": "width:9.05511811"
+        },
+        {
+          "family": "regional_mosaic",
+          "ordered_geometry_sha256": "e44eae33e7c01dbb4c32404140a3caa8d2b0a70cf5722797c052da433175292c",
+          "quantity": 22,
+          "variant": "width:20.0787402"
+        }
+      ],
+      "name": "imperial_equivalent"
+    }
+  ],
+  "metadata": {
+    "baseline_commit": "5754ef9e82b409b93984ac4ffa0672ce55324950",
+    "baseline_patterns_sha256": "45b739ed645f4125330fd448c348c7ac4e605a0dc132abe63a9e481ab1c2e4c0",
+    "enumeration_scenario_count": 19,
+    "selection_scenario_count": 14
+  }
+}

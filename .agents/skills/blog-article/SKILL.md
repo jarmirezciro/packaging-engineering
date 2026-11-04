@@ -369,3 +369,9 @@ Report:
 - Minimal validation run.
 - Exact files changed.
 - Remaining warnings.
+
+<!-- BEGIN KOLLILABS-EDITORIAL-FIGURES-V1 -->
+## KolliLabs Editorial Concept Figure System
+
+For conceptual **case setups, engineering concepts, trade-offs, illustration-led summaries and explanatory schemas**, read `../kollilabs-editorial-figures/SKILL.md` and use its owner-approved visual references, JSON figure specification, design tokens, and deterministic composition renderer. The blog-article skill remains authoritative for editorial evidence, source fidelity, publication and visual approval. For real application comparison results continue to use `references/comparative-figure-workflow.md`; AI conceptual graphics must never replace screenshots or verified geometry.
+<!-- END KOLLILABS-EDITORIAL-FIGURES-V1 -->

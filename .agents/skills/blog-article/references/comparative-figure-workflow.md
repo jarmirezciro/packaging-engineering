@@ -105,3 +105,9 @@ Crop irrelevant interface content, preserve all source values, use consistent la
 and keep the figure readable at mobile width. Do not invent UI, arrangements, numbers, logos,
 or conclusions. Export an optimized WebP with a semantic filename.
 ```
+
+<!-- BEGIN KOLLILABS-EDITORIAL-FIGURES-V1 -->
+## Concept figures vs. evidence figures (KolliLabs Editorial Figures)
+
+For conceptual packaging setup, engineering mechanisms, decision trade-offs and illustration-led summaries, use `../../kollilabs-editorial-figures/SKILL.md` and its owner-approved visual examples. For benchmark quantities and real application results, keep following **this comparative figure workflow** with actual screenshots/backend evidence. Never treat a newly generated packaging illustration as evidence of an exact vendor UI, packing geometry, stability or calculated result.
+<!-- END KOLLILABS-EDITORIAL-FIGURES-V1 -->

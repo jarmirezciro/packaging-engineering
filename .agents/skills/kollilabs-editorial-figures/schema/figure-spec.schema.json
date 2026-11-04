@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KolliLabs Editorial Figure Specification v1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "role", "layout", "purpose", "headline", "subtitle", "cards", "caption", "alt_text"],
+  "properties": {
+    "version": {"const": "1.0"},
+    "role": {"enum": ["conceptual", "evidence_derived"]},
+    "layout": {"enum": ["setup_flow", "concept_flow", "tradeoff", "comparison", "summary", "single_explainer"]},
+    "purpose": {"type": "string", "minLength": 8, "maxLength": 220},
+    "headline": {"type": "string", "minLength": 4, "maxLength": 90},
+    "subtitle": {"type": "string", "minLength": 3, "maxLength": 180},
+    "cards": {
+      "type": "array", "minItems": 1, "maxItems": 5,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["title", "illustration", "detail_lines"],
+        "properties": {
+          "title": {"type": "string", "minLength": 2, "maxLength": 70},
+          "subheading": {"type": "string", "maxLength": 70},
+          "illustration": {"type": "string", "minLength": 1},
+          "detail_lines": {"type": "array", "maxItems": 3, "items": {"type": "string", "maxLength": 95}},
+          "tag": {"type": "string", "maxLength": 24}
+        }
+      }
+    },
+    "takeaway": {"type": "string", "maxLength": 180},
+    "caption": {"type": "string", "minLength": 10, "maxLength": 340},
+    "alt_text": {"type": "string", "minLength": 10, "maxLength": 280},
+    "source_notes": {"type": "string", "maxLength": 1200},
+    "provenance": {"type": "object"},
+    "arrows": {"type": "boolean"}
+  }
+}

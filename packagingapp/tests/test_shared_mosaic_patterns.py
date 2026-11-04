@@ -106,6 +106,51 @@ class SharedPatternParityTests(SimpleTestCase):
             )
 
 
+class PalletSharedPatternDelegationTests(SimpleTestCase):
+    def test_every_pallet_pattern_wrapper_delegates_to_the_shared_api(self):
+        functions = (
+            ("pattern_block", {}),
+            ("pattern_row", {}),
+            ("pattern_splitrow", {}),
+            ("pattern_brick_best", {}),
+            ("pattern_pinwheel", {}),
+            ("pattern_hybrid_pinwheel", {}),
+            ("pattern_nested_pinwheel", {}),
+            ("pattern_center_filled_pinwheel", {}),
+        )
+        fixture = (1200.0, 1200.0, 400.0, 200.0)
+
+        for function_name, kwargs in functions:
+            shared_function = getattr(shared_patterns, function_name)
+            pallet_function = getattr(pallet_engine, function_name)
+            with self.subTest(function=function_name), patch.object(
+                shared_patterns,
+                function_name,
+                wraps=shared_function,
+            ) as delegated:
+                layer = pallet_function(*fixture, **kwargs)
+
+                delegated.assert_called_once()
+                self.assertIs(
+                    delegated.call_args.kwargs["policy"],
+                    shared_patterns.PALLETIZATION_SEARCH_POLICY,
+                )
+                self.assertTrue(layer)
+                self.assertTrue(
+                    all(type(item) is pallet_engine.Placement2D for item in layer)
+                )
+
+    def test_pallet_policy_does_not_leak_into_container_defaults(self):
+        fixture = (1200.0, 800.0, 70.0, 40.0)
+        container_before = shared_patterns.pattern_pinwheel(*fixture)
+        pallet_layer = pallet_engine.pattern_pinwheel(*fixture)
+        container_after = shared_patterns.pattern_pinwheel(*fixture)
+
+        self.assertEqual(_signature(container_before), _signature(container_after))
+        self.assertEqual(len(container_before), 280)
+        self.assertEqual(len(pallet_layer), 320)
+
+
 class ContainerMosaicIntegrationTests(SimpleTestCase):
     tolerance = 1e-9
 

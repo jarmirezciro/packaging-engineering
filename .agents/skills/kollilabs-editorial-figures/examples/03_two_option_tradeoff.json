@@ -1,0 +1,14 @@
+{
+  "version": "1.0", "role": "conceptual", "layout": "tradeoff",
+  "purpose": "Explain possible pallet-overhang advantage alongside the support condition.",
+  "headline": "Pallet overhang: opportunity and risk",
+  "subtitle": "More geometric capacity is useful only when the load remains suitable for handling.",
+  "cards": [
+    {"title": "Capacity opportunity", "illustration": "art/overhang_pallet.png", "detail_lines": ["A few extra inches may help", "Only when overhang is allowed"]},
+    {"title": "Support requirement", "illustration": "art/engineering_check.png", "detail_lines": ["Unsupported edges matter", "Validate compression and handling"]}
+  ],
+  "takeaway": "Compare both patterns, then validate the actual carton and pallet system.",
+  "caption": "Illustrative trade-off between permitted overhang and support requirements; not a structural or safety certification.",
+  "alt_text": "Side-by-side pallet overhang example and engineering support check.",
+  "source_notes": "Conceptual engineering trade-off; no exact pallet load count is asserted."
+}

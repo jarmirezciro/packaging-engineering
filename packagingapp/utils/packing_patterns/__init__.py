@@ -1,10 +1,14 @@
 """Tool-independent rectangular mosaic pattern generation.
 
-Stage 1 intentionally leaves the Palletization runtime on its established
-implementation.  Container Selection consumes this package directly; a later
-Stage 2 can move Palletization to the same API after benchmark approval.
+Container Selection and Palletization share one constructive geometry core and
+select explicit policies for their established numerical and search contracts.
 """
 
+from .core import (
+    CONTAINER_SEARCH_POLICY,
+    PALLETIZATION_SEARCH_POLICY,
+    PatternSearchPolicy,
+)
 from .geometry import Placement2D
 from .patterns import (
     PATTERN_FAMILIES,
@@ -23,7 +27,10 @@ from .validation import ValidationResult, layout_signature, validate_placements
 
 __all__ = [
     "PATTERN_FAMILIES",
+    "CONTAINER_SEARCH_POLICY",
+    "PALLETIZATION_SEARCH_POLICY",
     "PatternCandidate",
+    "PatternSearchPolicy",
     "Placement2D",
     "ValidationResult",
     "enumerate_pattern_candidates",

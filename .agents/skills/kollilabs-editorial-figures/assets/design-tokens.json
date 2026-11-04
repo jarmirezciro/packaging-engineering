@@ -1,0 +1,27 @@
+{
+  "design_system": "KolliLabs Editorial Figures v1.0",
+  "canvas": {"width": 1680, "single_row_height": 1100, "two_row_height": 1690},
+  "colors": {
+    "background": "#FAFCFC", "card": "#FFFFFF", "navy": "#142D4F",
+    "muted": "#667487", "green": "#0D9279", "mint": "#DFF4EA",
+    "border": "#D6E1E5", "detail_strip": "#F2F6F6", "takeaway": "#E8F7F0"
+  },
+  "layout": {
+    "page_margin": 30, "header_line_x": 55, "header_line_y": 55,
+    "header_line_width": 118, "header_line_height": 12,
+    "headline_y": 103, "subtitle_y": 196, "cards_top": 275,
+    "card_height": 606, "card_gap_x": 66, "card_gap_y": 30,
+    "card_radius": 28, "card_padding": 22,
+    "badge_width": 70, "badge_height": 68, "badge_radius": 18,
+    "art_top_offset": 126, "art_bottom_gap": 158,
+    "strip_height": 112, "strip_bottom_margin": 25,
+    "takeaway_height": 118, "takeaway_gap": 31, "takeaway_radius": 30
+  },
+  "typography": {
+    "headline_size": 74, "subtitle_size": 32, "card_title_size": 31,
+    "card_subtitle_size": 22, "badge_size": 36,
+    "detail_size": 25, "takeaway_size": 31,
+    "preferred_family": "Inter", "fallback_family": "DejaVu Sans"
+  },
+  "image": {"output_quality": 94, "mobile_width": 360, "article_width": 900}
+}

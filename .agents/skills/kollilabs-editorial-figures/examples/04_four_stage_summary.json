@@ -1,0 +1,16 @@
+{
+  "version": "1.0", "role": "conceptual", "layout": "summary",
+  "purpose": "Show four connected packaging-engineering decisions without suggesting numeric equivalence.",
+  "headline": "Packaging decisions connect",
+  "subtitle": "A compact view of the choices that influence the final shipping unit.",
+  "cards": [
+    {"title": "Product fit", "illustration": "art/bottle.png", "detail_lines": ["Size and allowance"]},
+    {"title": "Carton design", "illustration": "art/rsc_carton.png", "detail_lines": ["Quantity and board"]},
+    {"title": "Pallet capacity", "illustration": "art/pallet_load.png", "detail_lines": ["Pattern and height"]},
+    {"title": "Practical approval", "illustration": "art/engineering_check.png", "detail_lines": ["Support and handling"]}
+  ],
+  "takeaway": "The most useful answer comes from checking each level of the packaging decision.",
+  "caption": "Conceptual summary of four related decisions; images do not assert a particular optimization output.",
+  "alt_text": "Four cards summarizing product fit, carton design, pallet capacity and practical validation.",
+  "source_notes": "Generic packaging engineering concept, no benchmark-specific result asserted."
+}
