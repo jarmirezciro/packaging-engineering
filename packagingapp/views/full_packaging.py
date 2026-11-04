@@ -1,3 +1,4 @@
+from packagingapp.tools.container.carton_tare import attach_carton_weight_metadata
 from copy import deepcopy
 import logging
 
@@ -471,8 +472,14 @@ def _build_pallet_workflow_payload(
         if actual_pallet_load_g is not None
         else (prev_weight_kg * total_boxes if prev_weight_kg is not None else None)
     )
-    if pallet_tare_kg is not None:
-        gross_weight_kg = (gross_weight_kg or 0.0) + pallet_tare_kg
+    if pallet_tare_kg is not None and gross_weight_kg is not None:
+        gross_weight_kg += pallet_tare_kg
+    if (upstream or {}).get("weight_status") in {"net_only", "unknown", "incomplete"}:
+        gross_weight_kg = None
+    if gross_weight_kg is None:
+        payload.pop("weight_kg", None)
+        payload.pop("weight_g", None)
+    payload["weight_status"] = ("gross_estimated" if (upstream or {}).get("weight_status") == "gross_estimated" else "gross_known") if gross_weight_kg is not None else "unknown"
     _set_payload_weight_kg(payload, gross_weight_kg)
     payload.setdefault("transport_qty", 1)
     payload["transport_r1"] = True
@@ -483,6 +490,27 @@ def _build_pallet_workflow_payload(
     payload["package_type"] = "pallet"
     payload["source_type"] = PALLETIZATION_VISUAL_SOURCE
     return payload
+
+
+def _pallet_config_for_upstream_weight(config, upstream):
+    if (upstream or {}).get("weight_status") not in {"net_only", "unknown", "incomplete"}:
+        return config
+    geometric = dict(config)
+    for key in ("box_weight", "max_pallet_load", "max_weight_on_bottom_box"):
+        geometric[key] = ""
+    return geometric
+
+
+def _mark_incomplete_pallet_weight(serialized):
+    rows = list(serialized.get("results_table") or []) + [serialized.get("selected_result")]
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        row["weight_status"] = "unknown"
+        for key in ("actual_pallet_load_g", "max_bottom_load_g", "max_bottom_load_kg", "weight_limit_g", "max_pallet_load_g", "load_utilization_pct"):
+            row[key] = None
+        for key in ("actual_pallet_load_display", "max_bottom_load_display", "avg_bottom_load_display"):
+            row[key] = "Unavailable (incomplete carton mass)"
 
 
 def _run_pallet_analysis_shared(step, steps, idx):
@@ -508,8 +536,9 @@ def _run_pallet_analysis_shared(step, steps, idx):
     )
     _update_pallet_config_on_step(step, cfg)
 
+    upstream = _selected_input_for_step(steps, idx)
     analysis = analyze_palletization_config(
-        config=cfg,
+        config=_pallet_config_for_upstream_weight(cfg, upstream),
         selected_result_key=step.get("selected_result_key") or "",
         selected_box_material=selected_box_material,
         selected_pallet_material=selected_pallet_material,
@@ -522,6 +551,9 @@ def _run_pallet_analysis_shared(step, steps, idx):
         return
 
     serialized = analysis["serialized_result"] or {}
+    if (upstream or {}).get("weight_status") in {"net_only", "unknown", "incomplete"}:
+        _mark_incomplete_pallet_weight(serialized)
+        step["messages"].append("Carton gross weight is incomplete; pallet load and bottom-carton load checks are unavailable. Geometric layouts remain available.")
     effective = analysis["effective_config"] or {}
     if cfg.get("pallet_height") in (None, "", "None"):
         # Keep the existing default-height hydration, but express it in the
@@ -807,7 +839,7 @@ def _format_payload_units(payload, mass_unit):
     ) or {}
     weight_display = display.get("weight_display")
     if weight_display:
-        parts.append(f"{weight_display} gross")
+        parts.append(weight_display if payload.get("weight_status") in {"net_only", "unknown", "incomplete"} else f"{weight_display} gross")
     return " | ".join(parts)
 
 
@@ -1173,6 +1205,7 @@ def _apply_payload_to_config(cfg, step_type, payload):
             cfg["box_h"] = _canonical_input(
                 height, "mm", convert_length, display_unit
             )
+        cfg["box_weight"] = ""
         if weight_g not in (None, "", "None"):
             display_unit = cfg.get("mass_unit", "g")
             cfg["box_weight"] = _canonical_input(
@@ -1209,6 +1242,7 @@ def _apply_payload_to_config(cfg, step_type, payload):
         cfg["product_allowance_l"] = "0"
         cfg["product_allowance_w"] = "0"
         cfg["product_allowance_h"] = "0"
+    cfg["product_weight"] = ""
     if weight_g not in (None, "", "None"):
         display_unit = cfg.get("product_mass_unit", "g")
         cfg["product_weight"] = _canonical_input(weight_g, "g", convert_mass, display_unit)
@@ -1239,6 +1273,7 @@ def _transport_rows_from_selected(selected):
     canonical_width = selected.get("width", "")
     canonical_height = selected.get("height", "")
     canonical_weight = round(float(weight_kg), 12)
+    incomplete_weight = selected.get("weight_status") in {"net_only", "unknown", "incomplete"}
     return sanitize_transport_rows_for_session([
         {
             "name": selected.get("label") or "Previous workflow load unit",
@@ -1253,7 +1288,7 @@ def _transport_rows_from_selected(selected):
                     True,
                 )
             ),
-            "weight": canonical_weight,
+            "weight": "" if incomplete_weight else canonical_weight,
             "sequence": 1,
             "r1": bool(selected.get("transport_r1", True)),
             "r2": bool(
@@ -1635,6 +1670,7 @@ def _inflate_container_top5_rows(top5_rows):
         if material is None:
             continue
         hydrated.append({
+            **row,
             "material": material,
             "max_qty": row.get("max_qty"),
             "usage": row.get("usage", 0.0),
@@ -1863,6 +1899,8 @@ def _normalized_container_post(cfg):
         "box_l": cfg.get("box_l", ""),
         "box_w": cfg.get("box_w", ""),
         "box_h": cfg.get("box_h", ""),
+        "combined_grammage_g_m2": cfg.get("combined_grammage_g_m2", ""),
+        "grammage_user_override": cfg.get("grammage_user_override", ""),
         "box_thickness_mm": cfg.get("box_thickness_mm", ""),
         "box_thickness_user_override": cfg.get("box_thickness_user_override", ""),
         "corrugated_material_id": cfg.get("corrugated_material_id", ""),
@@ -1946,6 +1984,8 @@ def _build_container_non_design_workflow_payload(
     upstream,
     analysis_report=None,
 ):
+    if cfg.get("mode") != "optimal" and cfg.get("container_source") != "catalogue":
+        selected_material = None
     desired_qty = _to_int(cfg.get("desired_qty"), 1) or 1
     if (
         cfg.get("product_source") == "catalogue"
@@ -1977,6 +2017,9 @@ def _build_container_non_design_workflow_payload(
         )
         label = "Manual Container"
 
+    if analysis_report and analysis_report.get("external_length") is not None:
+        dimensions = {key: analysis_report[key] for key in dimensions if key in analysis_report}
+
     units_per_parent = int(max_quantity or 0) if cfg.get("mode") == "single" else desired_qty
     units_per_parent = max(int(units_per_parent or 1), 1)
     upstream_units = _to_int((upstream or {}).get("total_base_units"), 1) or 1
@@ -1992,48 +2035,33 @@ def _build_container_non_design_workflow_payload(
         "source_step_type": "container",
         "package_type": "container",
     }
-    report = analysis_report or {}
-    report_gross_weight_g = _to_float(
-        report.get("gross_carton_weight_g")
-        or report.get("total_weight_current"),
-        None,
-    )
-    if report_gross_weight_g is not None:
-        _set_payload_weight_kg(payload, g_to_kg(report_gross_weight_g))
-        if report.get("net_weight") is not None:
-            payload["net_content_weight_g"] = float(report["net_weight"])
-        if report.get("carton_tare_g") is not None:
-            payload["carton_tare_g"] = float(report["carton_tare_g"])
-        payload["carton_tare_source"] = report.get("carton_tare_source") or "unavailable"
-        payload["carton_tare_source_display"] = report.get(
-            "carton_tare_source_display"
-        ) or "Not included"
-        payload["weight_source"] = report.get("weight_source") or "unavailable"
-        payload["weight_source_display"] = report.get(
-            "weight_source_display"
-        ) or "Not included"
-        return payload
+    if analysis_report is not None:
+        return attach_carton_weight_metadata(payload, analysis_report, upstream=upstream)
 
+    # Legacy callers without an analysis still use the shared property/tare service.
+    request_stub = type("ContainerWeightRequest", (), {"method": "POST", "POST": _normalized_container_post(cfg)})()
+    form = build_container_form(request_stub, cfg, selected_product, selected_material)
+    apply_container_catalogue_choices(form, [], [], corrugated_materials=(
+        get_container_corrugated_materials() if cfg.get("corrugated_material_id") not in (None, "", "custom") else None
+    ))
+    for key in ("catalogue_id", "product_catalogue_id"):
+        form.fields[key].choices = [(str(cfg.get(key) or ""), "Current catalogue")]
+    if not form.is_valid():
+        return attach_carton_weight_metadata(payload, {}, upstream=upstream)
+    from packagingapp.tools.container.service import _resolve_container_weight, resolve_container_dimension_contract
+    resolved = resolve_container_dimension_contract(form, (dimensions["internal_length"], dimensions["internal_width"], dimensions["internal_height"]), "catalogue" if selected_material is not None else "manual", selected_material)
+    payload.update(resolved)
+    payload.update(length=resolved["external_length"], width=resolved["external_width"], height=resolved["external_height"])
+    detail = _resolve_container_weight(form, "catalogue" if selected_material is not None else "manual", selected_material,
+                                       (dimensions["internal_length"], dimensions["internal_width"], dimensions["internal_height"]))
     product_weight_kg = _resolve_product_weight_kg(cfg, selected_product)
-    packaging_weight_kg = _resolve_packaging_weight_kg(
-        cfg,
-        "box_weight",
-        selected_material,
-        source_key="container_source",
-    )
-    if product_weight_kg is not None or packaging_weight_kg is None:
-        return _enrich_package_payload_weight(
-            payload,
-            product_weight_kg=product_weight_kg,
-            packaging_weight_kg=packaging_weight_kg,
-        )
-    payload["carton_tare_source"] = "manual" if packaging_weight_kg is not None else "unavailable"
-    payload["carton_tare_source_display"] = (
-        "Manually supplied" if packaging_weight_kg is not None else "Not included"
-    )
-    payload["weight_source"] = "unavailable"
-    payload["weight_source_display"] = "Not included"
-    return payload
+    net = float(kg_to_g(product_weight_kg)) * units_per_parent if product_weight_kg is not None else None
+    tare = detail.get("tare_g")
+    return attach_carton_weight_metadata(payload, {
+        "net_weight": net, "carton_tare_g": tare,
+        "gross_carton_weight_g": net + tare if net is not None and tare is not None else None,
+        "carton_tare_source": detail.get("source"), "carton_tare_source_display": detail.get("source_label"),
+    }, upstream=upstream)
 
 
 def _process_container_step(step, steps, idx, post):
@@ -2137,6 +2165,8 @@ def _process_container_step(step, steps, idx, post):
         f"container_dimension_unit{suffix}",
         post.get(f"container_dimension_unit_{idx}", cfg.get("container_dimension_unit", "mm")),
     )
+    for key in ("combined_grammage_g_m2", "grammage_user_override"):
+        cfg[key] = post.get(f"{key}{suffix}", post.get(f"{key}_{idx}", cfg.get(key, "")))
     cfg["box_thickness_mm"] = post.get(
         f"box_thickness_mm{suffix}",
         post.get(f"box_thickness_mm_{idx}", cfg.get("box_thickness_mm", "")),
@@ -2267,6 +2297,7 @@ def _process_container_step(step, steps, idx, post):
         product_base_image_url = analysis.get("product_base_image_url")
         top5_payload = [
             {
+                **{key: value for key, value in row.items() if key != "material"},
                 "material_id": str(row["material"].id),
                 "max_qty": row.get("max_qty"),
                 "usage": row.get("usage", 0.0),
@@ -2357,6 +2388,10 @@ def _finalize_bag_workflow_payload(
         payload["total_base_units"] = int(
             payload.get("units_per_parent") or 1
         ) * int(upstream_units)
+    if (upstream or {}).get("weight_status") in {"net_only", "unknown", "incomplete"}:
+        payload.pop("weight_kg", None)
+        payload.pop("weight_g", None)
+        payload["weight_status"] = "unknown"
     return payload
 
 
@@ -2837,7 +2872,7 @@ def _evaluate_pallet_capacity_step(step, temporary_steps, idx):
         selected_pallet_material=selected_pallet_material,
     )
     analysis = analyze_palletization_capacity(
-        config=cfg,
+        config=_pallet_config_for_upstream_weight(cfg, _selected_input_for_step(temporary_steps, idx)),
         selected_result_key=step.get("selected_result_key") or "",
         selected_box_material=selected_box_material,
         selected_pallet_material=selected_pallet_material,
@@ -3314,13 +3349,34 @@ def _build_transport_workflow_payload(
         upstream_units=(upstream or {}).get("total_base_units", 1),
     )
     gross_weight = _to_float((summary or {}).get("gross_weight"), None)
-    if gross_weight is not None and payload:
+    incomplete = (upstream or {}).get("weight_status") in {"net_only", "unknown", "incomplete"}
+    if incomplete and payload:
+        payload.pop("weight_kg", None)
+        payload.pop("weight_g", None)
+        payload["weight_status"] = "unknown"
+    elif gross_weight is not None and payload:
         _set_payload_weight_kg(payload, gross_weight)
+        payload["weight_status"] = (upstream or {}).get("weight_status") or "gross_known"
     if payload:
         payload.setdefault("transport_qty", 1)
         payload["source_step_type"] = "transport"
         payload["package_type"] = "transport_unit"
     return payload
+
+
+def _mark_incomplete_transport_weight(step, upstream):
+    if (upstream or {}).get("weight_status") not in {"net_only", "unknown", "incomplete"}:
+        return
+    summary = (step.get("result") or {}).get("summary") or {}
+    summary["weight_status"] = "unknown"
+    for key in ("gross_weight", "loaded_weight", "utilization_weight_pct"):
+        summary[key] = None
+    for key in ("gross_weight", "loaded_weight"):
+        step["result"].setdefault("display", {})[key] = "Unavailable (incomplete carton mass)"
+    for row in summary.get("product_rows") or []:
+        row["weight_each"] = None
+        row["weight_each_display"] = "Unavailable"
+    step.setdefault("messages", []).append("Carton gross weight is incomplete; weight and payload checks are unavailable. Geometric loading remains available.")
 
 
 def _run_transport_analysis(step, steps, idx):
@@ -3377,3 +3433,4 @@ def _run_transport_analysis(step, steps, idx):
         selected_material,
         _selected_input_for_step(steps, idx),
     )
+    _mark_incomplete_transport_weight(step, _selected_input_for_step(steps, idx))

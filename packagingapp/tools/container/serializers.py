@@ -53,6 +53,8 @@ def sanitize_container_config_for_session(config):
         "box_h": _safe_str(base.get("box_h") or ""),
         "box_thickness_mm": _safe_str(base.get("box_thickness_mm") or ""),
         "box_thickness_user_override": "1" if _as_bool(thickness_override) else "",
+        "combined_grammage_g_m2": _safe_str(base.get("combined_grammage_g_m2") or ""),
+        "grammage_user_override": "1" if _as_bool(base.get("grammage_user_override")) else "",
         "corrugated_material_id": _safe_str(base.get("corrugated_material_id") or ""),
         "corrugated_material_user_selected": "1" if _as_bool(
             base.get("corrugated_material_user_selected")

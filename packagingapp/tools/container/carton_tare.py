@@ -73,3 +73,36 @@ def calculate_rsc_carton_tare(
         effective_box_area_m2=geometry.effective_box_area_m2,
         finished_box_weight_g=material.finished_box_weight_g,
     )
+
+
+def attach_carton_weight_metadata(payload, report, *, upstream=None):
+    """Attach only complete gross mass to the workflow's weight_kg contract."""
+    from ...units import g_to_kg
+
+    gross = report.get("gross_carton_weight_g", report.get("gross_carton_weight", report.get("total_weight_current")))
+    net = report.get("net_weight", report.get("net_content_weight_g", report.get("net_content_weight")))
+    tare = report.get("carton_tare_g")
+    incomplete_upstream = (upstream or {}).get("weight_status") in {"net_only", "unknown", "incomplete"}
+    if incomplete_upstream:
+        gross = None
+    payload.pop("weight_kg", None)
+    payload.pop("weight_g", None)
+    payload["gross_carton_weight_g"] = float(gross) if gross is not None else None
+    payload["net_content_weight_g"] = float(net) if net is not None else None
+    payload["carton_tare_g"] = float(tare) if tare is not None else None
+    source = report.get("carton_tare_source") or "unavailable"
+    payload["carton_tare_source"] = source
+    payload["carton_tare_source_display"] = report.get("carton_tare_source_display") or "Unavailable"
+    if gross is not None:
+        payload["weight_g"] = float(gross)
+        payload["weight_kg"] = float(g_to_kg(gross))
+        payload["weight_status"] = "gross_estimated" if source == "estimated_material" or (upstream or {}).get("weight_status") == "gross_estimated" else "gross_known"
+    else:
+        payload["weight_status"] = "net_only" if net is not None else "unknown"
+    for key in ("container_tare", "weight_source", "weight_source_display", "carton_tare_estimated",
+                "combined_grammage_g_m2", "caliper_mm", "caliper_source", "caliper_source_display",
+                "grammage_source", "grammage_source_display", "grammage_display",
+                "corrugated_material_id", "corrugated_material_name", "effective_box_area_m2", "fefco_code"):
+        if key in report:
+            payload[key] = report[key]
+    return payload

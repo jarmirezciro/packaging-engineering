@@ -65,7 +65,7 @@ def resolve_external_carton_dimensions(
         try:
             known_thickness = _positive_number(
                 thickness_mm,
-                field_name="Box thickness",
+                field_name="Caliper",
             )
         except ValueError:
             # Explicit catalogue external dimensions are authoritative and do
@@ -78,7 +78,7 @@ def resolve_external_carton_dimensions(
     else:
         known_thickness = _positive_number(
             thickness_mm,
-            field_name="Box thickness",
+            field_name="Caliper",
         )
         assumed = known_thickness is None
         thickness_used = (

@@ -372,6 +372,9 @@ def _build_inputs(
         custom_grammage = config.get("custom_combined_grammage_g_m2")
     container_inputs["corrugated_material"] = {
         "selection": str(corrugated_material_id or "none"),
+        "caliper_override": str(form.cleaned_data.get("box_thickness_user_override") or ""),
+        "grammage_override": str(form.cleaned_data.get("grammage_user_override") or ""),
+        "effective_grammage_input": _measurement(form.cleaned_data.get("combined_grammage_g_m2"), "lb/MSF" if form.cleaned_data.get("container_dimension_unit") in {"in", "ft"} else "g/m^2"),
         "custom_combined_grammage": _measurement(
             custom_grammage,
             "g/m^2",
@@ -456,7 +459,7 @@ def _build_input_definitions(form, readiness, workflow):
     definitions["container.thickness"] = _definition(
         form,
         "box_thickness_mm",
-        "Container wall thickness",
+        "Caliper",
         "number",
         editable=(manual_container or mode == "design"),
         unit="mm",

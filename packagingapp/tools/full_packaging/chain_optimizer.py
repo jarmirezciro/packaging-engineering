@@ -121,6 +121,10 @@ def build_design_candidate_payload(source_type, candidate, upstream=None):
             },
         })
 
+    if source_type == "container":
+        from ..container.carton_tare import attach_carton_weight_metadata
+        return attach_carton_weight_metadata(common, candidate, upstream=upstream)
+
     if candidate.get("net_content_weight") is not None:
         net_content_weight_g = float(candidate.get("net_content_weight"))
         common["net_content_weight_g"] = net_content_weight_g

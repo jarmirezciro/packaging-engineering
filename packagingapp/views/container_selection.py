@@ -131,6 +131,8 @@ def _read_raw_container_config(
         "box_l": source.get("box_l", cfg["box_l"]),
         "box_w": source.get("box_w", cfg["box_w"]),
         "box_h": source.get("box_h", cfg["box_h"]),
+        "combined_grammage_g_m2": source.get("combined_grammage_g_m2", cfg["combined_grammage_g_m2"]),
+        "grammage_user_override": source.get("grammage_user_override", cfg["grammage_user_override"]),
         "box_thickness_mm": source.get("box_thickness_mm", cfg["box_thickness_mm"]),
         "box_thickness_user_override": source.get(
             "box_thickness_user_override", cfg["box_thickness_user_override"]
@@ -153,6 +155,8 @@ def _read_raw_container_config(
         "selected_design_candidate_id": source.get("selected_design_candidate_id", cfg["selected_design_candidate_id"]),
     })
 
+    if "box_thickness_user_override" not in source and "box_thickness_user_override" not in (initial_config or {}) and cfg.get("box_thickness_mm"):
+        cfg["box_thickness_user_override"] = "1"
     return sanitize_container_config_for_session(cfg)
 
 
@@ -186,6 +190,8 @@ def _build_shared_container_ui_contract(prefix=""):
         "box_w": f"box_w{suffix}",
         "box_h": f"box_h{suffix}",
         "box_thickness_mm": f"box_thickness_mm{suffix}",
+        "combined_grammage_g_m2": f"combined_grammage_g_m2{suffix}",
+        "grammage_user_override": f"grammage_user_override{suffix}",
         "box_thickness_user_override": f"box_thickness_user_override{suffix}",
         "corrugated_material_id": f"corrugated_material_id{suffix}",
         "corrugated_material_user_selected": f"corrugated_material_user_selected{suffix}",
@@ -427,6 +433,8 @@ def _top5_export_rows(top5, *, dimension_unit="mm", mass_unit="g"):
             thickness_mm=getattr(material, "box_thickness_mm", None),
             thickness_source=EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
         )
+        if row.get("external_length") is not None:
+            dimensions = row
         rows.append({
             "rank": idx,
             "part_number": material.part_number,
@@ -444,7 +452,7 @@ def _top5_export_rows(top5, *, dimension_unit="mm", mass_unit="g"):
                 dimensions["external_height"],
                 display_unit=dimension_unit,
             ),
-            "weight": format_mass(
+            "weight": row.get("carton_tare_display") or format_mass(
                 kg_to_g(material.part_weight)
                 if getattr(material, "part_weight", None) is not None
                 else None,
@@ -504,6 +512,8 @@ def _build_optimal_export_payload(*, form, top5, selected_product, analysis=None
             thickness_mm=getattr(selected_material, "box_thickness_mm", None),
             thickness_source=EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
         )
+        if analysis_report.get("external_length") is not None:
+            selected_dimensions = analysis_report
         selected_candidate = {
             "part_number": selected_material.part_number,
             "description": selected_material.part_description,
@@ -822,6 +832,8 @@ def _build_container_selection_page_context(
             thickness_mm=getattr(material, "box_thickness_mm", None),
             thickness_source=EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
         )
+        if row.get("external_length") is not None:
+            dims = row
         row["internal_dimensions_display"] = format_dimensions(
             material.part_length,
             material.part_width,
@@ -834,7 +846,7 @@ def _build_container_selection_page_context(
             dims["external_height"],
             display_unit=container_display_unit,
         )
-        row["weight_display"] = format_mass(
+        row["weight_display"] = row.get("carton_tare_display") or format_mass(
             getattr(material, "part_weight", None),
             canonical_unit="kg",
             display_unit=container_mass_unit,

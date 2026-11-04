@@ -312,7 +312,7 @@ def build_container_selection_single_pdf(export_payload):
             ("Max qty", f"{analysis.get('max_quantity', '-')} pcs"),
             ("Current qty", f"{analysis.get('requested_qty', '-')} pcs"),
             ("Efficiency", analysis.get("volumetric_efficiency_current_display")),
-            ("Total weight", analysis.get("total_weight_current_display")),
+            ("Total weight" if analysis.get("has_total_weight_current") else "Contents weight", analysis.get("total_weight_current_display") if analysis.get("has_total_weight_current") else analysis.get("net_weight_display")),
             ("Payload", analysis.get("payload_usage_display")),
         ]
     story.append(_metric_cards(metrics))
@@ -337,7 +337,7 @@ def build_container_selection_single_pdf(export_payload):
         ("Type", container.get("type")),
         ("Internal dims", container.get("dimensions")),
         ("External dims", container.get("external_dimensions")),
-        ("Box thickness", (
+        ("Caliper", (
             container.get("box_thickness_display")
             or format_length(container.get("box_thickness_mm"))
         ) if container.get("box_thickness_mm") is not None else "Not available"),
@@ -350,6 +350,17 @@ def build_container_selection_single_pdf(export_payload):
     else:
         container_rows.insert(5, ("Carton tare / gross", f"{container.get('tare', '-')} / {container.get('gross_carton_weight', '-')}"))
         container_rows.insert(6, ("Tare source", container.get("tare_source", "-")))
+    container_rows.extend([
+        ("Caliper source", "Assumed 4 mm (geometry only)" if analysis.get("box_thickness_assumed") else analysis.get("caliper_source_display")),
+        ("Grammage", analysis.get("grammage_display")),
+        ("Grammage source", analysis.get("grammage_source_display")),
+    ])
+    if not is_design:
+        container_rows.extend([
+            ("Tare source", analysis.get("carton_tare_source_display")),
+            ("Net contents", analysis.get("net_weight_display")),
+            ("Gross carton weight", analysis.get("gross_carton_weight_display")),
+        ])
     container_table = _key_value_table(container_rows, [30 * mm, 66 * mm])
 
     left_stack = [
@@ -446,7 +457,7 @@ def build_container_selection_optimal_pdf(export_payload):
         ("Dimensional allowance", product.get("allowances")),
         ("Weight", product.get("weight")),
         ("Rotations", product.get("rotations")),
-    ], [31 * mm, 63 * mm])
+    ], [28 * mm, 52 * mm])
 
     context_table = _key_value_table([
         ("Mode", "Optimal container"),
@@ -456,11 +467,16 @@ def build_container_selection_optimal_pdf(export_payload):
         ("Description", selected_candidate.get("description") or recommendation.get("description")),
         ("Internal dims", selected_candidate.get("dimensions") or recommendation.get("dimensions")),
         ("External dims", selected_candidate.get("external_dimensions") or recommendation.get("external_dimensions")),
+        ("Caliper", (export_payload.get("analysis_report") or {}).get("box_thickness_display")),
+        ("Caliper source", "Assumed 4 mm (geometry only)" if (export_payload.get("analysis_report") or {}).get("box_thickness_assumed") else (export_payload.get("analysis_report") or {}).get("caliper_source_display")),
+        ("Grammage", (export_payload.get("analysis_report") or {}).get("grammage_display")),
+        ("Grammage source", (export_payload.get("analysis_report") or {}).get("grammage_source_display")),
+        ("Net contents", (export_payload.get("analysis_report") or {}).get("net_weight_display")),
         ("Carton tare", selected_candidate.get("tare")),
         ("Tare source", selected_candidate.get("tare_source")),
         ("Corrugated material", selected_candidate.get("corrugated_material")),
         ("Gross carton weight", selected_candidate.get("gross_carton_weight")),
-    ], [35 * mm, 67 * mm])
+    ], [30 * mm, 58 * mm])
 
     visual_stack = [
         _section_title("Selected candidate 3D visualization"),
@@ -477,13 +493,13 @@ def build_container_selection_optimal_pdf(export_payload):
         visual_stack.append(Paragraph("No Three.js snapshot was captured for this export. Please use the PDF button below the interactive 3D viewer and wait until the viewer is fully loaded.", _STYLES["BodySmall"]))
 
     product_stack = [_section_title("Product"), product_table]
-    base_img = _report_image(export_payload.get("product_base_image_rel_path"), 92 * mm, 34 * mm)
+    base_img = _report_image(export_payload.get("product_base_image_rel_path"), 80 * mm, 34 * mm)
     if base_img:
         product_stack.extend([Spacer(1, 4), _section_title("Base product unit"), base_img])
 
     info_grid = Table(
         [[product_stack, [_section_title("Recommendation context"), context_table]]],
-        colWidths=[96 * mm, 104 * mm],
+        colWidths=[84 * mm, 90 * mm],
     )
     info_grid.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),

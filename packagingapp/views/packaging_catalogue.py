@@ -96,7 +96,7 @@ def catalogue_detail(request, pk):
     catalogue_units, unit_error = catalogue_units_from_request(request)
     if unit_error:
         return unit_error
-    materials = catalogue.materials.all().order_by("part_number")
+    materials = catalogue.materials.select_related("corrugated_construction").order_by("part_number")
 
     form = PackagingMaterialFilterForm(
         request.GET or None,
@@ -463,6 +463,9 @@ def download_excel_template(request, pk):
         "external_height",
         "box_thickness_mm",
         "part_weight",
+        "corrugated_construction_code",
+        "combined_grammage_g_m2",
+        "carton_style",
     ])
     ws.append([
         "100001",
@@ -478,6 +481,9 @@ def download_excel_template(request, pk):
         160,
         4,
         1.250,
+        "FEFCO_C_175_140_175",
+        None,
+        "0201",
     ])
 
     info = wb.create_sheet(title="Instructions")
@@ -490,12 +496,14 @@ def download_excel_template(request, pk):
     info["B4"] = "external_length, external_width, external_height in mm"
     info["A5"] = "Weight"
     info["B5"] = "part_weight in kg"
-    info["A6"] = "Box thickness"
+    info["A6"] = "Caliper"
     info["B6"] = "box_thickness_mm in mm; optional"
     info["A7"] = "Allowed packaging_type"
     info["B7"] = "BOX, PALLET, CRATE, BAG, CONTAINER, TRAILER"
     info["A8"] = "Catalogue"
     info["B8"] = catalogue.name
+    info["A9"] = "Optional board data"
+    info["B9"] = "corrugated_construction_code: stable construction code; combined_grammage_g_m2: SKU override in g/m²; carton_style: 0201 only when confirmed RSC"
 
     output = BytesIO()
     wb.save(output)
@@ -558,7 +566,7 @@ def edit_catalogue(request, pk):
 @feature_required(PRIVATE_CATALOGUES, "catalogues", redirect_to_pricing=True)
 def export_catalogue_excel(request, pk):
     catalogue = get_manageable_packaging_catalogue_or_404(request.user, pk=pk)
-    materials = catalogue.materials.all().order_by("part_number")
+    materials = catalogue.materials.select_related("corrugated_construction").order_by("part_number")
 
     wb = Workbook()
     ws = wb.active
@@ -581,6 +589,9 @@ def export_catalogue_excel(request, pk):
         "part_volume",
         "drawing",
         "picture",
+        "corrugated_construction_code",
+        "combined_grammage_g_m2",
+        "carton_style",
     ])
 
     for m in materials:
@@ -601,6 +612,9 @@ def export_catalogue_excel(request, pk):
             float(m.part_volume) if m.part_volume is not None else None,
             m.drawing.url if m.drawing else "",
             m.picture.url if m.picture else "",
+            m.corrugated_construction.code if m.corrugated_construction else "",
+            float(m.combined_grammage_g_m2) if m.combined_grammage_g_m2 is not None else None,
+            m.carton_style or "",
         ])
 
     output = BytesIO()

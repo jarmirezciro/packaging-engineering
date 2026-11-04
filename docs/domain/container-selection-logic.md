@@ -212,48 +212,67 @@ a resolved finished-board caliper. Caliper priority is a valid construction
 construction's flute family, then unavailable. Nominal flute height is never
 used as caliper.
 
-The selected caliper is a suggestion for the existing Box thickness input.
-Users can override it explicitly; the override is preserved across unit
-changes and Packaging Flow posts. External dimensions continue to use the
-final thickness with `L + 2t`, `W + 2t`, and `H + 4t`. A new manual Design
-configuration defaults to stable construction code `FEFCO_C_175_140_175`,
-whose catalogue grammage is 560.2 g/m² and whose reference caliper is 4.08
-mm. Existing sessions and explicit no-material selections are not changed.
+Caliper and grammage are independently editable for manual Single and Design
+cartons. Each has an explicit override flag and reset action. Non-overridden
+values resolve again from the selected construction on the server, so a
+rounded imperial display cannot overwrite canonical reference values. Legacy
+thickness-only sessions and legacy custom grammage remain readable. The
+optional input named `combined_grammage_g_m2` follows the active container unit
+system at the form boundary: g/m² for metric length units and lb/MSF for inches
+or feet. Canonical service/result values remain g/m². The areal-density factor
+is `1 lb/MSF = 4.8824276 g/m²`.
 
-Grammage is stored and calculated in canonical g/m². Imperial presentation
-uses the dedicated areal-density conversion `1 lb/MSF = 4.8824276 g/m²` and
-does not route through mass conversion. Metric labels show g/m² and mm;
-imperial labels show lb/MSF and inches, and update through the shared unit
-change event without a reload.
+A new manual Design configuration selects stable construction code
+`FEFCO_C_175_140_175` from the shared catalogue. Its KL175/RF140/TL175 single-wall
+C-flute construction supplies 560.2 g/m² and reference caliper 4.08 mm. These
+values are not generic defaults for other C-flute boards. Existing sessions
+and explicit no-material selections are preserved. The 4 mm legacy external
+size fallback is a geometry assumption only, never evidence of grammage/tare.
 
-For an eligible manual box or catalogue `BOX`, the shared tare adapter reuses
-the existing FEFCO 0201 geometry provider and `calculate_material()` with zero
-product mass. It returns the finished material mass from the candidate's own
-internal L/W/H dimensions and selected grammage; blank production-sheet scrap
-is not included. Design candidates therefore calculate tare independently,
-rather than copying the selected row's result.
+Finished catalogue cartons have optional `corrugated_construction`,
+`combined_grammage_g_m2`, and `carton_style` fields. Existing rows require no
+backfill. Their precedence is independent of all manual form values:
 
-The generic weight-source precedence is:
+- Caliper: SKU `box_thickness_mm`, then its associated construction, then
+  unavailable. Complete explicit external dimensions remain authoritative.
+- Grammage: SKU combined grammage, then its associated construction, then
+  unavailable.
+- Tare: non-null `part_weight` (kg converted to g), then a material estimate
+  only for `BOX` with confirmed `carton_style="0201"`, valid internal dimensions
+  and grammage, then unavailable. `BOX` alone does not confirm RSC geometry.
 
-1. non-null catalogue `PackagingMaterial.part_weight`;
-2. explicit manual `box_weight`, converted once to canonical grams;
-3. calculated FEFCO 0201 material tare for an eligible box;
-4. unavailable.
+Manual cartons use explicit `box_weight` first, otherwise effective grammage
+and the established FEFCO 0201 geometry. Both manual and catalogue estimates
+call `calculate_rsc_carton_tare()`, which delegates to the existing geometry
+provider and `calculate_material()` including their joint/flap defaults.
+Caliper does not determine grammage. Each Top 5 candidate resolves its own
+material properties and tare; ranking and packing are unchanged.
 
-The FEFCO estimate is not applied to catalogue `CRATE`, `CONTAINER`, or
-`TRAILER` records. A missing product weight leaves tare available but leaves
-gross carton weight unavailable; gross weight is calculated only as
-`net contents + one carton tare`. The JSON-safe report carries the numeric
-weight, source, reason, material, grammage, effective area, and FEFCO code so
-standalone, Design, Optimal, and Packaging Flow consumers share the same
-contract.
+The compact result shows quantity, efficiency and complete gross weight, or
+**Contents weight** when only net mass is known. Detailed analysis contains
+net mass, tare, gross mass, caliper/grammage and their provenance. Missing tare
+is `None`, never zero. PDF reports consume the same analysis values.
 
-When a Container result enters Packaging Flow, its authoritative gross carton
-weight is copied once into the downstream payload's canonical `weight_kg`
-(with derived `weight_g`). Downstream Palletization and Transport consume that
-payload; they do not add the same carton tare again. Changing dimensions,
-quantity, board selection, grammage, or weight input invalidates the normal
-step result and rebuilds the dependent payload.
+Container Flow payloads expose JSON-safe `weight_status` values `gross_known`,
+`gross_estimated`, `net_only`, and `unknown`, plus separate
+`net_content_weight_g`, `carton_tare_g`, tare source and material provenance.
+Only complete gross mass populates `weight_kg` and its derived `weight_g`.
+Palletization clears stale inherited weight and runs geometry without pallet
+load/bottom-load constraints when upstream mass is incomplete, with an explicit
+message and unavailable weight metrics. Transport uses its existing numeric
+zero input only as a geometric placeholder for unknown inherited mass; its
+Flow summary and output mark gross mass and payload utilization unavailable.
+Neither adapter changes its packing engine. Estimated tare is added once.
+
+Catalogue CRUD and metric-only Excel import/export include the optional fields;
+construction references use stable codes in spreadsheets. Older spreadsheets
+that omit new columns preserve existing SKU material data. Imports are atomic.
+
+Multi-product Container was assessed: it remains a catalogue-driven capacity
+and ranking surface, using canonical internal dimensions and actual SKU weight
+metadata; it has no manual board form or gross-weight propagation contract.
+The public Container calculator uses the same form/partials/service as the
+standalone tool. Three.js geometry is unchanged.
 
 ## Invariants
 

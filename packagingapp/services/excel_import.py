@@ -1,5 +1,6 @@
 import pandas as pd
-from packagingapp.models import PackagingMaterial
+from django.db import transaction
+from packagingapp.models import CorrugatedBoardConstruction, PackagingMaterial
 
 REQUIRED_COLUMNS = [
     "part_number",
@@ -16,7 +17,7 @@ REQUIRED_COLUMNS = [
     "part_weight",
 ]
 
-OPTIONAL_COLUMNS = ["box_thickness_mm"]
+OPTIONAL_COLUMNS = ["box_thickness_mm", "corrugated_construction_code", "combined_grammage_g_m2", "carton_style"]
 
 PACKAGING_TYPE_MAP = {
     "box": "BOX",
@@ -48,6 +49,7 @@ def _optional_number(row, column):
         return None
     return row[column]
 
+@transaction.atomic
 def import_packaging_excel(excel_file, catalogue):
     df = pd.read_excel(excel_file)
     df.columns = _clean_header(df.columns)
@@ -55,9 +57,6 @@ def import_packaging_excel(excel_file, catalogue):
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"Missing columns in Excel: {missing}. Found: {list(df.columns)}")
-    for column in OPTIONAL_COLUMNS:
-        if column not in df.columns:
-            df[column] = None
 
     created_count = 0
     updated_count = 0
@@ -73,6 +72,22 @@ def import_packaging_excel(excel_file, catalogue):
                 f"Invalid packaging_type '{raw_type}'. Allowed values: BOX, PALLET, CRATE, BAG, CONTAINER, TRAILER."
             )
 
+        material_properties = {}
+        for column in ("box_thickness_mm", "combined_grammage_g_m2", "carton_style"):
+            if column in df.columns:
+                value = _optional_number(row, column)
+                if column == "carton_style" and value is not None:
+                    value = str(value).strip().removesuffix(".0").zfill(4)
+                material_properties[column] = PackagingMaterial._meta.get_field(column).clean(value, None)
+        if "corrugated_construction_code" in df.columns:
+            code = _optional_number(row, "corrugated_construction_code")
+            construction = None
+            if code is not None:
+                construction = CorrugatedBoardConstruction.objects.filter(code=str(code).strip()).first()
+                if construction is None:
+                    raise ValueError(f"Unknown corrugated construction code: {code}")
+            material_properties["corrugated_construction"] = construction
+
         _, created = PackagingMaterial.objects.update_or_create(
             catalogue=catalogue,
             part_number=part_number,
@@ -84,11 +99,11 @@ def import_packaging_excel(excel_file, catalogue):
                 "part_length": row["part_length"],
                 "part_width": row["part_width"],
                 "part_height": row["part_height"],
-                "external_length": row["external_length"],
-                "external_width": row["external_width"],
-                "external_height": row["external_height"],
-                "box_thickness_mm": _optional_number(row, "box_thickness_mm"),
-                "part_weight": row["part_weight"],
+                "external_length": _optional_number(row, "external_length"),
+                "external_width": _optional_number(row, "external_width"),
+                "external_height": _optional_number(row, "external_height"),
+                "part_weight": _optional_number(row, "part_weight"),
+                **material_properties,
             }
         )
 

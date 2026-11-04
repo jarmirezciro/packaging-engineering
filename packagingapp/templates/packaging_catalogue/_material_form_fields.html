@@ -90,7 +90,7 @@
             </div>
 
             <div class="catalogue-dimension-block catalogue-dimension-block--muted">
-                <div class="catalogue-mini-title">External size, thickness and tare</div>
+                <div class="catalogue-mini-title">External size, caliper and tare</div>
                 <div class="catalogue-dimension-grid catalogue-dimension-grid--four">
                     <div class="catalogue-field">
                         <label for="{{ form.external_length.id_for_label }}">External length</label>
@@ -108,7 +108,7 @@
                         {% if form.external_height.errors %}<div class="catalogue-field-error">{{ form.external_height.errors|join:", " }}</div>{% endif %}
                     </div>
                     <div class="catalogue-field">
-                        <label for="{{ form.box_thickness_mm.id_for_label }}">Box thickness</label>
+                        <label for="{{ form.box_thickness_mm.id_for_label }}">Caliper</label>
                         <div class="catalogue-input-with-unit">{{ form.box_thickness_mm }}<span data-unit-label data-unit-group="{{ catalogue_unit_selectors.length.group }}">{{ catalogue_length_unit }}</span></div>
                         {% if form.box_thickness_mm.errors %}<div class="catalogue-field-error">{{ form.box_thickness_mm.errors|join:", " }}</div>{% endif %}
                     </div>
@@ -118,6 +118,14 @@
                         {% if form.part_weight.errors %}<div class="catalogue-field-error">{{ form.part_weight.errors|join:", " }}</div>{% endif %}
                     </div>
                 </div>
+            </div>
+        </section>
+        <section class="catalogue-form-card">
+            <div class="catalogue-field-stack">
+                <div class="catalogue-field"><label for="{{ form.corrugated_construction.id_for_label }}">Board construction (optional)</label>{{ form.corrugated_construction }}{{ form.corrugated_construction.errors }}</div>
+                <div class="catalogue-field"><label for="{{ form.combined_grammage_g_m2.id_for_label }}">SKU grammage (g/m², optional)</label>{{ form.combined_grammage_g_m2 }}{{ form.combined_grammage_g_m2.errors }}</div>
+                <div class="catalogue-field"><label for="{{ form.carton_style.id_for_label }}">Confirmed carton style (optional)</label>{{ form.carton_style }}{{ form.carton_style.errors }}</div>
+                <div class="catalogue-field-hint">SKU caliper and grammage override construction values. Tare estimation requires confirmed FEFCO 0201 geometry; actual catalogue weight takes priority.</div>
             </div>
         </section>
     </div>

@@ -175,7 +175,7 @@ class CatalogueUnitViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Int. L (in)")
-        self.assertContains(response, "Box thickness (in)")
+        self.assertContains(response, "Caliper (in)")
         self.assertContains(response, "0.9921")
         self.assertContains(response, "data-unit-group=\"catalogue-display-length\"")
 

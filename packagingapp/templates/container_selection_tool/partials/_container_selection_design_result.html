@@ -14,7 +14,10 @@
                         <tbody>
                             <tr><th scope="row" class="fw-normal text-muted">Internal dimensions</th><td class="text-end">{{ analysis_report.container_dimensions_display }}</td></tr>
                             <tr><th scope="row" class="fw-normal text-muted">External dimensions</th><td class="text-end">{{ analysis_report.external_dimensions_display }}</td></tr>
-                            <tr><th scope="row" class="fw-normal text-muted">Box thickness</th><td class="text-end">{{ analysis_report.box_thickness_display }}</td></tr>
+                            <tr><th scope="row" class="fw-normal text-muted">Caliper</th><td class="text-end">{{ analysis_report.box_thickness_display }}</td></tr>
+                            <tr><th scope="row" class="fw-normal text-muted">Caliper source</th><td class="text-end">{% if analysis_report.box_thickness_assumed %}Assumed 4 mm (geometry only){% else %}{{ analysis_report.caliper_source_display }}{% endif %}</td></tr>
+                            <tr><th scope="row" class="fw-normal text-muted">Grammage</th><td class="text-end">{{ analysis_report.grammage_display }}</td></tr>
+                            <tr><th scope="row" class="fw-normal text-muted">Grammage source</th><td class="text-end">{{ analysis_report.grammage_source_display }}</td></tr>
                             <tr><th scope="row" class="fw-normal text-muted">Net contents</th><td class="text-end">{{ analysis_report.net_content_weight_display }}</td></tr>
                             <tr><th scope="row" class="fw-normal text-muted">Empty carton tare</th><td class="text-end">{% if analysis_report.container_tare is not None %}{{ analysis_report.carton_tare_display }}{% else %}<span class="text-muted">Not included</span>{% endif %}</td></tr>
                             <tr><th scope="row" class="fw-normal text-muted">Gross carton weight</th><td class="text-end">{% if analysis_report.gross_carton_weight is not None %}{{ analysis_report.gross_carton_weight_display }}{% else %}<span class="text-muted">Not available</span>{% endif %}</td></tr>
@@ -22,7 +25,7 @@
                         </tbody>
                     </table>
                 </div>
-                {% if analysis_report.box_thickness_assumed %}<div class="tool-summary-meta mt-2">External dimensions estimated using an assumed 4 mm box thickness because no thickness was provided.</div>{% endif %}
+                {% if analysis_report.box_thickness_assumed %}<div class="tool-summary-meta mt-2">External dimensions estimated using an assumed 4 mm caliper because no caliper was provided.</div>{% endif %}
             </details>
         {% endif %}
         {% if mode != "workflow" %}<div class="app-form-actions tool-card-actions mt-3">{% if can_export_pdf %}<input type="hidden" name="threejs_snapshot" value=""><input type="hidden" name="threejs_view_label" value=""><button type="submit" name="design_export" value="1" class="btn btn-app-outline btn-sm" formaction="{% url 'container_selection_export_pdf' %}" formmethod="post" data-container-threejs-pdf-button data-container-threejs-pdf-viewer="{{ container_ui.ids.threejs_viewer }}"><i class="bi bi-file-earmark-pdf me-2"></i>Download Design PDF with current 3D view</button>{% else %}{% include "shared/_locked_paid_action.html" with label="PDF Report · Plus" feature="pdf" %}{% endif %}</div>{% endif %}

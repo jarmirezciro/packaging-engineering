@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from django.conf import settings
 
 from ...access import visible_packaging_catalogues, visible_product_catalogues
@@ -48,10 +49,11 @@ from .dimensions import (
 from .carton_tare import calculate_rsc_carton_tare
 from .corrugated_material import (
     DEFAULT_MANUAL_RSC_MATERIAL_CODE,
-    DEFAULT_MANUAL_RSC_CALIPER_MM,
     build_corrugated_material_options,
     corrugated_material_option,
     resolve_corrugated_caliper,
+    gsm_to_lb_msf,
+    lb_msf_to_gsm,
 )
 
 
@@ -93,7 +95,7 @@ def get_materials_for_catalogue(config, user=_UNSCOPED_CATALOGUE_USER):
     )
     if user is not _UNSCOPED_CATALOGUE_USER:
         materials = materials.filter(catalogue__in=visible_packaging_catalogues(user))
-    return materials.select_related("catalogue").order_by("packaging_type", "part_number")
+    return materials.select_related("catalogue", "corrugated_construction").order_by("packaging_type", "part_number")
 
 
 def get_selected_product(config, user=_UNSCOPED_CATALOGUE_USER):
@@ -120,7 +122,7 @@ def get_selected_material(config, user=_UNSCOPED_CATALOGUE_USER):
     )
     if user is not _UNSCOPED_CATALOGUE_USER:
         materials = materials.filter(catalogue__in=visible_packaging_catalogues(user))
-    return materials.select_related("catalogue").first()
+    return materials.select_related("catalogue", "corrugated_construction").first()
 
 
 def get_corrugated_materials():
@@ -186,8 +188,9 @@ def build_hydrated_post_data(raw_post, config, selected_product=None, selected_m
         (config or {}).get("product_shape")
     )
 
-    if (config or {}).get("mode") == "design":
-        post_data.setdefault("container_source", "manual")
+    # Design disables the source radios. Restore their state when a mode
+    # change posts back into Single/Optimal, before binding the shared form.
+    post_data.setdefault("container_source", (config or {}).get("container_source") or "manual")
 
     if config.get("product_source") == "catalogue" and selected_product is not None:
         post_data["product_l"] = "" if selected_product.product_length is None else str(selected_product.product_length)
@@ -292,7 +295,7 @@ def apply_catalogue_choices(
         current_value = str(form.data.get("corrugated_material_id") or "")
     else:
         current_value = str(form.initial.get("corrugated_material_id") or "")
-    choices = [("", "No carton tare calculation")]
+    choices = [("", "No board construction")]
     if current_value == "custom":
         # Compatibility only: new configurations never receive this option.
         choices.append(("custom", "Legacy custom material (preserved)"))
@@ -318,14 +321,16 @@ def apply_manual_rsc_design_defaults(config, *, enabled=False):
         return config
     config = dict(config)
     config["corrugated_material_id"] = DEFAULT_MANUAL_RSC_MATERIAL_CODE
-    config["box_thickness_user_override"] = "0"
-    if not config.get("box_thickness_mm") and not str(
-        config.get("box_thickness_user_override") or ""
-    ) == "1":
-        unit = config.get("container_dimension_unit") or "mm"
-        config["box_thickness_mm"] = str(
-            convert_length(DEFAULT_MANUAL_RSC_CALIPER_MM, "mm", unit)
-        )
+    construction = get_selected_corrugated_construction(config)
+    unit = config.get("container_dimension_unit") or "mm"
+    caliper = _resolve_board_caliper(construction).value_mm
+    if not config.get("box_thickness_mm"):
+        config["box_thickness_user_override"] = ""
+        config["box_thickness_mm"] = str(convert_length(caliper, "mm", unit)) if caliper is not None else ""
+    grammage = getattr(construction, "combined_grammage_g_m2", None)
+    if not config.get("combined_grammage_g_m2"):
+        config["grammage_user_override"] = ""
+        config["combined_grammage_g_m2"] = str(gsm_to_lb_msf(grammage) if unit in {"in", "ft"} else grammage or "")
     return config
 
 
@@ -428,26 +433,20 @@ def resolve_container_dimension_contract(
         return None
 
     if container_source == "catalogue" and selected_material is not None:
+        properties = resolve_container_material_properties(form, "catalogue", selected_material)
         return resolve_external_carton_dimensions(
             *container,
             external_length=getattr(selected_material, "external_length", None),
             external_width=getattr(selected_material, "external_width", None),
             external_height=getattr(selected_material, "external_height", None),
-            thickness_mm=getattr(selected_material, "box_thickness_mm", None),
+            thickness_mm=properties["caliper_mm"],
             thickness_source=EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
         )
 
-    thickness_mm = _resolve_manual_quantity(
-        form,
-        "box_thickness_mm",
-        "container_dimension_unit",
-        convert_length,
-        "mm",
+    properties = resolve_container_material_properties(
+        form, "manual", selected_board_construction=selected_board_construction,
     )
-    if thickness_mm is None:
-        thickness_mm = _resolve_board_caliper(
-            selected_board_construction
-        ).value_mm
+    thickness_mm = properties["caliper_mm"]
 
     return resolve_external_carton_dimensions(
         *container,
@@ -824,29 +823,71 @@ def _resolve_product_weight(form, product_source, selected_product):
 RSC_ELIGIBLE_PACKAGING_TYPES = ("BOX",)
 
 
-def _corrugated_grammage(form, config, selected_board_construction=None):
+def _has_material_override(form, key, flag):
     cleaned = getattr(form, "cleaned_data", {}) or {}
-    if "corrugated_material_id" in cleaned:
-        material_id = cleaned.get("corrugated_material_id")
+    data = getattr(form, "data", {}) or {}
+    if flag in data:
+        return str(cleaned.get(flag) or "").lower() in {"1", "true", "on"}
+    # Compatibility with pre-override forms and machine-facing callers.
+    return cleaned.get(key) not in (None, "")
+
+
+def resolve_container_material_properties(form, container_source, selected_material=None,
+                                          selected_board_construction=None):
+    """Resolve properties independently of geometry assumptions and tare.
+
+    Catalogue SKUs own their construction; a manual selector can never supply
+    missing catalogue data. All returned values are JSON-safe canonical values.
+    """
+    catalogue = container_source == "catalogue"
+    construction = (getattr(selected_material, "corrugated_construction", None)
+                    if catalogue else selected_board_construction)
+    if not catalogue and construction is None:
+        construction = get_selected_corrugated_construction(form=form)
+    caliper = _resolve_board_caliper(construction)
+    caliper_mm = _safe_float(caliper.value_mm)
+    caliper_source = "construction_" + caliper.source if caliper_mm is not None else "unavailable"
+    caliper_label = "Board construction: " + caliper.source_label.lower() if caliper_mm is not None else "Unavailable"
+    grammage = _safe_float(getattr(construction, "combined_grammage_g_m2", None))
+    grammage_source = "construction" if grammage is not None else "unavailable"
+    grammage_label = "Board construction" if grammage is not None else "Unavailable"
+    if catalogue:
+        sku_caliper = _safe_float(getattr(selected_material, "box_thickness_mm", None))
+        if sku_caliper is not None and sku_caliper > 0:
+            caliper_mm, caliper_source, caliper_label = sku_caliper, "catalogue", "Catalogue SKU"
+        sku_grammage = _safe_float(getattr(selected_material, "combined_grammage_g_m2", None))
+        if sku_grammage is not None and sku_grammage > 0:
+            grammage, grammage_source, grammage_label = sku_grammage, "catalogue", "Catalogue SKU"
     else:
-        material_id = (config or {}).get("corrugated_material_id")
-    material_id = str(material_id or "").strip()
-
-    if material_id == "custom":
-        value = cleaned.get("custom_combined_grammage_g_m2")
-        if value in (None, ""):
-            value = (config or {}).get("custom_combined_grammage_g_m2")
-        numeric = _safe_float(value)
-        return numeric if numeric is not None and numeric > 0 else None
-
-    if selected_board_construction is None:
-        selected_board_construction = get_selected_corrugated_construction(
-            config=config,
-            form=form,
-        )
-    combined = getattr(selected_board_construction, "combined_grammage_g_m2", None)
-    numeric = _safe_float(combined)
-    return numeric if numeric is not None and numeric > 0 else None
+        if _has_material_override(form, "box_thickness_mm", "box_thickness_user_override"):
+            caliper_mm = _resolve_manual_quantity(form, "box_thickness_mm", "container_dimension_unit", convert_length, "mm")
+            caliper_source, caliper_label = "manual", "Manual override"
+        if _has_material_override(form, "combined_grammage_g_m2", "grammage_user_override"):
+            grammage = form.cleaned_data.get("combined_grammage_g_m2")
+            if form.cleaned_data.get("container_dimension_unit") in {"in", "ft"}:
+                grammage = lb_msf_to_gsm(grammage)
+            grammage = _safe_float(grammage)
+            grammage_source, grammage_label = "manual", "Manual override"
+        elif form.cleaned_data.get("corrugated_material_id") == "custom":
+            grammage = _safe_float(form.cleaned_data.get("custom_combined_grammage_g_m2"))
+            grammage_source, grammage_label = "legacy_custom", "Legacy custom material"
+    if grammage is None or grammage <= 0:
+        grammage, grammage_source, grammage_label = None, "unavailable", "Unavailable"
+    unit = form.cleaned_data.get("container_dimension_unit") or "mm"
+    display_grammage = gsm_to_lb_msf(grammage) if unit in {"in", "ft"} else grammage
+    density_unit = "lb/MSF" if unit in {"in", "ft"} else "g/m²"
+    return {
+        "caliper_mm": caliper_mm,
+        "caliper_source": caliper_source,
+        "caliper_source_display": caliper_label,
+        "caliper_display": format_length(caliper_mm, display_unit=unit),
+        "combined_grammage_g_m2": grammage,
+        "grammage_source": grammage_source,
+        "grammage_source_display": grammage_label,
+        "grammage_display": f"{float(display_grammage):.1f} {density_unit}" if display_grammage is not None else "Not available",
+        "corrugated_material_id": str(getattr(construction, "code", "") or getattr(construction, "pk", "") or ""),
+        "corrugated_material_name": getattr(construction, "name", None),
+    }
 
 
 def _rsc_estimate_is_eligible(container_source, selected_material):
@@ -856,6 +897,7 @@ def _rsc_estimate_is_eligible(container_source, selected_material):
         selected_material is not None
         and getattr(selected_material, "packaging_type", None)
         in RSC_ELIGIBLE_PACKAGING_TYPES
+        and getattr(selected_material, "carton_style", None) == "0201"
     )
 
 
@@ -868,17 +910,20 @@ def _resolve_container_weight(
     selected_board_construction=None,
 ):
     """Resolve one carton tare using the shared precedence contract."""
+    properties = resolve_container_material_properties(
+        form, container_source, selected_material, selected_board_construction,
+    )
     if container_source == "catalogue":
         weight_kg = getattr(selected_material, "part_weight", None)
         if weight_kg is not None:
             return {
                 "tare_g": _safe_float(kg_to_g(weight_kg)),
                 "source": "catalogue",
-                "source_label": "Known from catalogue",
+                "source_label": "Catalogue actual",
                 "reason": "",
             }
 
-    explicit_tare = _resolve_manual_quantity(
+    explicit_tare = None if container_source == "catalogue" else _resolve_manual_quantity(
         form,
         "box_weight",
         "container_mass_unit",
@@ -893,17 +938,13 @@ def _resolve_container_weight(
             "reason": "",
         }
 
-    grammage = _corrugated_grammage(
-        form,
-        config,
-        selected_board_construction=selected_board_construction,
-    )
+    grammage = properties["combined_grammage_g_m2"]
     if grammage is not None:
         if not _rsc_estimate_is_eligible(container_source, selected_material):
             return {
                 "tare_g": None,
                 "source": "unavailable",
-                "source_label": "Not included",
+                "source_label": "Unavailable",
                 "reason": "FEFCO 0201 tare estimates apply only to eligible cartons.",
             }
         try:
@@ -915,27 +956,16 @@ def _resolve_container_weight(
             return {
                 "tare_g": None,
                 "source": "unavailable",
-                "source_label": "Not included",
+                "source_label": "Unavailable",
                 "reason": "Carton dimensions are required for the corrugated tare estimate.",
             }
-        if selected_board_construction is None:
-            selected_board_construction = get_selected_corrugated_construction(
-                config=config,
-                form=form,
-            )
-        selected_id = getattr(selected_board_construction, "code", None)
-        if not selected_id:
-            selected_id = getattr(selected_board_construction, "pk", None)
         return {
             "tare_g": _safe_float(tare.finished_box_weight_g),
             "source": "estimated_material",
             "source_label": "Estimated from corrugated material",
             "reason": "",
-            "corrugated_material_id": str(selected_id) if selected_id is not None else "custom",
-            "corrugated_material_name": (
-                getattr(selected_board_construction, "name", None)
-                or "Custom grammage"
-            ),
+            "corrugated_material_id": properties["corrugated_material_id"],
+            "corrugated_material_name": properties["corrugated_material_name"] or "Custom grammage",
             "combined_grammage_g_m2": _safe_float(tare.combined_grammage_g_m2),
             "effective_box_area_m2": _safe_float(tare.effective_box_area_m2),
             "fefco_code": "0201",
@@ -944,7 +974,7 @@ def _resolve_container_weight(
     return {
         "tare_g": None,
         "source": "unavailable",
-        "source_label": "Not included",
+        "source_label": "Unavailable",
         "reason": "Carton tare is not included because no material or authoritative tare was supplied.",
     }
 
@@ -1031,7 +1061,7 @@ def build_container_analysis_report(
         max_efficiency_pct = (max_product_volume / container_volume) * 100
 
     product_weight = _resolve_product_weight(form, product_source, selected_product)
-    container_source = form.cleaned_data.get("container_source") or "manual"
+    container_source = "catalogue" if mode == "optimal" else form.cleaned_data.get("container_source") or "manual"
     dimension_contract = resolve_container_dimension_contract(
         form,
         container,
@@ -1046,7 +1076,9 @@ def build_container_analysis_report(
         container=container,
         selected_board_construction=selected_board_construction,
     )
-    selected_caliper = _resolve_board_caliper(selected_board_construction)
+    properties = resolve_container_material_properties(
+        form, container_source, selected_material, selected_board_construction,
+    )
     container_tare = container_weight.get("tare_g")
     payload_capacity = _resolve_payload_capacity(form, container_source, selected_material)
 
@@ -1069,6 +1101,7 @@ def build_container_analysis_report(
 
     return {
         **dimension_contract,
+        **properties,
         "requested_qty": requested_qty,
         "max_quantity": max_quantity,
         "remaining_capacity": remaining_capacity,
@@ -1089,20 +1122,19 @@ def build_container_analysis_report(
         "carton_tare_reason": container_weight.get("reason") or "",
         "carton_tare_estimated": container_weight.get("source") == "estimated_material",
         "gross_carton_weight_g": _round_or_none(total_weight_current, 3),
+        "weight_status": "gross_estimated" if total_weight_current is not None and container_weight.get("source") == "estimated_material" else "gross_known" if total_weight_current is not None else "net_only" if net_weight is not None else "unknown",
         "weight_source": container_weight.get("source"),
         "weight_source_display": container_weight.get("source_label"),
-        "corrugated_material_name": container_weight.get("corrugated_material_name"),
-        "corrugated_material_id": container_weight.get("corrugated_material_id"),
-        "combined_grammage_g_m2": _round_or_none(
-            container_weight.get("combined_grammage_g_m2"), 4
-        ),
+        "corrugated_material_name": properties.get("corrugated_material_name"),
+        "corrugated_material_id": properties.get("corrugated_material_id"),
+        "combined_grammage_g_m2": properties["combined_grammage_g_m2"],
         "effective_box_area_m2": _round_or_none(
             container_weight.get("effective_box_area_m2"), 9
         ),
         "fefco_code": container_weight.get("fefco_code"),
-        "corrugated_caliper_mm": _round_or_none(selected_caliper.value_mm, 3),
-        "corrugated_caliper_source": selected_caliper.source,
-        "corrugated_caliper_source_display": selected_caliper.source_label,
+        "corrugated_caliper_mm": properties["caliper_mm"],
+        "corrugated_caliper_source": properties["caliper_source"].removeprefix("construction_"),
+        "corrugated_caliper_source_display": properties["caliper_source_display"],
         "payload_capacity": _round_or_none(payload_capacity, 3),
         "net_weight": _round_or_none(net_weight, 3),
         "total_weight_current": _round_or_none(total_weight_current, 3),
@@ -1215,11 +1247,14 @@ def _add_container_design_metrics(
         ),
         selected_board_construction=selected_board_construction,
     )
-    selected_caliper = _resolve_board_caliper(selected_board_construction)
+    properties = resolve_container_material_properties(
+        form, "manual", selected_board_construction=selected_board_construction,
+    )
     container_tare = container_weight.get("tare_g")
     gross_weight = net_weight + container_tare if net_weight is not None and container_tare is not None else None
     row.update({
         **dimension_contract,
+        **properties,
         "net_content_weight": _round_or_none(net_weight, 3),
         "net_content_weight_g": _round_or_none(net_weight, 3),
         "container_tare": _round_or_none(container_tare, 3),
@@ -1236,6 +1271,7 @@ def _add_container_design_metrics(
         ),
         "gross_carton_weight": _round_or_none(gross_weight, 3),
         "gross_carton_weight_g": _round_or_none(gross_weight, 3),
+        "weight_status": "gross_estimated" if gross_weight is not None and container_weight.get("source") == "estimated_material" else "gross_known" if gross_weight is not None else "net_only" if net_weight is not None else "unknown",
         "gross_carton_weight_display": format_mass(
             gross_weight,
             canonical_unit="g",
@@ -1247,18 +1283,16 @@ def _add_container_design_metrics(
         "weight_source": container_weight.get("source"),
         "weight_source_display": container_weight.get("source_label"),
         "carton_tare_estimated": container_weight.get("source") == "estimated_material",
-        "corrugated_material_name": container_weight.get("corrugated_material_name"),
-        "corrugated_material_id": container_weight.get("corrugated_material_id"),
-        "combined_grammage_g_m2": _round_or_none(
-            container_weight.get("combined_grammage_g_m2"), 4
-        ),
+        "corrugated_material_name": properties.get("corrugated_material_name"),
+        "corrugated_material_id": properties.get("corrugated_material_id"),
+        "combined_grammage_g_m2": properties["combined_grammage_g_m2"],
         "effective_box_area_m2": _round_or_none(
             container_weight.get("effective_box_area_m2"), 9
         ),
         "fefco_code": container_weight.get("fefco_code"),
-        "corrugated_caliper_mm": _round_or_none(selected_caliper.value_mm, 3),
-        "corrugated_caliper_source": selected_caliper.source,
-        "corrugated_caliper_source_display": selected_caliper.source_label,
+        "corrugated_caliper_mm": properties["caliper_mm"],
+        "corrugated_caliper_source": properties["caliper_source"].removeprefix("construction_"),
+        "corrugated_caliper_source_display": properties["caliper_source_display"],
         "container_dimensions_display": format_dimensions(
             row["container_length"],
             row["container_width"],
@@ -1568,6 +1602,17 @@ def analyze_container_form(
                     r3=r3,
                 )
 
+                for row in top5:
+                    material = row["material"]
+                    row.update(build_container_analysis_report(
+                        form=form, result=SimpleNamespace(max_quantity=row["max_qty"]),
+                        product=packing_product, nominal_product=nominal_product,
+                        product_allowances=normalized_inputs["product_allowances"],
+                        container=(material.part_length, material.part_width, material.part_height),
+                        desired_qty=desired_qty, product_source=product_source, mode="optimal",
+                        selected_product=selected_product, selected_material=material,
+                    ) or {})
+
                 if action == "select_candidate":
                     if not selected_material:
                         messages.append("Please select one of the Top 5 containers.")
@@ -1636,7 +1681,7 @@ def analyze_container_capacity(
     """Calculate the workflow capacity payload inputs without presentation work."""
     mode = form.cleaned_data.get("mode") or "single"
     product_source = form.cleaned_data.get("product_source") or "manual"
-    container_source = form.cleaned_data.get("container_source") or "manual"
+    container_source = "catalogue" if mode == "optimal" else form.cleaned_data.get("container_source") or "manual"
     selected_board_construction = get_selected_corrugated_construction(
         config=config,
         form=form,
@@ -1734,7 +1779,9 @@ def analyze_container_capacity(
         container,
         container_source,
         selected_material,
+        selected_board_construction=selected_board_construction,
     )
+    properties = resolve_container_material_properties(form, container_source, selected_material, selected_board_construction)
     weight_detail = _resolve_container_weight(
         form=form,
         container_source=container_source,
@@ -1761,10 +1808,12 @@ def analyze_container_capacity(
             "net_content_weight_g": _round_or_none(net_weight, 3),
             "carton_tare_g": _round_or_none(tare_g, 3),
             "gross_carton_weight_g": _round_or_none(gross_weight, 3),
+            "weight_status": "gross_estimated" if gross_weight is not None and weight_detail.get("source") == "estimated_material" else "gross_known" if gross_weight is not None else "net_only" if net_weight is not None else "unknown",
             "carton_tare_source": weight_detail.get("source"),
             "carton_tare_source_display": weight_detail.get("source_label"),
             "weight_source": weight_detail.get("source"),
             "weight_source_display": weight_detail.get("source_label"),
             **dimension_contract,
+            **properties,
         },
     }

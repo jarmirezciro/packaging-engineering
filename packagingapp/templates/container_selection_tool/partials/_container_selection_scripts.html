@@ -58,8 +58,28 @@
         }
         const unit = currentContainerDimensionUnit(prefix);
         const factor = { mm: 1, cm: 10, m: 1000, in: 25.4, ft: 304.8 }[unit] || 1;
-        input.value = formatBoardNumber(caliperMm / factor, 8);
+        input.value = formatBoardNumber(caliperMm / factor, unit === "mm" ? 3 : unit === "in" ? 4 : 6);
         input.dataset.unitCanonicalValue = String(caliperMm);
+    }
+
+    function updateGrammage(prefix, option) {
+        const input = getField("combined_grammage_g_m2", prefix);
+        if (!input) return;
+        const override = getField("grammage_user_override", prefix);
+        const imperial = ["in", "ft"].includes(currentContainerDimensionUnit(prefix));
+        const factor = imperial ? LB_MSF_TO_GSM : 1;
+        if (!override || override.value !== "1") {
+            const legacy = getField("custom_combined_grammage_g_m2", prefix);
+            const gsm = option ? Number(option.dataset.grammageGsm) : legacy ? Number(legacy.value) : NaN;
+            input.dataset.grammageCanonical = Number.isFinite(gsm) && gsm > 0 ? String(gsm) : "";
+        } else if (input.dataset.grammageCanonical === undefined) {
+            input.dataset.grammageCanonical = input.value === "" ? "" : String(Number(input.value) * factor);
+        }
+        input.value = input.dataset.grammageCanonical ? formatBoardNumber(Number(input.dataset.grammageCanonical) / factor, override && override.value === "1" ? 8 : 1) : "";
+        const root = getRoot(prefix);
+        root.querySelectorAll("[data-grammage-unit]").forEach(function (label) {
+            label.textContent = "(" + (imperial ? "lb/MSF" : "g/m²") + ")";
+        });
     }
 
     function updateCorrugatedMaterialFields(prefix) {
@@ -80,7 +100,7 @@
                 const caliperMm = Number(option.dataset.caliperMm);
                 if (!option.dataset.boardName || !Number.isFinite(gsm)) return;
                 const density = imperial ? gsm / LB_MSF_TO_GSM : gsm;
-                const caliper = Number.isFinite(caliperMm)
+                const caliper = Number.isFinite(caliperMm) && caliperMm > 0
                     ? caliperMm / (imperial ? 25.4 : 1)
                     : NaN;
                 const sourceSuffix = option.dataset.caliperSource === "reference"
@@ -99,10 +119,11 @@
 
         const hasBoard = selected && selected.dataset && selected.dataset.boardCode;
         setAutoThickness(prefix, hasBoard ? selected : null);
+        updateGrammage(prefix, hasBoard ? selected : null);
         if (detail) {
             if (hasBoard) {
                 const caliperMm = Number(selected.dataset.caliperMm);
-                const caliper = Number.isFinite(caliperMm)
+                const caliper = Number.isFinite(caliperMm) && caliperMm > 0
                     ? caliperMm / (imperial ? 25.4 : 1)
                     : NaN;
                 const source = selected.dataset.caliperSource === "reference"
@@ -110,15 +131,15 @@
                     : selected.dataset.caliperSource === "actual"
                         ? "actual"
                         : "unavailable";
-                detail.textContent = "Resolved caliper: "
+                detail.textContent = "Construction caliper: "
                     + (Number.isFinite(caliper)
                         ? formatBoardNumber(caliper, imperial ? 4 : 2) + " " + caliperUnit
                         : "unavailable")
-                    + " (" + source + "). It may prefill Box thickness; the final thickness controls external dimensions.";
+                    + " (" + source + ").";
             } else if (selected && selected.value === "custom") {
                 detail.textContent = "Legacy custom material preserved for compatibility.";
             } else {
-                detail.textContent = "Used for the estimated empty RSC carton tare; a resolved caliper may prefill Box thickness, and the final thickness controls external dimensions.";
+                detail.textContent = "Construction values apply unless individually overridden.";
             }
         }
     }
@@ -293,10 +314,28 @@
             thicknessField.addEventListener("input", function () {
                 if (thicknessField.value !== "") {
                     setHidden(prefix, "box_thickness_user_override", "1");
+                } else {
+                    setHidden(prefix, "box_thickness_user_override", "");
                 }
             });
         }
+        const grammageField = getField("combined_grammage_g_m2", prefix);
+        if (grammageField) {
+            grammageField.addEventListener("input", function () {
+                setHidden(prefix, "grammage_user_override", grammageField.value === "" ? "" : "1");
+                const factor = ["in", "ft"].includes(currentContainerDimensionUnit(prefix)) ? LB_MSF_TO_GSM : 1;
+                grammageField.dataset.grammageCanonical = grammageField.value === "" ? "" : String(Number(grammageField.value) * factor);
+            });
+        }
         const root = getRoot(prefix);
+        if (!root) return;
+        root.querySelectorAll("[data-reset-material-property]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const flag = button.dataset.resetMaterialProperty === "caliper" ? "box_thickness_user_override" : "grammage_user_override";
+                setHidden(prefix, flag, "");
+                updateCorrugatedMaterialFields(prefix);
+            });
+        });
         if (root && root.dataset.corrugatedUnitBound !== "true") {
             root.dataset.corrugatedUnitBound = "true";
             document.addEventListener("kollipack:unit-changed", function (event) {

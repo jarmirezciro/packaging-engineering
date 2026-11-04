@@ -454,7 +454,7 @@ def _step_metrics(step):
             ])
         rows.extend([
             ("Limiting constraint", _clean(selected.get("limiting_constraint"))),
-            ("Bottom-carton load check", "OK" if selected.get("feasible_weight") else ("Review required" if selected else "Not checked")),
+            ("Bottom-carton load check", "Unavailable" if selected.get("weight_status") == "unknown" else "OK" if selected.get("feasible_weight") else ("Review required" if selected else "Not checked")),
         ])
         return rows
 
@@ -475,7 +475,14 @@ def _step_metrics(step):
         ("Remaining capacity", _int(analysis.get("remaining_capacity"))),
         ("Volume usage", analysis.get("volumetric_efficiency_current_display") or f"{_num(analysis.get('volumetric_efficiency_current_pct'), 0)}%"),
         ("Max volume usage", analysis.get("volumetric_efficiency_max_display") or f"{_num(analysis.get('volumetric_efficiency_max_pct'), 0)}%"),
-        ("Total weight", analysis.get("total_weight_current_display") or _format_weight(output)),
+        ("Net contents", analysis.get("net_weight_display") or analysis.get("net_content_weight_display")),
+        ("Empty carton tare", analysis.get("carton_tare_display")),
+        ("Tare source", analysis.get("carton_tare_source_display")),
+        ("Caliper", analysis.get("box_thickness_display")),
+        ("Caliper source", "Assumed 4 mm (geometry only)" if analysis.get("box_thickness_assumed") else analysis.get("caliper_source_display")),
+        ("Grammage", analysis.get("grammage_display")),
+        ("Grammage source", analysis.get("grammage_source_display")),
+        ("Gross weight", analysis.get("gross_carton_weight_display") or _format_weight(output)),
         ("Payload usage", analysis.get("payload_usage_display") or "Not set"),
     ]
 

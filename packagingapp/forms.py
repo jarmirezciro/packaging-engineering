@@ -325,6 +325,9 @@ class PackagingMaterialForm(CataloguePhysicalUnitFormMixin, CatalogueImageFormMi
             "external_height",
             "box_thickness_mm",
             "part_weight",
+            "corrugated_construction",
+            "combined_grammage_g_m2",
+            "carton_style",
             "drawing",
             "picture",
         ]
@@ -384,6 +387,11 @@ class PackagingMaterialForm(CataloguePhysicalUnitFormMixin, CatalogueImageFormMi
             self.fields[field_name].widget.attrs.update({"step": "any", "placeholder": "0"})
 
         self.fields["part_number"].widget.attrs.update({"placeholder": "e.g. BOX-001"})
+        self.fields["box_thickness_mm"].label = "Caliper"
+        self.fields["combined_grammage_g_m2"].label = "SKU grammage (g/m²)"
+        self.fields["combined_grammage_g_m2"].widget.attrs.update({"class": "form-control", "step": "any"})
+        for field_name in ("corrugated_construction", "carton_style"):
+            self.fields[field_name].widget.attrs.update({"class": "form-select"})
         self.fields["part_description"].widget.attrs.update({"placeholder": "Short material description"})
         self.fields["packaging_materials"].widget.attrs.update({"placeholder": "e.g. Corrugated board, wood, plastic"})
 
@@ -609,7 +617,7 @@ class ContainerSelectionMode1Form(forms.Form):
     box_thickness_mm = forms.FloatField(
         min_value=0.0001,
         required=False,
-        label="Box thickness",
+        label="Caliper",
         widget=forms.NumberInput(
             attrs={
                 "class": "form-control", "step": "any", "min": "0.0001",
@@ -624,10 +632,16 @@ class ContainerSelectionMode1Form(forms.Form):
         widget=forms.HiddenInput(),
     )
 
+    combined_grammage_g_m2 = forms.DecimalField(
+        required=False, min_value=Decimal("0.0001"), label="Grammage",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "data-grammage-input": "true"}),
+    )
+    grammage_user_override = forms.CharField(required=False, widget=forms.HiddenInput())
+
     corrugated_material_id = forms.ChoiceField(
         required=False,
         label="Corrugated board material",
-        choices=(("", "No carton tare calculation"),),
+        choices=(("", "No board construction"),),
         widget=forms.Select(attrs={"class": "form-select"}),
     )
 

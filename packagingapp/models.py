@@ -283,6 +283,20 @@ class PackagingMaterial(models.Model):
     # Weight (kg)
     part_weight = models.DecimalField(max_digits=12, decimal_places=3, blank=True, null=True)
 
+    corrugated_construction = models.ForeignKey(
+        "CorrugatedBoardConstruction", on_delete=models.SET_NULL,
+        blank=True, null=True, related_name="finished_cartons",
+    )
+    combined_grammage_g_m2 = models.DecimalField(
+        max_digits=12, decimal_places=4, blank=True, null=True,
+        validators=[MinValueValidator(Decimal("0.0001"))],
+    )
+    carton_style = models.CharField(
+        max_length=8, blank=True, null=True,
+        choices=[("0201", "FEFCO 0201 (RSC)")],
+        help_text="Confirm the carton geometry before estimating tare from grammage.",
+    )
+
     part_volume = models.DecimalField(max_digits=15, decimal_places=2, blank=True, null=True)
 
     drawing = models.FileField(

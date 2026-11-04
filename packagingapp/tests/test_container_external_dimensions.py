@@ -130,7 +130,7 @@ class ContainerDimensionContractTests(SimpleTestCase):
         )
         self.assertIn("Internal dimensions", html)
         self.assertIn("External dimensions", html)
-        self.assertIn("assumed 4 mm box thickness", html)
+        self.assertIn("assumed 4 mm caliper", html)
 
         provided_form, _provided_data = manual_form(thickness="5")
         self.assertTrue(provided_form.is_valid(), provided_form.errors)
@@ -157,7 +157,7 @@ class ContainerDimensionContractTests(SimpleTestCase):
             (provided_report["external_length"], provided_report["external_width"], provided_report["external_height"]),
             (610.0, 410.0, 320.0),
         )
-        self.assertNotIn("assumed 4 mm box thickness", provided_html)
+        self.assertNotIn("assumed 4 mm caliper", provided_html)
 
     def test_catalogue_precedence_uses_external_then_thickness_then_default(self):
         form, _data = manual_form()

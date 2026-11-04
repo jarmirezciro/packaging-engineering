@@ -86,6 +86,8 @@ def payload_for_display(
                 canonical_unit="g",
                 display_unit=mass_unit,
             )
+    if payload.get("weight_status") in {"net_only", "unknown", "incomplete"}:
+        display["weight_display"] = "Gross weight unavailable"
     return display
 
 

@@ -22,10 +22,13 @@
                         </div>
                         <div class="col-12 col-md-4">
                             <div class="border rounded-3 p-2 h-100">
-                                <div class="tool-stat-label">Total weight</div>
+                                <div class="tool-stat-label">{% if analysis_report.has_total_weight_current %}Total weight{% elif analysis_report.has_product_weight %}Contents weight{% else %}Total weight{% endif %}</div>
                                 <div class="fw-bold">
                                     {% if analysis_report.has_total_weight_current %}
                                         {{ analysis_report.total_weight_current_display }}
+                                    {% elif analysis_report.has_product_weight %}
+                                        {{ analysis_report.net_weight_display }}
+                                        <div class="small text-muted fw-normal">Carton tare unavailable</div>
                                     {% else %}
                                         <span class="text-muted">N/A</span>
                                     {% endif %}
@@ -40,19 +43,6 @@
                     <div class="tool-summary-meta">Max quantity: {{ result.max_quantity }} pcs</div>
                 </div>
             {% endif %}
-
-            {% if analysis_report %}
-                <div class="tool-summary-strip mb-3">
-                    <div class="tool-summary-main mb-2"><strong>Carton weight</strong></div>
-                    <div class="row g-2 small">
-                        <div class="col-12 col-md-4"><span class="text-muted">Net contents</span><br>{% if analysis_report.has_product_weight %}<strong>{{ analysis_report.net_weight_display }}</strong>{% else %}<span class="text-muted">Not available</span>{% endif %}</div>
-                        <div class="col-12 col-md-4"><span class="text-muted">Empty carton tare</span><br>{% if analysis_report.has_container_tare %}<strong>{{ analysis_report.carton_tare_display }}</strong>{% else %}<span class="text-muted">Not included</span>{% endif %}</div>
-                        <div class="col-12 col-md-4"><span class="text-muted">Gross carton weight</span><br>{% if analysis_report.has_gross_carton_weight %}<strong>{{ analysis_report.gross_carton_weight_display }}</strong>{% else %}<span class="text-muted">Not available</span>{% endif %}</div>
-                    </div>
-                    <div class="tool-summary-meta mt-2">Tare source: {{ analysis_report.carton_tare_source_display }}</div>
-                </div>
-            {% endif %}
-
 
             {% if threejs_scene %}
                 <div class="container-threejs-panel mt-3">
@@ -184,9 +174,12 @@
                                     <td class="text-end">{{ analysis_report.external_dimensions_display }}</td>
                                 </tr>
                                 <tr>
-                                    <th scope="row" class="fw-normal text-muted">Box thickness</th>
+                                    <th scope="row" class="fw-normal text-muted">Caliper</th>
                                     <td class="text-end">{% if analysis_report.box_thickness_mm is not None %}{{ analysis_report.box_thickness_display }}{% else %}<span class="text-muted">Not available</span>{% endif %}</td>
                                 </tr>
+                                <tr><th scope="row" class="fw-normal text-muted">Caliper source</th><td class="text-end">{% if analysis_report.box_thickness_assumed %}Assumed 4 mm (geometry only){% else %}{{ analysis_report.caliper_source_display }}{% endif %}</td></tr>
+                                <tr><th scope="row" class="fw-normal text-muted">Grammage</th><td class="text-end">{{ analysis_report.grammage_display }}</td></tr>
+                                <tr><th scope="row" class="fw-normal text-muted">Grammage source</th><td class="text-end">{{ analysis_report.grammage_source_display }}</td></tr>
                                 <tr>
                                     <th scope="row" class="fw-normal text-muted">Current quantity</th>
                                     <td class="text-end">{{ analysis_report.requested_qty }} pcs</td>
@@ -204,7 +197,7 @@
                                     <td class="text-end">{{ analysis_report.volumetric_efficiency_max_display }}</td>
                                 </tr>
                                 <tr>
-                                    <th scope="row" class="fw-normal text-muted">Net weight</th>
+                                    <th scope="row" class="fw-normal text-muted">Net contents weight</th>
                                     <td class="text-end">
                                         {% if analysis_report.has_product_weight %}
                                             {{ analysis_report.net_weight_display }}
@@ -214,7 +207,7 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th scope="row" class="fw-normal text-muted">Total weight — current</th>
+                                    <th scope="row" class="fw-normal text-muted">Gross carton weight</th>
                                     <td class="text-end">
                                         {% if analysis_report.has_total_weight_current %}
                                             {{ analysis_report.total_weight_current_display }}
@@ -223,6 +216,7 @@
                                         {% endif %}
                                     </td>
                                 </tr>
+                                <tr><th scope="row" class="fw-normal text-muted">Empty carton tare</th><td class="text-end">{% if analysis_report.has_container_tare %}{{ analysis_report.carton_tare_display }}{% else %}Not available{% endif %}</td></tr>
                                 <tr>
                                     <th scope="row" class="fw-normal text-muted">Carton tare source</th>
                                     <td class="text-end">{{ analysis_report.carton_tare_source_display }}</td>
@@ -245,11 +239,11 @@
                         </table>
                     </div>
                     {% if analysis_report.box_thickness_assumed %}
-                        <div class="tool-summary-meta mt-2">External dimensions estimated using an assumed 4 mm box thickness because no thickness was provided.</div>
+                        <div class="tool-summary-meta mt-2">External dimensions estimated using an assumed 4 mm caliper because no caliper was provided.</div>
                     {% endif %}
                     {% if not analysis_report.has_container_tare or not analysis_report.has_payload_capacity %}
                         <div class="tool-summary-meta mt-2">
-                            {% if not analysis_report.has_container_tare %}Carton tare is not included; select a corrugated material or provide an authoritative tare when applicable.{% endif %}
+                            {% if not analysis_report.has_container_tare %}Carton tare is unavailable. {{ analysis_report.carton_tare_reason }}{% endif %}
                             {% if not analysis_report.has_payload_capacity %} Payload capacity is not currently available in the packaging material record.{% endif %}
                         </div>
                     {% endif %}

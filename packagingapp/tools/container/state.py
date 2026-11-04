@@ -29,6 +29,8 @@ def default_container_config():
         "box_h": "",
         "box_thickness_mm": "",
         "box_thickness_user_override": "",
+        "combined_grammage_g_m2": "",
+        "grammage_user_override": "",
         "corrugated_material_id": "",
         "corrugated_material_user_selected": "",
         "custom_combined_grammage_g_m2": "",

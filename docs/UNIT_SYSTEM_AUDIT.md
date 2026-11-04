@@ -549,3 +549,17 @@ box/pallet presenter summaries into the Palletization wrapper, so selected
 catalogue metadata and locally formatted dimensions/mass are rendered. Blank
 optional width/length overhangs normalize to zero at the Palletization service
 boundary, while blank carton weight and bottom-load limit remain `None`.
+
+
+### Container material-property overrides (November 2026)
+
+The shared manual Container form now pairs Caliper and Grammage with separate
+override/reset flags. Caliper follows `container_dimension_unit`; grammage uses
+g/m² with metric lengths and lb/MSF with inches/feet. Auto values resolve from
+the construction record on each calculation, independently of rounded input
+presentation. Catalogue SKUs resolve their own optional board association,
+caliper and grammage; manual selections never supply missing SKU properties.
+Container Flow `weight_kg`/`weight_g` now require complete gross mass. Incomplete
+mass remains separate metadata (`net_only`/`unknown`) through pallet and transport
+adapters. See `domain/container-selection-logic.md` for precedence and geometry-only
+constraint handling.

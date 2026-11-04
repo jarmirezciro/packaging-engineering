@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from ...units import format_dimensions, format_mass
 
 
@@ -83,6 +84,10 @@ def selected_container_summary(selected_material, data):
             )
 
         meta = " | ".join([p for p in meta_parts if p])
+        from .service import resolve_container_material_properties
+        properties = resolve_container_material_properties(
+            SimpleNamespace(cleaned_data={"container_dimension_unit": dimension_unit}), "catalogue", selected_material,
+        )
 
         return {
             "title": f"{selected_material.part_number} — {selected_material.part_description}",
@@ -93,6 +98,7 @@ def selected_container_summary(selected_material, data):
                 display_unit=dimension_unit,
             ),
             "meta": meta,
+            "properties": properties,
         }
 
     return {
