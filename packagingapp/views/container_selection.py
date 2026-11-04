@@ -1,3 +1,4 @@
+from packagingapp.tools.container.presenter import build_container_advanced_context
 import json
 import logging
 
@@ -32,7 +33,7 @@ from ..tools.container.service import (
     get_selected_corrugated_construction,
     get_selected_product,
 )
-from ..tools.container.state import default_container_config
+from ..tools.container.state import CONTAINER_ADVANCED_STATE_DEFAULTS, default_container_config
 from ..tools.container.case_presets import get_container_selection_case_preset
 from ..tools.container.dimensions import (
     EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
@@ -100,6 +101,7 @@ def _read_raw_container_config(
     else:
         source = request.GET
 
+    cfg.update({key: source.get(key, cfg.get(key, "")) for key in CONTAINER_ADVANCED_STATE_DEFAULTS})
     cfg.update({
         "mode": normalize_selection_mode({
             "mode": source.get("mode", normalize_selection_mode(cfg)),
@@ -157,13 +159,17 @@ def _read_raw_container_config(
 
     if "box_thickness_user_override" not in source and "box_thickness_user_override" not in (initial_config or {}) and cfg.get("box_thickness_mm"):
         cfg["box_thickness_user_override"] = "1"
+    for key, flag in (("box_weight", "box_weight_user_override"), ("box_max_payload", "box_max_payload_user_override"), ("product_weight", "product_weight_user_override")):
+        if flag not in source and flag not in (initial_config or {}) and cfg.get(key) not in (None, ""):
+            cfg[flag] = "1"
     return sanitize_container_config_for_session(cfg)
 
 
 def _build_shared_container_ui_contract(prefix=""):
     suffix = f"_{prefix}" if prefix else ""
 
-    names = {
+    names = {key: f"{key}{suffix}" for key in CONTAINER_ADVANCED_STATE_DEFAULTS}
+    names.update({
         "action": f"action{suffix}",
         "mode": f"mode{suffix}",
         "product_source": f"product_source{suffix}",
@@ -201,7 +207,7 @@ def _build_shared_container_ui_contract(prefix=""):
         "box_max_payload": f"box_max_payload{suffix}",
         "container_mass_unit": f"container_mass_unit{suffix}",
         "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
-    }
+    })
     assistant_state_fields = [
         {
             "key": key,
@@ -261,6 +267,8 @@ def _build_shared_container_ui_contract(prefix=""):
             "manual_rotation_fields": f"manualRotationFields{suffix}",
             "additional_parameters": f"productAdditionalParameters{suffix}",
             "additional_parameters_toggle": f"productAdditionalParametersToggle{suffix}",
+            "container_additional_parameters": f"containerAdditionalParameters{suffix}",
+            "advanced_data": f"containerAdvancedData{suffix}",
             "product_shape": f"id_product_shape{suffix}",
             "manual_container_fields": f"manualContainerFields{suffix}",
             "corrugated_material": f"corrugatedMaterial{suffix}",
@@ -598,15 +606,7 @@ def _build_design_export_payload(*, form, analysis, selected_product):
         "nominal_dimensions": report.get("nominal_product_dimensions_display"),
         "effective_dimensions": report.get("effective_product_dimensions_display"),
         "allowances": report.get("product_allowances_display"),
-        "weight": (
-            format_mass(
-                selected_product.weight,
-                canonical_unit="kg",
-                display_unit=form.cleaned_data.get("product_mass_unit") or "g",
-            )
-            if selected_product and getattr(selected_product, "weight", None) is not None
-            else f"{form.cleaned_data.get('product_weight')} {form.cleaned_data.get('product_mass_unit') or 'g'}"
-        ),
+        "weight": report.get("product_weight_display"),
         "desired_qty": f"{selected['desired_quantity']} pcs",
         "rotations": _rotation_display(bool(form.cleaned_data.get("r1")), bool(form.cleaned_data.get("r2")), bool(form.cleaned_data.get("r3"))),
     }
@@ -862,7 +862,9 @@ def _build_container_selection_page_context(
         data=form if request.method == "POST" else config,
     )
 
+    container_advanced = build_container_advanced_context(config, form, selected_product, selected_material, analysis_report)
     context = {
+        "container_advanced": container_advanced,
         "form": form,
         "container_form": form,
         "container_config": config,

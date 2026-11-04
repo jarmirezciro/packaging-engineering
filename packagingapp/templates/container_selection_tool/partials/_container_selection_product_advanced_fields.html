@@ -1,0 +1,20 @@
+<div class="tool-field-group mt-2">
+    <label class="form-label" for="productAdvancedWeight{{ container_ui.prefix }}">Product weight {% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.product_mass current_unit=container_values.product_mass_unit|default:'g' selector_key='advanced_weight' %}</label>
+    <input id="productAdvancedWeight{{ container_ui.prefix }}" type="number" step="any" min="0" class="form-control" name="{{ container_ui.names.product_weight }}" value="{{ container_advanced.inputs.product_weight }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.product_mass.group }}" data-analysis-property="product_weight" {% if container_advanced.inherited_product %}readonly{% endif %}>
+    {% include "container_selection_tool/partials/_container_selection_property_source.html" with property='product_weight' source_label=container_advanced.labels.product_weight overridden=container_advanced.flags.product_weight %}
+    {% if form.product_weight.errors %}<div class="text-danger small" role="alert">{{ form.product_weight.errors|join:", " }}</div>{% endif %}
+</div>
+        <div class="tool-field-group tool-tight-gap">
+            <label class="form-label" for="{{ container_ui.ids.product_shape }}">Product shape</label>
+            {% if mode == "workflow" %}
+                <select name="{{ container_ui.names.product_shape }}" id="{{ container_ui.ids.product_shape }}" class="form-select">
+                    <option value="cuboid" {% if container_values.product_shape == "cuboid" %}selected{% endif %}>Rectangular / cuboid</option>
+                    <option value="cylinder" {% if container_values.product_shape == "cylinder" %}selected{% endif %}>Cylinder</option>
+                    <option value="bottle" {% if container_values.product_shape == "bottle" %}selected{% endif %}>Bottle</option>
+                    <option value="pillow_bag" {% if container_values.product_shape == "pillow_bag" %}selected{% endif %}>Pillow bag</option>
+                </select>
+            {% else %}
+                {{ form.product_shape }}
+            {% endif %}
+            <div class="app-form-note">Visualization only; packing uses rectangular bounding dimensions.</div>
+        </div>

@@ -428,6 +428,13 @@ class NonNegativeFiniteFloatField(forms.FloatField):
 ###
 
 class ContainerSelectionMode1Form(forms.Form):
+    product_weight_user_override = forms.CharField(required=False, widget=forms.HiddenInput())
+    box_weight_user_override = forms.CharField(required=False, widget=forms.HiddenInput())
+    box_max_payload_user_override = forms.CharField(required=False, widget=forms.HiddenInput())
+    container_override_target = forms.CharField(required=False, widget=forms.HiddenInput())
+    product_override_target = forms.CharField(required=False, widget=forms.HiddenInput())
+    product_advanced_open = forms.CharField(required=False, widget=forms.HiddenInput())
+    container_advanced_open = forms.CharField(required=False, widget=forms.HiddenInput())
     MODE_CHOICES = [
         ("design", "Design Mode"),
         ("single", "Single container analysis"),

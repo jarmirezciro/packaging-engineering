@@ -41,6 +41,7 @@ from ..product_dimensions import (
 )
 
 from .serializers import sanitize_container_config_for_session
+from .state import CONTAINER_ADVANCED_STATE_DEFAULTS
 from .dimensions import (
     EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
     EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
@@ -183,6 +184,13 @@ def _corrugated_material_label(construction):
 
 def build_hydrated_post_data(raw_post, config, selected_product=None, selected_material=None):
     post_data = raw_post.copy()
+    # Config is already scope-normalized by both adapters. Never reintroduce
+    # overrides posted for a different catalogue candidate.
+    if config.get("container_override_target"):
+        for key in (*CONTAINER_ADVANCED_STATE_DEFAULTS, "product_weight", "box_thickness_mm", "box_thickness_user_override",
+                    "combined_grammage_g_m2", "grammage_user_override", "box_weight", "box_max_payload",
+                    "corrugated_material_id", "corrugated_material_user_selected"):
+            post_data[key] = config.get(key, "")
     post_data["mode"] = (config or {}).get("mode") or "single"
     post_data["product_shape"] = normalize_product_shape(
         (config or {}).get("product_shape")
@@ -197,11 +205,8 @@ def build_hydrated_post_data(raw_post, config, selected_product=None, selected_m
         post_data["product_w"] = "" if selected_product.product_width is None else str(selected_product.product_width)
         post_data["product_h"] = "" if selected_product.product_height is None else str(selected_product.product_height)
 
-        if (
-            post_data.get("product_weight") in (None, "", "None")
-            and getattr(selected_product, "weight", None) is not None
-        ):
-            post_data["product_weight"] = str(kg_to_g(selected_product.weight))
+        if str(config.get("product_weight_user_override") or "") != "1":
+            post_data["product_weight"] = ""
 
         post_data["r1"] = "on" if bool(getattr(selected_product, "rotation_1", False)) else ""
         post_data["r2"] = "on" if bool(getattr(selected_product, "rotation_2", False)) else ""
@@ -229,11 +234,7 @@ def build_initial_data(config, selected_product=None, selected_material=None):
             "product_l": selected_product.product_length,
             "product_w": selected_product.product_width,
             "product_h": selected_product.product_height,
-            "product_weight": (
-                kg_to_g(selected_product.weight)
-                if getattr(selected_product, "weight", None) is not None
-                else None
-            ),
+            "product_weight": config.get("product_weight") if str(config.get("product_weight_user_override") or "") == "1" else "",
             "r1": bool(getattr(selected_product, "rotation_1", False)),
             "r2": bool(getattr(selected_product, "rotation_2", False)),
             "r3": bool(getattr(selected_product, "rotation_3", False)),
@@ -807,7 +808,8 @@ def _resolve_manual_quantity(form, key, unit_key, converter, canonical_unit):
 
 
 def _resolve_product_weight(form, product_source, selected_product):
-    if product_source == "catalogue" and selected_product is not None:
+    override = _analysis_override(form, "product_weight", "product_weight_user_override", product_source, selected_product, product=True)
+    if product_source == "catalogue" and selected_product is not None and not override:
         weight_kg = getattr(selected_product, "weight", None)
         return _safe_float(kg_to_g(weight_kg)) if weight_kg is not None else None
 
@@ -832,69 +834,119 @@ def _has_material_override(form, key, flag):
     return cleaned.get(key) not in (None, "")
 
 
+def _analysis_override(form, key, flag, source, item=None, *, product=False):
+    """Explicit catalogue overrides belong only to their selected item."""
+    if source != "catalogue":
+        return _has_material_override(form, key, flag)
+    cleaned = getattr(form, "cleaned_data", {}) or {}
+    if str(cleaned.get(flag) or "") != "1":
+        return False
+    scope = cleaned.get("product_override_target" if product else "container_override_target")
+    item_id = getattr(item, "pk", None) or getattr(item, "id", None)
+    selected_id = cleaned.get("selected_product_id" if product else "container_id")
+    return item_id is not None and (
+        scope == f"catalogue:{item_id}" or not scope and str(selected_id or "") == str(item_id)
+    )
+
+
 def resolve_container_material_properties(form, container_source, selected_material=None,
                                           selected_board_construction=None):
-    """Resolve properties independently of geometry assumptions and tare.
-
-    Catalogue SKUs own their construction; a manual selector can never supply
-    missing catalogue data. All returned values are JSON-safe canonical values.
-    """
+    """Effective analysis values, with independent read-only catalogue baselines."""
+    cleaned = getattr(form, "cleaned_data", {}) or {}
     catalogue = container_source == "catalogue"
-    construction = (getattr(selected_material, "corrugated_construction", None)
-                    if catalogue else selected_board_construction)
-    if not catalogue and construction is None:
-        construction = get_selected_corrugated_construction(form=form)
+    original_board = getattr(selected_material, "corrugated_construction", None) if catalogue else None
+    construction = original_board if catalogue else selected_board_construction
+    board_override = _analysis_override(form, "corrugated_material_id", "corrugated_material_user_selected",
+                                        container_source, selected_material) and bool(cleaned.get("corrugated_material_id"))
+    if not catalogue or board_override:
+        construction = selected_board_construction or get_selected_corrugated_construction(form=form)
     caliper = _resolve_board_caliper(construction)
     caliper_mm = _safe_float(caliper.value_mm)
     caliper_source = "construction_" + caliper.source if caliper_mm is not None else "unavailable"
-    caliper_label = "Board construction: " + caliper.source_label.lower() if caliper_mm is not None else "Unavailable"
+    caliper_label = "Board construction" if caliper_mm is not None else "Not available"
     grammage = _safe_float(getattr(construction, "combined_grammage_g_m2", None))
     grammage_source = "construction" if grammage is not None else "unavailable"
-    grammage_label = "Board construction" if grammage is not None else "Unavailable"
+    grammage_label = "Board construction" if grammage is not None else "Not available"
+    caliper_source_id = grammage_source_id = str(getattr(construction, "code", "") or "")
+    reference = None
     if catalogue:
         sku_caliper = _safe_float(getattr(selected_material, "box_thickness_mm", None))
-        if sku_caliper is not None and sku_caliper > 0:
-            caliper_mm, caliper_source, caliper_label = sku_caliper, "catalogue", "Catalogue SKU"
         sku_grammage = _safe_float(getattr(selected_material, "combined_grammage_g_m2", None))
+        if sku_caliper is not None and sku_caliper > 0:
+            caliper_mm, caliper_source, caliper_label = sku_caliper, "catalogue", "Catalogue"
+            caliper_source_id = str(getattr(selected_material, "pk", "") or "")
         if sku_grammage is not None and sku_grammage > 0:
-            grammage, grammage_source, grammage_label = sku_grammage, "catalogue", "Catalogue SKU"
-    else:
-        if _has_material_override(form, "box_thickness_mm", "box_thickness_user_override"):
-            caliper_mm = _resolve_manual_quantity(form, "box_thickness_mm", "container_dimension_unit", convert_length, "mm")
-            caliper_source, caliper_label = "manual", "Manual override"
-        if _has_material_override(form, "combined_grammage_g_m2", "grammage_user_override"):
-            grammage = form.cleaned_data.get("combined_grammage_g_m2")
-            if form.cleaned_data.get("container_dimension_unit") in {"in", "ft"}:
-                grammage = lb_msf_to_gsm(grammage)
-            grammage = _safe_float(grammage)
-            grammage_source, grammage_label = "manual", "Manual override"
-        elif form.cleaned_data.get("corrugated_material_id") == "custom":
-            grammage = _safe_float(form.cleaned_data.get("custom_combined_grammage_g_m2"))
-            grammage_source, grammage_label = "legacy_custom", "Legacy custom material"
+            grammage, grammage_source, grammage_label = sku_grammage, "catalogue", "Catalogue"
+            grammage_source_id = str(getattr(selected_material, "pk", "") or "")
+        if _rsc_estimate_is_eligible("catalogue", selected_material) and (caliper_mm is None or grammage is None):
+            reference = get_corrugated_materials().filter(code=DEFAULT_MANUAL_RSC_MATERIAL_CODE).first()
+            if caliper_mm is None:
+                caliper_mm = _safe_float(_resolve_board_caliper(reference).value_mm)
+                if caliper_mm is not None:
+                    caliper_source, caliper_label = "reference_assumption", "Reference assumption"
+                    caliper_source_id = DEFAULT_MANUAL_RSC_MATERIAL_CODE
+            if grammage is None:
+                grammage = _safe_float(getattr(reference, "combined_grammage_g_m2", None))
+                if grammage is not None:
+                    grammage_source, grammage_label = "reference_assumption", "Reference assumption"
+                    grammage_source_id = DEFAULT_MANUAL_RSC_MATERIAL_CODE
+    elif cleaned.get("corrugated_material_id") == "custom":
+        grammage = _safe_float(cleaned.get("custom_combined_grammage_g_m2"))
+        grammage_source, grammage_label = "legacy_custom", "Legacy custom material"
+    elif (cleaned.get("mode") == "design"
+          and getattr(construction, "code", None) == DEFAULT_MANUAL_RSC_MATERIAL_CODE
+          and str(cleaned.get("corrugated_material_user_selected") or "") != "1"):
+        if caliper_mm is not None:
+            caliper_source, caliper_label = "reference_assumption", "Reference assumption"
+        if grammage is not None:
+            grammage_source, grammage_label = "reference_assumption", "Reference assumption"
+    baseline = {
+        "caliper_baseline_mm": caliper_mm, "grammage_baseline_g_m2": grammage,
+        "caliper_baseline_source": caliper_source, "grammage_baseline_source": grammage_source,
+        "caliper_baseline_source_display": caliper_label, "grammage_baseline_source_display": grammage_label,
+    }
+    caliper_override = _analysis_override(form, "box_thickness_mm", "box_thickness_user_override", container_source, selected_material)
+    grammage_override = _analysis_override(form, "combined_grammage_g_m2", "grammage_user_override", container_source, selected_material)
+    if caliper_override:
+        caliper_mm = _resolve_manual_quantity(form, "box_thickness_mm", "container_dimension_unit", convert_length, "mm")
+        caliper_source, caliper_label = "manual", "Manual override"
+    if grammage_override:
+        grammage = cleaned.get("combined_grammage_g_m2")
+        if cleaned.get("container_dimension_unit") in {"in", "ft"}:
+            grammage = lb_msf_to_gsm(grammage)
+        grammage = _safe_float(grammage)
+        grammage_source, grammage_label = "manual", "Manual override"
     if grammage is None or grammage <= 0:
-        grammage, grammage_source, grammage_label = None, "unavailable", "Unavailable"
-    unit = form.cleaned_data.get("container_dimension_unit") or "mm"
+        grammage, grammage_source, grammage_label = None, "unavailable", "Not available"
+    unit = cleaned.get("container_dimension_unit") or "mm"
     display_grammage = gsm_to_lb_msf(grammage) if unit in {"in", "ft"} else grammage
     density_unit = "lb/MSF" if unit in {"in", "ft"} else "g/m²"
+    effective_board = construction or reference
     return {
-        "caliper_mm": caliper_mm,
-        "caliper_source": caliper_source,
-        "caliper_source_display": caliper_label,
+        **baseline,
+        "caliper_mm": caliper_mm, "caliper_source": caliper_source,
+        "caliper_source_display": caliper_label, "caliper_source_id": caliper_source_id,
+        "caliper_user_override": bool(caliper_override),
         "caliper_display": format_length(caliper_mm, display_unit=unit),
-        "combined_grammage_g_m2": grammage,
-        "grammage_source": grammage_source,
-        "grammage_source_display": grammage_label,
+        "combined_grammage_g_m2": grammage, "grammage_source": grammage_source,
+        "grammage_source_display": grammage_label, "grammage_source_id": grammage_source_id,
+        "grammage_user_override": bool(grammage_override),
         "grammage_display": f"{float(display_grammage):.1f} {density_unit}" if display_grammage is not None else "Not available",
-        "corrugated_material_id": str(getattr(construction, "code", "") or getattr(construction, "pk", "") or ""),
-        "corrugated_material_name": getattr(construction, "name", None),
+        "corrugated_material_id": str(getattr(effective_board, "code", "") or getattr(effective_board, "pk", "") or ""),
+        "corrugated_material_name": getattr(effective_board, "name", None),
+        "source_packaging_item_id": str(getattr(selected_material, "pk", "") or getattr(selected_material, "id", "") or "") if catalogue else None,
+        "original_construction_id": str(getattr(original_board, "code", "") or "") if catalogue else None,
     }
 
 
 def _rsc_estimate_is_eligible(container_source, selected_material):
     if container_source == "manual":
         return True
+    description = str(getattr(selected_material, "packaging_materials", "") or "").casefold()
+    non_corrugated = any(word in description for word in ("plastic", "wood", "metal", "steel", "aluminium")) and not any(word in description for word in ("corrugat", "paper", "cardboard"))
     return (
-        selected_material is not None
+        not non_corrugated
+        and selected_material is not None
         and getattr(selected_material, "packaging_type", None)
         in RSC_ELIGIBLE_PACKAGING_TYPES
         and getattr(selected_material, "carton_style", None) == "0201"
@@ -913,30 +965,16 @@ def _resolve_container_weight(
     properties = resolve_container_material_properties(
         form, container_source, selected_material, selected_board_construction,
     )
+    explicit = _analysis_override(form, "box_weight", "box_weight_user_override", container_source, selected_material)
+    if explicit:
+        explicit_tare = _resolve_manual_quantity(form, "box_weight", "container_mass_unit", convert_mass, "g")
+        if explicit_tare is not None:
+            return {"tare_g": explicit_tare, "source": "manual", "source_label": "Manual override", "reason": "",
+                    "original_tare_g": _safe_float(kg_to_g(selected_material.part_weight)) if container_source == "catalogue" and selected_material is not None and getattr(selected_material, "part_weight", None) is not None else None}
     if container_source == "catalogue":
         weight_kg = getattr(selected_material, "part_weight", None)
         if weight_kg is not None:
-            return {
-                "tare_g": _safe_float(kg_to_g(weight_kg)),
-                "source": "catalogue",
-                "source_label": "Catalogue actual",
-                "reason": "",
-            }
-
-    explicit_tare = None if container_source == "catalogue" else _resolve_manual_quantity(
-        form,
-        "box_weight",
-        "container_mass_unit",
-        convert_mass,
-        "g",
-    )
-    if explicit_tare is not None:
-        return {
-            "tare_g": explicit_tare,
-            "source": "manual",
-            "source_label": "Manually supplied",
-            "reason": "",
-        }
+            return {"tare_g": _safe_float(kg_to_g(weight_kg)), "source": "catalogue", "source_label": "Catalogue actual", "reason": ""}
 
     grammage = properties["combined_grammage_g_m2"]
     if grammage is not None:
@@ -962,7 +1000,8 @@ def _resolve_container_weight(
         return {
             "tare_g": _safe_float(tare.finished_box_weight_g),
             "source": "estimated_material",
-            "source_label": "Estimated from corrugated material",
+            "source_label": "Estimated from assumed material data" if properties["grammage_source"] == "reference_assumption" else "Estimated from corrugated material",
+            "assumed_material": properties["grammage_source"] == "reference_assumption",
             "reason": "",
             "corrugated_material_id": properties["corrugated_material_id"],
             "corrugated_material_name": properties["corrugated_material_name"] or "Custom grammage",
@@ -998,7 +1037,7 @@ def _resolve_payload_capacity(form, container_source, selected_material):
     field is added later, the report will start using it without changing
     the template contract.
     """
-    if container_source == "manual":
+    if _analysis_override(form, "box_max_payload", "box_max_payload_user_override", container_source, selected_material):
         return _resolve_manual_quantity(
             form,
             "box_max_payload",
@@ -1019,6 +1058,44 @@ def _resolve_payload_capacity(form, container_source, selected_material):
             "max_weight_kg",
         ],
     )
+
+
+def _product_weight_metadata(form, product_source, selected_product, weight):
+    override = _analysis_override(form, "product_weight", "product_weight_user_override", product_source, selected_product, product=True)
+    source = "unavailable" if weight is None else "manual" if override or product_source == "manual" else "catalogue"
+    return {
+        "product_weight_source": source,
+        "product_weight_source_display": {"unavailable": "Not available", "manual": "Manual override", "catalogue": "Catalogue"}[source],
+        "source_product_item_id": str(getattr(selected_product, "pk", "") or "") if product_source == "catalogue" else None,
+        "product_weight_baseline_g": _safe_float(kg_to_g(selected_product.weight)) if product_source == "catalogue" and selected_product is not None and getattr(selected_product, "weight", None) is not None else None,
+    }
+
+
+def build_effective_container_specification(dimensions, properties, tare_detail, product_metadata,
+                                          product_weight, quantity, payload_capacity=None, payload_source="unavailable"):
+    """JSON-safe physical snapshot accepted by Flow without catalogue reloading."""
+    net = product_weight * quantity if product_weight is not None else None
+    tare = tare_detail.get("tare_g")
+    gross = net + tare if net is not None and tare is not None else None
+    status = ("gross_estimated" if tare_detail.get("source") == "estimated_material" else "gross_known") if gross is not None else "net_only" if net is not None else "unknown"
+    return {
+        "version": 1, "units": {"dimensions": "mm", "mass": "g", "grammage": "g/m²"},
+        "source_packaging_item_id": properties.get("source_packaging_item_id"),
+        **product_metadata,
+        "original_construction_id": properties.get("original_construction_id"),
+        "effective_construction_id": properties.get("corrugated_material_id"),
+        **{key: dimensions.get(key) for key in ("internal_length", "internal_width", "internal_height",
+            "external_length", "external_width", "external_height", "external_dimension_source", "box_thickness_assumed")},
+        **{key: properties.get(key) for key in ("caliper_mm", "combined_grammage_g_m2", "caliper_source", "caliper_source_id",
+            "grammage_source", "grammage_source_id", "caliper_user_override", "grammage_user_override",
+            "caliper_baseline_mm", "grammage_baseline_g_m2", "caliper_baseline_source", "grammage_baseline_source")},
+        "product_weight_g": product_weight, "net_content_weight_g": net,
+        "carton_tare_g": tare, "carton_tare_source": tare_detail.get("source"),
+        "carton_tare_baseline_g": tare_detail.get("original_tare_g", tare if tare_detail.get("source") == "catalogue" else None),
+        "carton_tare_assumed_material": bool(tare_detail.get("assumed_material")),
+        "gross_carton_weight_g": gross, "weight_status": status, "packed_quantity": int(quantity),
+        "payload_capacity_g": payload_capacity, "payload_capacity_source": payload_source,
+    }
 
 
 def build_container_analysis_report(
@@ -1102,6 +1179,11 @@ def build_container_analysis_report(
     return {
         **dimension_contract,
         **properties,
+        **_product_weight_metadata(form, product_source, selected_product, product_weight),
+        "effective_specification": build_effective_container_specification(dimension_contract, properties, container_weight,
+            _product_weight_metadata(form, product_source, selected_product, product_weight), product_weight, requested_qty, payload_capacity,
+            "manual" if _analysis_override(form, "box_max_payload", "box_max_payload_user_override", container_source, selected_material) else "catalogue" if payload_capacity is not None else "unavailable"),
+        "carton_tare_assumed_material": bool(container_weight.get("assumed_material")),
         "requested_qty": requested_qty,
         "max_quantity": max_quantity,
         "remaining_capacity": remaining_capacity,
@@ -1255,6 +1337,13 @@ def _add_container_design_metrics(
     row.update({
         **dimension_contract,
         **properties,
+        **_product_weight_metadata(form, product_source, selected_product, product_weight),
+        "effective_specification": build_effective_container_specification(dimension_contract, properties, container_weight,
+            _product_weight_metadata(form, product_source, selected_product, product_weight), product_weight, quantity,
+            _resolve_payload_capacity(form, "manual", None), "manual" if _resolve_payload_capacity(form, "manual", None) is not None else "unavailable"),
+        "carton_tare_assumed_material": bool(container_weight.get("assumed_material")),
+        "product_weight": product_weight,
+        "product_weight_display": format_mass(product_weight, canonical_unit="g", display_unit=form.cleaned_data.get("product_mass_unit") or "g"),
         "net_content_weight": _round_or_none(net_weight, 3),
         "net_content_weight_g": _round_or_none(net_weight, 3),
         "container_tare": _round_or_none(container_tare, 3),
@@ -1815,5 +1904,8 @@ def analyze_container_capacity(
             "weight_source_display": weight_detail.get("source_label"),
             **dimension_contract,
             **properties,
+            "effective_specification": build_effective_container_specification(dimension_contract, properties, weight_detail,
+                _product_weight_metadata(form, product_source, selected_product, product_weight), product_weight, requested_for_weight,
+                _resolve_payload_capacity(form, container_source, selected_material), "manual" if _analysis_override(form, "box_max_payload", "box_max_payload_user_override", container_source, selected_material) else "catalogue" if _resolve_payload_capacity(form, container_source, selected_material) is not None else "unavailable"),
         },
     }

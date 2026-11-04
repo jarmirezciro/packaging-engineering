@@ -245,8 +245,9 @@ def _merge_value(config, spec, value):
         config["r3"] = "height" in allowed
         return
     config[spec["config_key"]] = _config_number(value)
-    if spec["config_key"] == "box_thickness_mm":
-        config["box_thickness_user_override"] = "1"
+    override_flags = {"box_thickness_mm": "box_thickness_user_override", "box_weight": "box_weight_user_override", "box_max_payload": "box_max_payload_user_override", "product_weight": "product_weight_user_override"}
+    if spec["config_key"] in override_flags:
+        config[override_flags[spec["config_key"]]] = "1"
 
 
 def _build_proposed_form(

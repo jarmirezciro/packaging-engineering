@@ -160,26 +160,29 @@
                 <div class="tool-field-group mb-0"><label class="form-label">Height {% if current_product_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.product_dimensions current_unit=container_values.product_dimension_unit|default:'mm' selector_key='height' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_h }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.product_dimensions.group }}" value="{{ container_values.product_h|default:'' }}">{% else %}{{ form.product_h }}{% endif %}</div>
             </div>
 
-            <div class="tool-compact-grid-two tool-tight-gap">
-                <div class="tool-field-group mb-0"><label class="form-label">Weight {% if current_product_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.product_mass current_unit=container_values.product_mass_unit|default:'g' selector_key='weight' %}{% else %}<span class="text-muted">(g)</span>{% endif %}</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ container_ui.names.product_weight }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.product_mass.group }}" value="{{ container_values.product_weight|default:'' }}">{% else %}{{ form.product_weight }}{% endif %}</div>
-                <div id="{% if mode == 'workflow' %}manualDesiredQtyWrap_{{ container_ui.prefix }}{% else %}manualDesiredQtyWrap{% endif %}" class="tool-field-group mb-0"><label class="form-label">Desired quantity</label>{% if mode == "workflow" %}<input type="number" step="1" min="1" class="form-control" name="{{ container_ui.names.desired_qty }}" value="{{ container_values.desired_qty|default:'1' }}">{% else %}{{ form.desired_qty }}{% endif %}</div>
-            </div>
         </div>
 
-        <div class="tool-field-group tool-tight-gap">
-            <label class="form-label" for="{{ container_ui.ids.product_shape }}">Product shape</label>
-            {% if mode == "workflow" %}
-                <select name="{{ container_ui.names.product_shape }}" id="{{ container_ui.ids.product_shape }}" class="form-select">
-                    <option value="cuboid" {% if container_values.product_shape == "cuboid" %}selected{% endif %}>Rectangular / cuboid</option>
-                    <option value="cylinder" {% if container_values.product_shape == "cylinder" %}selected{% endif %}>Cylinder</option>
-                    <option value="bottle" {% if container_values.product_shape == "bottle" %}selected{% endif %}>Bottle</option>
-                    <option value="pillow_bag" {% if container_values.product_shape == "pillow_bag" %}selected{% endif %}>Pillow bag</option>
-                </select>
-            {% else %}
-                {{ form.product_shape }}
-            {% endif %}
-            <div class="app-form-note">Product shape affects the 3D visualization only. Packing calculations use the entered rectangular bounding dimensions.</div>
-        </div>
+        {% if selected_product %}
+            <div class="tool-summary-strip">
+                <div class="tool-summary-main"><strong>{{ selected_product_summary.title }}</strong></div>
+                <div class="tool-summary-meta">
+                    {{ selected_product_summary.dims }}
+
+                </div>
+            </div>
+        {% endif %}
+
+        {% if current_product_source == "catalogue" %}
+            <div class="app-form-actions tool-card-actions">
+                {% if selected_product %}
+                    <button type="button" class="btn btn-app-outline btn-sm" onclick="containerSelectionClearSelectedProduct('{{ container_ui.prefix }}')"><i class="bi bi-arrow-repeat me-2"></i>Change Product</button>
+                {% else %}
+                    <button type="button" class="btn btn-app-outline btn-sm" onclick="containerSelectionBrowseProductCatalogue('{{ container_ui.prefix }}')"><i class="bi bi-search me-2"></i>Browse Catalogue</button>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <div id="{% if mode == 'workflow' %}manualDesiredQtyWrap_{{ container_ui.prefix }}{% else %}manualDesiredQtyWrap{% endif %}" class="tool-field-group tool-tight-gap"><label class="form-label">Desired quantity</label>{% if mode == "workflow" %}<input type="number" step="1" min="1" class="form-control" name="{{ container_ui.names.desired_qty }}" value="{{ container_values.desired_qty|default:'1' }}">{% else %}{{ form.desired_qty }}{% endif %}</div>
 
         {% include "shared/_product_unit_threejs_panel.html" with scene=product_unit_scene scene_id=container_ui.ids.product_unit_scene viewer_id=container_ui.ids.product_unit_viewer live=True input_context=True product_source=current_product_source dimension_unit_input_name=container_ui.names.product_dimension_unit dimension_unit_group=container_ui.unit_selectors.product_dimensions.group length_input_name=container_ui.names.product_l width_input_name=container_ui.names.product_w height_input_name=container_ui.names.product_h shape_input_name=container_ui.names.product_shape %}
 
@@ -285,26 +288,7 @@
             </div>
         </div>
 
-        {% include "shared/_product_dimensional_allowance.html" with ui=container_ui values=container_values product_source=current_product_source selected_product=selected_product %}
+        {% include "shared/_product_dimensional_allowance.html" with ui=container_ui values=container_values product_source=current_product_source selected_product=selected_product advanced_fields_template="container_selection_tool/partials/_container_selection_product_advanced_fields.html" advanced_subtitle="Optional weight, allowances and visualization." advanced_open=container_advanced.product_open advanced_state_name=container_ui.names.product_advanced_open %}
 
-        {% if selected_product %}
-            <div class="tool-summary-strip">
-                <div class="tool-summary-main"><strong>{{ selected_product_summary.title }}</strong></div>
-                <div class="tool-summary-meta">
-                    {{ selected_product_summary.dims }}
-                    {% if selected_product_summary.meta %} | {{ selected_product_summary.meta }}{% endif %}
-                </div>
-            </div>
-        {% endif %}
-
-        {% if current_product_source == "catalogue" %}
-            <div class="app-form-actions tool-card-actions">
-                {% if selected_product %}
-                    <button type="button" class="btn btn-app-outline btn-sm" onclick="containerSelectionClearSelectedProduct('{{ container_ui.prefix }}')"><i class="bi bi-arrow-repeat me-2"></i>Change Product</button>
-                {% else %}
-                    <button type="button" class="btn btn-app-outline btn-sm" onclick="containerSelectionBrowseProductCatalogue('{{ container_ui.prefix }}')"><i class="bi bi-search me-2"></i>Browse Catalogue</button>
-                {% endif %}
-            </div>
-        {% endif %}
     </div>
 </div>

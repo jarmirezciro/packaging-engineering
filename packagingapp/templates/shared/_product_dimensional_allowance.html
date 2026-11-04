@@ -3,20 +3,22 @@
 <div class="d-flex justify-content-between align-items-start gap-3 mb-2 product-allowance-header">
     <div>
         <div class="app-form-section-title mb-0">Additional parameters</div>
-        <div class="app-form-note">Optional product dimensional allowance.</div>
+        <div class="app-form-note">{{ advanced_subtitle|default:"Optional product dimensional allowance." }}</div>
     </div>
     <button type="button"
             class="btn btn-app-outline btn-sm flex-shrink-0"
             id="{{ ui.ids.additional_parameters_toggle }}"
             aria-controls="{{ ui.ids.additional_parameters }}"
-            aria-expanded="false"
+            aria-expanded="{% if advanced_open %}true{% else %}false{% endif %}"
             onclick="KolliPackProductAllowance.toggle('{{ ui.ids.additional_parameters }}', this)">
         <i class="bi bi-chevron-down me-2" aria-hidden="true"></i>
-        <span>Show Advanced</span>
+        <span>{% if advanced_open %}Hide Advanced{% else %}Show Advanced{% endif %}</span>
     </button>
 </div>
 
 <div id="{{ ui.ids.additional_parameters }}"
+     data-tool-advanced-panel
+     data-advanced-state-name="{{ advanced_state_name|default:'' }}"
      data-product-allowance-panel
      data-product-dimension-group="{{ ui.unit_selectors.product_dimensions.group }}"
      data-nominal-length-name="{{ ui.names.product_l }}"
@@ -29,7 +31,8 @@
      data-catalogue-nominal-length="{{ selected_product.product_length|default:'' }}"
      data-catalogue-nominal-width="{{ selected_product.product_width|default:'' }}"
      data-catalogue-nominal-height="{{ selected_product.product_height|default:'' }}"
-     hidden>
+     {% if not advanced_open %}hidden{% endif %}>
+    {% if advanced_fields_template %}{% include advanced_fields_template %}{% endif %}
     <div class="tool-compact-grid-three">
         <div class="tool-field-group mb-0">
             <label class="form-label">Length allowance (<span data-unit-label data-unit-group="{{ ui.unit_selectors.product_dimensions.group }}">{{ values.product_dimension_unit|default:'mm' }}</span>)</label>
@@ -41,6 +44,7 @@
             {% else %}
                 {{ form.product_allowance_l }}
             {% endif %}
+            {% if form.product_allowance_l.errors %}<div class="text-danger small" role="alert">{{ form.product_allowance_l.errors|join:", " }}</div>{% endif %}
         </div>
         <div class="tool-field-group mb-0">
             <label class="form-label">Width allowance (<span data-unit-label data-unit-group="{{ ui.unit_selectors.product_dimensions.group }}">{{ values.product_dimension_unit|default:'mm' }}</span>)</label>
@@ -52,6 +56,7 @@
             {% else %}
                 {{ form.product_allowance_w }}
             {% endif %}
+            {% if form.product_allowance_w.errors %}<div class="text-danger small" role="alert">{{ form.product_allowance_w.errors|join:", " }}</div>{% endif %}
         </div>
         <div class="tool-field-group mb-0">
             <label class="form-label">Height allowance (<span data-unit-label data-unit-group="{{ ui.unit_selectors.product_dimensions.group }}">{{ values.product_dimension_unit|default:'mm' }}</span>)</label>
@@ -63,6 +68,7 @@
             {% else %}
                 {{ form.product_allowance_h }}
             {% endif %}
+            {% if form.product_allowance_h.errors %}<div class="text-danger small" role="alert">{{ form.product_allowance_h.errors|join:", " }}</div>{% endif %}
         </div>
     </div>
 
@@ -172,7 +178,9 @@
                 var icon = button.querySelector("i");
                 if (icon) icon.className = expanded ? "bi bi-chevron-up me-2" : "bi bi-chevron-down me-2";
             }
-            bind(panel);
+            var state = field(panel.closest("form"), panel.dataset.advancedStateName);
+            if (state) state.value = expanded ? "1" : "";
+            if (panel.matches("[data-product-allowance-panel]")) bind(panel);
         },
     };
 

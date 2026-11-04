@@ -197,6 +197,7 @@ def _allowed_vertical_axes(product, r1, r2, r3):
 
 
 def _effective_product_values(form, selected_product, readiness):
+    from .service import _resolve_product_weight
     if readiness["product_source"] == "catalogue":
         if selected_product is None:
             return (None, None, None, None)
@@ -204,11 +205,7 @@ def _effective_product_values(form, selected_product, readiness):
             _finite_number(getattr(selected_product, "product_length", None)),
             _finite_number(getattr(selected_product, "product_width", None)),
             _finite_number(getattr(selected_product, "product_height", None)),
-            _finite_number(
-                kg_to_g(selected_product.weight)
-                if getattr(selected_product, "weight", None) is not None
-                else None
-            ),
+            _finite_number(_resolve_product_weight(form, "catalogue", selected_product)),
         )
     return (
         _finite_number(form.cleaned_data.get("product_l")),
@@ -374,6 +371,9 @@ def _build_inputs(
         "selection": str(corrugated_material_id or "none"),
         "caliper_override": str(form.cleaned_data.get("box_thickness_user_override") or ""),
         "grammage_override": str(form.cleaned_data.get("grammage_user_override") or ""),
+        "tare_override": str(form.cleaned_data.get("box_weight_user_override") or ""),
+        "payload_override": str(form.cleaned_data.get("box_max_payload_user_override") or ""),
+        "product_weight_override": str(form.cleaned_data.get("product_weight_user_override") or ""),
         "effective_grammage_input": _measurement(form.cleaned_data.get("combined_grammage_g_m2"), "lb/MSF" if form.cleaned_data.get("container_dimension_unit") in {"in", "ft"} else "g/m^2"),
         "custom_combined_grammage": _measurement(
             custom_grammage,

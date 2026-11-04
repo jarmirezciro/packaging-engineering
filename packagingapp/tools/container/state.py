@@ -1,5 +1,41 @@
+CONTAINER_ADVANCED_STATE_DEFAULTS = {
+    "product_weight_user_override": "",
+    "box_weight_user_override": "",
+    "box_max_payload_user_override": "",
+    "container_override_target": "",
+    "product_override_target": "",
+    "product_advanced_open": "",
+    "container_advanced_open": "",
+}
+
+
+def normalize_container_override_scope(config):
+    """Keep analysis overrides attached to the selected physical item."""
+    config = dict(config)
+    catalogue = config.get("mode") == "optimal" or (
+        config.get("mode") != "design" and config.get("container_source") == "catalogue"
+    )
+    target = ("catalogue:" + str(config.get("container_id") or "pending:" + str(config.get("catalogue_id") or ""))) if catalogue else "manual"
+    previous = config.get("container_override_target") or ""
+    if previous != target and (previous or catalogue):
+        for key in ("box_thickness_mm", "box_thickness_user_override", "combined_grammage_g_m2",
+                    "grammage_user_override", "box_weight", "box_weight_user_override",
+                    "box_max_payload", "box_max_payload_user_override", "corrugated_material_id",
+                    "corrugated_material_user_selected", "custom_combined_grammage_g_m2"):
+            config[key] = ""
+    config["container_override_target"] = target
+    product_target = ("catalogue:" + str(config.get("selected_product_id") or "pending:" + str(config.get("product_catalogue_id") or ""))) if config.get("product_source") == "catalogue" else "manual"
+    previous = config.get("product_override_target") or ""
+    if previous != product_target and (previous or product_target != "manual"):
+        config["product_weight"] = ""
+        config["product_weight_user_override"] = ""
+    config["product_override_target"] = product_target
+    return config
+
+
 def default_container_config():
     return {
+        **CONTAINER_ADVANCED_STATE_DEFAULTS,
         "mode": "single",
         "action": "",
 

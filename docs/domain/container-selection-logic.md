@@ -212,10 +212,11 @@ a resolved finished-board caliper. Caliper priority is a valid construction
 construction's flute family, then unavailable. Nominal flute height is never
 used as caliper.
 
-Caliper and grammage are independently editable for manual Single and Design
-cartons. Each has an explicit override flag and reset action. Non-overridden
-values resolve again from the selected construction on the server, so a
-rounded imperial display cannot overwrite canonical reference values. Legacy
+Caliper, grammage, carton tare, payload and product weight support independent
+calculation-only overrides in Single (manual or catalogue), Design and Optimal.
+Each has an explicit override flag and a contextual **Restore source** action.
+Catalogue objects remain read-only. Non-overridden values resolve again on the
+server, so a rounded imperial display cannot overwrite canonical values. Legacy
 thickness-only sessions and legacy custom grammage remain readable. The
 optional input named `combined_grammage_g_m2` follows the active container unit
 system at the form boundary: g/m² for metric length units and lb/MSF for inches
@@ -225,28 +226,51 @@ is `1 lb/MSF = 4.8824276 g/m²`.
 A new manual Design configuration selects stable construction code
 `FEFCO_C_175_140_175` from the shared catalogue. Its KL175/RF140/TL175 single-wall
 C-flute construction supplies 560.2 g/m² and reference caliper 4.08 mm. These
-values are not generic defaults for other C-flute boards. Existing sessions
+values are reference assumptions until the user explicitly selects a board.
+They are not generic defaults for other C-flute boards. Existing sessions
 and explicit no-material selections are preserved. The 4 mm legacy external
 size fallback is a geometry assumption only, never evidence of grammage/tare.
 
 Finished catalogue cartons have optional `corrugated_construction`,
 `combined_grammage_g_m2`, and `carton_style` fields. Existing rows require no
-backfill. Their precedence is independent of all manual form values:
+backfill. Effective properties resolve independently for each selected SKU:
 
-- Caliper: SKU `box_thickness_mm`, then its associated construction, then
-  unavailable. Complete explicit external dimensions remain authoritative.
-- Grammage: SKU combined grammage, then its associated construction, then
-  unavailable.
-- Tare: non-null `part_weight` (kg converted to g), then a material estimate
-  only for `BOX` with confirmed `carton_style="0201"`, valid internal dimensions
-  and grammage, then unavailable. `BOX` alone does not confirm RSC geometry.
+- Caliper/grammage: explicit current-analysis override, then SKU property, then
+  linked construction, then the agreed C reference for an eligible corrugated
+  RSC, then unavailable. An explicitly selected analysis board may supply the
+  construction baseline without replacing measured SKU properties. Complete
+  catalogue external dimensions remain authoritative after a caliper override.
+- Tare: explicit current-analysis override, then non-null `part_weight` (kg
+  converted to g), then the existing material estimate for `BOX` with confirmed
+  `carton_style="0201"`, valid internal dimensions and effective grammage, then
+  unavailable. `BOX` alone does not confirm RSC geometry. Explicit plastic,
+  wood or metal material descriptions do not receive a corrugated assumption.
+- Product weight: current-analysis override, then catalogue `Product.weight`
+  converted once from kg. Missing product mass never blocks geometry.
+
+Changing grammage does not replace an actual SKU tare. Reference-material
+estimates say **Estimated from assumed material data**. A caliper alone cannot
+provide grammage or tare. No analysis override saves a catalogue object or
+requires a schema migration.
 
 Manual cartons use explicit `box_weight` first, otherwise effective grammage
 and the established FEFCO 0201 geometry. Both manual and catalogue estimates
 call `calculate_rsc_carton_tare()`, which delegates to the existing geometry
 provider and `calculate_material()` including their joint/flap defaults.
 Caliper does not determine grammage. Each Top 5 candidate resolves its own
-material properties and tare; ranking and packing are unchanged.
+material properties and tare; ranking and packing are unchanged. Form/session
+override targets identify `catalogue:<id>` or `manual`. Rerunning the same item
+preserves its overrides; selecting another item clears the previous scope.
+
+Product keeps dimensions, quantity where applicable, the existing viewer and
+rotation controls in its primary area. The existing dimensional-allowance
+Advanced component also contains product mass and visualization-only shape.
+Container keeps each mode's existing geometry/catalogue controls and action,
+followed by a collapsed Advanced section: caliper/grammage, board construction,
+then tare/payload. Collapsing never disables or clears inputs. Open state and
+unit tokens are prefixed per Flow step; validation errors expand their section.
+Edits mark calculated results stale and disable acceptance/PDF actions until
+recalculation, including the Flow report link.
 
 The compact result shows quantity, efficiency and complete gross weight, or
 **Contents weight** when only net mass is known. Detailed analysis contains
@@ -256,6 +280,13 @@ is `None`, never zero. PDF reports consume the same analysis values.
 Container Flow payloads expose JSON-safe `weight_status` values `gross_known`,
 `gross_estimated`, `net_only`, and `unknown`, plus separate
 `net_content_weight_g`, `carton_tare_g`, tare source and material provenance.
+Accepted results also retain a versioned `effective_specification`: original
+product/packaging/construction identifiers, effective canonical dimensions and
+material properties, baseline/override sources, tare, net/gross mass, payload,
+weight status and packed quantity. Pallet and transport outputs carry this
+snapshot as `upstream_packaging_specification` without reloading SKU defaults.
+Changes to the accepted specification invalidate dependent Flow results; the
+accept action recalculates submitted Container fields before accepting them.
 Only complete gross mass populates `weight_kg` and its derived `weight_g`.
 Palletization clears stale inherited weight and runs geometry without pallet
 load/bottom-load constraints when upstream mass is incomplete, with an explicit
@@ -304,7 +335,7 @@ standalone tool. Three.js geometry is unchanged.
 - selected Top-5 result controls the exported image;
 - product plus packaging weight respects max payload;
 - carton tare uses each Design candidate's dimensions and selected grammage;
-- catalogue tare, manual tare, calculated eligible-box tare, and unavailable
+- explicit analysis tare, catalogue tare, calculated eligible-box tare, and unavailable
   weight sources follow the same precedence in Single, Optimal, Design, and
   Packaging Flow cases;
 - unknown product weight does not turn carton tare into gross weight;

@@ -99,10 +99,16 @@ def attach_carton_weight_metadata(payload, report, *, upstream=None):
         payload["weight_status"] = "gross_estimated" if source == "estimated_material" or (upstream or {}).get("weight_status") == "gross_estimated" else "gross_known"
     else:
         payload["weight_status"] = "net_only" if net is not None else "unknown"
-    for key in ("container_tare", "weight_source", "weight_source_display", "carton_tare_estimated",
+    for key in ("effective_specification", "source_packaging_item_id", "source_product_item_id", "product_weight_source", "product_weight_source_display", "carton_tare_assumed_material", "container_tare", "weight_source", "weight_source_display", "carton_tare_estimated",
                 "combined_grammage_g_m2", "caliper_mm", "caliper_source", "caliper_source_display",
                 "grammage_source", "grammage_source_display", "grammage_display",
                 "corrugated_material_id", "corrugated_material_name", "effective_box_area_m2", "fefco_code"):
         if key in report:
             payload[key] = report[key]
+    if payload.get("effective_specification"):
+        payload["effective_specification"] = {
+            **payload["effective_specification"],
+            "weight_status": payload["weight_status"],
+            "gross_carton_weight_g": payload["gross_carton_weight_g"],
+        }
     return payload

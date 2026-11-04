@@ -1,4 +1,4 @@
-from .state import default_container_config
+from .state import CONTAINER_ADVANCED_STATE_DEFAULTS, default_container_config, normalize_container_override_scope
 from ..selection_mode import normalize_selection_mode
 from ..product_shape import normalize_product_shape
 
@@ -22,8 +22,16 @@ def sanitize_container_config_for_session(config):
         # Existing sessions with an explicit thickness must keep behaving as
         # manual overrides after the new auto-caliper state is introduced.
         thickness_override = bool(str(base.get("box_thickness_mm") or "").strip())
+    for key, flag in (("box_weight", "box_weight_user_override"), ("box_max_payload", "box_max_payload_user_override"), ("product_weight", "product_weight_user_override")):
+        if flag not in original and base.get(key) not in (None, ""):
+            base[flag] = "1"
+    base["box_thickness_user_override"] = "1" if _as_bool(thickness_override) else ""
+    base = normalize_container_override_scope(base)
+    thickness_override = base.get("box_thickness_user_override")
 
     return {
+        **{key: _safe_str(base.get(key)) if key.endswith("_target") else "1" if _as_bool(base.get(key)) else ""
+           for key in CONTAINER_ADVANCED_STATE_DEFAULTS},
         "mode": normalize_selection_mode(base),
         "action": _safe_str(base.get("action") or ""),
 
@@ -37,7 +45,7 @@ def sanitize_container_config_for_session(config):
         "product_allowance_l": _safe_str(base.get("product_allowance_l") or "0"),
         "product_allowance_w": _safe_str(base.get("product_allowance_w") or "0"),
         "product_allowance_h": _safe_str(base.get("product_allowance_h") or "0"),
-        "product_weight": _safe_str(base.get("product_weight") or ""),
+        "product_weight": _safe_str(base.get("product_weight")),
         "product_mass_unit": _safe_str(base.get("product_mass_unit") or "g"),
         "desired_qty": _safe_str(base.get("desired_qty") or "1"),
         "product_shape": normalize_product_shape(base.get("product_shape")),
@@ -63,8 +71,8 @@ def sanitize_container_config_for_session(config):
             base.get("custom_combined_grammage_g_m2") or ""
         ),
         "container_dimension_unit": _safe_str(base.get("container_dimension_unit") or "mm"),
-        "box_weight": _safe_str(base.get("box_weight") or ""),
-        "box_max_payload": _safe_str(base.get("box_max_payload") or ""),
+        "box_weight": _safe_str(base.get("box_weight")),
+        "box_max_payload": _safe_str(base.get("box_max_payload")),
         "container_mass_unit": _safe_str(base.get("container_mass_unit") or "g"),
         "selected_design_candidate_id": _safe_str(base.get("selected_design_candidate_id") or ""),
     }

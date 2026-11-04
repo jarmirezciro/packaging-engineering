@@ -475,6 +475,7 @@ def _step_metrics(step):
         ("Remaining capacity", _int(analysis.get("remaining_capacity"))),
         ("Volume usage", analysis.get("volumetric_efficiency_current_display") or f"{_num(analysis.get('volumetric_efficiency_current_pct'), 0)}%"),
         ("Max volume usage", analysis.get("volumetric_efficiency_max_display") or f"{_num(analysis.get('volumetric_efficiency_max_pct'), 0)}%"),
+        ("Product weight source", analysis.get("product_weight_source_display")),
         ("Net contents", analysis.get("net_weight_display") or analysis.get("net_content_weight_display")),
         ("Empty carton tare", analysis.get("carton_tare_display")),
         ("Tare source", analysis.get("carton_tare_source_display")),

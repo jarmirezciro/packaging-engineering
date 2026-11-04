@@ -327,8 +327,9 @@ def build_container_selection_single_pdf(export_payload):
         ("Effective dims", product.get("effective_dimensions")),
         ("Dimensional allowance", product.get("allowances")),
         ("Weight", product.get("weight")),
+        ("Weight source", (export_payload.get("analysis_report") or {}).get("product_weight_source_display")),
         ("Rotations", product.get("rotations")),
-    ], [28 * mm, 64 * mm])
+    ], [26 * mm, 56 * mm])
 
     container_rows = [
         ("Source", container.get("source")),
@@ -361,14 +362,11 @@ def build_container_selection_single_pdf(export_payload):
             ("Net contents", analysis.get("net_weight_display")),
             ("Gross carton weight", analysis.get("gross_carton_weight_display")),
         ])
-    container_table = _key_value_table(container_rows, [30 * mm, 66 * mm])
+    container_table = _key_value_table(container_rows, [30 * mm, 64 * mm])
 
     left_stack = [
         _section_title("Product"),
         product_table,
-        Spacer(1, 4),
-        _section_title("Packaging"),
-        container_table,
     ]
 
     base_img = _report_image(export_payload.get("product_base_image_rel_path"), 92 * mm, 34 * mm)
@@ -383,15 +381,15 @@ def build_container_selection_single_pdf(export_payload):
         ),
         Spacer(1, 2),
     ]
-    packing_img = _visualization_image(export_payload, 150 * mm, 105 * mm)
+    packing_img = _visualization_image(export_payload, 76 * mm, 105 * mm)
     if packing_img:
         visual_stack.append(packing_img)
     else:
         visual_stack.append(Paragraph("No Three.js snapshot was captured for this export. Please use the PDF button below the interactive 3D viewer and wait until the viewer is fully loaded.", _STYLES["BodySmall"]))
 
     content_grid = Table(
-        [[left_stack, visual_stack]],
-        colWidths=[103 * mm, 150 * mm],
+        [[left_stack, [_section_title("Packaging"), container_table], visual_stack]],
+        colWidths=[86 * mm, 100 * mm, 78 * mm],
     )
     content_grid.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -456,6 +454,7 @@ def build_container_selection_optimal_pdf(export_payload):
         ("Effective dims", product.get("effective_dimensions")),
         ("Dimensional allowance", product.get("allowances")),
         ("Weight", product.get("weight")),
+        ("Weight source", (export_payload.get("analysis_report") or {}).get("product_weight_source_display")),
         ("Rotations", product.get("rotations")),
     ], [28 * mm, 52 * mm])
 

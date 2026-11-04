@@ -1,3 +1,4 @@
+from packagingapp.tools.container.presenter import build_container_advanced_context
 from packagingapp.tools.container.carton_tare import attach_carton_weight_metadata
 from copy import deepcopy
 import logging
@@ -83,7 +84,7 @@ from ..tools.container.service import (
     get_selected_material as get_container_selected_material,
     get_selected_product as get_container_selected_product,
 )
-from ..tools.container.state import default_container_config
+from ..tools.container.state import CONTAINER_ADVANCED_STATE_DEFAULTS, default_container_config
 from ..user_preferences import apply_user_unit_defaults
 from ..catalogue_units import (
     annotate_packaging_picker_rows,
@@ -214,6 +215,7 @@ def _save_workflow(request, workflow):
         step.pop("selected_pallet_material", None)
         step.pop("box_materials", None)
         step.pop("pallet_materials", None)
+        step.pop("container_advanced", None)
         step.pop("corrugated_materials", None)
         step.pop("corrugated_material_options", None)
     request.session[_workflow_session_key(request)] = workflow
@@ -424,6 +426,14 @@ def _read_prefixed_pallet_post(step, idx, post):
     return sanitize_palletization_config_for_session(cfg)
 
 
+def _carry_effective_container_specification(payload, upstream):
+    snapshot = (upstream or {}).get("effective_specification") or (upstream or {}).get("upstream_packaging_specification")
+    if payload is not None and snapshot:
+        payload["upstream_packaging_specification"] = deepcopy(snapshot)
+        payload["source_container_item_id"] = snapshot.get("source_packaging_item_id")
+    return payload
+
+
 def _build_pallet_workflow_payload(
     effective,
     selected_row,
@@ -489,7 +499,7 @@ def _build_pallet_workflow_payload(
     payload["source_step_type"] = "pallet"
     payload["package_type"] = "pallet"
     payload["source_type"] = PALLETIZATION_VISUAL_SOURCE
-    return payload
+    return _carry_effective_container_specification(payload, upstream)
 
 
 def _pallet_config_for_upstream_weight(config, upstream):
@@ -969,7 +979,7 @@ def _hydrate_pallet_catalogue_values(cfg, selected_box_material=None, selected_p
 
 
 def _resolve_product_weight_kg(cfg, selected_product=None):
-    if (cfg or {}).get("product_source") == "catalogue" and selected_product is not None:
+    if (cfg or {}).get("product_source") == "catalogue" and selected_product is not None and str((cfg or {}).get("product_weight_user_override") or "") != "1":
         return _to_float(getattr(selected_product, "weight", None))
     manual_weight = _to_float((cfg or {}).get("product_weight"))
     manual_weight_g = _canonical_input(
@@ -1714,7 +1724,7 @@ def _prepare_container_step_view_model(step, idx):
     products = get_container_products_for_catalogue(cfg) if idx == 0 else Product.objects.none()
     materials = get_container_materials_for_catalogue(cfg)
 
-    request_stub = type("ContainerWorkflowGetRequest", (), {"method": "GET"})()
+    request_stub = type("ContainerWorkflowGetRequest", (), {"method": "POST" if step.get("container_validation_errors") else "GET", "POST": _normalized_container_post(cfg)})()
     form = build_container_form(
         request=request_stub,
         config=cfg,
@@ -1766,6 +1776,8 @@ def _prepare_container_step_view_model(step, idx):
         step["assistant_result_stale"] = retained_result
 
     step["config"] = cfg
+    step["container_advanced"] = build_container_advanced_context(cfg, form, selected_product, selected_material,
+        step.get("analysis_report"), inherited_product=idx > 0)
     step["container_form"] = form
     step["container_values"] = {k: cfg.get(k) for k in default_container_config().keys()}
     step["container_ui"] = _build_shared_container_ui_contract(prefix=str(idx))
@@ -1877,6 +1889,7 @@ def _prepare_bag_step_view_model(step, idx):
 
 def _normalized_container_post(cfg):
     post = {
+        **{key: cfg.get(key, "") for key in CONTAINER_ADVANCED_STATE_DEFAULTS},
         "mode": cfg.get("mode", "single"),
         "action": cfg.get("action", "refresh"),
         "product_source": cfg.get("product_source", "manual"),
@@ -2074,6 +2087,8 @@ def _process_container_step(step, steps, idx, post):
     cfg.update(existing_cfg)
 
     suffix = f"_{idx}"
+    for key in CONTAINER_ADVANCED_STATE_DEFAULTS:
+        cfg[key] = post.get(f"{key}{suffix}", cfg.get(key, ""))
     cfg["mode"] = normalize_selection_mode({
         "mode": post.get(f"mode{suffix}", post.get(f"mode_{idx}", normalize_selection_mode(cfg))),
         "tool_mode": post.get(f"tool_mode{suffix}", post.get(f"tool_mode_{idx}", "")),
@@ -2225,6 +2240,9 @@ def _process_container_step(step, steps, idx, post):
         post.get(f"selected_design_candidate_id_{idx}", cfg.get("selected_design_candidate_id", "")),
     )
 
+    for key, flag in (("box_weight", "box_weight_user_override"), ("box_max_payload", "box_max_payload_user_override"), ("product_weight", "product_weight_user_override")):
+        if f"{flag}{suffix}" not in post and post.get(f"{key}{suffix}") not in (None, ""):
+            cfg[flag] = "1"
     if idx != 0:
         cfg["product_source"] = "manual"
         cfg["product_catalogue_id"] = ""
@@ -2338,6 +2356,13 @@ def _process_container_step(step, steps, idx, post):
     else:
         messages = [str(err) for err in form.non_field_errors()]
 
+    step["container_validation_errors"] = {key: [str(error) for error in errors] for key, errors in form.errors.items()}
+    if step.get("selected") and (
+        pending_result is None or step["selected"].get("effective_specification") != pending_result.get("effective_specification")
+    ):
+        step["selected"] = None
+        step["summary"] = ""
+        _invalidate_downstream(steps, idx)
     step["config"] = cfg
     step["result"] = result_payload
     step["image_url"] = image_url
@@ -3109,7 +3134,15 @@ def full_packaging_mode(request, case_slug=None):
                         preserve_source=True,
                     )
 
-                if steps[idx].get("type") == "transport":
+                if steps[idx].get("type") == "container" and any(
+                    f"{key}_{idx}" in request.POST for key in default_container_config()
+                    if key not in CONTAINER_ADVANCED_STATE_DEFAULTS or key.endswith("_override")
+                ):
+                    posted = request.POST.copy()
+                    selection_mode = posted.get(f"mode_{idx}", (steps[idx].get("config") or {}).get("mode", "single"))
+                    posted[f"action_{idx}"] = {"design": "select_design_candidate", "optimal": "select_candidate"}.get(selection_mode, "run_single")
+                    _process_container_step(steps[idx], steps, idx, posted)
+                elif steps[idx].get("type") == "transport":
                     step = steps[idx]
                     step["messages"] = []
                     posted = request.POST.copy()
@@ -3361,7 +3394,7 @@ def _build_transport_workflow_payload(
         payload.setdefault("transport_qty", 1)
         payload["source_step_type"] = "transport"
         payload["package_type"] = "transport_unit"
-    return payload
+    return _carry_effective_container_specification(payload, upstream)
 
 
 def _mark_incomplete_transport_weight(step, upstream):

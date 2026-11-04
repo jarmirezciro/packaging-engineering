@@ -1,3 +1,10 @@
+<input type="hidden" name="{{ container_ui.names.product_weight_user_override }}" value="{{ container_values.product_weight_user_override|default:'' }}">
+<input type="hidden" name="{{ container_ui.names.box_weight_user_override }}" value="{{ container_values.box_weight_user_override|default:'' }}">
+<input type="hidden" name="{{ container_ui.names.box_max_payload_user_override }}" value="{{ container_values.box_max_payload_user_override|default:'' }}">
+<input type="hidden" name="{{ container_ui.names.container_override_target }}" value="{{ container_values.container_override_target|default:'' }}">
+<input type="hidden" name="{{ container_ui.names.product_override_target }}" value="{{ container_values.product_override_target|default:'' }}">
+<input type="hidden" name="{{ container_ui.names.product_advanced_open }}" value="{% if container_advanced.product_open %}1{% endif %}">
+<input type="hidden" name="{{ container_ui.names.container_advanced_open }}" value="{% if container_advanced.container_open %}1{% endif %}">
 <input type="hidden" name="{{ container_ui.names.grammage_user_override }}" value="{{ container_values.grammage_user_override|default:'' }}">
 <input type="hidden"
        name="{{ container_ui.names.action }}"
@@ -67,5 +74,6 @@
      data-container-prefix="{{ container_ui.prefix|default:'' }}"
      data-new-container-config="{% if new_container_config %}true{% else %}false{% endif %}"
      {% if assistant_ui_enabled %}data-assistant-state-fields="{{ container_ui.ids.assistant_state_fields }}"{% endif %}>
+    {{ container_advanced|json_script:container_ui.ids.advanced_data }}
     {% include "container_selection_tool/partials/_container_selection_tool.html" %}
 </div>

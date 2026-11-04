@@ -34,116 +34,110 @@
         return checked ? checked.value : fallbackValue;
     }
     const LB_MSF_TO_GSM = 4.8824276;
-
-    function currentContainerDimensionUnit(prefix) {
-        const field = getField("container_dimension_unit", prefix);
-        return (field && field.value) || "mm";
+    const properties = {
+        caliper: {field: "box_thickness_mm", flag: "box_thickness_user_override", kind: "length"},
+        grammage: {field: "combined_grammage_g_m2", flag: "grammage_user_override", kind: "density"},
+        tare: {field: "box_weight", flag: "box_weight_user_override", kind: "mass"},
+        payload: {field: "box_max_payload", flag: "box_max_payload_user_override", kind: "mass"},
+        product_weight: {field: "product_weight", flag: "product_weight_user_override", kind: "mass"}
+    };
+    function advancedData(prefix) {
+        const root = getRoot(prefix);
+        if (!root) return null;
+        if (!root.containerAdvanced) {
+            const script = getById("containerAdvancedData", prefix);
+            if (!script) return null;
+            root.containerAdvanced = JSON.parse(script.textContent);
+        }
+        return root.containerAdvanced;
     }
-
+    function currentContainerDimensionUnit(prefix) {
+        return getField("container_dimension_unit", prefix)?.value || "mm";
+    }
     function formatBoardNumber(value, places) {
         const number = Number(value);
-        if (!Number.isFinite(number)) return "—";
-        return number.toFixed(places).replace(/0+$/, "").replace(/\.$/, "") || "0";
+        return Number.isFinite(number) ? number.toFixed(places).replace(/0+$/, "").replace(/\.$/, "") || "0" : "";
     }
-
-    function setAutoThickness(prefix, option) {
-        const input = getField("box_thickness_mm", prefix);
-        const override = getField("box_thickness_user_override", prefix);
-        if (!input || (override && override.value === "1")) return;
-        const caliperMm = option ? Number(option.dataset.caliperMm) : NaN;
-        if (!Number.isFinite(caliperMm) || caliperMm <= 0) {
-            input.value = "";
-            delete input.dataset.unitCanonicalValue;
-            return;
-        }
-        const unit = currentContainerDimensionUnit(prefix);
-        const factor = { mm: 1, cm: 10, m: 1000, in: 25.4, ft: 304.8 }[unit] || 1;
-        input.value = formatBoardNumber(caliperMm / factor, unit === "mm" ? 3 : unit === "in" ? 4 : 6);
-        input.dataset.unitCanonicalValue = String(caliperMm);
+    function propertyIsOverridden(prefix, key) {
+        return getField(properties[key].flag, prefix)?.value === "1";
     }
-
-    function updateGrammage(prefix, option) {
-        const input = getField("combined_grammage_g_m2", prefix);
-        if (!input) return;
-        const override = getField("grammage_user_override", prefix);
-        const imperial = ["in", "ft"].includes(currentContainerDimensionUnit(prefix));
-        const factor = imperial ? LB_MSF_TO_GSM : 1;
-        if (!override || override.value !== "1") {
-            const legacy = getField("custom_combined_grammage_g_m2", prefix);
-            const gsm = option ? Number(option.dataset.grammageGsm) : legacy ? Number(legacy.value) : NaN;
-            input.dataset.grammageCanonical = Number.isFinite(gsm) && gsm > 0 ? String(gsm) : "";
-        } else if (input.dataset.grammageCanonical === undefined) {
-            input.dataset.grammageCanonical = input.value === "" ? "" : String(Number(input.value) * factor);
-        }
-        input.value = input.dataset.grammageCanonical ? formatBoardNumber(Number(input.dataset.grammageCanonical) / factor, override && override.value === "1" ? 8 : 1) : "";
-        const root = getRoot(prefix);
-        root.querySelectorAll("[data-grammage-unit]").forEach(function (label) {
-            label.textContent = "(" + (imperial ? "lb/MSF" : "g/m²") + ")";
-        });
+    function showPropertySource(prefix, key, overridden) {
+        const root = getRoot(prefix), data = advancedData(prefix);
+        if (!root || !data) return;
+        const label = root.querySelector('[data-effective-property-source="' + key + '"]');
+        if (label) label.textContent = overridden ? "Manual override" : data.baselines[key].label || "Not available";
+        const restore = root.querySelector('[data-restore-property="' + key + '"]');
+        if (restore) restore.hidden = !overridden;
     }
-
-    function updateCorrugatedMaterialFields(prefix) {
-        const materialField = getField("corrugated_material_id", prefix);
-        const root = getRoot(prefix);
-        const detail = root && root.querySelector("[data-corrugated-material-detail]");
-        const selected = materialField && materialField.options
-            ? materialField.options[materialField.selectedIndex]
-            : null;
-        const unit = currentContainerDimensionUnit(prefix);
-        const imperial = unit === "in" || unit === "ft";
-        const densityUnit = imperial ? "lb/MSF" : "g/m²";
-        const caliperUnit = imperial ? "in" : "mm";
-
-        if (materialField && materialField.options) {
-            Array.from(materialField.options).forEach(function (option) {
-                const gsm = Number(option.dataset.grammageGsm);
-                const caliperMm = Number(option.dataset.caliperMm);
-                if (!option.dataset.boardName || !Number.isFinite(gsm)) return;
-                const density = imperial ? gsm / LB_MSF_TO_GSM : gsm;
-                const caliper = Number.isFinite(caliperMm) && caliperMm > 0
-                    ? caliperMm / (imperial ? 25.4 : 1)
-                    : NaN;
-                const sourceSuffix = option.dataset.caliperSource === "reference"
-                    ? " (reference)"
-                    : "";
-                option.textContent = option.dataset.boardName
-                    + " — " + option.dataset.boardWall
-                    + ", " + option.dataset.boardFlute + "-flute — "
-                    + formatBoardNumber(density, 1) + " " + densityUnit
-                    + " — " + (Number.isFinite(caliper)
-                        ? formatBoardNumber(caliper, imperial ? 4 : 2) + " " + caliperUnit
-                        : "Caliper unavailable")
-                    + sourceSuffix;
-            });
-        }
-
-        const hasBoard = selected && selected.dataset && selected.dataset.boardCode;
-        setAutoThickness(prefix, hasBoard ? selected : null);
-        updateGrammage(prefix, hasBoard ? selected : null);
-        if (detail) {
-            if (hasBoard) {
-                const caliperMm = Number(selected.dataset.caliperMm);
-                const caliper = Number.isFinite(caliperMm) && caliperMm > 0
-                    ? caliperMm / (imperial ? 25.4 : 1)
-                    : NaN;
-                const source = selected.dataset.caliperSource === "reference"
-                    ? "reference"
-                    : selected.dataset.caliperSource === "actual"
-                        ? "actual"
-                        : "unavailable";
-                detail.textContent = "Construction caliper: "
-                    + (Number.isFinite(caliper)
-                        ? formatBoardNumber(caliper, imperial ? 4 : 2) + " " + caliperUnit
-                        : "unavailable")
-                    + " (" + source + ").";
-            } else if (selected && selected.value === "custom") {
-                detail.textContent = "Legacy custom material preserved for compatibility.";
-            } else {
-                detail.textContent = "Construction values apply unless individually overridden.";
+    function renderProperty(prefix, key) {
+        const data = advancedData(prefix), spec = properties[key], input = getField(spec.field, prefix);
+        if (!data || !input || (data.errors || []).includes(spec.field)) return;
+        const overridden = propertyIsOverridden(prefix, key);
+        const value = overridden ? data.effective[key] : data.baselines[key].value;
+        if (spec.kind === "density") {
+            const imperial = ["in", "ft"].includes(currentContainerDimensionUnit(prefix));
+            input.dataset.grammageCanonical = value === null ? "" : String(value);
+            input.value = value === null ? "" : formatBoardNumber(value / (imperial ? LB_MSF_TO_GSM : 1), overridden ? 8 : 1);
+            getRoot(prefix).querySelectorAll("[data-grammage-unit]").forEach(label => label.textContent = "(" + (imperial ? "lb/MSF" : "g/m²") + ")");
+        } else {
+            window.KolliPackUnitSelector.setCanonicalValue(input, value, spec.kind === "length" ? "mm" : "g");
+            if (!overridden && key === "caliper" && value !== null) {
+                input.value = formatBoardNumber(window.KolliPackUnitSelector.fromCanonicalValue(value, currentContainerDimensionUnit(prefix), "length"), currentContainerDimensionUnit(prefix) === "mm" ? 3 : 6);
             }
         }
+        showPropertySource(prefix, key, overridden);
+        if (key === "product_weight" && data.inherited_product) {
+            getRoot(prefix).querySelector('[data-effective-property-source="product_weight"]').textContent = "Previous workflow step";
+        }
     }
-
+    function markResultStale(prefix) {
+        const root = getRoot(prefix);
+        if (!root) return;
+        root.querySelectorAll("[data-container-calculated-result]").forEach(function (result) {
+            result.dataset.resultStale = "true";
+            const notice = result.querySelector("[data-result-stale-notice]");
+            if (notice) notice.hidden = false;
+            result.querySelectorAll("[data-container-threejs-pdf-button], [data-accept-container-result]").forEach(button => button.disabled = true);
+            if (prefix) document.querySelectorAll("[data-workflow-pdf-export]").forEach(function (link) {
+                link.removeAttribute("href");
+                link.classList.add("disabled");
+                link.setAttribute("aria-disabled", "true");
+                link.setAttribute("tabindex", "-1");
+            });
+        });
+    }
+    function invalidateTareEstimate(prefix) {
+        const data = advancedData(prefix);
+        if (data && data.baselines.tare.source === "estimated_material" && !propertyIsOverridden(prefix, "tare")) {
+            data.baselines.tare = {value: null, source: "estimated_material", label: "Recalculate estimate"};
+            renderProperty(prefix, "tare");
+        }
+    }
+    function updateCorrugatedMaterialFields(prefix, changedBoard) {
+        const data = advancedData(prefix), field = getField("corrugated_material_id", prefix);
+        if (!data) return;
+        const selected = field?.options[field.selectedIndex];
+        const imperial = ["in", "ft"].includes(currentContainerDimensionUnit(prefix));
+        if (field) Array.from(field.options).forEach(function (option) {
+            if (!option.dataset.boardName) return;
+            const density = Number(option.dataset.grammageGsm), caliper = Number(option.dataset.caliperMm);
+            option.textContent = option.dataset.boardName + " — " + option.dataset.boardWall + ", " + option.dataset.boardFlute + "-flute — "
+                + formatBoardNumber(density / (imperial ? LB_MSF_TO_GSM : 1), 1) + (imperial ? " lb/MSF" : " g/m²")
+                + " — " + (caliper > 0 ? formatBoardNumber(caliper / (imperial ? 25.4 : 1), imperial ? 4 : 2) + (imperial ? " in" : " mm") : "Caliper unavailable");
+        });
+        if (changedBoard) {
+            data.originalBaselines = data.originalBaselines || JSON.parse(JSON.stringify(data.baselines));
+            ["caliper", "grammage"].forEach(function (key) {
+                if (data.catalogue && data.sku[key] !== null) return;
+                const value = Number(selected?.dataset[key === "caliper" ? "caliperMm" : "grammageGsm"]);
+                data.baselines[key] = value > 0 ? {value: value, label: "Board construction", source: "construction"}
+                    : data.catalogue || field?.value === "custom" ? data.originalBaselines[key] : {value: null, label: "Not available", source: "unavailable"};
+            });
+            invalidateTareEstimate(prefix);
+            markResultStale(prefix);
+        }
+        Object.keys(properties).forEach(key => renderProperty(prefix, key));
+    }
     function applyNewDesignDefaults(prefix) {
         const root = getRoot(prefix);
         const modeField = getField("mode", prefix);
@@ -157,7 +151,7 @@
         });
         if (!option) return;
         materialField.value = option.value;
-        updateCorrugatedMaterialFields(prefix);
+        updateCorrugatedMaterialFields(prefix, true);
     }
     function setAction(prefix, value) {
         const field = getField("action", prefix);
@@ -302,49 +296,52 @@
                 submitForm(prefix);
             });
         }
-        const corrugatedMaterialField = getField("corrugated_material_id", prefix);
-        if (corrugatedMaterialField) {
-            corrugatedMaterialField.addEventListener("change", function () {
-                setHidden(prefix, "corrugated_material_user_selected", "1");
-                updateCorrugatedMaterialFields(prefix);
-            });
-        }
-        const thicknessField = getField("box_thickness_mm", prefix);
-        if (thicknessField) {
-            thicknessField.addEventListener("input", function () {
-                if (thicknessField.value !== "") {
-                    setHidden(prefix, "box_thickness_user_override", "1");
-                } else {
-                    setHidden(prefix, "box_thickness_user_override", "");
-                }
-            });
-        }
-        const grammageField = getField("combined_grammage_g_m2", prefix);
-        if (grammageField) {
-            grammageField.addEventListener("input", function () {
-                setHidden(prefix, "grammage_user_override", grammageField.value === "" ? "" : "1");
-                const factor = ["in", "ft"].includes(currentContainerDimensionUnit(prefix)) ? LB_MSF_TO_GSM : 1;
-                grammageField.dataset.grammageCanonical = grammageField.value === "" ? "" : String(Number(grammageField.value) * factor);
-            });
-        }
         const root = getRoot(prefix);
         if (!root) return;
-        root.querySelectorAll("[data-reset-material-property]").forEach(function (button) {
+        const corrugatedMaterialField = getField("corrugated_material_id", prefix);
+        if (corrugatedMaterialField) corrugatedMaterialField.addEventListener("change", function () {
+            setHidden(prefix, "corrugated_material_user_selected", "1");
+            updateCorrugatedMaterialFields(prefix, true);
+        });
+        Object.keys(properties).forEach(function (key) {
+            const spec = properties[key], input = getField(spec.field, prefix);
+            if (!input || input.readOnly) return;
+            input.addEventListener("input", function () {
+                const data = advancedData(prefix);
+                data.errors = (data.errors || []).filter(name => name !== spec.field);
+                setHidden(prefix, spec.flag, input.value === "" ? "" : "1");
+                if (spec.kind === "density") {
+                    data.effective[key] = input.value === "" ? null : Number(input.value) * (["in", "ft"].includes(currentContainerDimensionUnit(prefix)) ? LB_MSF_TO_GSM : 1);
+                } else {
+                    delete input.dataset.unitCanonicalValue;
+                    data.effective[key] = window.KolliPackUnitSelector.getCanonicalValue(input, spec.kind);
+                }
+                showPropertySource(prefix, key, input.value !== "");
+                if (key === "grammage") invalidateTareEstimate(prefix);
+                markResultStale(prefix);
+            });
+            input.addEventListener("change", function () { if (input.value === "") renderProperty(prefix, key); });
+        });
+        root.querySelectorAll("[data-restore-property]").forEach(function (button) {
             button.addEventListener("click", function () {
-                const flag = button.dataset.resetMaterialProperty === "caliper" ? "box_thickness_user_override" : "grammage_user_override";
-                setHidden(prefix, flag, "");
-                updateCorrugatedMaterialFields(prefix);
+                const key = button.dataset.restoreProperty;
+                advancedData(prefix).errors = (advancedData(prefix).errors || []).filter(name => name !== properties[key].field);
+                setHidden(prefix, properties[key].flag, "");
+                renderProperty(prefix, key);
+                if (key === "grammage") invalidateTareEstimate(prefix);
+                markResultStale(prefix);
             });
         });
-        if (root && root.dataset.corrugatedUnitBound !== "true") {
-            root.dataset.corrugatedUnitBound = "true";
-            document.addEventListener("kollipack:unit-changed", function (event) {
-                const group = getById("containerPackagingDimensionUnit", prefix)?.dataset.unitGroup;
-                if (!group || !event.detail || event.detail.group === group) {
-                    updateCorrugatedMaterialFields(prefix);
-                }
-            });
-        }
+        root.addEventListener("input", function (event) {
+            if (!event.target.matches('input[type="hidden"]')) markResultStale(prefix);
+        });
+        root.addEventListener("change", function (event) {
+            if (!event.target.matches('input[type="hidden"]')) markResultStale(prefix);
+        });
+        document.addEventListener("kollipack:unit-changed", function (event) {
+            const groups = [getField("container_dimension_unit", prefix), getField("container_mass_unit", prefix), getField("product_mass_unit", prefix)].map(field => field?.dataset.unitGroup);
+            if (event.detail && groups.includes(event.detail.group)) updateCorrugatedMaterialFields(prefix);
+        });
         const productSourceName = prefix ? ("product_source_" + prefix) : "product_source";
         const containerSourceName = prefix ? ("container_source_" + prefix) : "container_source";
         const productCatalogueName = prefix ? ("product_catalogue_id_" + prefix) : "product_catalogue_id";

@@ -1,0 +1,52 @@
+<hr class="app-divider">
+<div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+    <div>
+        <div class="app-form-section-title mb-0">Additional parameters</div>
+        <div class="app-form-note">Optional material properties and weight.</div>
+    </div>
+    <button type="button" class="btn btn-app-outline btn-sm flex-shrink-0" aria-controls="{{ container_ui.ids.container_additional_parameters }}" aria-expanded="{% if container_advanced.container_open %}true{% else %}false{% endif %}" onclick="KolliPackProductAllowance.toggle('{{ container_ui.ids.container_additional_parameters }}', this)">
+        <i class="bi bi-chevron-down me-2" aria-hidden="true"></i><span>{% if container_advanced.container_open %}Hide Advanced{% else %}Show Advanced{% endif %}</span>
+    </button>
+</div>
+<div id="{{ container_ui.ids.container_additional_parameters }}" data-tool-advanced-panel data-container-advanced-panel data-advanced-state-name="{{ container_ui.names.container_advanced_open }}" {% if not container_advanced.container_open %}hidden{% endif %}>
+    <div class="tool-compact-grid-two mt-2">
+        <div class="tool-field-group mb-0">
+            <label class="form-label" for="caliper{{ container_ui.prefix }}">Caliper {% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.container_dimensions current_unit=container_values.container_dimension_unit|default:'mm' selector_key='advanced_caliper' %}</label>
+            <input id="caliper{{ container_ui.prefix }}" type="number" step="any" min="0.0001" class="form-control" name="{{ container_ui.names.box_thickness_mm }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.container_dimensions.group }}" data-analysis-property="caliper" value="{{ container_advanced.inputs.box_thickness_mm }}">
+            {% include "container_selection_tool/partials/_container_selection_property_source.html" with property='caliper' source_label=container_advanced.labels.caliper overridden=container_advanced.flags.caliper %}
+            {% if form.box_thickness_mm.errors %}<div class="text-danger small" role="alert">{{ form.box_thickness_mm.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="tool-field-group mb-0">
+            <label class="form-label" for="grammage{{ container_ui.prefix }}">Grammage <span data-grammage-unit>({% if container_values.container_dimension_unit == 'in' or container_values.container_dimension_unit == 'ft' %}lb/MSF{% else %}g/m²{% endif %})</span></label>
+            <input id="grammage{{ container_ui.prefix }}" type="number" step="any" min="0.0001" class="form-control" name="{{ container_ui.names.combined_grammage_g_m2 }}" data-analysis-property="grammage" value="{{ container_advanced.inputs.combined_grammage_g_m2 }}">
+            {% include "container_selection_tool/partials/_container_selection_property_source.html" with property='grammage' source_label=container_advanced.labels.grammage overridden=container_advanced.flags.grammage %}
+            {% if form.combined_grammage_g_m2.errors %}<div class="text-danger small" role="alert">{{ form.combined_grammage_g_m2.errors|join:", " }}</div>{% endif %}
+        </div>
+    </div>
+    <div class="tool-field-group mt-3">
+        <label class="form-label" for="{{ container_ui.ids.corrugated_material }}">Corrugated board material</label>
+        <select name="{{ container_ui.names.corrugated_material_id }}" id="{{ container_ui.ids.corrugated_material }}" class="form-select">
+            <option value="">No board construction</option>
+            {% if container_values.corrugated_material_id == 'custom' %}<option value="custom" selected>Legacy custom material (preserved)</option>{% endif %}
+            {% for option in corrugated_material_options %}
+                <option value="{{ option.code }}" data-board-code="{{ option.code }}" data-grammage-gsm="{{ option.grammage_g_m2|default:'' }}" data-caliper-mm="{{ option.caliper_mm|default:'' }}" data-caliper-source="{{ option.caliper_source }}" data-board-name="{{ option.name }}" data-board-wall="{{ option.wall }}" data-board-flute="{{ option.flute }}" {% if container_advanced.board_code == option.code or container_values.corrugated_material_id == option.id %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+        </select>
+        {% if form.corrugated_material_id.errors %}<div class="text-danger small" role="alert">{{ form.corrugated_material_id.errors|join:", " }}</div>{% endif %}
+        {% if container_values.corrugated_material_id == 'custom' %}<input type="hidden" name="{{ container_ui.names.custom_combined_grammage_g_m2 }}" value="{{ container_values.custom_combined_grammage_g_m2|default:'' }}">{% endif %}
+    </div>
+    <div class="tool-compact-grid-two">
+        <div class="tool-field-group mb-0">
+            <label class="form-label" for="cartonTare{{ container_ui.prefix }}">Carton tare {% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.container_mass current_unit=container_values.container_mass_unit|default:'g' selector_key='advanced_tare' %}</label>
+            <input id="cartonTare{{ container_ui.prefix }}" type="number" step="any" min="0" class="form-control" name="{{ container_ui.names.box_weight }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.container_mass.group }}" data-analysis-property="tare" value="{{ container_advanced.inputs.box_weight }}">
+            {% include "container_selection_tool/partials/_container_selection_property_source.html" with property='tare' source_label=container_advanced.labels.tare overridden=container_advanced.flags.tare %}
+            {% if form.box_weight.errors %}<div class="text-danger small" role="alert">{{ form.box_weight.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="tool-field-group mb-0">
+            <label class="form-label" for="cartonPayload{{ container_ui.prefix }}">Max payload {% include "shared/_unit_selector.html" with unit_selector=container_ui.unit_selectors.container_mass current_unit=container_values.container_mass_unit|default:'g' selector_key='advanced_payload' %}</label>
+            <input id="cartonPayload{{ container_ui.prefix }}" type="number" step="any" min="0" class="form-control" name="{{ container_ui.names.box_max_payload }}" data-unit-input data-unit-group="{{ container_ui.unit_selectors.container_mass.group }}" data-analysis-property="payload" value="{{ container_advanced.inputs.box_max_payload }}">
+            {% include "container_selection_tool/partials/_container_selection_property_source.html" with property='payload' source_label=container_advanced.labels.payload overridden=container_advanced.flags.payload %}
+            {% if form.box_max_payload.errors %}<div class="text-danger small" role="alert">{{ form.box_max_payload.errors|join:", " }}</div>{% endif %}
+        </div>
+    </div>
+</div>

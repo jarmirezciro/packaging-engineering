@@ -96,7 +96,7 @@ the downstream pallet mass, then adds catalogue pallet tare in kilograms. The
 maximum pallet load itself always excludes pallet tare.
 
 Container Selection follows the same boundary for carton tare. Its shared
-report resolves catalogue tare, explicit manual tare, calculated eligible-RSC
+report resolves explicit analysis tare, catalogue tare, calculated eligible-RSC
 material tare, or unavailable in that order. For a selected manual or catalogue
 box, a corrugated-board choice calculates the finished FEFCO 0201 material mass
 from that candidate's dimensions; it is not a second packing or thickness
@@ -105,6 +105,22 @@ weight once into the downstream payload's authoritative `weight_kg` and keeps
 the tare source metadata JSON-safe. If product weight is unknown, tare may be
 reported independently but gross weight remains unavailable rather than
 silently treating tare as total contents.
+
+Container analysis overrides live in prefixed form/session state, scoped to the
+selected packaging/product IDs. Advanced controls use the same presenter and
+resolver as standalone; their collapsed state does not disable fields. Accepted
+outputs carry a JSON-safe, versioned `effective_specification` containing source
+IDs, effective internal/external dimensions, caliper, grammage, provenance,
+product mass, net/tare/gross mass, payload and packed quantity. Palletization and
+Transport copy it to `upstream_packaging_specification`, preserving the original
+carton ID while using the accepted physical dimensions and mass. They do not
+reload catalogue defaults to reconstruct the accepted carton.
+
+An edited Container specification clears its accepted output and invalidates
+dependent results through the existing mechanism. Acceptance recalculates any
+submitted Container fields first. Client edits mark the displayed result stale
+and disable acceptance and report export until recalculation. Catalogue product
+and packaging records are read-only throughout this analysis path.
 
 ## Manual unit display state
 
