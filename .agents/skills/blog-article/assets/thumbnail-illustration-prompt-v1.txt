@@ -1,10 +1,12 @@
-Create one subject-only editorial illustration for a premium packaging-engineering article thumbnail.
+Create one subject-only illustration for a premium commercial packaging-engineering thumbnail, rendered as a photorealistic high-end 3D product scene. The result should feel like a carefully art-directed commercial studio render, with convincing physical geometry, believable scale, crisp but natural edges, real depth, and physically grounded lighting.
 
-Visual language: cinematic three-dimensional industrial product rendering; physically plausible scale and perspective; clean corrugated cardboard, painted steel, timber pallet, and cargo materials where applicable; crisp controlled edges; realistic contact shadows; restrained glossy studio floor; directional key light with soft teal rim light; deep near-black and teal atmosphere compatible with later compositing.
+Render every relevant material with recognizable surface detail: corrugated cardboard should show fine paper fibre, subtle flute structure at cut edges, folds, seams, and realistic wear; wood should show natural grain and end grain; plastic should have credible thickness, translucency or restrained gloss; painted metal should show a controlled finish. Use only materials relevant to the requested objects. Avoid smooth generic placeholder surfaces.
 
-Composition: keep all meaningful subject matter in the right half of a 16:9 frame; preserve the entire left 46 percent as calm, dark negative space; use a three-quarter or isometric-like camera; one coherent scene; strong silhouette; readable at small card size.
+Match the owner-approved KolliLabs thumbnail board: sophisticated near-black and deep-teal studio atmosphere, restrained teal edge light, soft directional key light, realistic contact shadows, subtle grounded reflections, and premium commercial depth. Keep the scene physically coherent in scale and perspective; use the specified three-quarter or isometric-like camera rather than a wide-angle or mixed-perspective look.
 
-The final card renderer adds every word and all branding. Generate no text, letters, numbers, symbols, labels, logos, screens, watermarks, people, decorative infographic elements, charts, UI fragments, or clutter. Do not imply that an illustrative arrangement is an exact solver output.
+Composition: keep all meaningful subject matter in the right half of a 16:9 frame and preserve the entire left 46 percent as calm, dark negative space for the deterministic card layout. Use one clear subject scene, a strong silhouette, uncluttered negative space, and a scale that remains legible at the small blog-card size. Blend the subject cleanly with the specified background strategy.
+
+Do not use flat illustration, cartoon rendering, clip art, generic infographic styling, diagrammatic icons, decorative particles or unnecessary set dressing. Do not add extra objects that do not explain the subject. The final card renderer adds the background, typography, logo, and layout. Generate no text, letters, numbers, symbols, labels, logos, screens, watermarks, people, charts, UI fragments, or branding. Do not imply that an editorial illustration is an exact solver output.
 
 Scene-family direction: {family_clause}
 Article-specific subject: {scene_subject}

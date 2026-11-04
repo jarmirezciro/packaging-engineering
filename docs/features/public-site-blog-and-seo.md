@@ -55,7 +55,7 @@ Verify the current model and rendering syntax.
 
 - Use repeatable SVG/PNG logo assets for “KolliPack Smart Packaging Optimization”; do not depend on an AI model regenerating the same logo.
 - Store article figures with descriptive stable filenames.
-- Thumbnail direction: green KolliPack theme, simple high-contrast packaging concept, readable at small size.
+- Thumbnail direction: follow the owner-approved dark-teal KolliLabs family in `docs/blog/thumbnail-design-system-v1.md`; keep its subject and headline readable at small size. Article figures continue to use their separate editorial figure guidance.
 - Technical figures should be generated from reproducible scripts where possible.
 
 A blog example used a 130×70×30 product in a 500×300×200 box and compared six uniform orientations with a mosaic result. Historical illustrative figures reported 84 products for the best uniform orientation and 102 for the KolliPack-style mosaic (+18 / +21.4%). Treat this as a documented article fixture, not a universal performance claim.

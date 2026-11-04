@@ -172,18 +172,26 @@ Produce `illustration-spec.json` with scene family, subject inventory, foregroun
 
 ### 6.3 Stage C — AI subject generation
 
-- Generate **illustration/scene content**, not article title typography, wordmark, or final complete branded card.
-- Prefer an object/scene render with a transparent background *if the selected image API supports reliable alpha*. Otherwise use matching teal studio background, reserved empty space, and deterministic masked/feathered placement without obvious rectangular seams.
-- Pass the board as a visual reference when supported. If the provider cannot accept references, identify the limitation, use the pinned descriptive style prompt and increase human QA; never claim that reference-image conditioning happened when it did not.
+- Generate **illustration/scene content only**. The deterministic renderer owns the card background, typography, logo, labels, and layout.
+- Use the approved nine-thumbnail board as the same immutable visual reference whenever the selected provider supports image references. The OpenAI adapter resolves the canonical board automatically and sends it as the uploaded `image` input to the image-edit endpoint. Do not silently substitute a different reference or use a text-only generation path for a reference-capable provider.
+- Record reference conditioning from the successful provider report. `used`/`true` requires a successful reference-edit response; record `not_supported`/`false` for a provider that cannot accept the board, and `unverified` when the tool provides no reliable evidence. Never infer use from a manually entered mode string.
+- If the provider cannot accept references, state that limitation, use the pinned descriptive style prompt, and increase human QA; never claim reference-based generation.
+- Prefer a transparent-background subject render when supported. Otherwise use the matching teal studio background, reserved empty space, and deterministic masked/feathered placement without obvious rectangular seams.
 - Avoid UI screenshots by default.
-- Request 1 primary candidate; allow at most 2 extra attempts per thumbnail unless the owner authorizes more. Preserve failures and generation costs/usage when available.
+- Allow at most 3 total generation attempts per thumbnail, counting provider failures and visually rejected generations. Preserve every illustration version, prompt, rejection note, reference status, request ID, usage, and cost when available. A visual retry must use a targeted prompt addendum, the same cumulative attempt report, and the next versioned illustration path.
 - Do not store API keys, tokens or secrets in article assets, prompts or logs.
 
 ### 6.4 Stage D — Image-aware illustration QA
 
-The validator inspects subject legibility, visual compatibility with the reference board, expected scene family, perspective, lighting, clutter, stray text, fake labels, improbable geometry and whether the subject will fit the right-hand image zone.
+Before rendering or presenting a candidate, inspect the raw illustration at full size beside the approved reference board. Evaluate commercial photorealistic 3D quality; realistic corrugated cardboard, wood, plastic, and other relevant material textures; physical geometry and scale; perspective; lighting, contact shadows, and depth; right-side composition and negative space; clutter; and consistency with the approved family.
 
-**Important:** “Looks premium” or “matches reference” is not a fully deterministic machine-testable property. Image-aware automatic review can assist; owner sign-off is the release gate. QA results must include findings and a `pass`, `fail` or `review_required` outcome, not a fabricated objective score.
+Use the published CapePack vs. KolliPack three-bottle thumbnail at `static/img/blog/capepack-kollipack-bottle-case-pallet-benchmark/thumbnail-approved.png` as a **qualitative realism regression example** for believable bottles, cardboard, pallet materials, scale, surfaces, and studio lighting. The nine-thumbnail board remains authoritative for family composition, palette, and branding; do not copy the CapePack image's lettering, layout, or comparison claims.
+
+Clearly failing illustrations—flat or cartoon-like rendering, clip art, generic smooth materials, implausible scale/geometry, weak or inconsistent lighting, tiny or misplaced subject, clutter, or generated text/branding—must be rejected. Record the specific defect and use only the remaining attempts in the existing three-attempt cap. If all attempts fail, stop and report the failure instead of presenting the image as an approval candidate. Uncertain cases stay `review_required` for human review.
+
+Record review findings and a `pass`, `fail`, or `review_required` outcome; do not invent a numerical quality score. A visual-review pass only permits the candidate to proceed to deterministic composition and owner review. It does not approve publication.
+
+After deterministic composition, inspect the complete 1280×720 card and its actual 360×203 blog-card preview. Check realism, material quality, lighting, composition, clutter, visual-family consistency, subject recognition, and headline readability at card size. Do not accept a result solely because automated rendering checks pass.
 
 ### 6.5 Stage E — Deterministic branded renderer
 
@@ -201,7 +209,7 @@ Required behavior:
 
 **Automated hard gates:** file exists/decodes; correct aspect/dimensions; allowed color mode/file size; font and logo available; no text clipping; contrast readable; metadata fields valid; required reference path exists; slug and output paths correct; publisher continues using existing article/image contracts.
 
-**Visual gates:** 3-second comprehension at normal card width; same style family as the nine-tile board; no PPT-style graphs/UI clutter; right-side subject is not tiny; visual is plausible; no unverified factual implication. Visual gates may require manual verification.
+**Visual gates:** 3-second comprehension at normal card width; same style family as the nine-tile board; convincing commercial 3D materials, geometry, scale, light, contact shadows, and depth; no flat/cartoon/clip-art treatment or unnecessary decoration; no PPT-style graphs/UI clutter; right-side subject is not tiny; headline reads at 360×203; no unverified factual implication. Visual gates require direct image review.
 
 **Preview artifacts:** full-size thumbnail, 360px-wide preview, and contact sheet of the pilot thumbnails side-by-side next to reference examples. A generation job must not declare “passed” only because an API call succeeded.
 
@@ -273,12 +281,13 @@ Do not auto-upgrade image models or silently substitute style references. Change
 - Versioned renderer tokens and prompt: `.agents/skills/blog-article/assets/`.
 - Candidate/pilot location: `artifacts/blog-thumbnail-pilots/`; this is deliberately outside `static/img/blog/` until owner approval.
 - Current repository logo limitation: there is no standalone canonical KolliLabs logo asset. The v1 renderer extracts the owner-approved lockup from this board; the image model never renders the logo. Supplying a canonical standalone logo requires a renderer-version bump and visual re-approval.
-- Optional API adapter: official OpenAI Images API, pinned by default to `gpt-image-2.5-sunburst-2026-09-08`; reference-image conditioning uses the image-edit endpoint, and transparent PNG is requested. Availability, organization verification, quotas, and cost are account-specific and must be recorded from the actual response.
+- Optional API adapter: official OpenAI Images API, pinned by default to `gpt-image-2.5-sunburst-2026-09-08`; the canonical board is sent as the uploaded `image` input to the image-edit endpoint, and transparent PNG is requested. Availability, organization verification, quotas, and cost are account-specific and must be recorded from the actual response.
 - Codex built-in generation is also permitted for editorial pilots. Because that tool does not promise to expose the underlying image model or request ID, provenance must record those values as undisclosed/null rather than guessing.
 - Reference SHA verified during implementation: `8cbfd1f852273f4a6b20c7e47abb25ffdbd675607fa88c03fa4dd48e46bb547b`.
 - Owner approval for the two Phase 3 pilots was recorded on 2026-10-20. The approved bytes were integrated at versioned `thumbnail-v1.webp` paths for `think-beyond-the-box-packaging-flow-case-study` and `container-loading-benchmark-kollipack-br1-br7`; each prior `thumbnail.webp` remains as the rollback asset.
 - Phase 4 is incomplete: no approved new-style assets exist for the other seven published articles. They must retain their current thumbnails until candidates are created and explicitly approved; approval of the two pilots must not be generalized to unseen assets.
 - Renderer template `1.0.1` increases support-copy typography from 25–31 px to 40–48 px on the 1280×720 master (approximately 11–13.5 px at the 360 px card preview) and permits a controlled four-line maximum for unusually long support copy. This patch responds to owner feedback that the v1 support line was not readable at card size; illustration assets and the wider visual identity are unchanged.
+- **2026-11-04 workflow quality update:** Prompt revision `1.1.0` makes realistic commercial 3D materials, physical scale/geometry, contact shadows, depth, the dark-teal studio look, and anti-cartoon/anti-clip-art exclusions explicit. The existing OpenAI adapter now submits the canonical board using the SDK's uploaded `image` input, reports verified reference conditioning, and carries visual-review rejections through the existing cumulative three-attempt limit. No thumbnail asset, renderer, or brief/spec schema changes are part of this update.
 
 ## 11. Non-goals
 

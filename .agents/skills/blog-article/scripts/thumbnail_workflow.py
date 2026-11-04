@@ -29,7 +29,7 @@ TOKENS_PATH = SKILL_ROOT / "assets" / "thumbnail-design-tokens-v1.json"
 BASE_PROMPT_PATH = SKILL_ROOT / "assets" / "thumbnail-illustration-prompt-v1.txt"
 BRIEF_SCHEMA_VERSION = "1.0"
 ILLUSTRATION_SCHEMA_VERSION = "1.0"
-PROMPT_VERSION = "1.0.0"
+PROMPT_VERSION = "1.1.0"
 REFERENCE_STANDARD = "thumbnail-design-system-v1"
 IMAGE_MODES = {"editorial_illustration", "evidence_derived"}
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -726,7 +726,10 @@ def validate_rendered_thumbnail(
         "Owner confirms family resemblance to the approved nine-tile board.",
         "Subject is clear at 360 × 203 px and remains in the right-hand zone.",
         "No stray text, fake labels, people, UI fragments, clutter, or misleading exact count appears.",
-        "Lighting, materials, perspective, and palette feel coherent with the approved studio reference.",
+        "Corrugated board, wood, plastic, and other relevant materials read as physically plausible at full size and card size.",
+        "Geometry, scale, perspective, depth, key light, rim light, and contact shadows feel physically convincing.",
+        "The scene has premium commercial 3D realism in the approved dark-teal studio language, without flat, cartoon, clip-art, or generic infographic treatment.",
+        "Composition is focused and uncluttered, with the subject fitting the right-hand zone and no unnecessary decoration.",
     ]
     return {
         "schema_version": "1.0",
@@ -771,6 +774,9 @@ def make_provenance(
     request_id: str | None = None,
     usage: Mapping[str, Any] | None = None,
     error_reason: str | None = None,
+    reference_conditioning_status: str | None = None,
+    reference_conditioning_used: bool | None = None,
+    reference_image_supplied: bool | None = None,
 ) -> dict[str, Any]:
     tokens = load_tokens()
     reference_path, reference_sha = validate_reference(tokens)
@@ -782,6 +788,24 @@ def make_provenance(
         illustration_size = list(illustration.size)
         alpha_received = "A" in illustration.getbands() and illustration.getchannel("A").getextrema()[0] < 255
     generation_performed = attempts > 0
+    if reference_conditioning_status is None:
+        reference_conditioning_status = (
+            "not_generated"
+            if not generation_performed
+            else "not_used"
+            if reference_mode == "text_only"
+            else "unverified"
+        )
+    if reference_conditioning_used is None:
+        if reference_conditioning_status == "used":
+            reference_conditioning_used = True
+        elif reference_conditioning_status in {"not_supported", "not_used", "failed"}:
+            reference_conditioning_used = False
+    if reference_image_supplied is None:
+        if reference_conditioning_status == "used":
+            reference_image_supplied = True
+        elif reference_conditioning_status in {"not_supported", "not_used", "failed", "not_generated"}:
+            reference_image_supplied = False
     return {
         "schema_version": "1.0",
         "created_at": utc_now(),
@@ -796,12 +820,17 @@ def make_provenance(
         "provider": provider,
         "model": model,
         "reference_mode": reference_mode,
+        "reference_conditioning_status": reference_conditioning_status,
+        "reference_conditioning_used": reference_conditioning_used,
         "request_id": request_id,
         "generation_attempts": attempts,
         "generation_performed": generation_performed,
         "generation_parameters": {
             "candidate_count": 1 if generation_performed else 0,
-            "reference_image_supplied": generation_performed and reference_mode != "text_only",
+            "reference_image_supplied": reference_image_supplied,
+            "reference_conditioning_status": reference_conditioning_status,
+            "reference_conditioning_used": reference_conditioning_used,
+            "reference_conditioning_image_sha256": reference_sha if reference_image_supplied else None,
             "transparent_background_requested": generation_performed and spec.get("blending_strategy") == "transparent_alpha",
             "transparent_background_received": alpha_received,
             "output_dimensions_received": illustration_size,
@@ -887,6 +916,8 @@ class OpenAIImageProvider:
         transparent: bool,
     ) -> Mapping[str, Any]:
         client = self._client_or_raise()
+        if reference_path is None:
+            reference_path, _ = validate_reference()
         common = {
             "model": self.model,
             "prompt": prompt,
@@ -895,16 +926,19 @@ class OpenAIImageProvider:
             "background": "transparent" if transparent else "opaque",
             "output_format": "png",
         }
-        if reference_path:
-            if not self.capabilities.supports_reference_images:
-                raise UnsupportedReferenceError(f"Provider {self.name} does not support reference images")
-            encoded = base64.b64encode(reference_path.read_bytes()).decode("ascii")
-            mime = "image/png" if reference_path.suffix.casefold() == ".png" else "image/webp"
-            result = client.images.edit(images=[{"image_url": f"data:{mime};base64,{encoded}"}], **common)
+        if self.capabilities.supports_reference_images:
+            if not reference_path:
+                raise UnsupportedReferenceError(f"Provider {self.name} requires the approved reference image")
+            with reference_path.open("rb") as reference_file:
+                result = client.images.edit(image=reference_file, **common)
             reference_mode = "images_edit_reference"
+            reference_image_sha = sha256_file(reference_path)
+            reference_image_supplied = True
         else:
             result = client.images.generate(**common)
             reference_mode = "text_only"
+            reference_image_sha = None
+            reference_image_supplied = False
 
         data = getattr(result, "data", None) or []
         if not data or not getattr(data[0], "b64_json", None):
@@ -918,6 +952,10 @@ class OpenAIImageProvider:
             "request_id": getattr(result, "_request_id", None),
             "usage": usage,
             "reference_mode": reference_mode,
+            "reference_image_supplied": reference_image_supplied,
+            "reference_image_sha256": reference_image_sha,
+            "reference_conditioning_used": reference_image_supplied,
+            "reference_conditioning_status": "used" if reference_image_supplied else "not_used",
         }
 
 
@@ -930,17 +968,80 @@ def generate_with_retries(
     attempts_path: Path,
     max_attempts: int = 3,
     transparent: bool = True,
+    visual_review_rejection: str | None = None,
 ) -> dict[str, Any]:
     if not 1 <= max_attempts <= 3:
         raise ValueError("max_attempts must be between 1 and 3")
-    if reference_path and not provider.capabilities.supports_reference_images:
+
+    prior_report: dict[str, Any] = {}
+    attempts: list[dict[str, Any]] = []
+    visual_review_history: list[dict[str, Any]] = []
+    if attempts_path.is_file():
+        prior_report = read_json(attempts_path)
+        if prior_report.get("provider") not in {None, provider.name} or prior_report.get("model") not in {None, provider.model}:
+            raise ProviderUnavailableError("A cumulative attempt report cannot mix providers or models")
+        attempts = list(prior_report.get("attempts") or [])
+        visual_review_history = list(prior_report.get("visual_review_history") or [])
+        if prior_report.get("status") == "succeeded":
+            if not visual_review_rejection or not visual_review_rejection.strip():
+                raise ProviderUnavailableError(
+                    "A successful illustration must be visually rejected with --review-rejected and a review note before retrying"
+                )
+            previous_output = Path(str(prior_report.get("output_path") or ""))
+            if previous_output and previous_output.resolve() == output_path.resolve():
+                raise ProviderUnavailableError("Visual retries must write a new versioned illustration file")
+            visual_review_history.append(
+                {
+                    "attempt": len(attempts),
+                    "status": "rejected",
+                    "note": visual_review_rejection.strip(),
+                    "illustration_path": prior_report.get("output_path"),
+                    "reviewed_at": utc_now(),
+                }
+            )
+        elif visual_review_rejection:
+            raise ProviderUnavailableError(
+                "--review-rejected applies only to a previously successful illustration"
+            )
+
+    reference_conditioning_status = "not_supported"
+    reference_conditioning_used = False
+    reference_image_supplied = False
+    reference_sha: str | None = None
+    if provider.capabilities.supports_reference_images:
+        canonical_reference, reference_sha = validate_reference()
+        if reference_path and (
+            not reference_path.is_file() or sha256_file(reference_path) != reference_sha
+        ):
+            report = {
+                "status": "failed",
+                "provider": provider.name,
+                "model": provider.model,
+                "attempts": attempts,
+                "reference_conditioning_status": "failed",
+                "reference_conditioning_used": False,
+                "reference_image_supplied": False,
+                "error_reason": "reference_image_not_canonical_approved_board",
+                "approval_status": "review_required",
+                "visual_review_history": visual_review_history,
+            }
+            write_json(attempts_path, report)
+            raise UnsupportedReferenceError("Reference image must be the canonical approved nine-thumbnail board")
+        reference_path = canonical_reference
+        reference_conditioning_status = "pending"
+        reference_image_supplied = True
+    elif reference_path:
         report = {
             "status": "failed",
             "provider": provider.name,
             "model": provider.model,
-            "attempts": [],
+            "attempts": attempts,
             "error_reason": "reference_images_unsupported",
+            "reference_conditioning_status": "not_supported",
+            "reference_conditioning_used": False,
+            "reference_image_supplied": False,
             "approval_status": "review_required",
+            "visual_review_history": visual_review_history,
         }
         write_json(attempts_path, report)
         raise UnsupportedReferenceError(f"Provider {provider.name} does not support reference images")
@@ -949,15 +1050,44 @@ def generate_with_retries(
             "status": "failed",
             "provider": provider.name,
             "model": provider.model,
-            "attempts": [],
+            "attempts": attempts,
             "error_reason": "transparent_background_unsupported",
+            "reference_conditioning_status": reference_conditioning_status,
+            "reference_conditioning_used": reference_conditioning_used,
+            "reference_image_supplied": reference_image_supplied,
             "approval_status": "review_required",
+            "visual_review_history": visual_review_history,
         }
         write_json(attempts_path, report)
         raise ProviderUnavailableError(f"Provider {provider.name} does not support transparent backgrounds")
 
-    attempts: list[dict[str, Any]] = []
-    for attempt in range(1, max_attempts + 1):
+    if len(attempts) >= max_attempts:
+        prior_conditioning_status = prior_report.get("reference_conditioning_status", reference_conditioning_status)
+        prior_conditioning_used = prior_report.get("reference_conditioning_used", reference_conditioning_used)
+        prior_reference_supplied = prior_report.get("reference_image_supplied", reference_image_supplied)
+        prior_reference_sha = prior_report.get("reference_image_sha256", reference_sha)
+        report = {
+            **prior_report,
+            "status": "visual_rejected" if visual_review_rejection else "failed",
+            "provider": provider.name,
+            "model": provider.model,
+            "attempts": attempts,
+            "error_reason": "visual_retry_budget_exhausted" if visual_review_rejection else "attempt_budget_exhausted",
+            "reference_conditioning_status": prior_conditioning_status,
+            "reference_conditioning_used": prior_conditioning_used,
+            "reference_image_supplied": prior_reference_supplied,
+            "reference_image_sha256": prior_reference_sha,
+            "candidate_status": "visual_rejected" if visual_review_rejection else "failed",
+            "approval_status": "review_required",
+            "visual_review_history": visual_review_history,
+        }
+        write_json(attempts_path, report)
+        raise ProviderUnavailableError("Thumbnail illustration has exhausted its three-attempt budget")
+
+    if output_path.exists():
+        raise ProviderUnavailableError(f"Refusing to overwrite an existing illustration candidate: {output_path}")
+
+    for attempt in range(len(attempts) + 1, max_attempts + 1):
         started = utc_now()
         try:
             metadata = dict(
@@ -968,13 +1098,66 @@ def generate_with_retries(
                     transparent=transparent,
                 )
             )
-            attempts.append({"attempt": attempt, "started_at": started, "status": "succeeded"})
+            provider_conditioning_used = metadata.get("reference_conditioning_used")
+            if reference_image_supplied and provider_conditioning_used is not True:
+                raise ProviderUnavailableError(
+                    "Reference-capable provider returned an image without confirming successful reference conditioning"
+                )
+            if not reference_image_supplied and provider_conditioning_used is True:
+                raise ProviderUnavailableError(
+                    "Provider reported reference conditioning even though no reference image was supplied"
+                )
+            attempts.append(
+                {
+                    "attempt": attempt,
+                    "started_at": started,
+                    "status": "succeeded",
+                    "output_path": output_path.as_posix(),
+                    "reference_image_supplied": reference_image_supplied,
+                    "reference_image_sha256": reference_sha if reference_image_supplied else None,
+                    "metadata": metadata,
+                }
+            )
+            if provider_conditioning_used is True:
+                reference_conditioning_status = "used"
+                reference_conditioning_used = True
+                reference_image_supplied = bool(metadata.get("reference_image_supplied", reference_image_supplied))
+            elif provider_conditioning_used is False:
+                reference_conditioning_status = (
+                    "not_supported" if not provider.capabilities.supports_reference_images else "not_used"
+                )
+                reference_conditioning_used = False
+                reference_image_supplied = bool(metadata.get("reference_image_supplied", False))
+            else:
+                reference_conditioning_status = "unverified" if reference_image_supplied else "not_supported"
+                reference_conditioning_used = None if reference_image_supplied else False
+            metadata.setdefault("reference_conditioning_status", reference_conditioning_status)
+            metadata.setdefault("reference_conditioning_used", reference_conditioning_used)
+            metadata.setdefault("reference_image_supplied", reference_image_supplied)
+            metadata.setdefault("reference_image_sha256", reference_sha if reference_image_supplied else None)
+            attempts[-1].update(
+                {
+                    "reference_conditioning_status": reference_conditioning_status,
+                    "reference_conditioning_used": reference_conditioning_used,
+                    "reference_image_supplied": reference_image_supplied,
+                    "reference_image_sha256": reference_sha if reference_image_supplied else None,
+                    "metadata": metadata,
+                }
+            )
             report = {
                 "status": "succeeded",
                 "provider": provider.name,
                 "model": provider.model,
                 "attempts": attempts,
                 "metadata": metadata,
+                "reference_mode": metadata.get("reference_mode", "unverified"),
+                "reference_conditioning_status": reference_conditioning_status,
+                "reference_conditioning_used": reference_conditioning_used,
+                "reference_image_supplied": reference_image_supplied,
+                "reference_image_sha256": reference_sha if reference_image_supplied else None,
+                "output_path": output_path.as_posix(),
+                "visual_review_history": visual_review_history,
+                "candidate_status": "visual_review_required",
                 "approval_status": "review_required",
             }
             write_json(attempts_path, report)
@@ -985,6 +1168,11 @@ def generate_with_retries(
                     "attempt": attempt,
                     "started_at": started,
                     "status": "failed",
+                    "output_path": output_path.as_posix(),
+                    "reference_image_supplied": reference_image_supplied,
+                    "reference_conditioning_status": "failed" if reference_image_supplied else "not_supported",
+                    "reference_conditioning_used": False,
+                    "reference_image_sha256": reference_sha if reference_image_supplied else None,
                     "error_type": type(exc).__name__,
                     "error_reason": str(exc),
                 }
@@ -996,6 +1184,11 @@ def generate_with_retries(
         "model": provider.model,
         "attempts": attempts,
         "error_reason": attempts[-1]["error_reason"],
+        "reference_conditioning_status": "failed" if reference_image_supplied else "not_supported",
+        "reference_conditioning_used": False,
+        "reference_image_supplied": reference_image_supplied,
+        "reference_image_sha256": reference_sha if reference_image_supplied else None,
+        "visual_review_history": visual_review_history,
         "approval_status": "review_required",
     }
     write_json(attempts_path, report)

@@ -4387,6 +4387,11 @@ body.public-expert-open {
     line-height: 1.5;
 }
 
+.blog-article-body img {
+    max-width: 100%;
+    height: auto;
+}
+
 .blog-article-body mjx-container[display="true"] {
     max-width: 100%;
     overflow-x: auto;

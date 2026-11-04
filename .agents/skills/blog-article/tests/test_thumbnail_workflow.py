@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import base64
 import json
 import sys
 import tempfile
 import tomllib
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 from PIL import Image, ImageDraw
 
@@ -15,10 +17,12 @@ SCRIPTS = REPO_ROOT / ".agents" / "skills" / "blog-article" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from thumbnail_workflow import (  # noqa: E402
+    OpenAIImageProvider,
     ProviderCapabilities,
     ProviderUnavailableError,
     SchemaValidationError,
     UnsupportedReferenceError,
+    build_illustration_prompt,
     can_publish,
     create_card_preview,
     create_preview_sheets,
@@ -96,6 +100,22 @@ class ThumbnailSchemaTests(unittest.TestCase):
         brief["image_mode"] = "evidence_derived"
         with self.assertRaisesRegex(SchemaValidationError, "evidence_asset_paths"):
             validate_thumbnail_brief(brief)
+
+    def test_locked_prompt_requires_premium_photorealistic_material_rendering(self):
+        prompt = build_illustration_prompt(valid_brief(), valid_spec())
+
+        self.assertEqual(prompt["prompt_version"], "1.1.0")
+        for phrase in (
+            "photorealistic high-end 3D product scene",
+            "corrugated cardboard should show fine paper fibre",
+            "natural grain and end grain",
+            "credible thickness",
+            "realistic contact shadows",
+            "Do not use flat illustration, cartoon rendering, clip art",
+            "The final card renderer adds the background, typography, logo, and layout",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, prompt["prompt"])
 
     def test_prompt_cli_records_tool_instruction_in_exact_prompt_hash(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -241,7 +261,186 @@ class UnsupportedReferenceProvider:
         raise AssertionError("generate must not be called")
 
 
+class SuccessfulProvider:
+    name = "fixture-success"
+    model = "fixture-model"
+    capabilities = ProviderCapabilities(True, True)
+
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, **kwargs):
+        self.calls += 1
+        kwargs["output_path"].write_bytes(f"illustration-{self.calls}".encode())
+        return {
+            "reference_mode": "images_edit_reference",
+            "reference_image_supplied": True,
+            "reference_image_sha256": sha256_file(kwargs["reference_path"]),
+            "reference_conditioning_used": True,
+        }
+
+
+class FakeOpenAIImages:
+    def __init__(self):
+        self.edit_kwargs = None
+
+    def edit(self, **kwargs):
+        self.edit_kwargs = kwargs
+        self.reference_bytes = kwargs["image"].read()
+        return SimpleNamespace(
+            data=[SimpleNamespace(b64_json=base64.b64encode(b"fixture-image-payload").decode("ascii"))],
+            usage={"input_tokens": 10},
+            _request_id="req-thumbnail-fixture",
+        )
+
+    def generate(self, **kwargs):  # pragma: no cover - the reference-capable path must edit
+        raise AssertionError("reference-capable provider must call images.edit")
+
+
+class FakeOpenAIClient:
+    def __init__(self):
+        self.images = FakeOpenAIImages()
+
+
 class ThumbnailProviderTests(unittest.TestCase):
+    def test_openai_adapter_submits_canonical_board_as_image_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            reference = REPO_ROOT / "docs" / "blog" / "assets" / "kollilabs-approved-thumbnail-board-v1.png"
+            client = FakeOpenAIClient()
+            provider = OpenAIImageProvider(client=client)
+            output = root / "illustration.png"
+
+            metadata = provider.generate(
+                prompt="fixture prompt",
+                reference_path=None,
+                output_path=output,
+                transparent=True,
+            )
+
+            self.assertIn("image", client.images.edit_kwargs)
+            self.assertNotIn("images", client.images.edit_kwargs)
+            self.assertEqual(client.images.reference_bytes, reference.read_bytes())
+            self.assertEqual(metadata["reference_mode"], "images_edit_reference")
+            self.assertTrue(metadata["reference_conditioning_used"])
+            self.assertEqual(metadata["reference_image_sha256"], sha256_file(reference))
+            self.assertEqual(output.read_bytes(), b"fixture-image-payload")
+
+    def test_visual_rejections_share_the_three_attempt_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            attempts_path = root / "attempts.json"
+            provider = SuccessfulProvider()
+            reference = REPO_ROOT / "docs" / "blog" / "assets" / "kollilabs-approved-thumbnail-board-v1.png"
+
+            first = generate_with_retries(
+                provider,
+                prompt="first prompt",
+                reference_path=reference,
+                output_path=root / "illustration-v1.png",
+                attempts_path=attempts_path,
+                max_attempts=3,
+            )
+            second = generate_with_retries(
+                provider,
+                prompt="targeted retry prompt",
+                reference_path=reference,
+                output_path=root / "illustration-v2.png",
+                attempts_path=attempts_path,
+                max_attempts=3,
+                visual_review_rejection="Cardboard texture looked smooth and plastic.",
+            )
+            third = generate_with_retries(
+                provider,
+                prompt="second targeted retry prompt",
+                reference_path=reference,
+                output_path=root / "illustration-v3.png",
+                attempts_path=attempts_path,
+                max_attempts=3,
+                visual_review_rejection="Contact shadows still looked detached.",
+            )
+
+            self.assertTrue(first["reference_conditioning_used"])
+            self.assertEqual(len(second["attempts"]), 2)
+            self.assertEqual(len(third["attempts"]), 3)
+            self.assertEqual(len(third["visual_review_history"]), 2)
+            self.assertEqual(provider.calls, 3)
+            with self.assertRaises(ProviderUnavailableError):
+                generate_with_retries(
+                    provider,
+                    prompt="over-budget prompt",
+                    reference_path=reference,
+                    output_path=root / "illustration-v4.png",
+                    attempts_path=attempts_path,
+                    max_attempts=3,
+                    visual_review_rejection="The scene remains too cluttered.",
+                )
+            final_report = json.loads(attempts_path.read_text(encoding="utf-8"))
+            self.assertEqual(final_report["status"], "visual_rejected")
+            self.assertEqual(len(final_report["attempts"]), 3)
+            self.assertEqual(provider.calls, 3)
+            self.assertEqual((root / "illustration-v1.png").read_bytes(), b"illustration-1")
+
+    def test_render_provenance_uses_successful_generation_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            brief_path = root / "brief.json"
+            spec_path = root / "spec.json"
+            illustration_path = root / "illustration.png"
+            report_path = root / "generation-report.json"
+            validation_path = root / "validation.json"
+            thumbnail_path = root / "thumbnail-v1.webp"
+            provenance_path = root / "provenance.json"
+            canonical_reference = REPO_ROOT / "docs" / "blog" / "assets" / "kollilabs-approved-thumbnail-board-v1.png"
+            reference_sha = sha256_file(canonical_reference)
+            brief_path.write_text(json.dumps(valid_brief()), encoding="utf-8")
+            spec_path.write_text(json.dumps(valid_spec()), encoding="utf-8")
+            fixture_illustration(illustration_path)
+            generation_report = {
+                "status": "succeeded",
+                "provider": "openai-images-api",
+                "model": "fixture-model",
+                "attempts": [{"attempt": 1, "status": "succeeded"}],
+                "metadata": {
+                    "reference_mode": "images_edit_reference",
+                    "reference_conditioning_used": True,
+                    "request_id": "req-thumbnail-fixture",
+                    "usage": {"input_tokens": 10},
+                },
+                "reference_mode": "images_edit_reference",
+                "reference_conditioning_status": "used",
+                "reference_conditioning_used": True,
+                "reference_image_supplied": True,
+                "reference_image_sha256": reference_sha,
+            }
+            report_path.write_text(json.dumps(generation_report), encoding="utf-8")
+
+            result = workflow_main(
+                [
+                    "render",
+                    "--brief", str(brief_path),
+                    "--spec", str(spec_path),
+                    "--illustration", str(illustration_path),
+                    "--output", str(thumbnail_path),
+                    "--validation", str(validation_path),
+                    "--provenance", str(provenance_path),
+                    "--provider", "openai-images-api",
+                    "--model", "fixture-model",
+                    "--reference-mode", "images_edit_reference",
+                    "--attempts", "1",
+                    "--generation-report", str(report_path),
+                ]
+            )
+
+            provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+            self.assertEqual(result, 0)
+            self.assertEqual(provenance["reference_conditioning_status"], "used")
+            self.assertIs(provenance["reference_conditioning_used"], True)
+            self.assertIs(provenance["generation_parameters"]["reference_image_supplied"], True)
+            self.assertEqual(provenance["generation_parameters"]["reference_conditioning_image_sha256"], reference_sha)
+            self.assertEqual(provenance["request_id"], "req-thumbnail-fixture")
+            self.assertEqual(provenance["usage"], {"input_tokens": 10})
+
     def test_retry_cap_persists_failures_and_publish_stays_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -259,6 +458,8 @@ class ThumbnailProviderTests(unittest.TestCase):
             report = json.loads(attempts.read_text(encoding="utf-8"))
             self.assertEqual(provider.calls, 3)
             self.assertEqual(len(report["attempts"]), 3)
+            self.assertEqual(report["reference_conditioning_status"], "failed")
+            self.assertIs(report["reference_conditioning_used"], False)
             self.assertEqual(report["approval_status"], "review_required")
             self.assertFalse(can_publish({"hard_status": "pass", "visual_status": "review_required"}, report))
 
@@ -277,6 +478,8 @@ class ThumbnailProviderTests(unittest.TestCase):
                 )
             report = json.loads(attempts.read_text(encoding="utf-8"))
             self.assertEqual(report["error_reason"], "reference_images_unsupported")
+            self.assertEqual(report["reference_conditioning_status"], "not_supported")
+            self.assertIs(report["reference_conditioning_used"], False)
 
 
 class PublishedBlogRegressionTests(unittest.TestCase):

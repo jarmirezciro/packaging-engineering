@@ -24,6 +24,7 @@ from thumbnail_workflow import (
     make_provenance,
     read_json,
     render_thumbnail,
+    sha256_file,
     sha256_text,
     validate_illustration_spec,
     validate_rendered_thumbnail,
@@ -149,11 +150,22 @@ def workflow_main(argv: list[str]) -> int:
 
     generate_parser = subparsers.add_parser("generate", help="Generate a subject illustration with the optional Images API adapter")
     _common_inputs(generate_parser)
-    generate_parser.add_argument("--reference", type=Path, required=True)
+    generate_parser.add_argument(
+        "--reference",
+        type=Path,
+        help="Deprecated verification input; generation uses the canonical approved board automatically",
+    )
     generate_parser.add_argument("--output", type=Path, required=True)
     generate_parser.add_argument("--attempts-report", type=Path, required=True)
     generate_parser.add_argument("--model", default="gpt-image-2.5-sunburst-2026-09-08")
     generate_parser.add_argument("--max-attempts", type=int, default=3)
+    generate_parser.add_argument("--prompt-record", type=Path, help="Use the exact saved prompt record")
+    generate_parser.add_argument(
+        "--review-rejected",
+        action="store_true",
+        help="Record that the previous successful illustration failed visual review before retrying",
+    )
+    generate_parser.add_argument("--review-note", help="Specific visual failure that the next attempt must correct")
 
     render_parser = subparsers.add_parser("render", help="Render and validate a branded candidate")
     _common_inputs(render_parser)
@@ -166,6 +178,7 @@ def workflow_main(argv: list[str]) -> int:
     render_parser.add_argument("--reference-mode", required=True)
     render_parser.add_argument("--attempts", type=int, required=True)
     render_parser.add_argument("--request-id")
+    render_parser.add_argument("--generation-report", type=Path, help="Use the actual adapter report for reference/provenance fields")
     render_parser.add_argument(
         "--prompt-record",
         type=Path,
@@ -238,17 +251,33 @@ def workflow_main(argv: list[str]) -> int:
         return 0
 
     if args.command == "generate":
+        if args.output.exists():
+            parser.error(f"Refusing to overwrite an existing illustration candidate: {args.output}")
+        if args.review_rejected and not (args.review_note and args.review_note.strip()):
+            parser.error("--review-rejected requires a specific --review-note")
+        if args.review_note and not args.review_rejected:
+            parser.error("--review-note requires --review-rejected")
+        if args.reference:
+            if not args.reference.is_file():
+                parser.error(f"Reference image does not exist: {args.reference}")
+            if sha256_file(args.reference) != reference_sha:
+                parser.error("--reference must match the canonical approved nine-thumbnail board")
+        if args.prompt_record:
+            prompt_record = read_json(args.prompt_record)
+            if prompt_record.get("prompt_sha256") != sha256_text(str(prompt_record.get("prompt", ""))):
+                parser.error(f"Prompt record hash does not match its prompt: {args.prompt_record}")
         provider = OpenAIImageProvider(model=args.model)
-        generate_with_retries(
+        report = generate_with_retries(
             provider,
             prompt=prompt_record["prompt"],
-            reference_path=args.reference,
+            reference_path=reference_path,
             output_path=args.output,
             attempts_path=args.attempts_report,
             max_attempts=args.max_attempts,
             transparent=spec["blending_strategy"] == "transparent_alpha",
+            visual_review_rejection=args.review_note if args.review_rejected else None,
         )
-        print(f"Wrote {args.output}")
+        print(f"Wrote {args.output}; reference conditioning: {report['reference_conditioning_status']}")
         return 0
 
     if args.prompt_record:
@@ -256,6 +285,42 @@ def workflow_main(argv: list[str]) -> int:
         expected_prompt_hash = sha256_text(str(prompt_record.get("prompt", "")))
         if prompt_record.get("prompt_sha256") != expected_prompt_hash:
             parser.error(f"Prompt record hash does not match its prompt: {args.prompt_record}")
+    generation_report = read_json(args.generation_report) if args.generation_report else None
+    conditioning_status = None
+    conditioning_used = None
+    reference_image_supplied = None
+    usage = None
+    request_id = args.request_id
+    if generation_report:
+        metadata = generation_report.get("metadata") or {}
+        if generation_report.get("status") != "succeeded":
+            parser.error("--generation-report must contain a successful generation")
+        if generation_report.get("provider") != args.provider or generation_report.get("model") != args.model:
+            parser.error("--generation-report provider/model must match the render arguments")
+        if len(generation_report.get("attempts") or []) != args.attempts:
+            parser.error("--attempts must match the successful generation report")
+        actual_reference_mode = generation_report.get("reference_mode") or metadata.get("reference_mode")
+        if actual_reference_mode != args.reference_mode:
+            parser.error("--reference-mode must match the successful generation report")
+        report_reference_sha = generation_report.get("reference_image_sha256")
+        if generation_report.get("reference_conditioning_used") is True and report_reference_sha != reference_sha:
+            parser.error("Generation report does not identify the canonical approved board as its conditioned reference")
+        conditioning_status = generation_report.get("reference_conditioning_status", "unverified")
+        conditioning_used = generation_report.get("reference_conditioning_used")
+        reference_image_supplied = generation_report.get("reference_image_supplied")
+        if args.provider == "openai-images-api" and (
+            conditioning_status != "used"
+            or conditioning_used is not True
+            or reference_image_supplied is not True
+        ):
+            parser.error("The OpenAI image adapter requires a successful request conditioned by the approved board")
+        usage = metadata.get("usage")
+        report_request_id = metadata.get("request_id")
+        if request_id and report_request_id and request_id != report_request_id:
+            parser.error("--request-id does not match the successful generation report")
+        request_id = report_request_id or request_id
+    elif args.provider == "openai-images-api" and args.attempts > 0:
+        parser.error("OpenAI adapter provenance requires --generation-report")
     render_report = render_thumbnail(brief, spec, args.illustration, args.output, tokens=tokens)
     validation = validate_rendered_thumbnail(args.output, render_report, tokens=tokens)
     write_json(args.validation, validation)
@@ -270,7 +335,11 @@ def workflow_main(argv: list[str]) -> int:
         model=args.model,
         reference_mode=args.reference_mode,
         attempts=args.attempts,
-        request_id=args.request_id,
+        request_id=request_id,
+        usage=usage,
+        reference_conditioning_status=conditioning_status,
+        reference_conditioning_used=conditioning_used,
+        reference_image_supplied=reference_image_supplied,
     )
     write_json(args.provenance, provenance)
     print(f"Wrote {args.output}, {args.validation}, and {args.provenance}")
