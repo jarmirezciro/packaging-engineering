@@ -4,6 +4,7 @@
 
 | Slug | Title | Status | Type | Primary keyword | Published | Updated | Related tools |
 |---|---|---|---|---|---|---|---|
+| capepack-kollipack-bottle-case-pallet-benchmark | Same Pallet Capacity, Different Design Thinking: KolliPack and CapePack in Three Bottle Cases | published | demo_case_study | CapePack KolliPack bottle pallet benchmark | 2026-11-04 | 2026-11-04 | packaging-flow, container-selection, palletization |
 | capepack-parameter-fine-tuning | Can KolliPack Match CapePack After Parameter Fine-Tuning? | published | demo_case_study | CapePack KolliPack parameter fine tuning | 2026-11-01 | 2026-11-01 | packaging-flow |
 | cartons-per-pallet-case-design-exploration | Can KolliPack Match CapePack? From 216 to 240 Cartons per Pallet | published | demo_case_study | cartons per pallet case design | 2026-10-31 | 2026-10-31 | packaging-flow |
 | tops-maxload-kollipack-container-loading-benchmark | KolliPack vs TOPS MaxLoad: Can a Different Loading Strategy Fit More? | published | demo_case_study | TOPS MaxLoad container loading benchmark | 2026-10-20 | 2026-10-20 | transport-container |

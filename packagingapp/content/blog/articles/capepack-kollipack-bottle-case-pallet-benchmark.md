@@ -1,6 +1,6 @@
 +++
 schema_version = 1
-status = "draft"
+status = "published"
 title = "Same Pallet Capacity, Different Design Thinking: KolliPack and CapePack in Three Bottle Cases"
 slug = "capepack-kollipack-bottle-case-pallet-benchmark"
 subtitle = "Three bottle-to-pallet cases, matched geometric quantities and different engineering workflows."
