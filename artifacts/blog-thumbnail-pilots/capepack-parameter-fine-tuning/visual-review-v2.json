@@ -1,0 +1,66 @@
+{
+  "review_version": "1.0",
+  "reviewed_at": "2026-11-04",
+  "reviewer": "Codex self-review; no independent reviewer was available",
+  "status": "approved",
+  "candidate": "thumbnail-v2.webp",
+  "raw_illustration": "illustration-v2.png",
+  "reference_board": "docs/blog/assets/kollilabs-approved-thumbnail-board-v1.png",
+  "qualitative_regression_reference": "static/img/blog/capepack-kollipack-bottle-case-pallet-benchmark/thumbnail-approved.png",
+  "reference_conditioning": {
+    "reference_image_supplied": true,
+    "reference_sha256": "8cbfd1f852273f4a6b20c7e47abb25ffdbd675607fa88c03fa4dd48e46bb547b",
+    "successful_conditioning": "unverified",
+    "note": "The board was supplied through the built-in imagegen reference-image input. The tool returned no signal confirming whether it conditioned on that image."
+  },
+  "card_preview": {
+    "path": "visual-review-gallery-v2.png",
+    "candidate_display_size_px": [
+      360,
+      203
+    ],
+    "readability": "The primary hook, comparison line, support line, and subjects remain recognizable at the actual blog-card review size."
+  },
+  "checks": {
+    "realism": {
+      "result": "pass",
+      "notes": "The scene reads as premium commercial 3D product rendering, not a flat illustration or infographic."
+    },
+    "material_quality": {
+      "result": "pass",
+      "notes": "Corrugated cartons show convincing paper texture and seams; the timber pallets have visible grain and dimensional construction."
+    },
+    "lighting_and_depth": {
+      "result": "pass",
+      "notes": "Warm key highlights and restrained teal edge light give both loads clear depth; pallet and carton contact shadows feel grounded."
+    },
+    "composition_and_scale": {
+      "result": "pass",
+      "notes": "Both loads are large, similarly scaled, clearly separated, and readable in the renderer-owned right-side illustration zone. The left text zone remains clear."
+    },
+    "transparency_and_clutter": {
+      "result": "pass",
+      "notes": "The source PNG has transparency. No full-frame matte, floor, haze, decorative props, generated text, or branding is visible in the final card."
+    },
+    "family_consistency": {
+      "result": "pass",
+      "notes": "The card uses the approved dark-teal background, mint and white typography, and restrained commercial packaging scene consistent with the approved board and the bottle regression example."
+    },
+    "article_claim_integrity": {
+      "result": "pass",
+      "notes": "The illustration is conceptual and contains no exact numeric labels, vendor interface, or claim of exact solver geometry."
+    }
+  },
+  "previous_candidate_review": "visual-review.json",
+  "attempt_history": {
+    "codex_imagegen_attempts": 2,
+    "earlier_openai_api_attempt_report": "illustration-attempts.json",
+    "earlier_openai_api_status": "failed: expired API key (401)"
+  },
+  "decision": "Owner approved this visually reviewed candidate for production integration.",
+  "owner_approval": {
+    "status": "approved",
+    "approved_at": "2026-11-04",
+    "approved_by": "owner via conversation"
+  }
+}

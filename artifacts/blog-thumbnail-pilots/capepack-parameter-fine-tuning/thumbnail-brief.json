@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "capepack-parameter-fine-tuning",
+  "composition": "comparison",
+  "hook_primary": "384 & 360",
+  "hook_secondary": "MATCHED RESULTS",
+  "support_line": "CapePack vs. KolliPack",
+  "scene_subject": "two side-by-side palletized loads of corrugated shipping cases with visibly different case proportions but matching presentation, each on a natural timber pallet; conceptual comparison only, no exact counted cartons or precise packing pattern",
+  "image_mode": "editorial_illustration",
+  "supported_claims": [
+    {
+      "text": "384",
+      "evidence": "The article states that CapePack displays 384 primary cartons per pallet with a 16-unit shipping case, and that KolliPack reproduces the visible capacity and layer count.",
+      "source": "packagingapp/content/blog/articles/capepack-parameter-fine-tuning.md"
+    },
+    {
+      "text": "360",
+      "evidence": "The article states that CapePack displays 360 primary cartons per pallet with a 12-unit shipping case, and that KolliPack reproduces the visible capacity and layer count.",
+      "source": "packagingapp/content/blog/articles/capepack-parameter-fine-tuning.md"
+    }
+  ],
+  "screenshots_allowed": false,
+  "reference_standard": "thumbnail-design-system-v1"
+}

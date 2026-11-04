@@ -4655,6 +4655,11 @@ body.public-expert-open {
     backdrop-filter: blur(8px);
 }
 
+.blog-card-visual--brand-kicker .blog-card-type {
+    left: auto;
+    right: 0.75rem;
+}
+
 .blog-card-author {
     display: flex;
     align-items: center;

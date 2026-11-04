@@ -1,0 +1,50 @@
+{
+  "status": "failed",
+  "provider": "openai-images-api",
+  "model": "gpt-image-2.5-sunburst-2026-09-08",
+  "attempts": [
+    {
+      "attempt": 1,
+      "started_at": "2026-11-04T22:27:35+00:00",
+      "status": "failed",
+      "output_path": "artifacts/blog-thumbnail-pilots/capepack-parameter-fine-tuning/illustration-v1.png",
+      "reference_image_supplied": true,
+      "reference_conditioning_status": "failed",
+      "reference_conditioning_used": false,
+      "reference_image_sha256": "8cbfd1f852273f4a6b20c7e47abb25ffdbd675607fa88c03fa4dd48e46bb547b",
+      "error_type": "AuthenticationError",
+      "error_reason": "Error code: 401 - {'error': {'message': 'Your API key has expired. Create a new API key to continue.', 'type': 'invalid_request_error', 'code': 'expired_secret_key', 'param': None}, 'status': 401}"
+    },
+    {
+      "attempt": 2,
+      "started_at": "2026-11-04T22:27:39+00:00",
+      "status": "failed",
+      "output_path": "artifacts/blog-thumbnail-pilots/capepack-parameter-fine-tuning/illustration-v1.png",
+      "reference_image_supplied": true,
+      "reference_conditioning_status": "failed",
+      "reference_conditioning_used": false,
+      "reference_image_sha256": "8cbfd1f852273f4a6b20c7e47abb25ffdbd675607fa88c03fa4dd48e46bb547b",
+      "error_type": "AuthenticationError",
+      "error_reason": "Error code: 401 - {'error': {'message': 'Your API key has expired. Create a new API key to continue.', 'type': 'invalid_request_error', 'code': 'expired_secret_key', 'param': None}, 'status': 401}"
+    },
+    {
+      "attempt": 3,
+      "started_at": "2026-11-04T22:27:41+00:00",
+      "status": "failed",
+      "output_path": "artifacts/blog-thumbnail-pilots/capepack-parameter-fine-tuning/illustration-v1.png",
+      "reference_image_supplied": true,
+      "reference_conditioning_status": "failed",
+      "reference_conditioning_used": false,
+      "reference_image_sha256": "8cbfd1f852273f4a6b20c7e47abb25ffdbd675607fa88c03fa4dd48e46bb547b",
+      "error_type": "AuthenticationError",
+      "error_reason": "Error code: 401 - {'error': {'message': 'Your API key has expired. Create a new API key to continue.', 'type': 'invalid_request_error', 'code': 'expired_secret_key', 'param': None}, 'status': 401}"
+    }
+  ],
+  "error_reason": "Error code: 401 - {'error': {'message': 'Your API key has expired. Create a new API key to continue.', 'type': 'invalid_request_error', 'code': 'expired_secret_key', 'param': None}, 'status': 401}",
+  "reference_conditioning_status": "failed",
+  "reference_conditioning_used": false,
+  "reference_image_supplied": true,
+  "reference_image_sha256": "8cbfd1f852273f4a6b20c7e47abb25ffdbd675607fa88c03fa4dd48e46bb547b",
+  "visual_review_history": [],
+  "approval_status": "review_required"
+}

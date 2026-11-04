@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "capepack-parameter-fine-tuning",
+  "scene_family": "comparison",
+  "subjects": [
+    "corrugated_box",
+    "pallet"
+  ],
+  "camera": "three-quarter commercial product-studio view, slightly above the two loads, with matching scale and perspective",
+  "materials": "natural kraft corrugated cardboard with fine paper fibre, clear folded flaps, scored edges and realistic seams; timber pallet with subtle wood grain and end grain; restrained neutral details; no printed markings",
+  "lighting": "premium soft key light from upper left, restrained teal rim light, warm cardboard highlights, convincing contact shadows at carton-to-carton, carton-to-pallet and pallet-to-floor, subtle grounded floor reflection",
+  "reserved_blank_zones": [
+    "left_text_zone",
+    "lower_left_brand_zone"
+  ],
+  "blending_strategy": "transparent_alpha",
+  "exclusions": [
+    "text",
+    "logos",
+    "people",
+    "screenshots",
+    "watermarks",
+    "visible exact carton counts",
+    "precise solver layout",
+    "printed labels or symbols",
+    "charts or infographic graphics",
+    "unnecessary props or clutter"
+  ],
+  "image_mode": "editorial_illustration"
+}

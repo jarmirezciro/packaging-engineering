@@ -40,7 +40,7 @@
         {% for post in posts %}
         <div class="col-lg-6 col-xl-4">
             <a href="{% url 'blog_detail' post.slug %}" class="blog-card h-100">
-                <div class="blog-card-visual {% if post.featured_image %}blog-card-visual--image{% endif %}">
+                <div class="blog-card-visual {% if post.featured_image %}blog-card-visual--image{% endif %} {% if post.slug == 'capepack-parameter-fine-tuning' %}blog-card-visual--brand-kicker{% endif %}">
                     {% if post.featured_image %}
                     <img src="{% static post.featured_image %}" alt="{{ post.thumbnail_alt|default:post.title }}">
                     {% else %}

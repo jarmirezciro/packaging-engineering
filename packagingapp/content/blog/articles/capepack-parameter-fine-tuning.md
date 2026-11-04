@@ -14,15 +14,15 @@ category = "Packaging Engineering"
 read_time = "10 min read"
 published_at = 2026-11-01
 updated_at = 2026-11-01
-thumbnail = "img/blog/capepack-parameter-fine-tuning/01_benchmark_setup_approved.png"
-thumbnail_alt = "Benchmark packaging chain from primary carton to RSC shipping case to palletized load"
-featured_image = "img/blog/capepack-parameter-fine-tuning/01_benchmark_setup_approved.png"
+thumbnail = "img/blog/capepack-parameter-fine-tuning/thumbnail-v2.webp"
+thumbnail_alt = "Two conceptual palletized corrugated loads with different case proportions on timber pallets"
+featured_image = "img/blog/capepack-parameter-fine-tuning/thumbnail-v2.webp"
 primary_keyword = "CapePack KolliPack parameter fine tuning"
 tags = ["CapePack", "KolliPack", "case design", "palletization", "packaging benchmark"]
 related_articles = ["cartons-per-pallet-case-design-exploration", "think-beyond-the-box-packaging-flow-case-study", "rsc-material-optimization"]
 related_tools = ["packaging-flow"]
 canonical_path = "/blog/capepack-parameter-fine-tuning/"
-og_image = "img/blog/capepack-parameter-fine-tuning/01_benchmark_setup_approved.png"
+og_image = "img/blog/capepack-parameter-fine-tuning/thumbnail-v2.webp"
 
 [[flow_steps]]
 icon = "bi-bounding-box"

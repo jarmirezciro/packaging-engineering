@@ -1,0 +1,50 @@
+{
+  "review_version": "1.0",
+  "reviewed_at": "2026-11-04",
+  "status": "fail",
+  "review_scope": "pre-owner visual review of staged pilot candidate; production article assets were not changed",
+  "candidate": "thumbnail-v1.webp",
+  "reference_board": "docs/blog/assets/kollilabs-approved-thumbnail-board-v1.png",
+  "reference_conditioning": "The approved board was supplied to the built-in imagegen tool. The tool does not expose whether it used the image for conditioning, so successful conditioning is unverified.",
+  "card_preview": {
+    "path": "visual-review-gallery.png",
+    "candidate_display_size_px": [360, 203],
+    "readability": "Hook text remains readable at the displayed card size."
+  },
+  "checks": {
+    "realism": {
+      "result": "mixed",
+      "notes": "The product scene reads as a commercial 3D render, but its integration into the card is weakened by a visible rectangular backdrop."
+    },
+    "material_quality": {
+      "result": "pass",
+      "notes": "Corrugated cases and timber pallets have plausible material appearance at card size."
+    },
+    "lighting": {
+      "result": "mixed",
+      "notes": "The dark-teal studio treatment is in-family, but the frame-like backdrop does not blend into the deterministic composition."
+    },
+    "composition": {
+      "result": "fail",
+      "notes": "The pallet loads occupy too little of the illustration area. The prompt preserved left-side negative space even though the deterministic renderer already reserves the card text area."
+    },
+    "clutter": {
+      "result": "fail",
+      "notes": "A broad semi-transparent rectangular matte is visible behind the scene."
+    },
+    "family_consistency": {
+      "result": "mixed",
+      "notes": "Dark-teal palette and commercial subject treatment resemble the approved family, but the undersized scene and matte reduce consistency."
+    },
+    "blog_card_readability": {
+      "result": "mixed",
+      "notes": "Typography is readable, while the comparison subjects are too small to communicate the article hook clearly at 360 by 203 pixels."
+    }
+  },
+  "required_corrections": [
+    "Scale both pallet loads to fill most of the illustration canvas; do not reserve an internal left-side text area because the renderer supplies the card layout.",
+    "Produce clean transparency around the subjects with no rectangular studio backdrop, haze, or full-frame matte.",
+    "Keep both loads similarly sized and clearly separable at blog-card dimensions."
+  ],
+  "decision": "Do not present as an owner-ready candidate. This review fails the current candidate; another generation is needed to test the targeted corrections."
+}
