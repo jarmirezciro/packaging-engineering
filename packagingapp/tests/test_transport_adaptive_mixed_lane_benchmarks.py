@@ -40,9 +40,9 @@ TOPS_QUANTITIES = {
 
 # The first four rows come from the route's checked-in public preset. The
 # checked-in optimized result image supplies P5's dimensions, weight,
-# stackability and sequence, but does not expose its rotation checkboxes. R1
-# only is therefore an explicit reconstruction assumption, matching every row
-# in the canonical preset; the regression report retains this provenance gap.
+# stackability and sequence, but does not expose its rotation checkboxes.
+# Height vertical (R3 only) is the reconstruction assumption, matching the
+# canonical preset. The regression report retains this provenance gap.
 TOPS_P5_RECONSTRUCTION = {
     "name": "Case 1",
     "length": 558.8,
@@ -53,9 +53,9 @@ TOPS_P5_RECONSTRUCTION = {
     "stackable": True,
     "weight": 4.54,
     "sequence": 1,
-    "r1": True,
+    "r1": False,
     "r2": False,
-    "r3": False,
+    "r3": True,
 }
 
 

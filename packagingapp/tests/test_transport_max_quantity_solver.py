@@ -46,9 +46,9 @@ def product(
         "stackable": stackable,
         "weight": weight,
         "sequence": sequence,
-        "r1": True,
+        "r1": False,
         "r2": False,
-        "r3": False,
+        "r3": True,
     }
 
 

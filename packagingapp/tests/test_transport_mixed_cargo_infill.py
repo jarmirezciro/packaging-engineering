@@ -50,9 +50,9 @@ def product(
     weight=0,
     stackable=True,
     sequence=1,
-    r1=True,
+    r1=False,
     r2=False,
-    r3=False,
+    r3=True,
 ):
     return {
         "name": name,
@@ -383,6 +383,10 @@ class MixedCargoInfillTests(SimpleTestCase):
 
                 self.assertEqual(list(whole.orientations[0]), [3.0, 2.0, 5.0])
                 self.assertEqual(action["selected_orientations"][0], [2.0, 3.0, 5.0])
+                self.assertEqual(
+                    {item.h for item in result["placements"] if item.row_index == 1},
+                    {5.0},
+                )
                 self.assert_physical(result, selected_container)
                 json.dumps(
                     {
@@ -707,10 +711,10 @@ class MixedCargoInfillTests(SimpleTestCase):
                 20,
                 weight=900,
                 r2=True,
-                r3=True,
+                r1=True,
             ),
-            product("P2", 500, 400, 700, 100, r2=True, r3=True),
-            product("P3", 500, 200, 700, 400, r2=True, r3=True),
+            product("P2", 500, 400, 700, 100, r2=True, r1=True),
+            product("P3", 500, 200, 700, 400, r2=True, r1=True),
         ]
         selected_container = {
             "L": 12032.0,

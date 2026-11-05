@@ -30,9 +30,9 @@ def product(name, length, width, height, qty, *, sequence=None):
         "qty": int(qty),
         "weight": 0.0,
         "stackable": True,
-        "r1": True,
+        "r1": False,
         "r2": False,
-        "r3": False,
+        "r3": True,
     }
     if sequence is not None:
         row["sequence"] = int(sequence)

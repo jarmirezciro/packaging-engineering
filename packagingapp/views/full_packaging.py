@@ -492,9 +492,9 @@ def _build_pallet_workflow_payload(
     payload["weight_status"] = ("gross_estimated" if (upstream or {}).get("weight_status") == "gross_estimated" else "gross_known") if gross_weight_kg is not None else "unknown"
     _set_payload_weight_kg(payload, gross_weight_kg)
     payload.setdefault("transport_qty", 1)
-    payload["transport_r1"] = True
+    payload["transport_r1"] = False
     payload["transport_r2"] = False
-    payload["transport_r3"] = False
+    payload["transport_r3"] = True
     payload["transport_stackable"] = True
     payload["source_step_type"] = "pallet"
     payload["package_type"] = "pallet"
@@ -1279,6 +1279,18 @@ def _transport_rows_from_selected(selected):
         weight_kg = _to_float(selected.get("weight"), 0) or 0
 
     is_palletized_load = selected.get("source_type") == PALLETIZATION_VISUAL_SOURCE
+    r1 = bool(selected.get("transport_r1", not is_palletized_load))
+    r2 = bool(selected.get("transport_r2", not is_palletized_load))
+    r3 = bool(selected.get("transport_r3", True))
+    # Older generated pallet results stored the height-vertical default as R1.
+    # Saved Transport row overrides are independent of this generated payload.
+    if (
+        is_palletized_load
+        and selected.get("source_step_type") == "pallet"
+        and selected.get("package_type") == "pallet"
+        and (r1, r2, r3) == (True, False, False)
+    ):
+        r1, r3 = False, True
     canonical_length = selected.get("length", "")
     canonical_width = selected.get("width", "")
     canonical_height = selected.get("height", "")
@@ -1300,13 +1312,9 @@ def _transport_rows_from_selected(selected):
             ),
             "weight": "" if incomplete_weight else canonical_weight,
             "sequence": 1,
-            "r1": bool(selected.get("transport_r1", True)),
-            "r2": bool(
-                selected.get("transport_r2", False if is_palletized_load else True)
-            ),
-            "r3": bool(
-                selected.get("transport_r3", False if is_palletized_load else True)
-            ),
+            "r1": r1,
+            "r2": r2,
+            "r3": r3,
             "physical_source": "inherited",
             "canonical_length": canonical_length,
             "canonical_width": canonical_width,

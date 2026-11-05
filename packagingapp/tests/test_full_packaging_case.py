@@ -240,9 +240,9 @@ class FullPackagingCaseTests(TestCase):
         self.assertEqual(pallet_step["config"]["pallet_height"], 80.0)
         self.assertEqual(pallet_step["config"]["max_stack_height"], 1350)
         transport_row = workflow["steps"][2]["config"]["product_rows"][0]
-        self.assertTrue(transport_row["r1"])
+        self.assertFalse(transport_row["r1"])
         self.assertFalse(transport_row["r2"])
-        self.assertFalse(transport_row["r3"])
+        self.assertTrue(transport_row["r3"])
         self.assertTrue(transport_row["stackable"])
         self.assertEqual(
             workflow["steps"][2]["result"]["summary"]["placed_units"],
@@ -371,16 +371,16 @@ class FullPackagingCaseTests(TestCase):
                 "item_stackable[]": ["1"],
                 "item_weight[]": ["0"],
                 "item_sequence[]": ["1"],
-                "item_r1[]": ["0"],
+                "item_r1[]": ["1"],
                 "item_r2[]": ["1"],
-                "item_r3[]": ["1"],
+                "item_r3[]": ["0"],
             },
         )
 
         self.assertEqual(response.status_code, 302)
         self.client.get(case_url)
         updated_row = self.client.session[key]["steps"][2]["config"]["product_rows"][0]
-        self.assertFalse(updated_row["r1"])
+        self.assertTrue(updated_row["r1"])
         self.assertTrue(updated_row["r2"])
-        self.assertTrue(updated_row["r3"])
+        self.assertFalse(updated_row["r3"])
         self.assertTrue(updated_row["stackable"])

@@ -1,9 +1,13 @@
 from collections import Counter
-from itertools import combinations
+from itertools import combinations, product as flag_combinations
 import json
 
 from django.test import SimpleTestCase
 
+from packagingapp.tools.transport.modes import TRANSPORT_PACKING_MODE_OPTIONS
+from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordinates import (
+    allowed_product_orientations,
+)
 from packagingapp.utils.container_tool.engine import (
     allowed_orientations,
     pack_container,
@@ -43,10 +47,10 @@ def product(
         "weight": float(weight),
         "sequence": int(sequence),
         "stackable": bool(stackable),
-        # R1 is the repository default and permits the two floor rotations.
-        "r1": True,
+        # R3 keeps the original height vertical and permits both floor rotations.
+        "r1": False,
         "r2": False,
-        "r3": False,
+        "r3": True,
     }
 
 
@@ -73,6 +77,64 @@ def frontier_regression_products():
         eur_palletized_load(),
         product("Product 2", 500, 200, 700, 100),
     ]
+
+
+class TransportRotationContractTests(SimpleTestCase):
+    dimensions = (200, 300, 500)
+    families = (
+        ((300, 500, 200), (500, 300, 200)),  # R1: length vertical
+        ((200, 500, 300), (500, 200, 300)),  # R2: width vertical
+        ((200, 300, 500), (300, 200, 500)),  # R3: height vertical
+    )
+
+    def test_each_flag_combination_matches_container_selection(self):
+        for flags in flag_combinations((False, True), repeat=3):
+            with self.subTest(flags=flags):
+                expected = [
+                    orientation
+                    for enabled, family in zip(flags, self.families)
+                    if enabled
+                    for orientation in family
+                ]
+                self.assertCountEqual(
+                    allowed_orientations(self.dimensions, *flags), expected
+                )
+                self.assertCountEqual(
+                    [
+                        row["dimensions"]
+                        for row in allowed_product_orientations(self.dimensions, *flags)
+                    ],
+                    expected,
+                )
+
+    def test_repeated_dimensions_do_not_generate_duplicate_orientations(self):
+        self.assertCountEqual(
+            allowed_orientations((200, 200, 500), True, True, True),
+            [(200, 200, 500), (200, 500, 200), (500, 200, 200)],
+        )
+
+    def test_exact_fit_placements_require_the_matching_flag_in_every_mode(self):
+        for option in TRANSPORT_PACKING_MODE_OPTIONS:
+            for permitted_flag, family in enumerate(self.families):
+                for orientation in family:
+                    container = dict(zip("LWH", orientation))
+                    for enabled_flag in range(3):
+                        with self.subTest(
+                            mode=option["value"],
+                            orientation=orientation,
+                            flag=enabled_flag + 1,
+                        ):
+                            source = product("Asymmetric", *self.dimensions, 1)
+                            source.update({
+                                f"r{i + 1}": i == enabled_flag for i in range(3)
+                            })
+                            result = pack_container(
+                                container, [source], mode=option["value"]
+                            )
+                            self.assertEqual(
+                                [(p.l, p.w, p.h) for p in result["placements"]],
+                                [orientation] if enabled_flag == permitted_flag else [],
+                            )
 
 
 class TransportEngineInvariantMixin:
@@ -1257,8 +1319,8 @@ class SpaceEvenlyTests(
             "max_weight": None,
             "packing_mode": "space_evenly",
         }
-        rotation_products = [product("R3 only", 300, 100, 200, 1)]
-        rotation_products[0].update({"r1": False, "r2": False, "r3": True})
+        rotation_products = [product("R1 only", 300, 100, 200, 1)]
+        rotation_products[0].update({"r1": True, "r2": False, "r3": False})
         rotated = pack_container(rotation_container, rotation_products)
         self.assert_transport_invariants(
             rotated,

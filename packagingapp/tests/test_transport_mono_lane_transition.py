@@ -35,9 +35,9 @@ def product(
     weight=1.0,
     stackable=False,
     sequence=1,
-    r1=True,
+    r1=False,
     r2=False,
-    r3=False,
+    r3=True,
 ):
     return {
         "name": name,

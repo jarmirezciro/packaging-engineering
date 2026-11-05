@@ -18,9 +18,9 @@ def residual_product(
     *,
     weight=0.0,
     stackable=True,
-    r1=True,
+    r1=False,
     r2=False,
-    r3=False,
+    r3=True,
 ):
     return {
         "name": name,
@@ -155,7 +155,7 @@ class SpaceEvenlyResidualFrontierClosureTests(SimpleTestCase):
                     100,
                     300,
                     2,
-                    r1=True,
+                    r3=True,
                     r2=True,
                 ),
                 residual_product("Bridge", 100, 200, 50, 1),

@@ -4,12 +4,18 @@ from types import SimpleNamespace
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
+from packagingapp.models import Product, ProductCatalogue
+from packagingapp.tools.container.service import resolve_product_from_form
 from packagingapp.tools.transport.service import (
     analyze_transport_capacity,
     build_container_from_config,
     transport_rows_for_display,
 )
+from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordinates import (
+    allowed_product_orientations,
+)
 from packagingapp.views.full_packaging import (
+    PALLETIZATION_VISUAL_SOURCE,
     _apply_payload_to_config,
     _transport_rows_from_selected,
 )
@@ -44,9 +50,9 @@ def _transport_rows(**overrides):
         "stackable": True,
         "weight": 100,
         "sequence": 1,
-        "r1": True,
+        "r1": False,
         "r2": False,
-        "r3": False,
+        "r3": True,
     }
     row.update(overrides)
     return [row]
@@ -166,6 +172,28 @@ class TransportManualUnitBoundaryTests(SimpleTestCase):
         self.assertEqual(display["canonical_length"], 1225.4)
         self.assertEqual(display["canonical_weight"], 997.903214)
 
+    def test_new_and_legacy_generated_pallets_keep_height_vertical(self):
+        config = _transport_config(container_l=1200, container_w=800, container_h=1000)
+        legacy_flags = {"transport_r1": True, "transport_r2": False, "transport_r3": False}
+        for flags in ({}, legacy_flags):
+            with self.subTest(flags=flags):
+                rows = _transport_rows_from_selected({
+                    "label": "Palletized load",
+                    "length": 1200,
+                    "width": 800,
+                    "height": 1000,
+                    "source_type": PALLETIZATION_VISUAL_SOURCE,
+                    "source_step_type": "pallet",
+                    "package_type": "pallet",
+                    **flags,
+                })
+                result = analyze_transport_capacity(config, rows)
+                self.assertTrue(result["ok"], result["messages"])
+                self.assertEqual(
+                    [(p.l, p.w, p.h) for p in result["result"]["placements"]],
+                    [(1200, 800, 1000)],
+                )
+
     def test_catalogue_transport_unit_remains_canonical_with_manual_units_selected(self):
         material = SimpleNamespace(
             part_length=12032,
@@ -228,6 +256,64 @@ class TransportUnitSelectorSurfaceTests(TestCase):
             self.assertContains(response, "Metric tonnes (t)")
             self.assertContains(response, "Pounds (lb)")
             self.assertContains(response, "js/unit_selector.js")
+            row = response.context["product_rows"][0]
+            self.assertEqual(tuple(row[flag] for flag in ("r1", "r2", "r3")), (False, False, True))
+            self.assertContains(response, 'title="R1: Original length vertical"')
+            self.assertContains(response, 'title="R2: Original width vertical"')
+            self.assertContains(response, 'title="R3: Original height vertical"')
+
+    def test_catalogue_permissions_are_preserved_through_the_public_calculator(self):
+        catalogue = ProductCatalogue.objects.create(name="Rotation permissions", is_public=True)
+        url = reverse("transport_container_calculator")
+        for index, expected in enumerate(((300, 500, 200), (200, 500, 300), (200, 300, 500)), 1):
+            with self.subTest(flag=index):
+                item = Product.objects.create(
+                    catalogue=catalogue,
+                    product_id=f"ROTATION-{index}",
+                    product_name=f"R{index} only",
+                    product_length=200,
+                    product_width=300,
+                    product_height=500,
+                    desired_qty=1,
+                    rotation_1=index == 1,
+                    rotation_2=index == 2,
+                    rotation_3=index == 3,
+                )
+                dimensions, *flags = resolve_product_from_form(None, "catalogue", item)
+                self.assertIn(expected, [
+                    row["dimensions"] for row in allowed_product_orientations(dimensions, *flags)
+                ])
+                selected = self.client.post(url, {
+                    "action": "select_product",
+                    "product_catalogue_id": catalogue.pk,
+                    "product_id_to_fill": item.pk,
+                    "selected_row_index": "0",
+                })
+                self.assertEqual(selected.status_code, 200)
+                row = selected.context["product_rows"][0]
+                self.assertEqual(tuple(row[f"r{i}"] for i in range(1, 4)), tuple(flags))
+
+                config = _transport_config(**dict(zip(
+                    ("container_l", "container_w", "container_h"), expected
+                )))
+                analysis = analyze_transport_capacity(config, [row])
+                self.assertTrue(analysis["ok"], analysis["messages"])
+                self.assertEqual(
+                    [(p.l, p.w, p.h) for p in analysis["result"]["placements"]],
+                    [expected],
+                )
+                response = self.client.post(url, {
+                    **config,
+                    "action": "run_analysis",
+                    **{f"item_{field}[]": [str(row[field])] for field in (
+                        "name", "length", "width", "height", "qty", "weight", "r1", "r2", "r3",
+                    )},
+                })
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    [(p["dx"], p["dy"], p["dz"]) for p in response.context["threejs_scene"]["items"]],
+                    [expected],
+                )
 
     def test_workflow_keeps_prefixed_unit_state_and_canonical_scene(self):
         self.client.post(
@@ -264,9 +350,9 @@ class TransportUnitSelectorSurfaceTests(TestCase):
                 "item_stackable[]": ["1"],
                 "item_weight[]": [str(100 / 0.45359237)],
                 "item_sequence[]": ["1"],
-                "item_r1[]": ["1"],
+                "item_r1[]": ["0"],
                 "item_r2[]": ["0"],
-                "item_r3[]": ["0"],
+                "item_r3[]": ["1"],
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -278,6 +364,9 @@ class TransportUnitSelectorSurfaceTests(TestCase):
         self.assertEqual(step["result"]["summary"]["placed_units"], 2)
         self.assertEqual(step["threejs_scene"]["units"], "mm")
         self.assertEqual(step["threejs_scene"]["transport_unit"]["length"], 2400.0)
+        self.assertEqual(
+            [item["dz"] for item in step["threejs_scene"]["items"]], [1000.0, 1000.0]
+        )
         json.dumps(workflow)
 
         page = self.client.get(reverse("full_packaging_mode"))
@@ -325,9 +414,9 @@ class TransportUnitSelectorSurfaceTests(TestCase):
                 "item_stackable[]": ["1"],
                 "item_weight[]": ["100"],
                 "item_sequence[]": ["1"],
-                "item_r1[]": ["1"],
+                "item_r1[]": ["0"],
                 "item_r2[]": ["0"],
-                "item_r3[]": ["0"],
+                "item_r3[]": ["1"],
             },
         )
         self.assertEqual(response.status_code, 302)

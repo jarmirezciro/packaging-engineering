@@ -25,9 +25,9 @@ def product(
     weight=0.0,
     sequence=1,
     stackable=True,
-    r1=True,
+    r1=False,
     r2=False,
-    r3=False,
+    r3=True,
 ):
     return {
         "name": name,
@@ -249,7 +249,7 @@ class SpaceEvenlyStabilizationTests(SimpleTestCase):
         normalized = engine.normalize_products(
             [
                 product("Base", 900, 900, 100, 1),
-                product("Upper", 800, 400, 300, 1, r1=True, r2=True),
+                product("Upper", 800, 400, 300, 1, r3=True, r2=True),
             ]
         )
         base, upper = normalized
@@ -363,7 +363,7 @@ class SpaceEvenlyStabilizationTests(SimpleTestCase):
         base, upper = engine.normalize_products(
             [
                 product("Base", 900, 900, 100, 1),
-                product("Upper", 800, 400, 300, 1, r1=True, r2=True),
+                product("Upper", 800, 400, 300, 1, r3=True, r2=True),
             ]
         )
         parent = engine.SupportSurface(0, 0, 0, 100, 900, 1000, base, 0, 2)
@@ -380,7 +380,7 @@ class SpaceEvenlyStabilizationTests(SimpleTestCase):
 
     def test_height_failure_falls_back_to_existing_orientation_optimizer(self):
         current = engine.normalize_products(
-            [product("Current", 450, 280, 300, 1, r1=True, r2=True)]
+            [product("Current", 450, 280, 300, 1, r3=True, r2=True)]
         )[0]
         parent = engine.SupportSurface(
             0, 0, 0, 720, 450, 1120, current, 0, 4
@@ -401,7 +401,7 @@ class SpaceEvenlyStabilizationTests(SimpleTestCase):
         parent_product, next_product = engine.normalize_products(
             [
                 product("Parent", 900, 900, 100, 1),
-                product("Next", 800, 400, 300, 1, r1=True, r2=True),
+                product("Next", 800, 400, 300, 1, r3=True, r2=True),
             ]
         )
         parent = engine.SupportSurface(

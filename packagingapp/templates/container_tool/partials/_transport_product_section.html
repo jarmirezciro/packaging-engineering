@@ -43,9 +43,9 @@
             <th>W {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='catalogue-workflow-w' %}</th>
             <th>H {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='catalogue-workflow-h' %}</th>
             <th>Weight {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_mass current_unit=transport_values.load_unit_mass_unit|default:'kg' selector_key='catalogue-workflow-weight' %}</th>
-            <th>R1</th>
-            <th>R2</th>
-            <th>R3</th>
+            <th title="R1: Original length vertical">R1</th>
+            <th title="R2: Original width vertical">R2</th>
+            <th title="R3: Original height vertical">R3</th>
           </tr>
         </thead>
         <tbody>
@@ -119,9 +119,9 @@
             <th>H {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='workflow-h' %}</th>
             <th class="text-center">Max qty?</th>
             <th>Pieces</th>
-            <th>R1</th>
-            <th>R2</th>
-            <th>R3</th>
+            <th title="R1: Original length vertical">R1</th>
+            <th title="R2: Original width vertical">R2</th>
+            <th title="R3: Original height vertical">R3</th>
             <th class="text-center" title="Allow other load units to be placed on top of this product.">Stackable?</th>
             <th>Weight {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_mass current_unit=transport_values.load_unit_mass_unit|default:'kg' selector_key='workflow-weight' %}</th>
             <th>Loading seq.</th>
@@ -161,15 +161,15 @@
 
             <td class="text-center">
               <input type="hidden" name="item_r1[]" value="{% if row.r1 %}1{% else %}0{% endif %}">
-              <input type="checkbox" value="1" {% if row.r1 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)">
+              <input type="checkbox" aria-label="R1: Original length vertical" value="1" {% if row.r1 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)">
             </td>
             <td class="text-center">
               <input type="hidden" name="item_r2[]" value="{% if row.r2 %}1{% else %}0{% endif %}">
-              <input type="checkbox" value="1" {% if row.r2 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)">
+              <input type="checkbox" aria-label="R2: Original width vertical" value="1" {% if row.r2 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)">
             </td>
             <td class="text-center">
               <input type="hidden" name="item_r3[]" value="{% if row.r3 %}1{% else %}0{% endif %}">
-              <input type="checkbox" value="1" {% if row.r3 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)">
+              <input type="checkbox" aria-label="R3: Original height vertical" value="1" {% if row.r3 %}checked{% endif %} onchange="fpTransportSyncCheckboxHidden(this)">
             </td>
             <td class="text-center">
               <input type="hidden" name="item_stackable[]" value="{% if row.stackable != False %}1{% else %}0{% endif %}">
@@ -275,16 +275,16 @@
     </td>
 
     <td class="text-center">
-      <input type="hidden" name="item_r1[]" value="1">
-      <input type="checkbox" value="1" checked onchange="fpTransportSyncCheckboxHidden(this)">
+      <input type="hidden" name="item_r1[]" value="0">
+      <input type="checkbox" aria-label="R1: Original length vertical" value="1" onchange="fpTransportSyncCheckboxHidden(this)">
     </td>
     <td class="text-center">
       <input type="hidden" name="item_r2[]" value="0">
-      <input type="checkbox" value="1" onchange="fpTransportSyncCheckboxHidden(this)">
+      <input type="checkbox" aria-label="R2: Original width vertical" value="1" onchange="fpTransportSyncCheckboxHidden(this)">
     </td>
     <td class="text-center">
-      <input type="hidden" name="item_r3[]" value="0">
-      <input type="checkbox" value="1" onchange="fpTransportSyncCheckboxHidden(this)">
+      <input type="hidden" name="item_r3[]" value="1">
+      <input type="checkbox" aria-label="R3: Original height vertical" value="1" checked onchange="fpTransportSyncCheckboxHidden(this)">
     </td>
     <td class="text-center">
       <input type="hidden" name="item_stackable[]" value="1">
@@ -349,9 +349,9 @@
             <th>W {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='catalogue-standalone-w' %}</th>
             <th>H {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='catalogue-standalone-h' %}</th>
             <th>Weight {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_mass current_unit=transport_values.load_unit_mass_unit|default:'kg' selector_key='catalogue-standalone-weight' %}</th>
-            <th>R1</th>
-            <th>R2</th>
-            <th>R3</th>
+            <th title="R1: Original length vertical">R1</th>
+            <th title="R2: Original width vertical">R2</th>
+            <th title="R3: Original height vertical">R3</th>
           </tr>
         </thead>
         <tbody>
@@ -416,9 +416,9 @@
             <th>H {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_dimensions current_unit=transport_values.load_unit_dimension_unit|default:'mm' selector_key='standalone-h' %}</th>
             <th class="text-center">Max qty?</th>
             <th>Pieces</th>
-            <th>R1</th>
-            <th>R2</th>
-            <th>R3</th>
+            <th title="R1: Original length vertical">R1</th>
+            <th title="R2: Original width vertical">R2</th>
+            <th title="R3: Original height vertical">R3</th>
             <th class="text-center" title="Allow other load units to be placed on top of this product.">Stackable?</th>
             <th>Weight {% include "shared/_unit_selector.html" with unit_selector=transport_ui.unit_selectors.load_unit_mass current_unit=transport_values.load_unit_mass_unit|default:'kg' selector_key='standalone-weight' %}</th>
             <th>Loading seq.</th>
@@ -456,15 +456,15 @@
 
             <td class="text-center">
               <input type="hidden" name="item_r1[]" value="{% if row.r1 %}1{% else %}0{% endif %}">
-              <input type="checkbox" value="1" {% if row.r1 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
+              <input type="checkbox" aria-label="R1: Original length vertical" value="1" {% if row.r1 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
             </td>
             <td class="text-center">
               <input type="hidden" name="item_r2[]" value="{% if row.r2 %}1{% else %}0{% endif %}">
-              <input type="checkbox" value="1" {% if row.r2 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
+              <input type="checkbox" aria-label="R2: Original width vertical" value="1" {% if row.r2 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
             </td>
             <td class="text-center">
               <input type="hidden" name="item_r3[]" value="{% if row.r3 %}1{% else %}0{% endif %}">
-              <input type="checkbox" value="1" {% if row.r3 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
+              <input type="checkbox" aria-label="R3: Original height vertical" value="1" {% if row.r3 %}checked{% endif %} onchange="syncCheckboxHidden(this)">
             </td>
             <td class="text-center">
               <input type="hidden" name="item_stackable[]" value="{% if row.stackable != False %}1{% else %}0{% endif %}">
@@ -566,16 +566,16 @@
     </td>
 
     <td class="text-center">
-      <input type="hidden" name="item_r1[]" value="1">
-      <input type="checkbox" value="1" checked onchange="syncCheckboxHidden(this)">
+      <input type="hidden" name="item_r1[]" value="0">
+      <input type="checkbox" aria-label="R1: Original length vertical" value="1" onchange="syncCheckboxHidden(this)">
     </td>
     <td class="text-center">
       <input type="hidden" name="item_r2[]" value="0">
-      <input type="checkbox" value="1" onchange="syncCheckboxHidden(this)">
+      <input type="checkbox" aria-label="R2: Original width vertical" value="1" onchange="syncCheckboxHidden(this)">
     </td>
     <td class="text-center">
-      <input type="hidden" name="item_r3[]" value="0">
-      <input type="checkbox" value="1" onchange="syncCheckboxHidden(this)">
+      <input type="hidden" name="item_r3[]" value="1">
+      <input type="checkbox" aria-label="R3: Original height vertical" value="1" checked onchange="syncCheckboxHidden(this)">
     </td>
     <td class="text-center">
       <input type="hidden" name="item_stackable[]" value="1">

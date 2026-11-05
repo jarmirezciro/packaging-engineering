@@ -67,9 +67,9 @@ SEO_TRANSPORT_EXAMPLE_ROWS = [
         "max_qty": False,
         "weight": 900,
         "sequence": 1,
-        "r1": True,
+        "r1": False,
         "r2": False,
-        "r3": False,
+        "r3": True,
     }
 ]
 

@@ -90,9 +90,9 @@ class TransportVisualizationContractTests(SimpleTestCase):
             "stackable": True,
             "weight": 0,
             "sequence": 1,
-            "r1": True,
+            "r1": False,
             "r2": False,
-            "r3": False,
+            "r3": True,
         }]
 
         def signature(analysis):
@@ -151,9 +151,9 @@ class TransportVisualizationContractTests(SimpleTestCase):
                     "stackable": True,
                     "weight": 0,
                     "sequence": 1,
-                    "r1": True,
+                    "r1": False,
                     "r2": False,
-                    "r3": False,
+                    "r3": True,
                 },
                 {
                     "name": "P2",
@@ -165,9 +165,9 @@ class TransportVisualizationContractTests(SimpleTestCase):
                     "stackable": True,
                     "weight": 0,
                     "sequence": 2,
-                    "r1": True,
+                    "r1": False,
                     "r2": False,
-                    "r3": False,
+                    "r3": True,
                 },
             ],
         )
@@ -206,9 +206,9 @@ class TransportVisualizationContractTests(SimpleTestCase):
                 "stackable": True,
                 "weight": 0,
                 "sequence": 1,
-                "r1": True,
+                "r1": False,
                 "r2": False,
-                "r3": False,
+                "r3": True,
             }],
         )
         self.assertTrue(analysis["ok"])
@@ -237,9 +237,9 @@ class TransportVisualizationContractTests(SimpleTestCase):
                 "stackable": True,
                 "weight": 0,
                 "sequence": 1,
-                "r1": True,
+                "r1": False,
                 "r2": False,
-                "r3": False,
+                "r3": True,
             }],
         )
         self.assertTrue(analysis["ok"])
@@ -272,9 +272,9 @@ class TransportVisualizationContractTests(SimpleTestCase):
                 "stackable": True,
                 "weight": 0.2427,
                 "sequence": 4,
-                "r1": True,
+                "r1": False,
                 "r2": False,
-                "r3": False,
+                "r3": True,
             }],
         )
 
@@ -404,9 +404,9 @@ class TransportVisualizationSurfaceTests(TestCase):
             "item_max_qty[]": ["0"],
             "item_weight[]": ["100"],
             "item_sequence[]": ["1"],
-            "item_r1[]": ["1"],
+            "item_r1[]": ["0"],
             "item_r2[]": ["0"],
-            "item_r3[]": ["0"],
+            "item_r3[]": ["1"],
         }
 
     def tearDown(self):

@@ -27,9 +27,9 @@ def product(name, length, width, height, qty, *, weight=0.0, sequence=1):
         "weight": float(weight),
         "sequence": int(sequence),
         "stackable": True,
-        "r1": True,
+        "r1": False,
         "r2": False,
-        "r3": False,
+        "r3": True,
     }
 
 

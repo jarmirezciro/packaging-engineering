@@ -10,8 +10,8 @@ def default_product_rows():
             "stackable": True,
             "weight": 0,
             "sequence": 1,
-            "r1": True,
+            "r1": False,
             "r2": False,
-            "r3": False,
+            "r3": True,
         }
     ]

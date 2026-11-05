@@ -49,9 +49,9 @@ def product(length, width, qty, *, height=144, stackable=False):
         "weight": 1.0,
         "stackable": bool(stackable),
         "sequence": 1,
-        "r1": True,
+        "r1": False,
         "r2": False,
-        "r3": False,
+        "r3": True,
     }
 
 
@@ -268,7 +268,7 @@ class AdaptiveMixedLaneRegressionTests(SimpleTestCase):
 
         for rotation_group, dimensions in (
             ("r2", (1200, 144, 800)),
-            ("r3", (144, 1200, 800)),
+            ("r1", (144, 1200, 800)),
         ):
             with self.subTest(rotation_group=rotation_group):
                 source = product(*dimensions[:2], 3, height=dimensions[2])
@@ -302,15 +302,15 @@ class AdaptiveMixedLaneRegressionTests(SimpleTestCase):
             )
         )
 
-        r1_only = product(1200, 800, 6)
-        result = pack_container(container(), [r1_only])
-        r1_orientations = {
+        r3_only = product(1200, 800, 6)
+        result = pack_container(container(), [r3_only])
+        r3_orientations = {
             (1200.0, 800.0, 144.0),
             (800.0, 1200.0, 144.0),
         }
         self.assertTrue(
             all(
-                (item.l, item.w, item.h) in r1_orientations
+                (item.l, item.w, item.h) in r3_orientations
                 for item in result["placements"]
             )
         )

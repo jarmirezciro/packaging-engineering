@@ -44,9 +44,9 @@ def product(
     weight=0.0,
     stackable=True,
     sequence=1,
-    r1=True,
+    r1=False,
     r2=False,
-    r3=False,
+    r3=True,
 ):
     return {
         "name": name,
@@ -184,7 +184,7 @@ class LoadFrontToBackV1Tests(FrontToBackInvariantMixin, SimpleTestCase):
         current_quantity=3,
         current_stackable=True,
         next_r2=False,
-        next_r3=False,
+        next_r1=False,
     ):
         source = [
             product(
@@ -200,7 +200,7 @@ class LoadFrontToBackV1Tests(FrontToBackInvariantMixin, SimpleTestCase):
                 *next_dimensions,
                 99,
                 r2=next_r2,
-                r3=next_r3,
+                r1=next_r1,
             ),
         ]
         return pack_container(container(10, 3, 2), source), source

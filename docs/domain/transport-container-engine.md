@@ -298,18 +298,20 @@ Products are normalized with dimensions, quantity, unit weight, stackability,
 row identity, and enabled rotation families. Container dimensions are normalized
 as `L`, `W`, and `H`, with optional `max_weight` and `tare_weight`.
 
-The application uses the R1/R2/R3 terminology already shown in the form. Each
-enabled family contributes axis-aligned permutations in stable order:
+Transport and Container Selection share the same meanings for R1/R2/R3:
 
-| Family | Generated `(length, width, height)` permutations |
-|---|---|
-| R1 | `(L, W, H)`, `(W, L, H)` |
-| R2 | `(L, H, W)`, `(H, L, W)` |
-| R3 | `(W, H, L)`, `(H, W, L)` |
+| Family | Original dimension vertical | Generated `(length, width, height)` permutations |
+|---|---|---|
+| R1 | Length | `(W, H, L)`, `(H, W, L)` |
+| R2 | Width | `(L, H, W)`, `(H, L, W)` |
+| R3 | Height | `(L, W, H)`, `(W, L, H)` |
 
-Duplicate tuples are removed. These flags are hard constraints: a disabled
-family cannot appear in a placement. No diagonal or arbitrary-angle placement
-is generated.
+Transport evaluates enabled families in height, width, length order to preserve
+its physical tie order. It removes duplicate tuples and generates only the
+union of enabled axis-aligned orientations. R3-only is the Transport default
+and preserves the original height-vertical behavior. Catalogue flags pass
+through directly. Historical Transport rows without a known rotation convention
+are left as stored; review their R1/R3 choices before recalculating.
 
 ## Sequence semantics and product order
 

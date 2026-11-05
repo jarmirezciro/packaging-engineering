@@ -1,4 +1,4 @@
-"""
+r"""
 Run the KolliPack BR1-BR7 benchmark.
 
 Place this file in:
@@ -138,11 +138,11 @@ def make_products(case_rows):
                 "stackable": to_bool(row["stackable"]),
                 "sequence": int(row["sequence"]),
 
-                # Orientation permissions are already converted
-                # to KolliPack R1/R2/R3 in the input CSV.
-                "r1": to_bool(row["R1"]),
+                # The archived CSV uses the old Transport convention:
+                # R1 is height vertical and R3 is length vertical.
+                "r1": to_bool(row["R3"]),
                 "r2": to_bool(row["R2"]),
-                "r3": to_bool(row["R3"]),
+                "r3": to_bool(row["R1"]),
 
                 # Stable identity used by the engine.
                 "_row_index": row_index,

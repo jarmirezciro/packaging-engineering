@@ -197,15 +197,16 @@ def allowed_orientations(
     r2: bool,
     r3: bool,
 ) -> List[Tuple[float, float, float]]:
-    """Return enabled axis-aligned orientations in stable R1/R2/R3 order."""
+    """Use the Container Selection flags for length, width and height vertical."""
     length, width, height = (float(value) for value in dims)
     rotations: List[Tuple[float, float, float]] = []
 
-    if r1:
+    # Keep the physical H/W/L evaluation order for deterministic packing ties.
+    if r3:
         rotations.extend(((length, width, height), (width, length, height)))
     if r2:
         rotations.extend(((length, height, width), (height, length, width)))
-    if r3:
+    if r1:
         rotations.extend(((width, height, length), (height, width, length)))
 
     unique: List[Tuple[float, float, float]] = []
