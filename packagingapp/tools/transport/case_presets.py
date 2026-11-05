@@ -130,6 +130,73 @@ TRANSPORT_CONTAINER_CASE_PRESETS = {
             },
         ],
     },
+    "easycargo-40hc-mixed-cargo-benchmark": {
+        "label": "EasyCargo 40' HC Mixed-Cargo Reproduction",
+        "config": {
+            "container_source": "manual",
+            "container_l": 12117,
+            "container_w": 2388,
+            "container_h": 2694,
+            "max_weight": "",
+            "tare_weight": "",
+            "packing_mode": "front_to_back_infill",
+            "load_unit_dimension_unit": "mm",
+            "load_unit_mass_unit": "kg",
+            "transport_dimension_unit": "mm",
+            "transport_mass_unit": "kg",
+        },
+        "rows": [
+            {
+                "name": "Microwave WH352",
+                "length": 414, "width": 503, "height": 400,
+                "qty": 220, "max_qty": False, "weight": 9.3,
+                "sequence": 1, "r1": True, "r2": True, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "Breather pipe 15A",
+                "length": 2500, "width": 150, "height": 150,
+                "qty": 130, "max_qty": False, "weight": 2.4,
+                "sequence": 1, "r1": False, "r2": False, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "Microwave WD102",
+                "length": 380, "width": 420, "height": 370,
+                "qty": 193, "max_qty": False, "weight": 7.0,
+                "sequence": 2, "r1": True, "r2": True, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "Fridge Alhambra R3",
+                "length": 570, "width": 576, "height": 500,
+                "qty": 58, "max_qty": False, "weight": 58.0,
+                "sequence": 2, "r1": False, "r2": False, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "Ceramic stove 45-LOC-13",
+                "length": 350, "width": 360, "height": 80,
+                "qty": 26, "max_qty": False, "weight": 2.9,
+                "sequence": 3, "r1": True, "r2": True, "r3": True,
+                "stackable": False,
+            },
+            {
+                "name": "Microwave RW 230",
+                "length": 380, "width": 420, "height": 370,
+                "qty": 193, "max_qty": False, "weight": 7.0,
+                "sequence": 3, "r1": True, "r2": True, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "Freezer BD53V",
+                "length": 570, "width": 300, "height": 200,
+                "qty": 58, "max_qty": False, "weight": 58.0,
+                "sequence": 3, "r1": True, "r2": True, "r3": True,
+                "stackable": True,
+            },
+        ],
+    },
 }
 
 

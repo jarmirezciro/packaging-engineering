@@ -99,6 +99,12 @@ The mixed-load high-cube case is available at
 `/free-container-loading-calculator/?case=mix_load_case_hight_cube` and loads
 the 12032 × 2352 × 2395 mm container with the EUR pallet, 500 × 400 × 700 mm,
 and 500 × 200 × 700 mm rows.
+The EasyCargo-inspired mixed-cargo reproduction is available at
+`/free-container-loading-calculator/?case=easycargo-40hc-mixed-cargo-benchmark`.
+It loads seven rows in a manual 12117 × 2388 × 2694 mm 40 ft high-cube envelope
+using Progressive Fill – Mixed Cargo Infill and three sequence groups. Its
+78% external reference utilization is not a KolliPack result; source orientation
+and stacking icons still need verification before a like-for-like comparison.
 
 The Box Size Calculator follows the Container Selection shared contract at
 `/free-box-size-calculator/`. Its public demo uses manual product and box

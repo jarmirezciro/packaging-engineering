@@ -24,6 +24,7 @@ from ..tools.transport.modes import (
     DEFAULT_TRANSPORT_PACKING_MODE,
     TRANSPORT_PACKING_MODE_OPTIONS,
     normalize_transport_packing_mode,
+    transport_packing_mode_label,
     transport_sequence_is_locked,
 )
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
@@ -833,6 +834,11 @@ def transport_container_calculator(request):
             "is_initial_example": is_initial_example,
             "is_case_example": is_case_example,
             "case_preset": case_preset,
+            "case_preset_mode_label": (
+                transport_packing_mode_label(case_preset["config"]["packing_mode"])
+                if is_case_example
+                else ""
+            ),
             "example_transport_dimensions": "12032 x 2352 x 2395 mm",
             "example_load_dimensions": "1200 x 800 x 1100 mm",
             "example_quantity": 20,
