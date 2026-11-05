@@ -3,13 +3,54 @@
 import json
 import shutil
 import tempfile
+from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
+from packagingapp.tests.transport_physical_validator import (
+    assert_transport_result_physical,
+)
 from packagingapp.tools.transport.case_presets import (
     get_transport_container_case_preset,
 )
+from packagingapp.utils.container_tool import engine
+
+
+class EasyCargoEngineTests(SimpleTestCase):
+    def test_all_rotation_families_pack_the_mixed_cargo_benchmark(self):
+        preset = get_transport_container_case_preset(
+            "easycargo-40hc-mixed-cargo-benchmark"
+        )
+        config = preset["config"]
+        container = {
+            "L": config["container_l"],
+            "W": config["container_w"],
+            "H": config["container_h"],
+            "packing_mode": config["packing_mode"],
+        }
+        rows = [
+            {**row, "r1": True, "r2": True, "r3": True} for row in preset["rows"]
+        ]
+        collision_checks = 0
+        rectangles_overlap = engine._frontier_rectangles_overlap
+
+        def count_collision_check(first, second):
+            nonlocal collision_checks
+            collision_checks += 1
+            return rectangles_overlap(first, second)
+
+        with patch.object(engine, "_frontier_rectangles_overlap", count_collision_check):
+            result = engine.pack_container(container, rows)
+
+        physical = assert_transport_result_physical(self, result, container, rows)
+        self.assertEqual(
+            physical["packed_by_row"],
+            {index: row["qty"] for index, row in enumerate(rows)},
+        )
+        # Bound the redundant work without depending on runner speed. The
+        # unoptimized engine passed this count in its first transition alone.
+        self.assertLess(collision_checks, 6_000_000)
 
 
 class EasyCargoPublicPresetTests(TestCase):

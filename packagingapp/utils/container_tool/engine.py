@@ -4366,6 +4366,19 @@ def _frontier_required_depth(
     return min(float(required_depth), float(remaining_length)), int(payload_quantity)
 
 
+def _frontier_x_obstacles(
+    placements: List[Placement], x: float, length: float
+) -> List[Placement]:
+    """Only cuboids with positive X overlap can collide in this grid row."""
+    x_end = x + length
+    return [
+        placement
+        for placement in placements
+        if min(x_end, placement.x + placement.l)
+        > max(x, placement.x) + TOLERANCE
+    ]
+
+
 def _frontier_fill_next_product(
     product: NormalizedProduct,
     quantity: int,
@@ -4386,6 +4399,11 @@ def _frontier_fill_next_product(
         or quantity <= 0
     ):
         return [], loaded_weight, 0, 0
+    payload_quantity = _payload_units_available(
+        container, loaded_weight, product.weight, quantity
+    )
+    if payload_quantity <= 0:
+        return [], loaded_weight, 0, 0
 
     local = [
         placement
@@ -4393,42 +4411,45 @@ def _frontier_fill_next_product(
         if placement.x >= x_start - TOLERANCE
         and placement.x + placement.l <= x_start + x_depth + TOLERANCE
     ]
+    x_values = sorted(
+        {
+            round(x_start + index * length, 9)
+            for index in range(_fit_count(x_depth, length))
+        }
+    )
+    y_values = {
+        round(index * width, 9)
+        for index in range(_fit_count(container["W"], width) + 1)
+    }
+    y_values.update(round(existing.y + existing.w, 9) for existing in local)
+    z_values = {0.0}
+    z_values.update(
+        round(support.z + support.h, 9)
+        for support in local
+        if support.stackable
+        and support.z + support.h <= container["H"] + TOLERANCE
+    )
+    blocked_positions = set()
     placed = []
     evaluated = 0
-    while len(placed) < quantity:
-        payload_quantity = _payload_units_available(
-            container,
-            loaded_weight,
-            product.weight,
-            quantity - len(placed),
-        )
-        if payload_quantity <= 0:
-            break
-
-        x_values = [
-            x_start + index * length
-            for index in range(_fit_count(x_depth, length))
-        ]
-        z_values = {0.0}
-        for support in local:
-            if (
-                support.stackable
-                and support.z + support.h <= container["H"] + TOLERANCE
-            ):
-                z_values.add(float(support.z + support.h))
-        y_values = {0.0}
-        for existing in local:
-            y_values.add(float(existing.y + existing.w))
-        y_values.update(
-            float(index * width)
-            for index in range(_fit_count(container["W"], width) + 1)
-        )
-
+    while payload_quantity > 0:
         inserted = False
-        for x in sorted(set(round(value, 9) for value in x_values)):
-            for z in sorted(set(round(value, 9) for value in z_values)):
-                for y in sorted(set(round(value, 9) for value in y_values)):
+        sorted_y = sorted(y_values)
+        sorted_z = sorted(z_values)
+        for x in x_values:
+            x_obstacles = _frontier_x_obstacles(local, x, length)
+            for z in sorted_z:
+                for y in sorted_y:
                     evaluated += 1
+                    position = (x, y, z)
+                    if (
+                        position in blocked_positions
+                        or x < x_start - TOLERANCE
+                        or x + length > x_start + x_depth + TOLERANCE
+                        or y + width > container["W"] + TOLERANCE
+                        or z + height > container["H"] + TOLERANCE
+                    ):
+                        continue
                     candidate = Placement(
                         product_name=product.name,
                         item_index=first_item_index + len(placed),
@@ -4443,24 +4464,22 @@ def _frontier_fill_next_product(
                         w=width,
                         h=height,
                     )
-                    if (
-                        candidate.x < x_start - TOLERANCE
-                        or candidate.x + candidate.l
-                        > x_start + x_depth + TOLERANCE
-                        or candidate.y + candidate.w
-                        > container["W"] + TOLERANCE
-                        or candidate.z + candidate.h
-                        > container["H"] + TOLERANCE
-                        or any(
-                            _frontier_rectangles_overlap(candidate, existing)
-                            for existing in local
-                        )
-                        or not _frontier_supports_full_base(candidate, local)
+                    if any(
+                        _frontier_rectangles_overlap(candidate, existing)
+                        for existing in x_obstacles
                     ):
+                        # Placements only accumulate during this trial, so a
+                        # collision cannot clear. Missing support can change.
+                        blocked_positions.add(position)
+                        continue
+                    if not _frontier_supports_full_base(candidate, local):
                         continue
                     local.append(candidate)
                     placements.append(candidate)
                     placed.append(candidate)
+                    y_values.add(round(candidate.y + candidate.w, 9))
+                    if candidate.stackable:
+                        z_values.add(round(candidate.z + candidate.h, 9))
                     loaded_weight += product.weight
                     inserted = True
                     break
@@ -4470,6 +4489,12 @@ def _frontier_fill_next_product(
                 break
         if not inserted:
             break
+        payload_quantity = _payload_units_available(
+            container,
+            loaded_weight,
+            product.weight,
+            quantity - len(placed),
+        )
     return placed, loaded_weight, len(placed), evaluated
 
 
@@ -4539,6 +4564,7 @@ def _populate_dgfe_next_product_envelope(
             level += 1
 
     for x in sorted(set(round(value, 9) for value in x_values)):
+        x_obstacles = _frontier_x_obstacles(local, x, length)
         for z in sorted(set(round(value, 9) for value in z_values)):
             for y in sorted(set(round(value, 9) for value in y_values)):
                 if len(placed) >= payload_quantity:
@@ -4568,12 +4594,13 @@ def _populate_dgfe_next_product_envelope(
                     > container["H"] + TOLERANCE
                     or any(
                         _frontier_rectangles_overlap(candidate, existing)
-                        for existing in local
+                        for existing in x_obstacles
                     )
                     or not _frontier_supports_full_base(candidate, local)
                 ):
                     continue
                 local.append(candidate)
+                x_obstacles.append(candidate)
                 placements.append(candidate)
                 placed.append(candidate)
                 loaded_weight += product.weight
@@ -4686,6 +4713,10 @@ def _evaluate_frontier_transition_candidate(
     current_orientation_index: int = 0,
     remaining_length: Optional[float] = None,
     candidate_family: str = "dgfe_extended",
+    *,
+    next_orientation_evaluation: Optional[
+        Tuple[Optional[Tuple[float, float, float]], List[Dict], int]
+    ] = None,
 ) -> Dict:
     """Evaluate one Native or DGFE-extended residual transition candidate."""
     if candidate_family not in {"native", "dgfe_extended"}:
@@ -4733,8 +4764,6 @@ def _evaluate_frontier_transition_candidate(
         if gravity_mode == "deferred_top_down"
         else list(virtual_or_bottom_up)
     )
-    trial_placements = list(placements) + current_obstacles
-
     next_placements: List[Placement] = []
     next_selected_orientation = None
     next_selected_orientation_index = None
@@ -4752,21 +4781,23 @@ def _evaluate_frontier_transition_candidate(
     first_clean_x_row_index = None
 
     if current_reserved_qty == current_residual_qty:
+        if next_orientation_evaluation is None:
+            next_orientation_evaluation = _evaluate_next_product_frontier_orientations(
+                next_product,
+                next_remaining_qty,
+                x_start,
+                pi_residual_x_footprint,
+                container,
+                list(placements) + current_obstacles,
+                next_first_item_index,
+                loaded_after_current,
+                preferred_next_orientation,
+            )
         (
             next_selected_orientation,
             next_orientation_candidates,
             candidate_evaluations,
-        ) = _evaluate_next_product_frontier_orientations(
-            next_product,
-            next_remaining_qty,
-            x_start,
-            pi_residual_x_footprint,
-            container,
-            trial_placements,
-            next_first_item_index,
-            loaded_after_current,
-            preferred_next_orientation,
-        )
+        ) = next_orientation_evaluation
         next_valid_orientation_count = sum(
             1
             for candidate in next_orientation_candidates
@@ -5044,10 +5075,21 @@ def _evaluate_frontier_transition_candidate_pair(
         **evaluation_keywords,
         candidate_family="native",
     )
+    # Both families rank the incoming orientations against the same Native
+    # footprint and obstacles. Only their subsequent population differs.
+    orientation_candidates = native["next_product_orientation_candidates"]
     extended = _evaluate_frontier_transition_candidate(
         *evaluation_arguments,
         **evaluation_keywords,
         candidate_family="dgfe_extended",
+        next_orientation_evaluation=(
+            native["next_product_selected_orientation"],
+            [
+                {**candidate, "orientation": list(candidate["orientation"])}
+                for candidate in orientation_candidates
+            ],
+            sum(candidate["evaluated"] for candidate in orientation_candidates),
+        ),
     )
 
     native_depth = float(native["frontier_depth"])
