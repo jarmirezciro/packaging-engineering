@@ -3,6 +3,10 @@ from itertools import combinations
 
 from django.test import SimpleTestCase
 
+from packagingapp.tests.transport_physical_validator import (
+    assert_transport_result_physical,
+)
+from packagingapp.tools.transport.modes import FRONT_TO_BACK_INFILL_MODE
 from packagingapp.tools.transport.service import analyze_transport_capacity
 from packagingapp.utils.container_tool.engine import (
     TOLERANCE,
@@ -70,6 +74,83 @@ def primary_case_products():
         product("Case Pack 12", 558.8, 377.444, 317.5, 288, weight=0.907),
         product("Case Pack", 558.8, 355.6, 381.0, 160, weight=2.268),
     ]
+
+
+class DgfeClosureTests(SimpleTestCase):
+    def test_clean_row_starts_at_preceding_cargo_edge(self):
+        rows = [product("A", 9, 4, 2, 6), product("B", 4, 4, 1, 15, sequence=2)]
+        for mode in (MODE, FRONT_TO_BACK_INFILL_MODE):
+            with self.subTest(mode=mode):
+                selected_container = dict(container(28, 8, 5), packing_mode=mode)
+                result = pack_container(selected_container, rows)
+                frontier = result["front_to_back_frontiers"][0]
+                self.assertEqual(frontier["selected_candidate_family"], "dgfe_extended")
+                self.assertEqual(frontier["pi_residual_x_footprint"], 9)
+                self.assertEqual(frontier["trial_frontier_end_x"], 25)
+                self.assertEqual(frontier["selected_frontier_depth"], 16)
+                self.assertEqual(frontier["frontier_depth"], 13)
+                self.assertEqual(frontier["committed_clean_row_x"], 18)
+                self.assertEqual(frontier["x_end"], 22)
+                self.assertEqual(frontier["reclaimed_x_depth"], 3)
+                self.assertEqual(result["front_to_back_x_used"], 22)
+                self.assertEqual(result["unplaced"], [])
+                assert_transport_result_physical(self, result, selected_container, rows)
+
+    def test_empty_clean_row_releases_tail_to_next_sequence(self):
+        rows = [
+            product("A", 9, 4, 2, 5),
+            product("B", 4, 4, 1, 17, sequence=2),
+            product("C", 2, 2, 5, 1, sequence=3),
+        ]
+        for mode in (MODE, FRONT_TO_BACK_INFILL_MODE):
+            with self.subTest(mode=mode):
+                selected_container = dict(container(28, 8, 5), packing_mode=mode)
+                result = pack_container(selected_container, rows)
+                frontier = result["front_to_back_frontiers"][0]
+                self.assertEqual(frontier["trial_frontier_end_x"], 25)
+                self.assertIsNone(frontier["committed_clean_row_x"])
+                self.assertEqual(frontier["reclaimed_x_depth"], 4)
+                self.assertEqual(frontier["x_end"], 21)
+                self.assertEqual(result["front_to_back_product_blocks"][0]["frontier_end_x"], 21)
+                self.assertEqual(result["front_to_back_product_blocks"][2]["x_start"], 21)
+                self.assertEqual(result["front_to_back_x_used"], 23)
+                self.assertEqual(result["unplaced"], [])
+                assert_transport_result_physical(self, result, selected_container, rows)
+
+    def test_occupied_intersecting_row_preserves_clean_row_position(self):
+        selected_container = container(28, 8, 5)
+        for length, a_qty, b_qty, row_x in ((12, 6, 21, 24), (9, 5, 23, 21)):
+            with self.subTest(length=length, b_qty=b_qty):
+                rows = [
+                    product("A", length, 4, 2, a_qty),
+                    product("B", 4, 4, 1, b_qty, sequence=2),
+                ]
+                result = pack_container(selected_container, rows)
+                frontier = result["front_to_back_frontiers"][0]
+                self.assertEqual(frontier["committed_clean_row_x"], row_x)
+                self.assertEqual(frontier["reclaimed_x_depth"], 0)
+                assert_transport_result_physical(self, result, selected_container, rows)
+
+    def test_infill_uses_trial_space_before_frontier_closes(self):
+        selected_container = dict(container(28, 8, 5), packing_mode=FRONT_TO_BACK_INFILL_MODE)
+        cases = (
+            ("side seam", 6, 15, product("C", 3, 2, 5, 1), (18, 0), 21, 25),
+            ("side tail", 5, 17, product("C", 4, 3.5, 5, 1), (21, 0), None, 24.5),
+            ("top support", 6, 15, product("C", 4, 3.5, 1, 5, stackable=False), (21, 1), 21, 25),
+        )
+        for name, a_qty, b_qty, filler, filler_xz, row_x, end_x in cases:
+            with self.subTest(name=name):
+                rows = [product("A", 9, 4, 2, a_qty), product("B", 4, 4, 1, b_qty), filler]
+                result = pack_container(selected_container, rows)
+                frontier = result["front_to_back_frontiers"][0]
+                self.assertEqual(frontier["trial_frontier_end_x"], 25)
+                self.assertEqual(frontier["committed_clean_row_x"], row_x)
+                self.assertEqual(frontier["x_end"], end_x)
+                self.assertIn(filler_xz, {
+                    (item.x, item.z) for item in result["placements"] if item.row_index == 2
+                })
+                self.assertEqual(result["unplaced"], [])
+                assert_transport_result_physical(self, result, selected_container, rows)
 
 
 class FrontToBackInvariantMixin:

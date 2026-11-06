@@ -7,7 +7,7 @@ algorithms are preserved in ``engine_legacy.py`` and are never imported here.
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from fractions import Fraction
 from typing import Dict, List, Optional, Tuple
 
@@ -6664,6 +6664,55 @@ def pack_space_evenly_residual_frontiers(
     )
 
 
+def _finalize_dgfe_frontier(
+    placements: List[Placement],
+    phase_start_index: int,
+    candidate: Dict,
+    container: Dict,
+) -> Tuple[float, Optional[float]]:
+    """Close an Extended trial against its active phase, including infill."""
+    frontier_start = candidate["frontier_x_start"]
+    clean_row_index = candidate["first_clean_x_row_index"]
+    clean_row_items = set()
+    if clean_row_index is not None:
+        row_length = candidate["next_product_selected_orientation"][0]
+        trial_row_x = frontier_start + clean_row_index * row_length
+        clean_row_items = {
+            (item.row_index, item.item_index)
+            for item in candidate["next_product_placements"]
+            if abs(item.x - trial_row_x) <= TOLERANCE
+        }
+
+    clean_row = []
+    other_end = frontier_start
+    for index in range(phase_start_index, len(placements)):
+        item = placements[index]
+        if (item.row_index, item.item_index) in clean_row_items:
+            clean_row.append((index, item))
+        else:
+            other_end = max(other_end, item.x + item.l)
+
+    if not clean_row:
+        return other_end, None
+
+    clean_row_x = min(item.x for _, item in clean_row)
+    row_end = max(item.x + item.l for _, item in clean_row)
+    if other_end < clean_row_x - TOLERANCE:
+        # The row is X-disjoint from all other cargo, including infill. Its
+        # support is internal, so only the re-anchored row needs validation.
+        reanchored = [
+            replace(item, x=other_end + (item.x - clean_row_x))
+            for _, item in clean_row
+        ]
+        valid, _ = _validate_frontier_geometry(reanchored, container)
+        if valid:
+            for (index, _), item in zip(clean_row, reanchored):
+                placements[index] = item
+            return max(item.x + item.l for item in reanchored), other_end
+
+    return max(other_end, row_end), clean_row_x
+
+
 def _pack_container_front_to_back(
     container: Dict,
     products: List[Dict],
@@ -6700,6 +6749,8 @@ def _pack_container_front_to_back(
     top_infill_stats = _new_top_infill_stats(len(sequence_groups))
 
     for product_index, product in enumerate(ordered_products):
+        phase_start_index = len(placements)
+        selected_extension = None
         prior_frontier_qty = frontier_loaded[product.row_index]
         prior_infill_qty = infill_loaded[product.row_index]
         entering_qty = (
@@ -6997,6 +7048,8 @@ def _pack_container_front_to_back(
                         "current_product_orientation"
                     ]
                     selected_candidate_family = winner["candidate_family"]
+                    if selected_candidate_family == "dgfe_extended" and winner["valid"]:
+                        selected_extension = winner
                     selected_pi_residual_x_footprint = winner[
                         "pi_residual_x_footprint"
                     ]
@@ -7427,10 +7480,8 @@ def _pack_container_front_to_back(
             enable_infill
             and frontier_x > product_x_start + TOLERANCE
         ):
-            # Progressive Fill closes side space only after the complete current
-            # product phase and its Native/DGFE frontier have been committed.
-            # This lets the envelope see stepped local geometry from both
-            # products without reopening an earlier frontier.
+            # Use the full trial window for both infill passes before releasing
+            # any unused DGFE depth to the next product phase.
             side_space = Space(
                 product_x_start,
                 0.0,
@@ -7528,6 +7579,30 @@ def _pack_container_front_to_back(
                 summary["qty_already_loaded_as_top_infill"] = int(
                     top_infill_loaded[product.row_index]
                 )
+
+        if selected_extension is not None:
+            trial_end = frontier_x
+            occupied_end, clean_row_x = _finalize_dgfe_frontier(
+                placements,
+                phase_start_index,
+                selected_extension,
+                normalized_container,
+            )
+            if occupied_end < trial_end - TOLERANCE:
+                frontier_x = occupied_end
+
+            closure = {
+                "trial_frontier_end_x": float(trial_end),
+                "committed_clean_row_x": clean_row_x,
+                "reclaimed_x_depth": float(trial_end - frontier_x),
+            }
+            frontier = frontiers[-1]
+            frontier.update(closure)
+            if frontier_x < trial_end:
+                frontier["x_end"] = float(frontier_x)
+                frontier["frontier_depth"] = float(frontier_x - frontier["x_start"])
+            summary.update(closure)
+            summary["frontier_end_x"] = float(frontier_x)
 
         product_summaries.append(summary)
 

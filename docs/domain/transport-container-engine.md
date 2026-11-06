@@ -69,7 +69,8 @@ complete Product Block
 → deferred-gravity settlement where applicable
 → final physical validation and extension-value comparison
 → select the bounded transition winner
-→ close frontier
+→ optional side and supported-top infill in the selected trial window
+→ finalize the frontier from the active geometry
 → next product's complete Product Block
 ```
 
@@ -147,11 +148,21 @@ actual Pi residual X footprint, paired Native-versus-extension eligibility,
 local frontier efficiency, useful Pi+1 quantity, and smaller total envelope
 depth in that order. Effective ties prefer Row First, Bottom-Up, and stable
 orientation order. The last product retains its established Bottom-Up Row-First
-residual behavior without look-ahead. A committed frontier is never reopened by
-later products. There is no global residual-at-the-end phase, free-space tree,
-lateral gravity, compaction, or legacy solver import. All products remain
-forced to sequence `1` and use the same deterministic size ordering as Space
-Evenly.
+residual behavior without look-ahead. Progressive Fill preserves input sequence
+groups and uses the shared deterministic size ordering within each group. A
+committed frontier is never reopened by later products. There is no global
+residual-at-the-end phase, free-space tree, lateral gravity, compaction, or
+legacy solver import.
+
+For a winning DGFE Extended trial, the original window stays available for both
+local infill passes. Before closing the phase, the engine may anchor the clean
+row at the preceding occupied X face when a full-width empty strip separates
+it from all other placements in the phase. The row keeps its Y and Z geometry,
+orientations, quantities, and sequence. It must pass physical validation at the
+new position. Cargo that shares the row's X span, including supported-top infill,
+keeps the row at its trial position. The frontier closes at the last occupied X
+face, including any infill, so an unused terminal portion becomes available to
+the next phase. The original trial depth and score remain the basis for selection.
 
 ## Mixed Cargo Infill variants
 
@@ -159,12 +170,11 @@ The two infill variants preserve their parent macro orchestration and add one
 shared constructive closure over each bounded local product/frontier window.
 Balanced Spread closes a current product's contiguous span after all of its
 approved complete blocks are committed, and then closes each committed
-Balanced Spread residual frontier in its own X window. Progressive Fill closes
-after the current product's complete blocks and its approved Native/DGFE
-transition are committed. Every window is fixed in X and is never reopened
-after the phase is closed. Residual-frontier candidate selection is completed
-before its optional side closure; side infill never changes the winning
-candidate, depth, or frontier score.
+Balanced Spread residual frontier in its own X window. Progressive Fill runs
+infill in a fixed trial window spanning the current product's complete blocks
+and its selected Native/DGFE transition. Each window is closed before the next
+phase begins. The winning trial depth and frontier score are recorded
+separately from the final Progressive Fill frontier.
 
 Within that window, side residuals are derived from the actual committed
 placement geometry. X breakpoints come from the window edges and every
@@ -712,6 +722,7 @@ fields are:
 | `dgfe_extra_packed_volume`, `dgfe_marginal_efficiency` | volume gained by DGFE and its utilization of only the additional X prism |
 | `next_product_regular_block_efficiency`, `extension_value_delta` | shared Product Block benchmark and DGFE marginal advantage/disadvantage |
 | `selected_frontier_volume_efficiency` | packed current-plus-next frontier volume divided by the candidate frontier prism volume |
+| `trial_frontier_end_x`, `committed_clean_row_x`, `reclaimed_x_depth` | winning Extended trial end, actual clean-row start when populated, and X depth released at closure |
 
 The result also retains compatibility aliases such as
 `space_evenly_residual_miniblocks`, target counts, packed volume, actual height,

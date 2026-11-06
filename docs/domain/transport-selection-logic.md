@@ -182,6 +182,11 @@ block exists or when Native cannot physically settle.
 Top-Down residuals are committed only after vertical-only gravity settlement,
 full union support, bounds, overlap, stackability, and payload validation.
 
+Before a winning DGFE Extended phase closes, an isolated clean row can start at
+the preceding cargo face. The next product phase starts at the last occupied
+face. In Mixed Cargo Infill, both local infill passes use the original trial
+window before this final boundary is set.
+
 The resulting stepped local frontier is a deterministic candidate geometry,
 not a loading-path, cargo-securing, or global-optimality proof. Detailed DGFE
 semantics and ranking are maintained in `transport-container-engine.md`.

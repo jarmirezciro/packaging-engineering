@@ -18,7 +18,7 @@ from packagingapp.utils.container_tool import engine
 
 
 class EasyCargoEngineTests(SimpleTestCase):
-    def test_all_rotation_families_pack_the_mixed_cargo_benchmark(self):
+    def benchmark_inputs(self, *, all_rotations):
         preset = get_transport_container_case_preset(
             "easycargo-40hc-mixed-cargo-benchmark"
         )
@@ -30,8 +30,33 @@ class EasyCargoEngineTests(SimpleTestCase):
             "packing_mode": config["packing_mode"],
         }
         rows = [
-            {**row, "r1": True, "r2": True, "r3": True} for row in preset["rows"]
+            {**row, "r1": all_rotations, "r2": all_rotations, "r3": True}
+            for row in preset["rows"]
         ]
+        return container, rows
+
+    def test_r3_only_closes_gap_before_freezer_clean_row(self):
+        container, rows = self.benchmark_inputs(all_rotations=False)
+        result = engine.pack_container(container, rows)
+        frontier = next(
+            item for item in result["front_to_back_frontiers"]
+            if (item["current_row_index"], item["next_row_index"]) == (2, 6)
+        )
+        self.assertEqual(frontier["selected_candidate_family"], "dgfe_extended")
+        self.assertEqual(frontier["trial_frontier_end_x"], 9305)
+        self.assertEqual(frontier["committed_clean_row_x"], 8785)
+        self.assertEqual(frontier["x_end"], 9085)
+        self.assertEqual(frontier["reclaimed_x_depth"], 220)
+        self.assertEqual(result["front_to_back_x_used"], 11145)
+        self.assertEqual(
+            sum(item.row_index == 6 and item.x == 8785 for item in result["placements"]),
+            42,
+        )
+        self.assertEqual(result["unplaced"], [])
+        assert_transport_result_physical(self, result, container, rows)
+
+    def test_all_rotation_families_pack_the_mixed_cargo_benchmark(self):
+        container, rows = self.benchmark_inputs(all_rotations=True)
         collision_checks = 0
         rectangles_overlap = engine._frontier_rectangles_overlap
 
