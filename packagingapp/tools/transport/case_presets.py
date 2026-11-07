@@ -197,6 +197,73 @@ TRANSPORT_CONTAINER_CASE_PRESETS = {
             },
         ],
     },
+    "48ft-semitrailer-3stop-benchmark": {
+        "label": "48-ft Semitrailer — 3-Stop Mixed Cargo Benchmark",
+        "config": {
+            "container_source": "manual",
+            "container_l": 566.9,
+            "container_w": 98.5,
+            "container_h": 108,
+            "max_weight": "",
+            "tare_weight": "",
+            "packing_mode": "front_to_back_infill",
+            "load_unit_dimension_unit": "in",
+            "load_unit_mass_unit": "lb",
+            "transport_dimension_unit": "in",
+            "transport_mass_unit": "lb",
+        },
+        "rows": [
+            {
+                "name": "A",
+                "length": 15.7, "width": 55.1, "height": 63,
+                "qty": 30, "max_qty": False, "weight": 88.11,
+                "sequence": 1, "r1": False, "r2": False, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "B",
+                "length": 63, "width": 23.6, "height": 39.4,
+                "qty": 17, "max_qty": False, "weight": 191.93,
+                "sequence": 2, "r1": False, "r2": False, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "C",
+                "length": 23.6, "width": 17.7, "height": 51.2,
+                "qty": 16, "max_qty": False, "weight": 1198.76,
+                "sequence": 2, "r1": False, "r2": False, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "D",
+                "length": 31.5, "width": 47.2, "height": 15.7,
+                "qty": 48, "max_qty": False, "weight": 11.02,
+                "sequence": 3, "r1": False, "r2": False, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "E",
+                "length": 47.2, "width": 47.2, "height": 21.7,
+                "qty": 14, "max_qty": False, "weight": 1375.67,
+                "sequence": 3, "r1": False, "r2": False, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "F",
+                "length": 47.2, "width": 47.2, "height": 21.7,
+                "qty": 4, "max_qty": False, "weight": 661.38,
+                "sequence": 3, "r1": False, "r2": False, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "G",
+                "length": 47.2, "width": 47.2, "height": 21.7,
+                "qty": 4, "max_qty": False, "weight": 165.35,
+                "sequence": 3, "r1": False, "r2": False, "r3": True,
+                "stackable": True,
+            },
+        ],
+    },
 }
 
 
