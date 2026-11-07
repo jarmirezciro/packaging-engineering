@@ -1,9 +1,7 @@
 from collections import Counter
 from dataclasses import replace
 from itertools import combinations
-from pathlib import Path
 
-from django.conf import settings
 from django.template.loader import render_to_string
 from django.test import SimpleTestCase
 
@@ -634,56 +632,26 @@ class SpaceEvenlyStabilizationTests(SimpleTestCase):
         self.assertEqual(result["space_evenly_support_surface_count"], 13)
         self.assert_physical_invariants(result, container, products)
 
-    def test_service_ignores_invalid_stale_sequence_for_space_evenly(self):
-        prepared = _prepare_transport_analysis(
-            {
-                "packing_mode": "space_evenly",
-                "container_source": "manual",
-                "container_l": 1000,
-                "container_w": 1000,
-                "container_h": 1000,
-                "max_weight": None,
-                "tare_weight": None,
-            },
-            [
-                product(
-                    "A",
-                    100,
-                    100,
-                    100,
-                    2,
-                    sequence="stale-invalid",
+    def test_service_ignores_invalid_stale_sequence_for_balanced_spread_modes(self):
+        for mode in ("space_evenly", "space_evenly_infill"):
+            with self.subTest(mode=mode):
+                prepared = _prepare_transport_analysis(
+                    {
+                        "packing_mode": mode,
+                        "container_source": "manual",
+                        "container_l": 1000,
+                        "container_w": 1000,
+                        "container_h": 1000,
+                        "max_weight": None,
+                        "tare_weight": None,
+                    },
+                    [product("A", 100, 100, 100, 2, sequence="stale-invalid")],
                 )
-            ],
-        )
+                self.assertTrue(prepared["ok"], prepared["messages"])
+                self.assertEqual(prepared["products"][0]["sequence"], 1)
+                self.assertEqual(prepared["safe_rows"][0]["sequence"], 1)
 
-        self.assertTrue(prepared["ok"], prepared["messages"])
-        self.assertEqual(prepared["products"][0]["sequence"], 1)
-        self.assertEqual(prepared["safe_rows"][0]["sequence"], 1)
-
-    def test_shared_ui_freezes_initial_and_dynamic_sequence_fields(self):
-        base_dir = Path(settings.BASE_DIR)
-        product_template = (
-            base_dir
-            / "packagingapp/templates/container_tool/partials/_transport_product_section.html"
-        ).read_text(encoding="utf-8")
-        scripts = (
-            base_dir
-            / "packagingapp/templates/container_tool/partials/_transport_scripts.html"
-        ).read_text(encoding="utf-8")
-
-        self.assertEqual(product_template.count("data-transport-sequence-input"), 4)
-        self.assertIn("field.value = '1'", scripts)
-        self.assertIn("field.readOnly = sequenceLocked", scripts)
-        self.assertIn("mode === 'front_to_back'", scripts)
-        self.assertGreaterEqual(
-            scripts.count(
-                "transportSyncSequenceInputs(newRow.closest('[data-transport-tool-root]'))"
-            ),
-            2,
-        )
-        self.assertIn("transportBindPackingMode(root)", scripts)
-
+    def test_shared_ui_renders_locked_rows_with_sequence_one(self):
         rendered = render_to_string(
             "container_tool/partials/_transport_product_section.html",
             {

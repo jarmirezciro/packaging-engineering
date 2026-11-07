@@ -175,7 +175,7 @@ class TransportVisualizationContractTests(SimpleTestCase):
         self.assertTrue(analysis["ok"], analysis["messages"])
         self.assertEqual(
             [row["sequence"] for row in analysis["safe_rows"]],
-            [1, 2],
+            [1, 1],
         )
         self.assertEqual(
             analysis["result"]["packing_mode"],
@@ -443,13 +443,26 @@ class TransportVisualizationSurfaceTests(TestCase):
         self.assertContains(response, "Progressive Fill – Mixed Cargo Infill")
         self.assertContains(
             response,
-            "Distributes product quantities through the load to create a more "
-            "balanced spatial arrangement across multiple products.",
+            "Distributes products using geometry-based ordering and efficient "
+            "product blocks. Loading sequence groups are ignored.",
         )
         self.assertContains(
             response,
-            "Builds the load progressively through the container, prioritizing "
-            "compact product blocks and efficient use of residual space.",
+            "Loads products progressively through the container, respecting "
+            "loading sequence groups and prioritizing compact product blocks "
+            "and efficient residual-space utilization.",
+        )
+        self.assertContains(
+            response,
+            "Extends Balanced Spread by filling available side and supported-top "
+            "spaces with compatible remaining products. Loading sequence groups "
+            "are ignored.",
+        )
+        self.assertContains(
+            response,
+            "Extends Progressive Fill by filling available side and supported-top "
+            "spaces with compatible products while respecting loading sequence "
+            "groups and the progressive loading frontier.",
         )
         self.assertNotContains(response, "Load Front-to-Back")
         self.assertNotContains(response, "Space Evenly")

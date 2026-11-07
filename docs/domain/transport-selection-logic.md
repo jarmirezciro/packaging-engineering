@@ -86,7 +86,13 @@ Each row contains:
 - unit weight;
 - stackable/non-stackable status;
 - permitted R1, R2, and R3 orthogonal orientation families;
-- a sequence field retained by the shared form contract.
+- a loading sequence field shared by the standalone tool, public calculator,
+  and Packaging Flow.
+
+Both Balanced Spread modes display a read-only sequence of `1` and normalize
+submitted sequences to `1`. Both Progressive Fill modes accept user-defined
+sequence groups. Switching modes on the same form temporarily displays `1` in
+Balanced Spread and restores each row's editable value in Progressive Fill.
 
 The rotation flags are safety constraints, not suggestions. Enable only
 orientations that are physically permitted for the packaged unit.
@@ -119,8 +125,6 @@ calculation.
 
 Balanced Spread puts all product rows into one common loading group. In this mode:
 
-- every row is normalized to sequence `1`;
-- the sequence input is rendered read-only and stale posted values are ignored;
 - products receive a deterministic size-based order;
 - large quantities are first turned into regular Product Blocks;
 - quantities that cannot complete another block are deferred to a bounded

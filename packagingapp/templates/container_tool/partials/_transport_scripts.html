@@ -67,36 +67,33 @@
       });
     }
 
-    function transportPackingMode(root) {
-      if (!root) return '';
+    function transportSyncSequenceInputs(root) {
+      if (!root) return;
       const selected = root.querySelector(
         'input[type="radio"][name="packing_mode"]:checked, ' +
         'input[type="radio"][name^="packing_mode_"]:checked'
       );
-      return selected ? selected.value : (root.dataset.transportPackingMode || '');
-    }
-
-    function transportSyncSequenceInputs(root) {
-      if (!root) return;
-      const mode = transportPackingMode(root);
-      const sequenceLocked = mode === 'space_evenly' || mode === 'front_to_back';
+      const sequenceLocked = selected
+        ? root.dataset.transportSequenceLockedModes.split(/\s+/).includes(selected.value)
+        : root.dataset.transportSequenceLocked === 'true';
+      const lockedTitle = 'This packing mode uses one common loading sequence.';
       root.querySelectorAll('[data-transport-sequence-input]').forEach(function(field) {
         if (sequenceLocked && !field.readOnly) {
-          field.dataset.transportInfillSequence = field.value;
+          field.dataset.transportEditableSequence = field.value;
         }
         if (sequenceLocked) {
           field.value = '1';
-        } else if (field.dataset.transportInfillSequence !== undefined) {
-          field.value = field.dataset.transportInfillSequence;
-          delete field.dataset.transportInfillSequence;
+        } else if (field.dataset.transportEditableSequence !== undefined) {
+          field.value = field.dataset.transportEditableSequence;
+          delete field.dataset.transportEditableSequence;
         }
         field.readOnly = sequenceLocked;
         if (sequenceLocked) {
           field.setAttribute('aria-readonly', 'true');
-          field.title = 'The approved baseline mode uses one common loading sequence.';
+          field.title = lockedTitle;
         } else {
           field.removeAttribute('aria-readonly');
-          if (field.title === 'The approved baseline mode uses one common loading sequence.') {
+          if (field.title === lockedTitle) {
             field.removeAttribute('title');
           }
         }
@@ -112,7 +109,6 @@
         if (field.dataset.transportSequenceBound) return;
         field.dataset.transportSequenceBound = '1';
         field.addEventListener('change', function() {
-          root.dataset.transportPackingMode = field.value;
           transportSyncSequenceInputs(root);
         });
       });

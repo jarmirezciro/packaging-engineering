@@ -810,6 +810,12 @@ def transport_container_calculator(request):
     case_preset = get_transport_container_case_preset(case_slug)
     is_initial_example = request.method == "GET" and not request.GET
     is_case_example = request.method == "GET" and case_preset is not None
+    initial_rows = SEO_TRANSPORT_EXAMPLE_ROWS if is_initial_example else None
+    if is_case_example:
+        initial_rows = case_preset["rows"]
+        if case_slug == "tops-max-load-high-cube-benchmark":
+            # Preserve the public demo's established single-group layout.
+            initial_rows = [{**row, "sequence": 1} for row in initial_rows]
     context = _build_transport_page_context(
         request,
         mode="seo",
@@ -818,11 +824,7 @@ def transport_container_calculator(request):
             if is_case_example
             else SEO_TRANSPORT_EXAMPLE_CONFIG if is_initial_example else None
         ),
-        initial_rows=(
-            case_preset["rows"]
-            if is_case_example
-            else SEO_TRANSPORT_EXAMPLE_ROWS if is_initial_example else None
-        ),
+        initial_rows=initial_rows,
         run_initial_analysis=is_initial_example or is_case_example,
     )
     canonical_url, faq_items, schema_json = _build_transport_seo_schema(request)

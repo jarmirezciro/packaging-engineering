@@ -11,35 +11,40 @@ TRANSPORT_PACKING_MODE_OPTIONS = (
     {
         "value": SPACE_EVENLY_MODE,
         "label": "Balanced Spread",
+        "sequence_locked": True,
         "help": (
-            "Distributes product quantities through the load to create a more "
-            "balanced spatial arrangement across multiple products."
+            "Distributes products using geometry-based ordering and efficient "
+            "product blocks. Loading sequence groups are ignored."
         ),
     },
     {
         "value": FRONT_TO_BACK_MODE,
         "label": "Progressive Fill",
+        "sequence_locked": False,
         "help": (
-            "Builds the load progressively through the container, prioritizing "
-            "compact product blocks and efficient use of residual space."
+            "Loads products progressively through the container, respecting "
+            "loading sequence groups and prioritizing compact product blocks "
+            "and efficient residual-space utilization."
         ),
     },
     {
         "value": SPACE_EVENLY_INFILL_MODE,
         "label": "Balanced Spread – Mixed Cargo Infill",
+        "sequence_locked": True,
         "help": (
-            "Uses Balanced Spread as the main loading strategy and fills bounded "
-            "side residuals with compatible remaining products. Explicit "
-            "sequence groups are respected."
+            "Extends Balanced Spread by filling available side and supported-top "
+            "spaces with compatible remaining products. Loading sequence groups "
+            "are ignored."
         ),
     },
     {
         "value": FRONT_TO_BACK_INFILL_MODE,
         "label": "Progressive Fill – Mixed Cargo Infill",
+        "sequence_locked": False,
         "help": (
-            "Uses Progressive Fill as the main strategy and fills compatible "
-            "side residuals while preserving the active loading frontier. "
-            "Explicit sequence groups are respected."
+            "Extends Progressive Fill by filling available side and supported-top "
+            "spaces with compatible products while respecting loading sequence "
+            "groups and the progressive loading frontier."
         ),
     },
 )
@@ -75,6 +80,9 @@ _MODE_LABELS = {
     option["value"]: option["label"]
     for option in TRANSPORT_PACKING_MODE_OPTIONS
 }
+_SEQUENCE_LOCKED_MODES = {
+    option["value"] for option in TRANSPORT_PACKING_MODE_OPTIONS if option["sequence_locked"]
+}
 
 
 def normalize_transport_packing_mode(value, *, default=DEFAULT_TRANSPORT_PACKING_MODE):
@@ -91,8 +99,5 @@ def transport_packing_mode_label(value):
 
 
 def transport_sequence_is_locked(value):
-    """Approved baseline modes intentionally use one common sequence group."""
-    return normalize_transport_packing_mode(value) in {
-        SPACE_EVENLY_MODE,
-        FRONT_TO_BACK_MODE,
-    }
+    """Return whether this mode uses one common loading sequence group."""
+    return normalize_transport_packing_mode(value) in _SEQUENCE_LOCKED_MODES

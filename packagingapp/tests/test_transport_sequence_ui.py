@@ -64,6 +64,22 @@ def rendered_sequence_inputs(response):
 
 
 class TransportSequenceUiTests(TestCase):
+    def assert_rendered_sequences(self, response, expected, *, locked):
+        locked_modes = re.search(
+            r'data-transport-sequence-locked-modes="([^"]*)"',
+            response.content.decode(),
+        )
+        self.assertIsNotNone(locked_modes)
+        self.assertCountEqual(
+            locked_modes[1].split(), (SPACE_EVENLY_MODE, SPACE_EVENLY_INFILL_MODE)
+        )
+        fields = rendered_sequence_inputs(response)
+        self.assertEqual(len(fields), len(expected))
+        for field, sequence in zip(fields, expected):
+            self.assertIn(f'value="{sequence}"', field)
+            self.assertEqual(" readonly" in field, locked)
+            self.assertEqual(' aria-readonly="true"' in field, locked)
+
     def test_standalone_and_public_submission_rerender_all_modes(self):
         for url_name in ("container_tool", "transport_container_calculator"):
             for mode in MODES:
@@ -73,17 +89,13 @@ class TransportSequenceUiTests(TestCase):
                     )
                     self.assertEqual(response.status_code, 200)
                     self.assertIsNotNone(response.context["result"])
-                    locked = mode in (SPACE_EVENLY_MODE, FRONT_TO_BACK_MODE)
+                    locked = mode in (SPACE_EVENLY_MODE, SPACE_EVENLY_INFILL_MODE)
                     expected = [1, 1] if locked else [2, 3]
                     self.assertEqual(
                         [int(row["sequence"]) for row in response.context["product_rows"]],
                         expected,
                     )
-                    fields = rendered_sequence_inputs(response)
-                    self.assertEqual(len(fields), 2)
-                    for field, sequence in zip(fields, expected):
-                        self.assertIn(f'value="{sequence}"', field)
-                        self.assertEqual(" readonly" in field, locked)
+                    self.assert_rendered_sequences(response, expected, locked=locked)
 
     def test_packaging_flow_submission_rerender_all_modes(self):
         url = reverse("full_packaging_mode")
@@ -99,7 +111,7 @@ class TransportSequenceUiTests(TestCase):
                 json.dumps(workflow)
                 step = workflow["steps"][0]
                 self.assertEqual(step["config"]["packing_mode"], mode)
-                locked = mode in (SPACE_EVENLY_MODE, FRONT_TO_BACK_MODE)
+                locked = mode in (SPACE_EVENLY_MODE, SPACE_EVENLY_INFILL_MODE)
                 expected = [1, 1] if locked else [2, 3]
                 self.assertEqual(
                     [int(row["sequence"]) for row in step["config"]["product_rows"]],
@@ -107,8 +119,4 @@ class TransportSequenceUiTests(TestCase):
                 )
                 rendered = self.client.get(url)
                 self.assertEqual(rendered.status_code, 200)
-                fields = rendered_sequence_inputs(rendered)
-                self.assertEqual(len(fields), 2)
-                for field, sequence in zip(fields, expected):
-                    self.assertIn(f'value="{sequence}"', field)
-                    self.assertEqual(" readonly" in field, locked)
+                self.assert_rendered_sequences(rendered, expected, locked=locked)
