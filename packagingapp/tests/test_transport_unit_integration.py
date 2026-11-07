@@ -7,6 +7,7 @@ from django.urls import reverse
 from packagingapp.models import Product, ProductCatalogue
 from packagingapp.tools.container.service import resolve_product_from_form
 from packagingapp.tools.transport.service import (
+    analyze_transport_config,
     analyze_transport_capacity,
     build_container_from_config,
     transport_rows_for_display,
@@ -74,6 +75,37 @@ def _geometry_signature(result):
 
 
 class TransportManualUnitBoundaryTests(SimpleTestCase):
+    def test_support_beds_reach_scene_report_and_json_with_equivalent_units(self):
+        from packagingapp.tests.test_transport_mixed_cargo_infill import stackability_expv2_2
+
+        selected, rows = stackability_expv2_2()
+        for mode in ("front_to_back_infill", "space_evenly_infill"):
+            config = _transport_config(
+                packing_mode=mode, container_l=selected["L"],
+                container_w=selected["W"], container_h=selected["H"],
+                max_weight="", tare_weight="",
+            )
+            metric = analyze_transport_config(config, rows)
+            imperial = analyze_transport_config(
+                {**config, "container_l": selected["L"] / 25.4,
+                 "container_w": selected["W"] / 25.4, "container_h": selected["H"] / 25.4,
+                 "transport_dimension_unit": "in", "load_unit_dimension_unit": "in"},
+                [{**row, **{key: row[key] / 25.4 for key in ("length", "width", "height")}}
+                 for row in rows],
+            )
+            for analysis in (metric, imperial):
+                self.assertTrue(analysis["ok"], analysis["messages"])
+                self.assertEqual(len(analysis["result"]["placements"]), 133)
+                self.assertEqual(len(analysis["threejs_scene"]["items"]), 133)
+                self.assertEqual(analysis["serialized_result"]["summary"]["placed_units"], 133)
+                self.assertTrue(analysis["serialized_result"][f"{mode}_support_beds"]["selected"])
+                json.dumps(analysis["serialized_result"], allow_nan=False)
+                json.dumps(analysis["safe_rows"], allow_nan=False)
+            self.assertEqual(
+                [tuple(round(v, 7) for v in item) for item in _geometry_signature(metric)],
+                [tuple(round(v, 7) for v in item) for item in _geometry_signature(imperial)],
+            )
+
     def test_equivalent_manual_units_keep_identical_engine_geometry(self):
         metric = analyze_transport_capacity(_transport_config(), _transport_rows())
         imperial = analyze_transport_capacity(

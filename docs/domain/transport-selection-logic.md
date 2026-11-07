@@ -216,6 +216,24 @@ agnostic. Progressive Fill Infill preserves explicit sequence groups: later
 products may cooperate locally only within the active group, and different
 groups can meet only at the adjacent active transition frontier.
 
+## Bounded support-bed construction
+
+For incomplete mixed infill requests, the shared engine can additionally
+construct a non-stackable row above a stackable supporting bed before committing
+that row's floor block. This is bounded and uses the existing block and physical
+validation functions. It keeps the ordinary result unless the complete new
+outcome loads more units without reducing any row's loaded count. Progressive
+Fill permits these compounds only within the same sequence; Balanced Spread
+keeps its common group. Existing baseline modes, payload inputs, unit conversion,
+forms and public presets retain their contracts.
+
+Support-bed decisions are additive JSON-safe `*_infill_support_beds` diagnostics;
+`selected=false` describes a rejected trial rather than committed cargo. Ordinary
+placements remain the sole source for summary, Three.js, PDF and Flow output.
+No new session configuration, UI control or presentation-side calculation is
+needed. Geometry-only benchmark runs omit payload; configured positive payload
+limits continue to apply. The geometry does not certify package strength.
+
 ## Max qty preprocessing
 
 **Max qty?** is implemented in the transport service, not as a special packing

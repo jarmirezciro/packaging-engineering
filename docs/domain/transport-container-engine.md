@@ -256,6 +256,64 @@ committed side residuals × eligible products × geometry-derived Product Block
 candidates. Quantity affects the committed module count and final placement
 materialization, not the number of future packing branches.
 
+## Bounded support-bed construction in Mixed Cargo Infill
+
+The ordinary parent construction remains the incumbent. If an infill request
+is incomplete and contains both stackable and non-stackable positive-quantity
+rows, `pack_container()` permits one additional construction through the same
+mode orchestration (`_pack_container_blocks`). This is not another packing
+engine, a beam search, a product permutation, or a reopening of committed space.
+Both baseline modes and complete ordinary outcomes bypass it.
+
+In that additional construction, before a non-stackable product's regular
+floor block is committed, `_choose_support_bed()` can combine its complete
+remaining request with a homogeneous foundation of an eligible later product.
+It evaluates enabled upper/lower orientations, bounded upper lane counts and
+foundation layer counts. Foundation columns cover the upper footprint with
+coplanar tops and reserve the upper orientation's actual height. The existing
+single-orientation Product Block generator/materializer and top-candidate
+support/collision/bounds validator remain authoritative. The compound is not
+a new heterogeneous `ProductBlockCandidate` family.
+
+The local ranking estimates the X needed for the compound plus remaining
+requested rows using existing homogeneous block capacities. This disjoint-row
+estimate is a ranking heuristic, not a feasibility certificate; empty volume
+or theoretical support area is not counted as packed cargo. A compound must
+improve that estimate before it can compete. The actual parent mode constructs
+the continuation. The complete support-aware outcome is accepted only when it
+loads strictly more units and reduces no row's loaded quantity. An equal or
+row-losing outcome retains the exact ordinary placement signature. Diagnostics
+describe the trial even when the ordinary outcome is retained (`selected=false`).
+
+Progressive Fill restricts a foundation and its upper cargo to the same input
+sequence. Balanced Spread keeps its normalized common sequence. Side and top
+closure operate on the resulting committed compound window before advancing,
+with separate support-bed accounting and shared remaining quantities, item
+indices and loaded weight. Native/DGFE evaluation, Pi footprint priority,
+extension value comparisons and deferred gravity are unchanged. The narrow
+exception to ordinary infill's parent-block preservation is selection of an
+uncommitted compound in this additional construction; no existing block moves.
+
+Work is capped at 256 evaluated compounds per product window and 512 placement
+objects per compound. Larger requests and exhausted budgets retain the ordinary
+fallback. Layer/lane samples reuse the geometry-bounded adaptive count helper.
+Initial synthesis covers one foundation SKU and one non-stackable upper SKU;
+multiple foundation SKUs within a new bed, partial upper requests, and new
+stackable-cap synthesis are not introduced. Existing mixed support unions and
+stackable supported-top placement remain available through their established
+paths. A positive configured payload still applies; a geometry-only experiment
+supplies no payload limit. No package compression strength is inferred.
+
+TC-REG-017 protects the supplied ExpV2-2 reconstruction (566.9×98.5×108 inches,
+task dimensions and B/E non-stackability, all rotations, A/B/C group 1 and
+D/E/F/G group 3, no payload). Progressive Infill improves 103→133 and Balanced
+Infill 105→133, with all 48 D units. The local public preset is different and is
+not rewritten. EasyCargo's A=1, B/C=2 sequence variant is tested separately;
+Progressive's sequence restrictions continue to apply. See
+`SupportBedConstructionTests` in `test_transport_mixed_cargo_infill.py` and the
+equivalent-unit/service/scene/serialization test in
+`test_transport_unit_integration.py`.
+
 ## What Balanced Spread is
 
 Balanced Spread is a deterministic, explainable, block-based heuristic for

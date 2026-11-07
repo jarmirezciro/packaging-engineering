@@ -7,6 +7,7 @@ algorithms are preserved in ``engine_legacy.py`` and are never imported here.
 """
 
 import math
+from collections import Counter
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from typing import Dict, List, Optional, Tuple
@@ -45,6 +46,8 @@ MONO_LANE_CUT_COUNT_CAP = 256
 MONO_LANE_TRANSITION_DEFAULT_CANDIDATE_BUDGET = 4096
 MONO_LANE_TRANSITION_PLACEMENT_CAP = 512
 MONO_LANE_TRANSITION_STACK_LAYER_CAP = 2
+SUPPORT_BED_CANDIDATE_CAP = 256
+SUPPORT_BED_PLACEMENT_CAP = 512
 UNSUPPORTED_MODE_MESSAGE = (
     "Only Balanced Spread and Progressive Fill are currently available."
 )
@@ -3770,6 +3773,202 @@ def fill_top_residual_deterministically(
     return committed, loaded_weight, stats
 
 
+def _support_bed_tail_depth(
+    products: List[NormalizedProduct], remaining: Dict[int, int], container: Dict,
+) -> float:
+    """Estimate disjoint-row completion X using existing homogeneous blocks.
+
+    This is a ranking estimate, not a feasibility certificate. The real mode
+    constructs the continuation, and whole-outcome selection checks every row.
+    """
+    total = 0.0
+    for product in products:
+        quantity = int(remaining.get(product.row_index, 0))
+        if quantity <= 0:
+            continue
+        depths = []
+        for index, orientation in enumerate(product.orientations):
+            block, _ = _best_single_orientation_block(
+                orientation, index, product, container, container["L"],
+            )
+            if block is not None:
+                depths.append(math.ceil(quantity / block.module_capacity) * block.depth)
+        if not depths:
+            return float("inf")
+        total += min(depths)
+    return total
+
+
+def _choose_support_bed(
+    anchor: NormalizedProduct,
+    products: List[NormalizedProduct],
+    remaining: Dict[int, int],
+    next_indices: Dict[int, int],
+    container: Dict,
+    x_start: float,
+    loaded_weight: float,
+    sequence_restricted: bool,
+    context: List[Placement],
+) -> Tuple[Optional[Dict], int]:
+    """Construct a bounded non-stackable cap over full homogeneous bed columns.
+
+    Only uncommitted products in the supplied active/later set participate.
+    The upper request must fit completely; partial caps and heterogeneous bed
+    synthesis remain on the existing residual paths. No frontier is reopened.
+    """
+    count = int(remaining.get(anchor.row_index, 0))
+    available = container["L"] - x_start
+    if (
+        anchor.stackable or count <= 0 or count > SUPPORT_BED_PLACEMENT_CAP
+        or available <= TOLERANCE
+    ):
+        return None, 0
+    ordinary_depth = _support_bed_tail_depth(products, remaining, container)
+    if not math.isfinite(ordinary_depth):
+        return None, 0
+    best = None
+    evaluated = 0
+    local_context = [p for p in context if p.x + p.l > x_start + TOLERANCE]
+    for cap_index, cap_orientation in enumerate(anchor.orientations):
+        cap_length, cap_width, cap_height = cap_orientation
+        max_cap_lanes = min(count, _fit_count(container["W"], cap_width))
+        if cap_height >= container["H"] - TOLERANCE:
+            continue
+        for cap_lanes in _bounded_adaptive_lane_counts(max_cap_lanes):
+            required_depth = math.ceil(count / cap_lanes) * cap_length
+            required_width = cap_lanes * cap_width
+            if required_depth > available + TOLERANCE:
+                continue
+            for foundation in products:
+                if (
+                    foundation.row_index == anchor.row_index or not foundation.stackable
+                    or remaining.get(foundation.row_index, 0) <= 0
+                    or (sequence_restricted and foundation.sequence != anchor.sequence)
+                ):
+                    continue
+                for orientation_index, orientation in enumerate(foundation.orientations):
+                    length, width, height = orientation
+                    ny = max(1, math.ceil((required_width - TOLERANCE) / width))
+                    nx = max(1, math.ceil((required_depth - TOLERANCE) / length))
+                    depth, bed_width = nx * length, ny * width
+                    if bed_width > container["W"] + TOLERANCE or depth > available + TOLERANCE:
+                        continue
+                    max_layers = min(
+                        _fit_count(container["H"] - cap_height, height),
+                        int(remaining[foundation.row_index]) // (nx * ny),
+                        (SUPPORT_BED_PLACEMENT_CAP - count) // (nx * ny),
+                    )
+                    for layers in _bounded_adaptive_lane_counts(max_layers):
+                        if evaluated >= SUPPORT_BED_CANDIDATE_CAP:
+                            return (best[1] if best else None), evaluated
+                        evaluated += 1
+                        foundation_count = nx * ny * layers
+                        weight = (
+                            loaded_weight + foundation_count * foundation.weight
+                            + count * anchor.weight
+                        )
+                        if _has_payload_limit(container) and weight > container["max_weight"] + TOLERANCE:
+                            continue
+                        after = dict(remaining)
+                        after[foundation.row_index] -= foundation_count
+                        after[anchor.row_index] -= count
+                        projected = depth + _support_bed_tail_depth(products, after, container)
+                        if not math.isfinite(projected) or projected >= ordinary_depth - TOLERANCE:
+                            continue
+                        key = (
+                            round(projected, 9), round(depth, 9), -foundation_count,
+                            cap_index, cap_lanes, foundation.input_order, orientation_index, layers,
+                        )
+                        if best is not None and key >= best[0]:
+                            continue
+                        support_z = layers * height
+                        bed_container = {**container, "W": bed_width, "H": support_z}
+                        bed, _ = _best_single_orientation_block(
+                            orientation, orientation_index, foundation, bed_container, depth,
+                        )
+                        cap_container = {**container, "W": required_width, "H": cap_height}
+                        cap, _ = _best_single_orientation_block(
+                            cap_orientation, cap_index, anchor, cap_container, depth,
+                        )
+                        if bed is None or cap is None:
+                            continue
+                        bed_units = _materialize_product_block_in_space(
+                            foundation, bed, Space(x_start, 0.0, 0.0, depth, bed_width, support_z),
+                            next_indices[foundation.row_index], foundation_count,
+                        )
+                        cap_units = _materialize_product_block_in_space(
+                            anchor, cap, Space(x_start, 0.0, support_z, depth, required_width, cap_height),
+                            next_indices[anchor.row_index], count,
+                        )
+                        if len(bed_units) != foundation_count or len(cap_units) != count:
+                            continue
+                        units = bed_units + cap_units
+                        reason = _top_candidate_validation_reason(
+                            units, local_context,
+                            Space(x_start, 0.0, 0.0, available, container["W"], container["H"]),
+                            container,
+                        )
+                        if reason is not None:
+                            continue
+                        best = (key, {
+                            "placements": units,
+                            "usage": {foundation.row_index: foundation_count, anchor.row_index: count},
+                            "x_end": x_start + depth,
+                            "estimated_completion_depth": float(projected),
+                            "ordinary_completion_depth": float(ordinary_depth),
+                            "foundation_row_index": int(foundation.row_index),
+                            "upper_row_index": int(anchor.row_index),
+                            "support_z": float(support_z),
+                        })
+    return (best[1] if best else None), evaluated
+
+
+def _commit_support_bed(
+    anchor, products, remaining, next_indices, container, frontier, loaded_weight,
+    sequence_restricted, placements, support_loaded, stats, phase_order,
+) -> Tuple[float, float]:
+    """Commit one validated compound plan with separate quantity accounting."""
+    trial, evaluated = _choose_support_bed(
+        anchor, products, remaining, next_indices, container, frontier,
+        loaded_weight, sequence_restricted, placements,
+    )
+    stats["candidates_evaluated"] += evaluated
+    stats["windows_with_candidates"] += int(evaluated > 0)
+    stats["candidate_budget_reached"] = (
+        stats["candidate_budget_reached"] or evaluated >= SUPPORT_BED_CANDIDATE_CAP
+    )
+    if trial is None:
+        return frontier, loaded_weight
+    placements.extend(trial["placements"])
+    for row_index, quantity in trial["usage"].items():
+        remaining[row_index] -= quantity
+        next_indices[row_index] += quantity
+        support_loaded[row_index] += quantity
+    action = {
+        key: value for key, value in trial.items() if key not in {"placements", "usage"}
+    }
+    action.update({
+        "x_start": float(frontier), "sequence": int(anchor.sequence),
+        "units_by_product": {str(row): int(qty) for row, qty in trial["usage"].items()},
+    })
+    stats["actions"].append(action)
+    phase_order.append({
+        "phase": "support_bed", "row_index": anchor.row_index,
+        "product_name": anchor.name, "quantity": len(trial["placements"]),
+        **action,
+    })
+    return trial["x_end"], loaded_weight + sum(p.weight for p in trial["placements"])
+
+
+def _new_support_bed_stats() -> Dict:
+    return {
+        "candidate_cap_per_window": SUPPORT_BED_CANDIDATE_CAP,
+        "placement_cap_per_candidate": SUPPORT_BED_PLACEMENT_CAP,
+        "candidates_evaluated": 0, "windows_with_candidates": 0,
+        "candidate_budget_reached": False, "actions": [],
+    }
+
+
 def _unplaced_item(product: NormalizedProduct, item_index: int, reason: str) -> Dict:
     return {
         "product_name": product.name,
@@ -6722,6 +6921,8 @@ def _pack_container_front_to_back(
     container: Dict,
     products: List[Dict],
     requested_mode: str,
+    *,
+    enable_support_beds: bool = False,
 ) -> Dict:
     """Load complete blocks, then close each bounded local transition frontier."""
     normalized_container = _normalize_container(container)
@@ -6738,6 +6939,8 @@ def _pack_container_front_to_back(
     phase_order: List[Dict] = []
     regular_loaded = {product.row_index: 0 for product in ordered_products}
     frontier_loaded = {product.row_index: 0 for product in ordered_products}
+    support_bed_loaded = {product.row_index: 0 for product in ordered_products}
+    support_bed_stats = _new_support_bed_stats()
     infill_loaded = {product.row_index: 0 for product in ordered_products}
     side_infill_loaded = {product.row_index: 0 for product in ordered_products}
     top_infill_loaded = {product.row_index: 0 for product in ordered_products}
@@ -6764,6 +6967,14 @@ def _pack_container_front_to_back(
             else max(product.qty - prior_frontier_qty, 0)
         )
         product_x_start = frontier_x
+        if enable_support_beds:
+            frontier_x, loaded_weight = _commit_support_bed(
+                product, ordered_products[product_index:], remaining_quantities,
+                next_item_index, normalized_container, frontier_x, loaded_weight,
+                sequence_restricted, placements, support_bed_loaded,
+                support_bed_stats, phase_order,
+            )
+            entering_qty = int(remaining_quantities[product.row_index])
         available_length = max(normalized_container["L"] - frontier_x, 0.0)
         payload_qty = _payload_units_available(
             normalized_container,
@@ -6842,6 +7053,8 @@ def _pack_container_front_to_back(
                 else {}
             ),
             "complete_blocks": int(complete_blocks),
+            **({"qty_loaded_as_support_bed": support_bed_loaded[product.row_index]}
+               if enable_support_beds else {}),
             "regular_block_qty": int(regular_qty),
             "regular_qty": int(regular_qty),
             "residual_qty": int(residual_qty),
@@ -7616,6 +7829,7 @@ def _pack_container_front_to_back(
             regular_loaded[product.row_index]
             + frontier_loaded[product.row_index]
             + infill_loaded[product.row_index]
+            + support_bed_loaded[product.row_index]
         )
         for product in ordered_products
     }
@@ -7675,7 +7889,11 @@ def _pack_container_front_to_back(
         "main_blocks": main_blocks,
         "main_block_units": int(sum(regular_loaded.values())),
         "main_blocks_end_x": float(
-            max((block["x_end"] for block in main_blocks), default=0.0)
+            max(
+                [block["x_end"] for block in main_blocks]
+                + [action["x_end"] for action in support_bed_stats["actions"]],
+                default=0.0,
+            )
         ),
         "leftover_units_requested": int(
             sum(product.qty for product in ordered_products)
@@ -7683,7 +7901,10 @@ def _pack_container_front_to_back(
         ),
         "leftover_units_packed": int(
             sum(frontier_loaded.values()) + sum(infill_loaded.values())
+            + sum(support_bed_loaded.values())
         ),
+        **({f"{FRONT_TO_BACK_INFILL_MODE}_support_beds": support_bed_stats}
+           if enable_support_beds else {}),
         "front_to_back_product_order": product_order_metadata,
         "front_to_back_product_blocks": product_summaries,
         "front_to_back_main_blocks": main_blocks,
@@ -8510,7 +8731,7 @@ def _select_mono_lane_transition_outcome(
     return result
 
 
-def pack_container(
+def _pack_container_blocks(
     container: Dict,
     products: List[Dict],
     mode: Optional[str] = None,
@@ -8519,6 +8740,7 @@ def pack_container(
     mono_transition_candidate_budget: int = (
         MONO_LANE_TRANSITION_DEFAULT_CANDIDATE_BUDGET
     ),
+    enable_support_beds: bool = False,
 ) -> Dict:
     """Pack with an active mode or return a graceful unsupported-mode result."""
     if max_lane_transitions not in {0, 1}:
@@ -8543,6 +8765,7 @@ def pack_container(
             normalized_container,
             normalized_input_products,
             requested_mode,
+            enable_support_beds=enable_support_beds,
         )
         return _select_mono_lane_transition_outcome(
             baseline,
@@ -8569,6 +8792,8 @@ def pack_container(
     phase_order: List[Dict] = []
     regular_loaded = {product.row_index: 0 for product in ordered_products}
     residual_loaded = {product.row_index: 0 for product in ordered_products}
+    support_bed_loaded = {product.row_index: 0 for product in ordered_products}
+    support_bed_stats = _new_support_bed_stats()
     infill_loaded = {product.row_index: 0 for product in ordered_products}
     side_infill_loaded = {product.row_index: 0 for product in ordered_products}
     top_infill_loaded = {product.row_index: 0 for product in ordered_products}
@@ -8588,6 +8813,14 @@ def pack_container(
 
     # Phase 1: every complete Product Block, in universal product order.
     for product_index, product in enumerate(ordered_products):
+        product_x_start = frontier
+        if enable_support_beds:
+            frontier, loaded_weight = _commit_support_bed(
+                product, ordered_products[product_index:], remaining_quantities,
+                next_item_index, normalized_container, frontier, loaded_weight,
+                sequence_restricted, placements, support_bed_loaded,
+                support_bed_stats, phase_order,
+            )
         entering_qty = int(remaining_quantities[product.row_index])
         available_length = max(normalized_container["L"] - frontier, 0.0)
         payload_qty = _payload_units_available(
@@ -8609,7 +8842,6 @@ def pack_container(
             payload_qty,
             available_length,
         )
-        product_x_start = frontier
         complete_blocks = 0
 
         if selected is not None:
@@ -8657,104 +8889,102 @@ def pack_container(
                         "x_end": float(frontier),
                     }
                 )
-            if (
-                enable_infill
-                and complete_blocks > 0
-                and frontier > product_x_start + TOLERANCE
-            ):
-                # Close all complete blocks from this product as one local
-                # window.  The approved block placements remain untouched;
-                # only the side envelope is derived after they are committed.
-                side_space = Space(
-                    product_x_start,
-                    0.0,
-                    0.0,
-                    frontier - product_x_start,
-                    normalized_container["W"],
-                    normalized_container["H"],
+        if (
+            enable_infill
+            and frontier > product_x_start + TOLERANCE
+        ):
+            # Close ordinary blocks or a newly committed compound window
+            # using the same side-then-top closure and quantity state.
+            side_space = Space(
+                product_x_start,
+                0.0,
+                0.0,
+                frontier - product_x_start,
+                normalized_container["W"],
+                normalized_container["H"],
+            )
+            before_infill = dict(remaining_quantities)
+            side_placements, loaded_weight, side_stats = (
+                fill_side_residual_deterministically(
+                    side_space,
+                    product,
+                    ordered_products,
+                    remaining_quantities,
+                    next_item_index,
+                    normalized_container,
+                    loaded_weight,
+                    sequence_restricted,
+                    eligible_row_indices={
+                        candidate.row_index
+                        for candidate in ordered_products[product_index + 1 :]
+                    },
+                    committed_placements=placements,
+                    window_x_start=product_x_start,
+                    window_x_end=frontier,
                 )
-                before_infill = dict(remaining_quantities)
-                side_placements, loaded_weight, side_stats = (
-                    fill_side_residual_deterministically(
-                        side_space,
-                        product,
-                        ordered_products,
-                        remaining_quantities,
-                        next_item_index,
-                        normalized_container,
-                        loaded_weight,
-                        sequence_restricted,
-                        eligible_row_indices={
-                            candidate.row_index
-                            for candidate in ordered_products[product_index + 1 :]
-                        },
-                        committed_placements=placements,
-                        window_x_start=product_x_start,
-                        window_x_end=frontier,
-                    )
+            )
+            placements.extend(side_placements)
+            for row_index, before_quantity in before_infill.items():
+                quantity = before_quantity - remaining_quantities[row_index]
+                if quantity > 0:
+                    infill_loaded[row_index] += quantity
+                    side_infill_loaded[row_index] += quantity
+            _merge_side_infill_stats(infill_stats, side_stats)
+            for action in side_stats["actions"]:
+                phase_order.append(
+                    {
+                        "phase": "side_infill",
+                        "row_index": action["filler_row_index"],
+                        "product_name": action["filler_product"],
+                        "quantity": action["quantity"],
+                        "from_product_name": product.name,
+                        "x_start": action["residual_x_start"],
+                        "x_end": action["residual_x_end"],
+                    }
                 )
-                placements.extend(side_placements)
-                for row_index, before_quantity in before_infill.items():
-                    quantity = before_quantity - remaining_quantities[row_index]
-                    if quantity > 0:
-                        infill_loaded[row_index] += quantity
-                        side_infill_loaded[row_index] += quantity
-                _merge_side_infill_stats(infill_stats, side_stats)
-                for action in side_stats["actions"]:
-                    phase_order.append(
-                        {
-                            "phase": "side_infill",
-                            "row_index": action["filler_row_index"],
-                            "product_name": action["filler_product"],
-                            "quantity": action["quantity"],
-                            "from_product_name": product.name,
-                            "x_start": action["residual_x_start"],
-                            "x_end": action["residual_x_end"],
-                        }
-                    )
-                top_eligible_row_indices = {
-                    candidate.row_index
-                    for candidate in ordered_products[product_index + 1 :]
-                }
-                if remaining_quantities.get(product.row_index, 0) > 0:
-                    top_eligible_row_indices.add(product.row_index)
-                before_top_infill = dict(remaining_quantities)
-                top_placements, loaded_weight, top_stats = (
-                    fill_top_residual_deterministically(
-                        side_space,
-                        product,
-                        ordered_products,
-                        remaining_quantities,
-                        next_item_index,
-                        normalized_container,
-                        loaded_weight,
-                        sequence_restricted,
-                        eligible_row_indices=top_eligible_row_indices,
-                        committed_placements=placements,
-                        window_x_start=product_x_start,
-                        window_x_end=frontier,
-                    )
+            top_eligible_row_indices = {
+                candidate.row_index
+                for candidate in ordered_products[product_index + 1 :]
+            }
+            if remaining_quantities.get(product.row_index, 0) > 0:
+                top_eligible_row_indices.add(product.row_index)
+            before_top_infill = dict(remaining_quantities)
+            top_placements, loaded_weight, top_stats = (
+                fill_top_residual_deterministically(
+                    side_space,
+                    product,
+                    ordered_products,
+                    remaining_quantities,
+                    next_item_index,
+                    normalized_container,
+                    loaded_weight,
+                    sequence_restricted,
+                    eligible_row_indices=top_eligible_row_indices,
+                    committed_placements=placements,
+                    window_x_start=product_x_start,
+                    window_x_end=frontier,
                 )
-                placements.extend(top_placements)
-                for row_index, before_quantity in before_top_infill.items():
-                    quantity = before_quantity - remaining_quantities[row_index]
-                    if quantity > 0:
-                        infill_loaded[row_index] += quantity
-                        top_infill_loaded[row_index] += quantity
-                _merge_top_infill_stats(top_infill_stats, top_stats)
-                for action in top_stats["top_actions"]:
-                    phase_order.append(
-                        {
-                            "phase": "top_infill",
-                            "row_index": action["filler_row_index"],
-                            "product_name": action["filler_product"],
-                            "quantity": action["quantity"],
-                            "from_product_name": product.name,
-                            "x_start": action["residual"]["x"],
-                            "x_end": action["residual"]["x"]
-                            + action["residual"]["L"],
-                        }
-                    )
+            )
+            placements.extend(top_placements)
+            for row_index, before_quantity in before_top_infill.items():
+                quantity = before_quantity - remaining_quantities[row_index]
+                if quantity > 0:
+                    infill_loaded[row_index] += quantity
+                    top_infill_loaded[row_index] += quantity
+            _merge_top_infill_stats(top_infill_stats, top_stats)
+            for action in top_stats["top_actions"]:
+                phase_order.append(
+                    {
+                        "phase": "top_infill",
+                        "row_index": action["filler_row_index"],
+                        "product_name": action["filler_product"],
+                        "quantity": action["quantity"],
+                        "from_product_name": product.name,
+                        "x_start": action["residual"]["x"],
+                        "x_end": action["residual"]["x"]
+                        + action["residual"]["L"],
+                    }
+                )
 
         residual_qty = int(remaining_quantities[product.row_index])
         residual_quantities[product.row_index] = residual_qty
@@ -8776,6 +9006,8 @@ def pack_container(
                 else {}
             ),
             "complete_blocks": complete_blocks,
+            **({"qty_loaded_as_support_bed": support_bed_loaded[product.row_index]}
+               if enable_support_beds else {}),
             "regular_qty": regular_loaded[product.row_index],
             "residual_qty": residual_qty,
             "x_start": float(product_x_start),
@@ -8906,6 +9138,7 @@ def pack_container(
             regular_loaded[product.row_index]
             + residual_loaded[product.row_index]
             + infill_loaded[product.row_index]
+            + support_bed_loaded[product.row_index]
         )
         for product in ordered_products
     }
@@ -8963,7 +9196,10 @@ def pack_container(
         "leftover_units_requested": int(total_residual_requested),
         "leftover_units_packed": int(
             total_residual_packed + sum(infill_loaded.values())
+            + sum(support_bed_loaded.values())
         ),
+        **({f"{SPACE_EVENLY_INFILL_MODE}_support_beds": support_bed_stats}
+           if enable_support_beds else {}),
         "space_evenly_product_order": [
             {
                 "row_index": product.row_index,
@@ -9058,6 +9294,58 @@ def pack_container(
         max_lane_transitions,
         mono_transition_candidate_budget,
     )
+
+
+def pack_container(
+    container: Dict,
+    products: List[Dict],
+    mode: Optional[str] = None,
+    *,
+    max_lane_transitions: int = MONO_LANE_TRANSITION_MAX_SUPPORTED,
+    mono_transition_candidate_budget: int = MONO_LANE_TRANSITION_DEFAULT_CANDIDATE_BUDGET,
+) -> Dict:
+    """Keep the parent outcome unless one bounded support-aware run adds units.
+
+    Both constructions use the same mode orchestration. Only incomplete mixed
+    infill requests with non-stackable upper cargo trigger the extra run. A
+    per-row dominance check prevents exchanging one requested SKU for another;
+    equal outcomes retain the exact established geometry and diagnostics.
+    """
+    options = {
+        "max_lane_transitions": max_lane_transitions,
+        "mono_transition_candidate_budget": mono_transition_candidate_budget,
+    }
+    baseline = _pack_container_blocks(container, products, mode, **options)
+    requested_mode = baseline.get("packing_mode")
+    if (
+        requested_mode not in {FRONT_TO_BACK_INFILL_MODE, SPACE_EVENLY_INFILL_MODE}
+        or not baseline["unplaced"]
+    ):
+        return baseline
+    normalized = normalize_products(products)
+    if not any(not p.stackable and p.qty > 0 for p in normalized) or not any(
+        p.stackable and p.qty > 0 for p in normalized
+    ):
+        return baseline
+    trial = _pack_container_blocks(
+        container, products, requested_mode, enable_support_beds=True, **options,
+    )
+    before = Counter(p.row_index for p in baseline["placements"])
+    after = Counter(p.row_index for p in trial["placements"])
+    selected = len(trial["placements"]) > len(baseline["placements"]) and all(
+        after[row] >= quantity for row, quantity in before.items()
+    )
+    diagnostic_key = f"{requested_mode}_support_beds"
+    diagnostics = dict(trial[diagnostic_key])
+    diagnostics.update({
+        "selected": bool(selected), "mode_runs": 2,
+        "ordinary_units": len(baseline["placements"]),
+        "trial_units": len(trial["placements"]),
+        "selection_reason": "more_units_without_row_loss" if selected else "ordinary_outcome_retained",
+    })
+    result = trial if selected else baseline
+    result[diagnostic_key] = diagnostics
+    return result
 
 
 def pack_container_sequence_loading(container: Dict, products: List[Dict]) -> Dict:

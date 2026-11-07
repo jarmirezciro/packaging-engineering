@@ -140,6 +140,18 @@ support, scaling, quantity/candidate bounds, and controlled seven-row outcomes.
 An inch/mm service-normalization equivalence test is a different experiment
 from retaining the same numeric geometry at a different physical scale.
 
+TC-REG-017 support-bed tests are included in the same active command:
+`test_transport_mixed_cargo_infill.SupportBedConstructionTests` and the
+support-bed service/scene/JSON/unit-equivalence method in
+`test_transport_unit_integration.TransportManualUnitBoundaryTests`. Keep the
+ExpV2-2 task reconstruction separate from the public preset and EasyCargo's
+different sequence groups. The principal benchmark omits payload and requires
+133/133 in both mixed modes, including D48. Protect no-row-loss outcome selection,
+true ties, full support and shortages, sequence isolation, bounded search,
+quantity/index carry-forward and side/top closure of the compound window.
+Test changed stackability on older residual fixtures without rewriting their
+original expectations. Configured-payload checks remain part of the suite.
+
 The current active `engine.py` dispatch implements the unchanged Balanced Spread
 and Progressive Fill baselines plus their opt-in Mixed Cargo Infill variants.
 Progressive Fill is canonicalized to `front_to_back`; the historical
