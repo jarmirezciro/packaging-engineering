@@ -74,6 +74,27 @@ A task is complete only when:
 - The final diff contains no unexplained unrelated changes.
 - Documentation is updated when architecture, domain rules, assumptions, or public behaviour changed.
 
+## Permanent cumulative calculation-engine regressions
+
+For every calculation-engine change, read the central register in
+`docs/engineering/known-issues-and-regressions.md` and the applicable engine
+contract. Identify and run **all active applicable regression tests before
+editing**, or record a reliable executable baseline, then run the complete
+applicable suite again after the change. Transport changes must run the full
+active Transport command in `docs/engineering/testing-and-verification.md`,
+including previously resolved cases, not only the newest test. Other engines
+use their applicable suites; unrelated engines need not run unless affected by
+a shared component.
+
+Every confirmed, solved engine defect must have a stable central register entry
+and an executable regression test. Record the original defect, established root
+cause, protected behavior, exact test path, reference, and status. Preserve older
+entries; mark an explicitly approved retirement and its replacement protection.
+Never silently update golden signatures, counts, or fixtures to accept a changed
+historical result. Investigate and explain it first. A new fix that breaks an
+active protected regression, or lacks its own test and register entry, is
+incomplete. Report baseline/final commands, results, and justified differences.
+
 ## Transport Container engine work
 
 For any Transport Container engine or packing-mode task, read:
@@ -85,10 +106,12 @@ For any Transport Container engine or packing-mode task, read:
 Before changing Transport Container packing behaviour, establish or run direct
 engine regression tests for the affected modes.
 
-Maximum Utilization, Sequence Loading, and Strict Sequence Loading are separate
-behavioural contracts. Do not transfer frontiers, residual-space rules,
-compaction behaviour, or scoring logic from one mode to another unless the task
-explicitly requires that mode to change.
+The active modes are Balanced Spread (`space_evenly`), Progressive Fill
+(`front_to_back`), and their `_infill` variants. The two baseline algorithms and
+their infill extensions have separate behavioural contracts. Do not transfer
+frontiers, residual-space rules, compaction behaviour, or scoring logic between
+them unless explicitly required. Older Maximum identifiers are aliases;
+Sequence Loading and Strict Sequence Loading are retired, unsupported modes.
 
 Prefer shared helpers for pure physical geometry such as collision, support,
 orientation validation, payload checks, and cuboid operations. Prefer

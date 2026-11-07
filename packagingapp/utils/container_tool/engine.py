@@ -841,12 +841,14 @@ def _fill_candidate_plan(
     candidate: ProductBlockCandidate,
     feasible_qty: int,
     remaining_length: float,
+    *,
+    allow_stackable_adaptive: bool = False,
 ) -> Tuple[int, int, float]:
-    """Return a bounded whole/adaptive plus optional legacy partial fill."""
+    """Plan a local fill; stackable adaptive plans require a top-only opt-in."""
     if candidate.depth > remaining_length + TOLERANCE or feasible_qty <= 0:
         return 0, 0, 0.0
     if not candidate.repeatable:
-        if candidate.product_stackable:
+        if candidate.product_stackable and not allow_stackable_adaptive:
             return 0, 0, 0.0
         if candidate.module_capacity > feasible_qty:
             return 0, 0, 0.0
@@ -3561,6 +3563,7 @@ def fill_top_residual_deterministically(
                     candidate,
                     payload_quantity,
                     active_space.L,
+                    allow_stackable_adaptive=True,
                 )
                 if quantity <= 0:
                     continue
@@ -3602,6 +3605,8 @@ def fill_top_residual_deterministically(
                     -round(product.unit_volume, 9),
                     -round(product.longest_dimension, 9),
                     product_priority[product.row_index],
+                    # Preserve the established family on an equal local outcome.
+                    not candidate.repeatable,
                     _candidate_stable_key(candidate),
                 )
                 ranked_candidates.append(

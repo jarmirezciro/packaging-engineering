@@ -5,6 +5,10 @@ from itertools import combinations
 
 from django.test import SimpleTestCase
 
+from packagingapp.tests.transport_physical_validator import (
+    assert_transport_result_physical,
+)
+from packagingapp.utils.container_tool import engine
 from packagingapp.tools.transport.modes import (
     FRONT_TO_BACK_INFILL_MODE,
     FRONT_TO_BACK_MODE,
@@ -154,6 +158,265 @@ def full_top_support(product_name="P", row_index=0):
             )
         )
     ]
+
+
+def semitrailer_roof_experiment(*, perturbed=False, g_sequence=3):
+    """Controlled mm reconstruction, not an exact replay of hidden UI state.
+
+    Dimensions/all rotations follow the task. Weights follow the local
+    48-ft preset (lb -> kg); A/B share group 1, C uses 2, D/E/F use 3.
+    The same numeric inch and mm inputs are different physical experiments.
+    """
+    dimensions = [
+        (15.8, 55.2, 63.2) if perturbed else (15.7, 55.1, 63.2),
+        (63, 23.6, 39.4), (23.6, 17.7, 51.2), (31.5, 47.2, 15.7),
+        (47.2, 47.2, 21.7), (47.2, 47.2, 21.7), (47.2, 47.2, 21.7),
+    ]
+    return [
+        product(name, *dims, qty, weight=lb * 0.45359237,
+                sequence=sequence, r1=True, r2=True, r3=True)
+        for name, dims, qty, lb, sequence in zip(
+            "ABCDEFG", dimensions, (30, 17, 16, 48, 14, 4, 4),
+            (88.11, 191.93, 1198.76, 11.02, 1375.67, 661.38, 165.35),
+            (1, 1, 2, 3, 3, 3, g_sequence),
+        )
+    ]
+
+
+class SupportedTopAdaptiveMixedLaneTests(SimpleTestCase):
+    """TC-REG-013/014: exact supported geometry, independent of cargo names."""
+
+    def roof_case(
+        self, length=275.5, width=94.2, height=45.01,
+        dimensions=(63.0, 23.6, 39.44), qty=17, *, elevation=10.0,
+        flags=(False, False, True), max_weight=None, stackable=True,
+    ):
+        # Nonzero XYZ origin also exercises the existing block materializer.
+        x, y = 7.0, 3.0
+        selected_container = container(
+            FRONT_TO_BACK_INFILL_MODE, length=x + length + 11,
+            width=y + width + 5, height=elevation + height,
+            max_weight=max_weight,
+        )
+        rows = [
+            product("Foundation", length, width, elevation, 1, weight=3,
+                    stackable=stackable),
+            product("Cargo", *dimensions, qty, weight=2.5,
+                    r1=flags[0], r2=flags[1], r3=flags[2]),
+        ]
+        support = Placement("Foundation", 0, 0, 1, 3.0, stackable,
+                            x, y, 0.0, length, width, elevation)
+        return selected_container, rows, [support], x, x + length
+
+    def fill_roof(self, case, *, sequence_restricted=False):
+        selected_container, rows, supports, x_start, x_end = case
+        products = normalize_products(rows)
+        remaining = {index: row["qty"] for index, row in enumerate(rows)}
+        indices = {index: 0 for index in remaining}
+        for support in supports:
+            remaining[support.row_index] -= 1
+            indices[support.row_index] += 1
+        placements, weight, stats = fill_top_residual_deterministically(
+            Space(x_start, 0, 0, x_end - x_start,
+                  selected_container["W"], selected_container["H"]),
+            products[0], products, remaining, indices, selected_container,
+            sum(item.weight for item in supports), sequence_restricted,
+            eligible_row_indices={1}, committed_placements=supports,
+        )
+        result = {
+            "placements": supports + placements, "loaded_weight": weight,
+            "unplaced": [dict(row_index=index) for index, count in remaining.items()
+                         for _ in range(count)],
+        }
+        assert_transport_result_physical(self, result, selected_container, rows)
+        self.assertEqual(indices[1], len(placements))
+        self.assertEqual(remaining[1] + len(placements), rows[1]["qty"])
+        self.assertEqual(stats["top_infill_units_total"], len(placements))
+        self.assertAlmostEqual(weight, sum(p.weight for p in supports) + len(placements) * 2.5)
+        json.dumps(stats)
+        return placements, stats, remaining
+
+    def test_generator_already_represents_the_fifteen_unit_supported_construction(self):
+        selected_container, rows, supports, x_start, x_end = self.roof_case()
+        cargo = normalize_products(rows)[1]
+        cavity = Space(x_start, 3, 10, 275.5, 94.2, 45.01)
+        candidates, evaluated = build_product_block_candidates(
+            cargo, {"L": cavity.L, "W": cavity.W, "H": cavity.H}, cavity.L, 17,
+        )
+        adaptive = [c for c in candidates if not c.repeatable]
+        self.assertEqual(evaluated, 3)
+        self.assertEqual(len(adaptive), 1)
+        candidate = adaptive[0]
+        self.assertEqual(candidate.planned_quantity, 15)
+        self.assertEqual(candidate.x_repetitions, (4, 11))
+        self.assertAlmostEqual(candidate.depth, 259.6)
+        self.assertAlmostEqual(candidate.occupied_width, 86.6)
+        placements = engine._materialize_product_block_in_space(cargo, candidate, cavity, 0, 15)
+        self.assertEqual(len(placements), 15)
+        self.assertEqual(len({id(item) for item in placements}), 15)
+        self.assertIsNone(engine._top_candidate_validation_reason(
+            placements, supports, cavity, selected_container,
+        ))
+        # Even in a larger envelope, an unequal-tail construction commits once.
+        expanded = Space(cavity.x, cavity.y, cavity.z, 600, cavity.W, cavity.H)
+        once = engine._materialize_product_block_in_space(cargo, candidate, expanded, 5, 100)
+        self.assertEqual([p.item_index for p in once], list(range(5, 20)))
+        self.assertEqual(engine._fill_candidate_plan(
+            candidate, 14, 600, allow_stackable_adaptive=True,
+        ), (0, 0, 0.0))
+
+    def test_supported_top_selects_fifteen_instead_of_twelve_and_is_deterministic(self):
+        first, stats, remaining = self.fill_roof(self.roof_case())
+        second, repeated_stats, _ = self.fill_roof(self.roof_case())
+        self.assertEqual(len(first), 15)
+        self.assertEqual(remaining[1], 2)
+        self.assertEqual(geometry_signature({"placements": first}),
+                         geometry_signature({"placements": second}))
+        self.assertEqual(stats, repeated_stats)
+        action = stats["top_actions"][0]
+        self.assertEqual(action["selected_block"]["pattern"], "adaptive_mixed_lane")
+        self.assertFalse(action["selected_block"]["repeatable"])
+        self.assertEqual(action["quantity"], 15)
+        self.assertAlmostEqual(action["actual_x_depth_used"], 259.6)
+        self.assertEqual(Counter((p.l, p.w, p.h) for p in first),
+                         {(63.0, 23.6, 39.44): 4, (23.6, 63.0, 39.44): 11})
+        self.assertTrue(all(p.row_index == 1 and p.product_name == "Cargo" for p in first))
+
+    def test_larger_roof_preserves_the_existing_seventeen_unit_geometry(self):
+        placements, stats, _ = self.fill_roof(self.roof_case(length=275.8, width=94.5))
+        self.assertEqual(len(placements), 17)
+        # Captured before the eligibility change: 4 x 4 then one rotated unit.
+        expected = sorted(
+            [(7 + x * 63, 3 + y * 23.6, 10, 63, 23.6, 39.44)
+             for x in range(4) for y in range(4)]
+            + [(259, 3, 10, 23.6, 63, 39.44)]
+        )
+        self.assertEqual(sorted((p.x, p.y, p.z, p.l, p.w, p.h) for p in placements), expected)
+        self.assertEqual([action["quantity"] for action in stats["top_actions"]], [16, 1])
+
+    def test_regular_and_side_planning_keep_stackable_adaptive_disabled(self):
+        _, rows, _, _, _ = self.roof_case()
+        candidates, _ = build_product_block_candidates(
+            normalize_products(rows)[1], {"L": 275.5, "W": 94.2, "H": 45.01}, 275.5, 17,
+        )
+        for candidate in candidates:
+            if not candidate.repeatable:
+                self.assertEqual(engine._fill_candidate_plan(candidate, 17, 275.5), (0, 0, 0.0))
+        self.assertTrue(choose_product_block(candidates, 17, 275.5).repeatable)
+
+    def test_exact_supported_outcome_tie_preserves_synchronized_block(self):
+        placements, stats, _ = self.fill_roof(self.roof_case(
+            length=2400, width=2000, height=144,
+            dimensions=(1200, 800, 144), qty=5,
+        ))
+        self.assertEqual(len(placements), 5)
+        self.assertEqual(stats["top_actions"][0]["selected_block"]["pattern"],
+                         "synchronized_mixed_orientation")
+
+    def test_real_dimensional_shortages_never_become_seventeen_unit_fits(self):
+        for length, width, expected in [(275.6, 94.4, 17),
+                                         (275.599, 94.5, 16),
+                                         (275.8, 94.399, 15)]:
+            with self.subTest(length=length, width=width):
+                placements, _, _ = self.fill_roof(self.roof_case(length=length, width=width))
+                self.assertEqual(len(placements), expected)
+
+    def test_supported_adaptive_partial_vertical_stacks_are_materialized_once(self):
+        placements, stats, _ = self.fill_roof(self.roof_case(height=84, qty=27))
+        self.assertEqual(len(placements), 27)
+        self.assertEqual(stats["top_actions"][0]["selected_block"]["pattern"], "adaptive_mixed_lane")
+        self.assertEqual({p.z for p in placements}, {10, 49.44})
+
+    def test_unrelated_rectangles_partial_quantities_elevations_and_scale(self):
+        families = [
+            (29, 13, 4.1, (7, 4, 3), 100),  # short/wide, unequal tails
+            (95.5, 12.5, 4, (13.5, 5.25, 3.5), 100),  # narrow/fractional
+            (31, 21, 3, (5.5, 4.5, 2), 100),  # nearly square
+            (18, 25, 4, (7, 4, 3), 17),
+        ]
+        for length, width, height, dims, quantity in families:
+            base_count = None
+            for scale in (0.5, 1, 25.4):
+                with self.subTest(family=dims, scale=scale):
+                    case = self.roof_case(length=length * scale, width=width * scale,
+                        height=height * scale, dimensions=tuple(d * scale for d in dims),
+                        qty=quantity, elevation=17 * scale)
+                    placements, stats, _ = self.fill_roof(case)
+                    self.assertGreater(len(placements), 0)
+                    if base_count is None:
+                        base_count = len(placements)
+                    self.assertEqual(len(placements), base_count)
+                    again, _, _ = self.fill_roof(case)
+                    self.assertEqual(geometry_signature({"placements": placements}),
+                                     geometry_signature({"placements": again}))
+                    self.assertLess(stats["top_infill_block_candidates_evaluated"], 1000)
+        for qty in (1, 2, 3, 7, 14, 15, 16, 17, 5000):
+            with self.subTest(quantity=qty):
+                placements, stats, _ = self.fill_roof(self.roof_case(qty=qty))
+                self.assertEqual(len(placements), min(qty, 15))
+                self.assertLess(stats["top_infill_block_candidates_evaluated"], 100)
+
+    def test_rotation_families_and_disabled_rotations_are_enforced_on_roof(self):
+        for flags, dims in [((True, False, False), (39.44, 63, 23.6)),
+                            ((False, True, False), (63, 39.44, 23.6)),
+                            ((False, False, True), (63, 23.6, 39.44)),
+                            ((False, False, False), (63, 23.6, 39.44))]:
+            with self.subTest(flags=flags):
+                placements, _, _ = self.fill_roof(self.roof_case(dimensions=dims, flags=flags))
+                self.assertEqual(len(placements), 15 if any(flags) else 0)
+
+    def test_payload_sequence_and_nonstackable_foundations_remain_authoritative(self):
+        placements, _, _ = self.fill_roof(self.roof_case(max_weight=3 + 7 * 2.5))
+        self.assertEqual(len(placements), 7)
+        placements, _, _ = self.fill_roof(self.roof_case(stackable=False))
+        self.assertEqual(placements, [])
+        case = self.roof_case()
+        case[1][1]["sequence"] = 2
+        placements, stats, _ = self.fill_roof(case, sequence_restricted=True)
+        self.assertEqual(placements, [])
+        self.assertTrue(all(reason["reason"] == "sequence_restriction"
+                            for reason in stats["top_residual_evaluation_reasons"]))
+
+    def test_mixed_support_union_and_real_gap_never_allow_overhang(self):
+        selected_container, rows, _, x_start, x_end = self.roof_case()
+        for gap in (0.0, 0.2):
+            with self.subTest(gap=gap):
+                supports = [
+                    Placement("Foundation", 0, 0, 1, 3., True, 7., 3., 0., 137.75, 94.2, 10.),
+                    Placement("Other foundation", 0, 2, 1, 0., True,
+                              144.75 + gap, 3., 0., 137.75 - gap, 94.2, 10.),
+                ]
+                mixed_rows = rows + [product("Other foundation", 137.75 - gap, 94.2, 10, 1)]
+                mixed_rows[0] = product("Foundation", 137.75, 94.2, 10, 1, weight=3)
+                placements, _, _ = self.fill_roof((selected_container, mixed_rows, supports, x_start, x_end))
+                self.assertEqual(len(placements), 15 if gap == 0 else 14)
+
+    def test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence(self):
+        for perturbed in (False, True):
+            for g_sequence in (3, 4):
+                rows = semitrailer_roof_experiment(perturbed=perturbed, g_sequence=g_sequence)
+                for mode in INFILL_MODES:
+                    with self.subTest(perturbed=perturbed, g_sequence=g_sequence, mode=mode):
+                        selected_container = container(mode, length=567, width=98.5, height=107)
+                        result = pack_container(selected_container, rows)
+                        physical = assert_transport_result_physical(self, result, selected_container, rows)
+                        if mode == SPACE_EVENLY_INFILL_MODE:
+                            expected = [30, 17, 16, 44, 14, 4, 4] if perturbed else [30, 17, 13, 45, 14, 4, 4]
+                        elif perturbed:
+                            expected = [30, 17, 16, 48, 14, 4, 4 if g_sequence == 3 else 0]
+                        else:
+                            expected = [30, 17, 16, 36 if g_sequence == 3 else 44, 14, 4, 4 if g_sequence == 3 else 0]
+                        self.assertEqual([physical["packed_by_row"].get(i, 0) for i in range(7)], expected)
+                        foundations = [p for p in result["placements"] if p.row_index == 0]
+                        on_a = sum(
+                            engine._frontier_supports_full_base(p, foundations)
+                            for p in result["placements"] if p.row_index == 1 and p.z > TOLERANCE
+                        )
+                        self.assertEqual(on_a, 17 if perturbed else 15)
+                        repeated = pack_container(selected_container, rows)
+                        self.assertEqual(geometry_signature(result), geometry_signature(repeated))
+                        json.dumps({key: value for key, value in result.items()
+                                    if "infill" in key})
 
 
 class MixedCargoInfillTests(SimpleTestCase):

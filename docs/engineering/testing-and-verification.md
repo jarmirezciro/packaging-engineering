@@ -92,6 +92,54 @@ Do not run a broad destructive migration or production command as a substitute f
 
 ## Transport Container engine regression contract
 
+### Permanent cumulative policy (all calculation engines)
+
+Before every engine edit, read the applicable engine contract and the central
+register in [known-issues-and-regressions.md](known-issues-and-regressions.md).
+Identify every active applicable case, execute its tests, and record a baseline
+(including counts/signatures for affected packing fixtures). After the edit,
+execute the cumulative applicable suite again, investigate every changed
+historical result, and report exact commands and pass/fail/skip totals. Do not
+run unrelated engines unless a shared dependency affects them.
+
+Every confirmed, resolved engine defect requires an executable test and a
+stable central register entry with the defect, root cause where established,
+protected behavior, exact test path/module, reference, and status. The register
+is cumulative: retain historical entries, and explain any explicitly approved
+retirement plus replacement test. Never silently rewrite expected geometry or
+counts to make a regression pass. Passing a new test while breaking an active
+older case does not complete a task.
+
+### Complete active Transport suite
+
+This is the required baseline and final command for **every Transport engine
+change**, including changes to one infill context. It includes all modules in
+the active Transport register, service/unit boundaries, standalone/public/Flow,
+scene serialization, and PDF contracts. Add new Transport regression tests to
+these modules or extend this command when a new module becomes necessary.
+
+```powershell
+.\.venv\Scripts\python.exe manage.py test packagingapp.tests.test_transport_mixed_cargo_infill packagingapp.tests.test_transport_adaptive_mixed_lane packagingapp.tests.test_transport_adaptive_mixed_lane_benchmarks packagingapp.tests.test_transport_front_to_back packagingapp.tests.test_transport_mono_lane_transition packagingapp.tests.test_transport_easycargo_preset packagingapp.tests.test_transport_sequence_semantics packagingapp.tests.test_space_evenly_stabilization packagingapp.tests.test_space_evenly_residual_frontier_closure packagingapp.tests.test_transport_max_quantity_solver packagingapp.tests.test_transport_unit_integration packagingapp.tests.test_transport_visualization packagingapp.tests.test_transport_sequence_ui packagingapp.tests.test_full_packaging_case --noinput
+.\.venv\Scripts\python.exe manage.py check
+node packagingapp/tests/js/test_transport_sequence.js
+```
+
+`test_transport_container_engine` contains retired-mode and old metadata
+expectations and is **historical/retired**, not part of this active command.
+Its active behavior is covered by the newer registered mode-specific modules;
+do not conflate historical failures with active regressions or reactivate those
+algorithms as a side effect. See the mono rectangular regression report for
+the previous diagnostic failure record.
+
+Supported-top adaptive tests live in
+`test_transport_mixed_cargo_infill.SupportedTopAdaptiveMixedLaneTests`. Protect
+the generated 15-unit unequal-tail construction, real supported-top selection,
+existing 17-unit coordinates, repeatable tie preference, single commitment,
+partial Z stacks, physical shortages, payload, rotations, sequence, union/gap
+support, scaling, quantity/candidate bounds, and controlled seven-row outcomes.
+An inch/mm service-normalization equivalence test is a different experiment
+from retaining the same numeric geometry at a different physical scale.
+
 The current active `engine.py` dispatch implements the unchanged Balanced Spread
 and Progressive Fill baselines plus their opt-in Mixed Cargo Infill variants.
 Progressive Fill is canonicalized to `front_to_back`; the historical

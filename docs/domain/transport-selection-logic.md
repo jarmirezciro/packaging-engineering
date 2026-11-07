@@ -380,5 +380,13 @@ Consumer and engine checks should cover:
   roof-clear envelopes, bottom-up re-derivation, support/overlap validation,
   separate top accounting, and explicit no-fit diagnostics.
 
+Supported-top infill can evaluate quantity-aware adaptive mixed-lane plans for
+stackable cargo inside the actual bounded roof cavity. Each plan uses enabled
+rotations, commits once, and passes the existing full support/collision/bounds
+checks before selection. Regular Product Blocks, side infill, sequence groups,
+and the two baseline modes retain their established behavior. All surfaces
+continue to consume the same placements and JSON-safe diagnostics; no new
+service option, session field, renderer, or UI control is introduced.
+
 For algorithm detail, use the technical deep dive rather than copying heuristic
 rules into this contract document.

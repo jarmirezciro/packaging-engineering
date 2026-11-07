@@ -207,6 +207,19 @@ is positive; it competes with the existing permitted later-product set under
 the same sequence, payload, orientation, support, overlap, and bounds rules.
 Side closure continues to exclude the current anchor product.
 
+Supported-top closure also opts into stackable Adaptive Mixed-Lane Blocks
+through the default-disabled `allow_stackable_adaptive` capability of
+`_fill_candidate_plan()`. The existing generator already builds quantity-aware,
+compatible-height lanes and partial vertical stacks. Top closure now admits
+those plans to its existing materialization, full union-support/collision/bounds
+validation, and volume-first ranking. A non-repeatable plan commits once with
+its exact lane stack heights; it is never replicated as a synchronized module.
+Remaining quantity, item indices, and weight update from the committed units,
+then residuals are re-derived from actual placement cuboids. True local outcome
+ties retain a repeatable candidate before the stable geometry key. This policy
+does not activate stackable adaptive blocks in regular phases or side closure,
+and does not alter Native/DGFE selection or support-envelope construction.
+
 The filler reuses the active Product Block candidate generator inside each
 derived space. It selects one product/candidate, commits whole modules and at
 most one deterministic partial final module, then re-derives the local envelope
@@ -225,8 +238,9 @@ Candidate ranking is stable and local to the current residual:
 
 The parent block quantity is authoritative. Fillers use enabled R1/R2/R3
 orientations, the existing non-stackable vertical cap, and the shared payload
-arithmetic. Materialized filler blocks start on the floor; physical overlap is
-excluded by deriving the next residual envelope from all committed geometry.
+arithmetic. Side fillers start on the floor; supported-top fillers start on
+their actual support plane. Residuals are re-derived from committed geometry,
+and supported-top candidates also pass explicit physical validation.
 
 Balanced Spread and Balanced Spread Infill normalize every product to sequence `1`.
 Progressive Fill and Progressive Fill Infill preserve input sequence
@@ -795,6 +809,137 @@ Direct engine regression should check, at minimum:
 The engine is the source of truth for any discrepancy. Historical handoffs and
 older mode descriptions must be treated as context, not as evidence against
 the active implementation.
+
+## Supported-top adaptive regression evidence — 2026-11-07
+
+The baseline is production commit `9369aa8e9ac32c120456640f3552c67d2a608f3f`.
+An existing uncommitted 48-ft preset was preserved. The central protection
+entries are TC-REG-013/014 in the engineering regression register; that register
+is authoritative for cumulative test membership.
+
+### Isolated supported roofs
+
+The direct test places a real rectangular stackable foundation beneath the
+cavity, then calls `fill_top_residual_deterministically()`. It also tests nonzero
+XYZ offsets. Dimensions here are canonical engine numbers in mm; the original
+inch study is a different physical scale. Tests separately exercise scaling and
+the service's physically equivalent inch/mm normalization.
+
+| Roof L×W×free H | Cargo / request | Before | After | Selected physical construction |
+|---|---|---:|---:|---|
+| 275.5×94.2×45.01 | 63×23.6×39.44 / 17 | 12 | 15 | One 23.6-wide lane with four 63-long units; one 63-wide lane with eleven 23.6-long units; depth 259.6, width 86.6 |
+| 275.8×94.5×45.01 | same / 17 | 17 | 17 | Exact existing 4×4 grid at depth 252, then one rotated unit at X=252; final X=275.6 |
+| 275.5×94.2×45.01 | same / 5000 | 12 | 15 | Same bounded geometry as the 17-unit request |
+
+In the smaller roof, the generator produces exactly three candidates with three
+evaluations: a repeatable three-wide plan loading 12, an adaptive plan loading
+15, and a repeatable rotated plan loading 11. The adaptive plan already existed
+before the change but its fill plan returned zero. The top-only opt-in admits
+it to full validation and volume-first comparison. At unit weight 2 kg, the
+isolated load changes from 24 to 30 kg; remaining quantity changes from 5 to 2
+and the next item index from 12 to 15. All 15 objects are distinct and fully
+supported. No fit tolerance, overhang, or candidate generator was changed.
+
+### Controlled seven-row reconstruction
+
+This is a reproducible reconstruction, **not an exact replay of hidden screenshot
+state**. Container: 567×98.5×107 mm; no payload limit or tare. All rows are
+stackable, all three rotation families enabled, and no Max quantity flags.
+Weights use the existing local preset's pound values converted by
+`0.45359237 kg/lb`; this is an explicit assumption for the mm experiment.
+
+| Row | L×W×H (mm) | Request | Source weight (lb) | Sequence |
+|---|---|---:|---:|---:|
+| A | 15.7×55.1×63.2 | 30 | 88.11 | 1 |
+| B | 63×23.6×39.4 | 17 | 191.93 | 1 |
+| C | 23.6×17.7×51.2 | 16 | 1198.76 | 2 |
+| D | 31.5×47.2×15.7 | 48 | 11.02 | 3 |
+| E | 47.2×47.2×21.7 | 14 | 1375.67 | 3 |
+| F | 47.2×47.2×21.7 | 4 | 661.38 | 3 |
+| G | 47.2×47.2×21.7 | 4 | 165.35 | 3 or 4, controlled independently |
+
+PFI means Progressive Fill + Infill; BSI means Balanced Spread + Infill. The
+perturbed case changes only A to 15.8×55.2×63.2 mm. Balanced modes normalize all
+sequences to 1, so G3/G4 are identical there.
+
+| A / G / mode | A–G loaded before → after | Total | Packed volume mm³ before → after | Volume utilization % | Occupied X mm |
+|---|---|---|---|---|---|
+| Original / 3 / PFI | 30,17,16,24,14,4,4 → 30,17,16,36,14,4,4 | 109→121 | 4602024.640→4882137.760 | 77.0098→81.6972 | 560.9→553.0 |
+| Original / 4 / PFI | 30,17,16,32,14,4,0 → 30,17,16,44,14,4,0 | 113→125 | 4595390.208→4875503.328 | 76.8988→81.5861 | 561.0→553.1 |
+| Original / either / BSI | 30,16,16,46,12,4,4 → 30,17,13,45,14,4,4 | 128→127 | 4960297.184→5028060.808 | 83.0051→84.1390 | 553.2→557.1 |
+| Perturbed / 3 / PFI | 30,17,16,48,14,4,4 unchanged | 133 | 5175693.520 unchanged | 86.6095 | 561.4 |
+| Perturbed / 4 / PFI | 30,17,16,48,14,4,0 unchanged | 129 | 4982317.008 unchanged | 83.3735 | 545.7 |
+| Perturbed / either / BSI | 30,17,16,44,14,4,4 unchanged | 129 | 5082322.480 unchanged | 85.0470 | 551.7 |
+
+For original A, the **actual detected** roof is 275.5×94.2×43.8 mm at Z=63.2;
+it is not the historical 45.01-high study. B supported fully on A increases
+from 12 to 15 in both infill modes. PFI B on the floor decreases from 2 to 1;
+BSI B on the floor stays 1, while total B increases from 16 to 17. Therefore,
+loading all 17 B is not equivalent to loading 17 on A. PFI gains space for
+twelve extra D units. BSI follows the same volume-first local policy and changes
+later frontiers: it gains one B and two E, loses three C and one D, loads one
+fewer unit overall, and uses 3.9 mm more X while loading 67763.624 mm³ more
+cargo. This is a documented heuristic tradeoff, not a claim of universal
+whole-load improvement. No earlier frontier is reopened.
+
+The perturbed cases retain 17 B on A and their exact before/after placement
+signatures. The existing local inch preset was also run unchanged through
+service normalization: its 566.9×98.5×108-inch container, R3-only rows, and
+A/B sequence groups 1/2 differ from the reconstruction. PFI remains
+30,17,16,4,14,2,0 (83 total, 63.6730%, X=14094.46 mm); BSI remains
+30,16,8,46,8,0,0 (108 total, 69.7082%, X=14244.32 mm). B fully on A remains
+zero in that fixture; different groups cannot cooperate in A's top closure.
+Both approved baseline modes also retained exact signatures across all five
+input scenarios (ten baseline runs).
+
+An extra physically equivalent service check used the isolated roof dimensions
+as inches above a 63-inch-high foundation (total height 108.01 inches), then
+multiplied every dimension by 25.4 for its mm counterpart. Each infill mode
+loaded 15 and returned identical canonical geometry in both units, with full
+physical validation. This is distinct from entering the same numeric dimensions
+as mm. Earlier committed frontier placements remain authoritative in either
+unit system; top closure never reopens their occupied volume.
+
+### Bounds, performance, and verification
+
+The existing 128-lane/4096-column caps remain unchanged. Small-roof and
+5000-request runs each generate/evaluate three candidates; the larger roof
+evaluates four cumulatively across its 16+1 closure. Original-A/G3 top candidate
+counts are PFI 8→8 and BSI 26→25; no quantity-dependent search expansion was
+introduced. Five alternating old/new local runs measured these median times
+(observations, not CI thresholds):
+
+| Fixture | Before | After |
+|---|---:|---:|
+| Small supported roof | 1.856 ms | 3.402 ms |
+| Same roof, request 5000 | 1.290 ms | 3.240 ms |
+| Original A/G3 PFI | 170.621 ms | 78.468 ms |
+| Original A/G3 BSI | 35.865 ms | 72.709 ms |
+| Perturbed A/G3 PFI | 82.146 ms | 84.564 ms |
+
+BSI's changed complete outcome costs about 37 ms in this local measurement;
+physical validation remains intact. Both isolated and complete fixtures passed
+the reusable independent bounds/orientation/overlap/union-support/stackability/
+weight/quantity/item-index validator. Repeated signatures and diagnostics are
+deterministic and JSON-safe.
+
+The complete active command in `../engineering/testing-and-verification.md`
+passed **173/173 before** in 252.168 s and **185/185 after** in 163.525 s, with
+zero failures/errors/skips. The twelve added test methods protect TC-REG-013/014;
+the red run first demonstrated the expected missing 15-unit eligibility.
+The existing historical expectations were not edited. All 16 active registry
+entries passed, including EasyCargo clean-row values, mono compaction,
+P4/P2 Native/DGFE, adaptive blocks, TOPS manifests, Balanced closure, sequence,
+Max quantity, units, standalone/public/Flow, scene, and PDF contracts.
+`manage.py check` passed; the Node sequence suite passed 2/2. Retired-mode
+`test_transport_container_engine` was not rerun; its previous diagnostic record
+remains explicitly historical in the central register.
+
+No service, UI, session, renderer, catalogue normalization, other calculation
+engine, dependency, migration, or deployment code changed. Multi-product
+Container/Bag use separate engines and are not Transport consumers. No commit,
+push, merge, deployment, Railway operation, migration, or production-data write
+was performed.
 
 ## Historical mode note
 
