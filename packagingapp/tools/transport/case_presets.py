@@ -1,4 +1,4 @@
-"""Named public Transport Container examples used by KolliLabs articles."""
+"""Named Transport Container examples and fixture-backed regression inputs."""
 
 from copy import deepcopy
 
@@ -264,10 +264,106 @@ TRANSPORT_CONTAINER_CASE_PRESETS = {
             },
         ],
     },
+    # Existing imperial service check, not a reconstruction of the hidden truck
+    # inputs: artifacts/transport-supported-top/evidence.json,
+    # equivalent_unit_checks[0].imperial_input (TC-REG-013/015).
+    "p1-p2-imperial-supported-roof": {
+        "label": "P1/P2 Upper Residual — Imperial Supported-Roof Fixture",
+        "config": {
+            "container_source": "manual",
+            "container_l": 275.5,
+            "container_w": 94.2,
+            "container_h": 108.01,
+            "max_weight": "",
+            "tare_weight": "",
+            "packing_mode": "front_to_back_infill",
+            "load_unit_dimension_unit": "in",
+            "load_unit_mass_unit": "kg",
+            "transport_dimension_unit": "in",
+            "transport_mass_unit": "kg",
+        },
+        "rows": [
+            {
+                "name": "Support",
+                "length": 275.5, "width": 94.2, "height": 63,
+                "qty": 1, "max_qty": False, "weight": 0,
+                "sequence": 1, "r1": False, "r2": False, "r3": True,
+                "stackable": True,
+            },
+            {
+                "name": "Cargo",
+                "length": 63, "width": 23.6, "height": 39.44,
+                "qty": 17, "max_qty": False, "weight": 2,
+                "sequence": 1, "r1": False, "r2": False, "r3": True,
+                "stackable": True,
+            },
+        ],
+    },
+    # TC-REG-005: test_transport_adaptive_mixed_lane.
+    # test_perturbed_pallet_builds_unequal_lane_tails_and_loads_25.
+    # The 801 mm width is deliberate; this is not a standard 800 mm pallet.
+    "40hc-euro-pallet-unequal-lane-tails": {
+        "label": "40HC Euro Pallet — Unequal Lane Tails (1200 × 801 mm)",
+        "config": {
+            "container_source": "manual",
+            "container_l": 12032,
+            "container_w": 2352,
+            "container_h": 2698,
+            "max_weight": "",
+            "tare_weight": "",
+            "packing_mode": "front_to_back",
+            "load_unit_dimension_unit": "mm",
+            "load_unit_mass_unit": "kg",
+            "transport_dimension_unit": "mm",
+            "transport_mass_unit": "kg",
+        },
+        "rows": [
+            {
+                "name": "Test load",
+                "length": 1200, "width": 801, "height": 144,
+                "qty": 30, "max_qty": False, "weight": 1,
+                "sequence": 1, "r1": False, "r2": False, "r3": True,
+                "stackable": False,
+            },
+        ],
+    },
 }
 
 
+# Reuse the existing benchmark inputs for constraint variants. Keep the four
+# original presets unchanged; the normal tool supplies strategy switching.
+# TC-REG-003/004: test_transport_front_to_back.primary_case_products(). The
+# common group enables the P4/P2 Native and P2/P1 DGFE transitions; the article
+# preset instead separates those products into four loading groups.
+_tops_dgfe = deepcopy(TRANSPORT_CONTAINER_CASE_PRESETS["tops-max-load-high-cube-benchmark"])
+_tops_dgfe["label"] = "TOPS DGFE — Shared Loading Group Frontier Regression"
+for _row in _tops_dgfe["rows"]:
+    _row["sequence"] = 1
+TRANSPORT_CONTAINER_CASE_PRESETS["tops-dgfe-shared-loading-group"] = _tops_dgfe
+
+# TC-REG-001: EasyCargoEngineTests.benchmark_inputs(all_rotations=False).
+_easycargo_r3 = deepcopy(TRANSPORT_CONTAINER_CASE_PRESETS["easycargo-40hc-mixed-cargo-benchmark"])
+_easycargo_r3["label"] = "EasyCargo 40' HC — R3-Only DGFE Regression"
+for _row in _easycargo_r3["rows"]:
+    _row.update(r1=False, r2=False, r3=True)
+TRANSPORT_CONTAINER_CASE_PRESETS["easycargo-40hc-r3-only-dgfe"] = _easycargo_r3
+
+# TC-REG-017: test_transport_mixed_cargo_infill.stackability_expv2_2().
+# Preserve that rounded task reconstruction in its original inches/pounds;
+# its documented helper converts these same inputs to canonical mm/kg.
+_support_beds = deepcopy(TRANSPORT_CONTAINER_CASE_PRESETS["48ft-semitrailer-3stop-benchmark"])
+_support_beds["label"] = "48-ft Semitrailer — ExpV2-2 Support Beds (Reconstruction)"
+_support_beds["rows"][0].update(length=15.75, width=55.15)
+for _index, _row in enumerate(_support_beds["rows"]):
+    _row.update(
+        sequence=1 if _index < 3 else 3,
+        r1=True, r2=True, r3=True,
+        stackable=_index not in (1, 4),
+    )
+TRANSPORT_CONTAINER_CASE_PRESETS["48ft-semitrailer-expv2-2-support-beds"] = _support_beds
+
+
 def get_transport_container_case_preset(slug):
-    """Return an isolated preset payload for a public Transport demo."""
+    """Return an isolated preset payload for a Transport example or regression."""
     preset = TRANSPORT_CONTAINER_CASE_PRESETS.get(str(slug or "").strip())
     return deepcopy(preset) if preset else None

@@ -10,6 +10,7 @@ from .views import bag_selection
 from .views import palletization
 from .views import container_tool
 from .views.home import home
+from .views.regressions import regressions
 from .views.marketing import about, blog_detail, blog_list, pricing
 from .views.corrugated_material_strength import (
     corrugated_material_strength,
@@ -87,6 +88,8 @@ urlpatterns = [
 
     # KolliPack application
     path("kollipack/", home, name="home"),
+    path("regressions", regressions, name="regressions"),
+    path("regressions/", RedirectView.as_view(pattern_name="regressions", permanent=True)),
     path("account/settings/", user_settings, name="user_settings"),
     path(
         "assistant/context/",

@@ -2,7 +2,7 @@ import json
 
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
@@ -798,10 +798,21 @@ def _build_transport_seo_schema(request):
 
 
 def container_tool(request):
+    case_slug = (request.GET.get("case") or "").strip() if request.method == "GET" else ""
+    case_preset = get_transport_container_case_preset(case_slug)
+    if case_slug and case_preset is None:
+        raise Http404("Unknown Transport Container case.")
+
     return render(
         request,
         "container_tool/container_tool.html",
-        _build_transport_page_context(request, mode="standalone"),
+        _build_transport_page_context(
+            request,
+            mode="standalone",
+            initial_config=case_preset["config"] if case_preset else None,
+            initial_rows=case_preset["rows"] if case_preset else None,
+            run_initial_analysis=case_preset is not None,
+        ),
     )
 
 

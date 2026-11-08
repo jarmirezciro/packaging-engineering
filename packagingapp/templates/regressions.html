@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Regression & Case Compendium | KolliPack{% endblock %}
+
+{% block content %}
+<div class="app-page">
+  <h1 class="app-title text-dark mb-4">Regression &amp; Case Compendium</h1>
+  <h2 class="h4 text-dark mb-3">Transport Container Cases</h2>
+  <ul class="mb-0">
+    {% for slug, case in transport_cases %}
+    <li class="mb-2">Case {{ forloop.counter|stringformat:"02d" }} &mdash; <a href="{% url 'container_tool' %}?case={{ slug|urlencode }}">{{ case.label }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

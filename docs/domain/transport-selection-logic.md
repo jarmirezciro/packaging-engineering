@@ -346,6 +346,49 @@ and carry results forward, but it must not duplicate Product Block, residual
 support, payload, presenter, or renderer logic. A first-step Flow calculation
 must remain functionally equivalent to standalone Transport.
 
+## Regression & Case Compendium
+
+`/regressions` lists the existing Transport cases directly from
+`TRANSPORT_CONTAINER_CASE_PRESETS` in
+`packagingapp/tools/transport/case_presets.py`. Each relative link opens the
+normal `/container-tool/?case=<slug>` page. The standalone view uses the
+existing deep-copy preset getter and shared page builder to populate inputs
+and run the initial analysis. POST submissions use the user's edited inputs;
+the case query is applied only on GET. Unknown standalone case slugs return 404.
+
+To expose another case, add its label, config and rows to that existing Python
+registry; it appears in the compendium automatically. Use the existing config
+and row fields, including explicit unit metadata for non-metric inputs. The
+public calculator's TOPS demo keeps its established single-group override;
+the compendium's standalone link preserves the registry's loading groups.
+
+The compact extension keeps at most two variants per benchmark family. These
+five additions reuse the same loader; no preset sets an expected engine result:
+
+| Case slug | Input source and distinct challenge |
+|---|---|
+| `p1-p2-imperial-supported-roof` | Existing `artifacts/transport-supported-top/evidence.json`, `equivalent_unit_checks[0].imperial_input`; documented under **Supported-top adaptive regression evidence** in the engine contract. A 275.5×94.2×45.01-inch roof above a 63-inch support, with 17 cargo units of 63×23.6×39.44 inches. Mass stays kg, as in that service check. This is the documented isolated fixture, not the unavailable original truck state. |
+| `40hc-euro-pallet-unequal-lane-tails` | `test_transport_adaptive_mixed_lane.test_perturbed_pallet_builds_unequal_lane_tails_and_loads_25` and `TCEFV1_adaptive_mixed_blocks_regression.md`: 12032×2352×2698 mm container; 30 non-stackable 1200×801×144 mm units, 1 kg each, R3 only. The deliberate 801 mm width exposes unequal lane tails rather than the easier exact 800 mm synchronized pattern. |
+| `tops-dgfe-shared-loading-group` | Deep copy of the existing TOPS preset with all sequences set to 1, matching `test_transport_front_to_back.primary_case_products()`. Unlike the four-group article baseline, it exercises both P4/P2 Native preservation and P2/P1 DGFE accommodation in one full manifest. |
+| `easycargo-40hc-r3-only-dgfe` | Deep copy of the existing EasyCargo preset with R1/R2 disabled throughout, matching `EasyCargoEngineTests.benchmark_inputs(all_rotations=False)`. Preserves the restrictive-orientation clean-row/DGFE witness without adding a third EasyCargo variant. |
+| `48ft-semitrailer-expv2-2-support-beds` | Deep copy of the imperial semitrailer preset with the exact `test_transport_mixed_cargo_infill.stackability_expv2_2()` overrides: A=15.75×55.15×63 inches; all rotations; A/B/C group 1, D/E/F/G group 3; B/E non-stackable; no payload. The existing fixture's canonical mm/kg values independently verify the inputs. |
+
+The four original presets remain unchanged. In particular, the public
+semitrailer's R3-only, differently grouped inputs are **not** the approved
+133-unit support-bed setup. Separate strategy copies, the larger/easier roof,
+quantity-only sweeps and separate P4/P2/P2/P1 subsets are omitted. The two TOPS,
+two EasyCargo and two semitrailer variants differ in material constraints;
+the Mix Load, isolated roof and perturbed-pallet families each have one case.
+
+The full historical imperial P1/P2 truck inputs remain unavailable; the
+275.5/275.8 roof values alone cannot reconstruct them. The controlled seven-row
+mm roof experiments are explicitly different physical inputs and are not
+silently relabeled as that original imperial load. The screenshot transcription
+claiming a complete 133-unit load also disagrees with its visible 121/133;
+the ExpV2-2 fixture is retained with its own provenance rather than conflating
+those investigations. The five-row optimized TOPS reconstruction is omitted
+because its P5 rotation permissions are unconfirmed.
+
 ## Session and serialization contract
 
 Rows, configuration, results, and inherited Flow state must remain JSON-safe.
