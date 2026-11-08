@@ -121,6 +121,15 @@ canonical and bypass rounded display values. No unit conversion occurs inside
 the packing engine, max-quantity solver, serializer, Three.js viewer, or report
 calculation.
 
+The editable Items to load table formats automatically populated dimensions
+and weights with exactly two decimals, using the same standalone/public/Flow
+adapter. Every rendered scalar, including restored manual inputs, retains its
+unrounded canonical value in the existing hidden fields. Editing an input
+replaces only that scalar's canonical value; typing itself is not reformatted.
+Unit switches reuse the exact per-input canonical value and opt in to two
+decimals without changing other tools' precision. Downstream Flow physical
+inputs remain governed by the existing upstream chaining contract.
+
 ## How Balanced Spread behaves for users
 
 Balanced Spread puts all product rows into one common loading group. In this mode:

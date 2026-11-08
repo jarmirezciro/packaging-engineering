@@ -162,7 +162,11 @@ class EasyCargoPublicPresetTests(TestCase):
                 "name", "length", "width", "height", "qty", "weight",
                 "sequence", "r1", "r2", "r3", "stackable",
             ):
-                self.assertEqual(row[key], expected[key], (expected["name"], key))
+                if key in {"length", "width", "height", "weight"}:
+                    self.assertEqual(row[key], f"{expected[key]:.2f}", (expected["name"], key))
+                    self.assertEqual(row[f"canonical_{key}"], expected[key], (expected["name"], key))
+                else:
+                    self.assertEqual(row[key], expected[key], (expected["name"], key))
         self.assertEqual(len(rows), 7)
         result = response.context["result"]
         self.assertIsNotNone(result)

@@ -151,7 +151,7 @@ def selected_container_summary(selected_material, data):
     }
 
 
-def _table_number(formatted_value):
+def format_transport_table_number(formatted_value):
     """Pad a shared-formatted physical value for a unit-labelled table column."""
     number_text = formatted_value.partition(" ")[0]
     if number_text == "—":
@@ -184,14 +184,14 @@ def attach_transport_result_presentation(serialized_result, config):
         )
         # Web-only cells keep the existing report/legend strings unchanged.
         row["table_display"] = {
-            f"{dimension}_display": _table_number(format_dimensions(
+            f"{dimension}_display": format_transport_table_number(format_dimensions(
                 row.get(dimension),
                 display_unit=load_dimension_unit,
                 max_decimal_places=2,
             ))
             for dimension in ("length", "width", "height")
         }
-        row["table_display"]["weight_each_display"] = _table_number(format_mass(
+        row["table_display"]["weight_each_display"] = format_transport_table_number(format_mass(
             row.get("weight_each"),
             canonical_unit="kg",
             display_unit=load_mass_unit,

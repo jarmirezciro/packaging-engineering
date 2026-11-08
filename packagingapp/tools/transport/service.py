@@ -13,13 +13,15 @@ from .serializers import (
     serialize_transport_result,
     serialize_transport_threejs_scene,
 )
-from .presenter import attach_transport_result_presentation
+from .presenter import attach_transport_result_presentation, format_transport_table_number
 from ...units import (
     LENGTH_UNITS,
     MASS_UNITS,
     UnsupportedUnitError,
     convert_length,
     convert_mass,
+    format_length,
+    format_mass,
 )
 from ...units.input import convert_optional, validate_unit
 from ...utils.container_tool.engine import pack_container, run_container_tool, summarize
@@ -243,9 +245,8 @@ def validate_transport_unit_state(cfg):
 def _canonical_row_quantity(row, key, unit, converter, canonical_unit):
     if row.get("canonicalized") and row.get(key) not in (None, "", "None"):
         return float(row[key])
-    source = row.get("physical_source")
     canonical_key = f"canonical_{key}"
-    if source in {"catalogue", "inherited"} and row.get(canonical_key) not in (
+    if row.get(canonical_key) not in (
         None,
         "",
         "None",
@@ -257,8 +258,8 @@ def _canonical_row_quantity(row, key, unit, converter, canonical_unit):
 def normalize_transport_rows_for_calculation(raw_rows, unit_state):
     """Convert editable row values to engine mm/kg before row validation.
 
-    Catalogue and inherited rows may carry exact canonical scalars.  Those
-    values remain authoritative while the visible inputs change units.
+    All displayed rows may carry exact per-field canonical scalars. Those
+    values remain authoritative until that individual input is edited.
     """
     safe_rows = sanitize_transport_rows_for_session(raw_rows or [])
     messages = []
@@ -311,18 +312,24 @@ def transport_rows_for_display(rows, dimension_unit="mm", mass_unit="kg"):
     display_rows = []
     for row in sanitize_transport_rows_for_session(rows or []):
         display = dict(row)
-        if row.get("canonicalized"):
-            for key in ("length", "width", "height"):
-                if row.get(key) not in (None, "", "None"):
-                    display[key] = float(
-                        convert_length(
-                            float(row[key]), "mm", display_dimension_unit
-                        )
-                    )
-            if row.get("weight") not in (None, "", "None"):
-                display["weight"] = float(
-                    convert_mass(float(row["weight"]), "kg", display_mass_unit)
-                )
+        for key in ("length", "width", "height", "weight"):
+            is_mass = key == "weight"
+            unit = display_mass_unit if is_mass else display_dimension_unit
+            canonical_unit = "kg" if is_mass else "mm"
+            converter = convert_mass if is_mass else convert_length
+            formatter = format_mass if is_mass else format_length
+            try:
+                canonical = _canonical_row_quantity(row, key, unit, converter, canonical_unit)
+                display[f"canonical_{key}"] = "" if canonical is None else canonical
+                display[key] = "" if canonical is None else format_transport_table_number(formatter(
+                    canonical,
+                    canonical_unit=canonical_unit,
+                    display_unit=unit,
+                    max_decimal_places=2,
+                ))
+            except (TypeError, ValueError):
+                # Retain invalid manual text for the existing validation path.
+                pass
         display["canonicalized"] = False
         display_rows.append(display)
     return sanitize_transport_rows_for_session(display_rows)

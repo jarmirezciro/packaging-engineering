@@ -62,9 +62,18 @@
       if (!row) return;
       const source = row.querySelector('[data-transport-row-source]');
       if (source) source.value = 'manual';
-      row.querySelectorAll('[data-transport-row-canonical]').forEach(function(field) {
-        field.value = '';
-      });
+      const field = row.querySelector('[name="' + input.name.replace('item_', 'item_canonical_') + '"]');
+      if (!field) return;
+      // Invalidate only the edited scalar; other rounded inputs keep their exact values.
+      field.value = '';
+      delete input.dataset.unitCanonicalValue;
+      const units = window.KolliPackUnitSelector;
+      if (!units) return;
+      const quantity = input.name === 'item_weight[]' ? 'mass' : 'length';
+      const canonical = units.getCanonicalValue(input, quantity);
+      if (canonical !== null) {
+        field.value = String(units.fromCanonicalValue(canonical, quantity === 'mass' ? 'kg' : 'mm', quantity));
+      }
     }
 
     function transportSyncSequenceInputs(root) {

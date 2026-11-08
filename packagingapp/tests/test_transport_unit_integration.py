@@ -1,5 +1,6 @@
 import json
 from copy import deepcopy
+from html.parser import HTMLParser
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -15,7 +16,9 @@ from packagingapp.tools.transport.service import (
     analyze_transport_config,
     analyze_transport_capacity,
     build_container_from_config,
+    normalize_transport_rows_for_calculation,
     transport_rows_for_display,
+    validate_transport_unit_state,
 )
 from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordinates import (
     allowed_product_orientations,
@@ -344,8 +347,8 @@ class TransportManualUnitBoundaryTests(SimpleTestCase):
             }
         )
         display = transport_rows_for_display(inherited, "in", "lb")[0]
-        self.assertAlmostEqual(display["length"], 1225.4 / 25.4)
-        self.assertAlmostEqual(display["weight"], 997.903214 / 0.45359237)
+        self.assertEqual(display["length"], "48.24")
+        self.assertEqual(display["weight"], "2200.00")
         self.assertEqual(display["canonical_length"], 1225.4)
         self.assertEqual(display["canonical_weight"], 997.903214)
 
@@ -469,6 +472,13 @@ class TransportUnitSelectorSurfaceTests(TestCase):
                 self.assertEqual(selected.status_code, 200)
                 row = selected.context["product_rows"][0]
                 self.assertEqual(tuple(row[f"r{i}"] for i in range(1, 4)), tuple(flags))
+                for key in ("length", "width", "height", "weight"):
+                    self.assertRegex(row[key], r"^\d+\.\d{2}$")
+                    self.assertNotEqual(row[f"canonical_{key}"], "")
+                self.assertEqual(
+                    _TransportFormParser(selected.content.decode()).fields["item_length[]"][0],
+                    "200.00",
+                )
 
                 config = _transport_config(**dict(zip(
                     ("container_l", "container_w", "container_h"), expected
@@ -664,3 +674,166 @@ class TransportUnitSelectorSurfaceTests(TestCase):
         self.assertEqual(config["transport_dimension_unit"], "ft")
         self.assertEqual(config["transport_mass_unit"], "lb")
         self.assertAlmostEqual(config["max_weight"], 1000.0)
+
+
+class TransportEditablePrecisionTests(SimpleTestCase):
+    def test_inherited_rows_render_clean_values_and_exact_metadata_in_both_contexts(self):
+        inherited = _transport_rows_from_selected({
+            "label": "Exact upstream load", "length": 400.04999999999995,
+            "width": 1600.1999999999998, "height": 1000.7599999999998,
+            "weight_kg": 300.000000123,
+        })
+        for dimension, mass, expected in (
+            ("mm", "kg", ["400.05", "1600.20", "1000.76", "300.00"]),
+            ("in", "lb", ["15.75", "63.00", "39.40", "661.39"]),
+        ):
+            displayed = transport_rows_for_display(inherited, dimension, mass)
+            for workflow in (False, True):
+                with self.subTest(dimension=dimension, workflow=workflow):
+                    html = render_to_string("container_tool/partials/_transport_product_section.html", {
+                        "product_rows": displayed, "is_workflow": workflow, "is_first_step": False,
+                    })
+                    fields = _TransportFormParser(html).fields
+                    for key, value in zip(("length", "width", "height", "weight"), expected):
+                        self.assertEqual(fields[f"item_{key}[]"], [value])
+                        self.assertEqual(
+                            float(fields[f"item_canonical_{key}[]"][0]),
+                            inherited[0][f"canonical_{key}"],
+                        )
+
+    def test_all_supported_units_preserve_canonical_values_for_every_row_source(self):
+        canonical = {
+            "length": 400.04999999999995, "width": 1600.1999999999998,
+            "height": 1000.7599999999998, "weight": 300.000000123,
+        }
+        for source in ("manual", "catalogue", "inherited"):
+            for dimension in ("mm", "cm", "m", "in", "ft"):
+                for mass in ("g", "kg", "t", "oz", "lb"):
+                    with self.subTest(source=source, dimension=dimension, mass=mass):
+                        rows = _transport_rows(**canonical, physical_source=source, canonicalized=True)
+                        original = deepcopy(rows)
+                        displayed = transport_rows_for_display(rows, dimension, mass)
+                        self.assertEqual(rows, original)
+                        for key, value in canonical.items():
+                            self.assertRegex(displayed[0][key], r"^\d+\.\d{2}$")
+                            self.assertEqual(displayed[0][f"canonical_{key}"], value)
+                        state, errors = validate_transport_unit_state(_transport_config(
+                            load_unit_dimension_unit=dimension, load_unit_mass_unit=mass,
+                        ))
+                        self.assertEqual(errors, [])
+                        normalized, errors = normalize_transport_rows_for_calculation(displayed, state)
+                        self.assertEqual(errors, [])
+                        for key, value in canonical.items():
+                            self.assertEqual(normalized[0][key], value)
+                        json.dumps(displayed, allow_nan=False)
+
+    def test_rounded_manual_rows_rerun_with_identical_results_in_every_mode(self):
+        for mode in ("space_evenly", "front_to_back", "space_evenly_infill", "front_to_back_infill"):
+            with self.subTest(mode=mode):
+                config = _transport_config(
+                    packing_mode=mode, container_l=5000, container_w=2000,
+                    load_unit_dimension_unit="in", load_unit_mass_unit="lb",
+                )
+                original = analyze_transport_config(config, _transport_rows(
+                    length=15.749999999999998, width=62.99999999999999,
+                    height=39.39999999999999, weight=661.3799999999999,
+                ))
+                self.assertTrue(original["ok"], original["messages"])
+                rows = transport_rows_for_display(original["safe_rows"], "in", "lb")
+                self.assertEqual([rows[0][key] for key in ("length", "width", "height", "weight")],
+                                 ["15.75", "63.00", "39.40", "661.38"])
+                for _ in range(3):
+                    repeated = analyze_transport_config(config, rows)
+                    self.assertTrue(repeated["ok"], repeated["messages"])
+                    self.assertEqual(repeated["result"], original["result"])
+                    self.assertEqual(repeated["serialized_result"], original["serialized_result"])
+                    rows = transport_rows_for_display(repeated["safe_rows"], "in", "lb")
+
+    def test_weight_only_edit_preserves_dimensions_and_blank_fields_remain_blank(self):
+        rows = _transport_rows(
+            length=400.04999999999995, width=300.0123456789,
+            height=200.0987654321, weight=300.000000123, canonicalized=True,
+        )
+        display = transport_rows_for_display(rows, "in", "lb")
+        display[0].update(weight="662.123456789", canonical_weight="")
+        state, _ = validate_transport_unit_state(_transport_config(
+            load_unit_dimension_unit="in", load_unit_mass_unit="lb",
+        ))
+        normalized, errors = normalize_transport_rows_for_calculation(display, state)
+        self.assertEqual(errors, [])
+        for key in ("length", "width", "height"):
+            self.assertEqual(normalized[0][key], rows[0][key])
+        self.assertAlmostEqual(normalized[0]["weight"], 662.123456789 * 0.45359237, places=12)
+        blank = transport_rows_for_display(_transport_rows(length="", weight=""), "in", "lb")[0]
+        self.assertEqual(blank["length"], "")
+        self.assertEqual(blank["weight"], "")
+        zero = transport_rows_for_display(_transport_rows(weight=-0.0), "mm", "kg")[0]
+        self.assertEqual(zero["weight"], "0.00")
+        self.assertEqual(zero["canonical_weight"], -0.0)
+
+
+class _TransportFormParser(HTMLParser):
+    def __init__(self, html):
+        super().__init__()
+        self.fields = {}
+        self.template_depth = 0
+        self.feed(html)
+
+    def handle_starttag(self, tag, attributes):
+        if tag == "template":
+            self.template_depth += 1
+        if tag != "input" or self.template_depth:
+            return
+        attrs = dict(attributes)
+        name = attrs.get("name", "")
+        if name.startswith("item_") and name.endswith("[]") and attrs.get("type") != "checkbox":
+            self.fields.setdefault(name, []).append(attrs.get("value", ""))
+
+    def handle_endtag(self, tag):
+        if tag == "template":
+            self.template_depth -= 1
+
+
+class TransportEditablePrecisionSurfaceTests(TestCase):
+    def test_standalone_and_flow_rerun_the_actual_rendered_form_without_precision_loss(self):
+        for workflow in (False, True):
+            with self.subTest(workflow=workflow):
+                url = reverse("full_packaging_mode" if workflow else "container_tool")
+                config = _transport_config(
+                    container_l=5000, container_w=2000,
+                    load_unit_dimension_unit="in", load_unit_mass_unit="lb",
+                )
+                if workflow:
+                    self.client.post(url, {"action": "add_step", "after_index": "start", "step_type": "transport"})
+                rows = {
+                    "item_name[]": ["Exact manual row"], "item_length[]": ["15.749999999999998"],
+                    "item_width[]": ["62.99999999999999"], "item_height[]": ["39.39999999999999"],
+                    "item_weight[]": ["661.3799999999999"], "item_qty[]": ["2"],
+                    "item_r1[]": ["0"], "item_r2[]": ["0"], "item_r3[]": ["1"],
+                }
+                previous = None
+                for _ in range(3):
+                    post = {f"{key}_0" if workflow else key: value for key, value in config.items()}
+                    post.update(rows)
+                    post.update({"action": "run_step", "index": "0", "step_action_0": "run_analysis"}
+                                if workflow else {"action": "run_analysis"})
+                    response = self.client.post(url, post, follow=workflow)
+                    self.assertEqual(response.status_code, 200)
+                    if workflow:
+                        step = self.client.session["full_packaging_mode_session"]["steps"][0]
+                        result = step["result"]
+                        json.dumps(step, allow_nan=False)
+                    else:
+                        result = response.context["result"]
+                    self.assertIsNotNone(result)
+                    if previous is not None:
+                        self.assertEqual(result, previous)
+                    previous = deepcopy(result)
+                    rows = _TransportFormParser(response.content.decode()).fields
+                    for key, expected in (("length", "15.75"), ("width", "63.00"),
+                                          ("height", "39.40"), ("weight", "661.38")):
+                        self.assertEqual(rows[f"item_{key}[]"], [expected])
+                        self.assertNotEqual(rows[f"item_canonical_{key}[]"], [""])
+                    self.assertEqual(rows["item_qty[]"], ["2"])
+                    self.assertEqual(rows["item_sequence[]"], ["1"])
+                    self.assertContains(response, "<th>Weight each (lb)</th>", html=True)

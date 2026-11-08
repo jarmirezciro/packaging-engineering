@@ -533,10 +533,14 @@ class TransportVisualizationSurfaceTests(TestCase):
         )
         self.assertEqual(
             [
-                (row["length"], row["width"], row["height"])
+                (row["canonical_length"], row["canonical_width"], row["canonical_height"])
                 for row in response.context["product_rows"]
             ],
             [(1200, 800, 1100), (500, 400, 700), (500, 200, 700)],
+        )
+        self.assertEqual(
+            [(row["length"], row["width"], row["height"]) for row in response.context["product_rows"]],
+            [("1200.00", "800.00", "1100.00"), ("500.00", "400.00", "700.00"), ("500.00", "200.00", "700.00")],
         )
         self.assertEqual(
             [row["qty_packed"] for row in response.context["result"]["summary"]["product_rows"]],

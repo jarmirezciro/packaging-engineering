@@ -34,10 +34,17 @@
         return Number.isFinite(parsed) ? parsed : null;
     }
 
-    function formatDisplayValue(baseValue, unit, quantity) {
+    function formatDisplayValue(baseValue, unit, quantity, precision) {
         const factor = FACTORS_TO_BASE[quantity][unit];
         const displayValue = baseValue / factor;
         if (!Number.isFinite(displayValue)) return "";
+        if (precision !== undefined && precision !== "") {
+            const places = Number(precision);
+            if (Number.isInteger(places) && places >= 0 && places <= 8) {
+                const formatted = displayValue.toFixed(places);
+                return Number(formatted) === 0 ? (0).toFixed(places) : formatted;
+            }
+        }
         if (Object.is(displayValue, -0) || displayValue === 0) return "0";
 
         // Eight decimal places are enough for an editable presentation of
@@ -140,7 +147,7 @@
                 return;
             }
 
-            input.value = formatDisplayValue(baseValue, toUnit, quantity);
+            input.value = formatDisplayValue(baseValue, toUnit, quantity, input.dataset.unitDisplayPrecision);
             input.dataset.unitCanonicalValue = String(baseValue);
         });
     }
@@ -174,7 +181,7 @@
         const sourceUnit = unitKey(canonicalUnit, quantity);
         const baseValue = numeric * FACTORS_TO_BASE[quantity][sourceUnit];
         const targetUnit = currentUnit(group, quantity);
-        input.value = formatDisplayValue(baseValue, targetUnit, quantity);
+        input.value = formatDisplayValue(baseValue, targetUnit, quantity, input.dataset.unitDisplayPrecision);
         input.dataset.unitCanonicalValue = String(baseValue);
     }
 
@@ -298,7 +305,13 @@
                 `[data-unit-selector][data-unit-group="${CSS.escape(input.dataset.unitGroup)}"]`
             );
             const quantity = selector?.dataset.unitQuantity || "length";
-            recordCanonicalValue(input, currentUnit(input.dataset.unitGroup, quantity), quantity);
+            const canonical = numericValue(input.dataset.unitCanonicalValue);
+            if (canonical === null) {
+                recordCanonicalValue(input, currentUnit(input.dataset.unitGroup, quantity), quantity);
+            } else if (input.dataset.unitCanonicalUnit) {
+                const sourceUnit = unitKey(input.dataset.unitCanonicalUnit, quantity);
+                input.dataset.unitCanonicalValue = String(canonical * FACTORS_TO_BASE[quantity][sourceUnit]);
+            }
             input.addEventListener("input", () => {
                 recordCanonicalValue(input, currentUnit(input.dataset.unitGroup, quantity), quantity);
             });

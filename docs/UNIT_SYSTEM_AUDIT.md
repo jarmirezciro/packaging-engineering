@@ -302,12 +302,15 @@ active packing mode. The engine, placement coordinates, serialized Three.js
 scene, result cards, and PDF/report values remain canonical metric.
 
 The multi-row Transport table deliberately shares one dimension state and one
-mass state. Catalogue-selected and Flow-inherited rows additionally carry
-JSON-safe exact canonical scalars beside their editable presentation values.
-Unit switching changes only the presentation values; the service consumes the
-canonical scalars until a user explicitly edits a physical field, at which
-point that row becomes a normal manual row. This prevents rounded `in`/`lb`
-presentation from becoming a calculation input. Catalogue-backed transport
+mass state. All rendered load rows, including restored manual rows,
+carry JSON-safe exact canonical scalars beside their two-decimal editable
+presentation values. Unit switching changes only the presentation values;
+editing one physical input updates only its own canonical scalar and marks
+the row manual, preserving the other dimensions and weight. Browser input
+initialization retains server-supplied precision; Transport inputs opt in to
+two-decimal automatic conversion without reformatting typing or changing
+other tools' precision. This prevents rounded `in`/`lb` presentation from
+becoming a calculation input. Catalogue-backed transport
 units continue using model dimensions and tare directly in `mm`/`kg`.
 
 Packaging Flow stores the four prefixed Transport unit states in the existing
