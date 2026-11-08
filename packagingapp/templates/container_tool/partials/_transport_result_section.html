@@ -72,12 +72,12 @@
         <div class="tool-summary-meta">Packing mode: {{ result.packing_mode_label }}</div>
         <div class="tool-summary-meta">Loaded volume (m³): {{ result.summary.packed_volume_m3|floatformat:3 }}</div>
         <div class="tool-summary-meta">Transport unit volume (m³): {{ result.summary.container_volume_m3|floatformat:3 }}</div>
-        <div class="tool-summary-meta">Loaded product weight: {{ result.display.loaded_weight }}</div>
-        <div class="tool-summary-meta">Tare weight: {% if result.summary.tare_weight is not None %}{{ result.display.tare_weight }}{% else %}Not set{% endif %}</div>
-        <div class="tool-summary-meta">Gross loaded weight: {{ result.display.gross_weight }}</div>
-        <div class="tool-summary-meta">Max payload: {% if result.summary.container_max_weight is not None %}{{ result.display.max_payload }}{% else %}Not set{% endif %}</div>
-        <div class="tool-summary-meta mt-2">Occupied L × W × H: {{ result.display.occupied_dimensions }}</div>
-        <div class="tool-summary-meta">Residual L × W × H: {{ result.display.residual_dimensions }}</div>
+        <div class="tool-summary-meta">Loaded product weight: {{ result.display.summary.loaded_weight }}</div>
+        <div class="tool-summary-meta">Tare weight: {% if result.summary.tare_weight is not None %}{{ result.display.summary.tare_weight }}{% else %}Not set{% endif %}</div>
+        <div class="tool-summary-meta">Gross loaded weight: {{ result.display.summary.gross_weight }}</div>
+        <div class="tool-summary-meta">Max payload: {% if result.summary.container_max_weight is not None %}{{ result.display.summary.max_payload }}{% else %}Not set{% endif %}</div>
+        <div class="tool-summary-meta mt-2">Occupied L × W × H: {{ result.display.summary.occupied_dimensions }}</div>
+        <div class="tool-summary-meta">Residual L × W × H: {{ result.display.summary.residual_dimensions }}</div>
       </div>
       {% else %}<div class="app-empty-state container-tool-empty"><i class="bi bi-bar-chart-line fs-2 d-block mb-2"></i><div>Summary will appear here after running the analysis.</div></div>{% endif %}
     </div>

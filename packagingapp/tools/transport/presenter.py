@@ -151,6 +151,15 @@ def selected_container_summary(selected_material, data):
     }
 
 
+def _table_number(formatted_value):
+    """Pad a shared-formatted physical value for a unit-labelled table column."""
+    number_text = formatted_value.partition(" ")[0]
+    if number_text == "—":
+        return number_text
+    number = Decimal(number_text)
+    return format(number.copy_abs() if number.is_zero() else number, ".2f")
+
+
 def attach_transport_result_presentation(serialized_result, config):
     """Attach display-only values to the canonical Transport serialization."""
     result = serialized_result or {}
@@ -173,6 +182,21 @@ def attach_transport_result_presentation(serialized_result, config):
             canonical_unit="kg",
             display_unit=load_mass_unit,
         )
+        # Web-only cells keep the existing report/legend strings unchanged.
+        row["table_display"] = {
+            f"{dimension}_display": _table_number(format_dimensions(
+                row.get(dimension),
+                display_unit=load_dimension_unit,
+                max_decimal_places=2,
+            ))
+            for dimension in ("length", "width", "height")
+        }
+        row["table_display"]["weight_each_display"] = _table_number(format_mass(
+            row.get("weight_each"),
+            canonical_unit="kg",
+            display_unit=load_mass_unit,
+            max_decimal_places=2,
+        ))
 
     result["display"] = {
         "units": {
@@ -214,6 +238,27 @@ def attach_transport_result_presentation(serialized_result, config):
             display_unit=transport_dimension_unit,
         ),
     }
+
+    result["display"]["summary"] = {
+        display_key: format_mass(
+            summary.get(summary_key),
+            canonical_unit="kg",
+            display_unit=transport_mass_unit,
+            max_decimal_places=2,
+        )
+        for display_key, summary_key in (
+            ("loaded_weight", "loaded_weight"),
+            ("tare_weight", "tare_weight"),
+            ("gross_weight", "gross_weight"),
+            ("max_payload", "container_max_weight"),
+        )
+    }
+    for prefix in ("occupied", "residual"):
+        result["display"]["summary"][f"{prefix}_dimensions"] = format_dimensions(
+            *(summary.get(f"{prefix}_{dimension}") for dimension in ("length", "width", "height")),
+            display_unit=transport_dimension_unit,
+            max_decimal_places=2,
+        )
 
     scene = result.get("threejs_scene") or {}
     products = scene.get("products") or []

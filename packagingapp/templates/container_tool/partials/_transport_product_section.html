@@ -215,13 +215,13 @@
         <thead class="table-light">
           <tr>
             <th>Product / load unit</th>
-            <th>L (mm)</th>
-            <th>W (mm)</th>
-            <th>H (mm)</th>
+            <th>L ({{ result.display.units.load_dimension }})</th>
+            <th>W ({{ result.display.units.load_dimension }})</th>
+            <th>H ({{ result.display.units.load_dimension }})</th>
             <th>Qty mode</th>
             <th>Requested</th>
             <th>Loaded</th>
-            <th>Weight each (kg)</th>
+            <th>Weight each ({{ result.display.units.load_mass }})</th>
             <th>Stackable</th>
             <th>Sequence</th>
           </tr>
@@ -230,13 +230,13 @@
           {% for row in result.summary.product_rows %}
           <tr>
             <td>{{ row.name }}</td>
-            <td>{{ row.length }}</td>
-            <td>{{ row.width }}</td>
-            <td>{{ row.height }}</td>
+            <td>{{ row.table_display.length_display }}</td>
+            <td>{{ row.table_display.width_display }}</td>
+            <td>{{ row.table_display.height_display }}</td>
             <td>{% if row.max_qty %}<span class="badge bg-light text-dark border">Auto max</span>{% else %}<span class="text-muted">Manual</span>{% endif %}</td>
             <td>{{ row.qty_requested }}</td>
             <td><strong>{{ row.qty_packed }}</strong></td>
-            <td>{{ row.weight_each }}</td>
+            <td>{{ row.table_display.weight_each_display }}</td>
             <td>{% if row.stackable %}Yes{% else %}No{% endif %}</td>
             <td>{{ row.sequence }}</td>
           </tr>
@@ -507,13 +507,13 @@
         <thead class="table-light">
           <tr>
             <th>Product / load unit</th>
-            <th>L (mm)</th>
-            <th>W (mm)</th>
-            <th>H (mm)</th>
+            <th>L ({{ result.display.units.load_dimension }})</th>
+            <th>W ({{ result.display.units.load_dimension }})</th>
+            <th>H ({{ result.display.units.load_dimension }})</th>
             <th>Qty mode</th>
             <th>Requested</th>
             <th>Loaded</th>
-            <th>Weight each (kg)</th>
+            <th>Weight each ({{ result.display.units.load_mass }})</th>
             <th>Stackable</th>
             <th>Sequence</th>
           </tr>
@@ -522,13 +522,13 @@
           {% for row in result.summary.product_rows %}
           <tr>
             <td>{{ row.name }}</td>
-            <td>{{ row.length }}</td>
-            <td>{{ row.width }}</td>
-            <td>{{ row.height }}</td>
+            <td>{{ row.table_display.length_display }}</td>
+            <td>{{ row.table_display.width_display }}</td>
+            <td>{{ row.table_display.height_display }}</td>
             <td>{% if row.max_qty %}<span class="badge bg-light text-dark border">Auto max</span>{% else %}<span class="text-muted">Manual</span>{% endif %}</td>
             <td>{{ row.qty_requested }}</td>
             <td><strong>{{ row.qty_packed }}</strong></td>
-            <td>{{ row.weight_each }}</td>
+            <td>{{ row.table_display.weight_each_display }}</td>
             <td>{% if row.stackable %}Yes{% else %}No{% endif %}</td>
             <td>{{ row.sequence }}</td>
           </tr>

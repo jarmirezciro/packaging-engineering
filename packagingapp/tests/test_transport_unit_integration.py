@@ -1,10 +1,15 @@
 import json
+from copy import deepcopy
 from types import SimpleNamespace
+from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
+from django.template.loader import render_to_string
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
-from packagingapp.models import Product, ProductCatalogue
+from packagingapp.models import Product, ProductCatalogue, UserPreferences
+from packagingapp.tools.transport.presenter import attach_transport_result_presentation
 from packagingapp.tools.container.service import resolve_product_from_form
 from packagingapp.tools.transport.service import (
     analyze_transport_config,
@@ -18,6 +23,7 @@ from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordin
 from packagingapp.views.full_packaging import (
     PALLETIZATION_VISUAL_SOURCE,
     _apply_payload_to_config,
+    _mark_incomplete_transport_weight,
     _transport_rows_from_selected,
 )
 
@@ -72,6 +78,145 @@ def _geometry_signature(result):
         )
         for placement in result["result"]["placements"]
     ]
+
+
+class TransportResultUnitPresentationTests(SimpleTestCase):
+    @staticmethod
+    def _result(**row_values):
+        return {
+            "summary": {
+                "loaded_weight": 39.9660237207,
+                "tare_weight": None,
+                "gross_weight": 39.9660237207,
+                "container_max_weight": None,
+                "occupied_length": 400.04999999999995,
+                "occupied_width": 1600.1999999999998,
+                "occupied_height": 0,
+                "residual_length": 0,
+                "residual_width": 0,
+                "residual_height": 0,
+                "product_rows": [{
+                    "name": "Precision row", "length": 400.04999999999995,
+                    "width": 1600.1999999999998, "height": 0,
+                    "weight_each": 39.9660237207, "qty_requested": 2,
+                    "qty_packed": 1, "sequence": 1, "stackable": True,
+                    **row_values,
+                }],
+            },
+            "threejs_scene": {"products": [{"length": 400.04999999999995}]},
+        }
+
+    def test_metric_and_imperial_cells_use_fixed_two_decimals(self):
+        for dimension, mass, expected in (
+            ("mm", "kg", ("400.05", "1600.20", "0.00", "39.97")),
+            ("in", "lb", ("15.75", "63.00", "0.00", "88.11")),
+        ):
+            with self.subTest(dimension=dimension, mass=mass):
+                original = self._result()
+                result = attach_transport_result_presentation(deepcopy(original), {
+                    "load_unit_dimension_unit": dimension, "load_unit_mass_unit": mass,
+                    "transport_dimension_unit": "ft", "transport_mass_unit": "lb",
+                })
+                row = result["summary"]["product_rows"][0]
+                self.assertEqual(tuple(row["table_display"].values()), expected)
+                for key, value in original["summary"].items():
+                    if key != "product_rows":
+                        self.assertEqual(result["summary"][key], value)
+                for key, value in original["summary"]["product_rows"][0].items():
+                    self.assertEqual(row[key], value)
+                self.assertEqual(
+                    result["threejs_scene"]["products"][0]["length"],
+                    original["threejs_scene"]["products"][0]["length"],
+                )
+                # Reports and scene legends retain their existing compact precision.
+                self.assertEqual(
+                    row["weight_each_display"],
+                    "39.966 kg" if mass == "kg" else "88.11 lb",
+                )
+                self.assertEqual(result["display"]["summary"]["loaded_weight"], "88.11 lb")
+                self.assertEqual(
+                    result["display"]["summary"]["occupied_dimensions"],
+                    "1.31 × 5.25 × 0 ft",
+                )
+                json.dumps(result, allow_nan=False)
+
+    def test_zero_missing_and_negative_zero_cells(self):
+        for dimension, mass in (("mm", "kg"), ("in", "lb")):
+            for value, expected in (
+                (0, "0.00"), (-0.0, "0.00"), (-0.00001, "0.00"),
+                (None, "—"), ("", "—"),
+            ):
+                with self.subTest(dimension=dimension, mass=mass, value=value):
+                    result = attach_transport_result_presentation(self._result(
+                        length=value, width=value, height=value, weight_each=value,
+                    ), {"load_unit_dimension_unit": dimension, "load_unit_mass_unit": mass})
+                    self.assertEqual(
+                        set(result["summary"]["product_rows"][0]["table_display"].values()),
+                        {expected},
+                    )
+                    self.assertEqual(result["display"]["summary"]["tare_weight"], "—")
+
+    def test_both_table_contexts_render_matching_units_and_formatted_cells(self):
+        for dimension, mass, expected in (
+            ("mm", "kg", ("400.05", "1600.20", "0.00", "39.97")),
+            ("in", "lb", ("15.75", "63.00", "0.00", "88.11")),
+        ):
+            result = attach_transport_result_presentation(self._result(), {
+                "load_unit_dimension_unit": dimension, "load_unit_mass_unit": mass,
+            })
+            for workflow, first_step in ((False, True), (True, True), (True, False)):
+                with self.subTest(dimension=dimension, workflow=workflow, first_step=first_step):
+                    html = render_to_string("container_tool/partials/_transport_product_section.html", {
+                        "result": result, "is_workflow": workflow, "is_first_step": first_step,
+                    }).split("Per-item summary", 1)[1].split("</table>", 1)[0]
+                    for axis in ("L", "W", "H"):
+                        self.assertIn(f"<th>{axis} ({dimension})</th>", html)
+                    self.assertIn(f"<th>Weight each ({mass})</th>", html)
+                    for value in expected:
+                        self.assertIn(f"<td>{value}</td>", html)
+                    self.assertNotIn("400.049999", html)
+                    self.assertNotIn("1600.199999", html)
+                    self.assertNotIn("39.9660237207", html)
+
+    def test_web_summary_preserves_incomplete_weight_status(self):
+        step = {"result": attach_transport_result_presentation(self._result(), {})}
+        _mark_incomplete_transport_weight(step, {"weight_status": "unknown"})
+        result = step["result"]
+        self.assertEqual(
+            result["summary"]["product_rows"][0]["table_display"]["weight_each_display"],
+            "Unavailable",
+        )
+        self.assertIn("Unavailable", result["display"]["summary"]["loaded_weight"])
+        html = render_to_string("container_tool/partials/_transport_result_section.html", {"result": result})
+        self.assertIn("Loaded product weight: Unavailable", html)
+        self.assertIn("Tare weight: Not set", html)
+        self.assertIn("Max payload: Not set", html)
+
+    def test_presentation_does_not_change_engine_results_in_any_active_mode(self):
+        for mode in ("space_evenly", "front_to_back", "space_evenly_infill", "front_to_back_infill"):
+            with self.subTest(mode=mode):
+                config = _transport_config(packing_mode=mode)
+                rows = _transport_rows(length=400.04999999999995, weight=39.9660237207)
+                with patch(
+                    "packagingapp.tools.transport.service.attach_transport_result_presentation",
+                    side_effect=lambda result, config: result,
+                ):
+                    baseline = analyze_transport_config(config, rows)
+                presented = analyze_transport_config(config, rows)
+                self.assertTrue(presented["ok"], presented["messages"])
+                self.assertEqual(presented["products"], baseline["products"])
+                self.assertEqual(presented["container"], baseline["container"])
+                self.assertEqual(presented["result"], baseline["result"])
+                self.assertEqual(_geometry_signature(presented), _geometry_signature(baseline))
+                # The complete canonical serialization, including diagnostics, survives.
+                serialized = deepcopy(presented["serialized_result"])
+                serialized.pop("display")
+                for row in serialized["summary"]["product_rows"]:
+                    for key in ("table_display", "dimensions_display", "weight_each_display"):
+                        row.pop(key)
+                for product in serialized["threejs_scene"]["products"]:
+                    product.pop("display_dimensions")
+                self.assertEqual(serialized, baseline["serialized_result"])
 
 
 class TransportManualUnitBoundaryTests(SimpleTestCase):
@@ -410,6 +555,67 @@ class TransportUnitSelectorSurfaceTests(TestCase):
             page.content.decode(),
             r'name="load_unit_dimension_unit_0"[\s\S]*?value="in"',
         )
+        for _ in range(2):
+            refreshed = self.client.get(reverse("full_packaging_mode"))
+            self.assertContains(refreshed, "<th>L (in)</th>", html=True)
+            self.assertContains(refreshed, "<th>Weight each (lb)</th>", html=True)
+            self.assertContains(refreshed, "<td>47.24</td>", html=True)
+            self.assertContains(refreshed, "<td>220.46</td>", html=True)
+            self.assertRegex(refreshed.content.decode(), r"Occupied L × W × H: [\d.]+ × [\d.]+ × [\d.]+ ft")
+
+    def test_account_defaults_and_manual_overrides_survive_analysis_and_refresh(self):
+        user = get_user_model().objects.create_user(username="transport-unit-defaults")
+        preferences = UserPreferences.objects.create(
+            user=user, default_length_unit="in", default_large_mass_unit="lb",
+        )
+        self.client.force_login(user)
+        standalone_url = reverse("container_tool")
+        initial = self.client.get(standalone_url)
+        self.assertEqual(initial.context["transport_values"], {
+            "load_unit_dimension_unit": "in", "load_unit_mass_unit": "lb",
+            "transport_dimension_unit": "in", "transport_mass_unit": "lb",
+        })
+        self.client.post(reverse("full_packaging_mode"), {
+            "action": "add_step", "after_index": "start", "step_type": "transport",
+        })
+        workflow = self.client.session["full_packaging_mode_session"]
+        for key, value in initial.context["transport_values"].items():
+            self.assertEqual(workflow["steps"][0]["config"][key], value)
+
+        for dimension, mass, length, width, height, weight, expected_length, expected_weight in (
+            ("mm", "kg", "400.04999999999995", "300", "200", "39.9660237207", "400.05", "39.97"),
+            ("in", "lb", "15.75", "12", "8", "88.11", "15.75", "88.11"),
+        ):
+            with self.subTest(dimension=dimension, mass=mass):
+                post = {
+                    **_transport_config(load_unit_dimension_unit=dimension, load_unit_mass_unit=mass),
+                    "action": "run_analysis", "item_name[]": ["Precision row"],
+                    "item_length[]": [length], "item_width[]": [width], "item_height[]": [height],
+                    "item_weight[]": [weight], "item_qty[]": ["2"], "item_sequence[]": ["1"],
+                    "item_r1[]": ["0"], "item_r2[]": ["0"], "item_r3[]": ["1"],
+                }
+                # A browser refresh of the standalone POST resubmits the form.
+                for _ in range(2):
+                    response = self.client.post(standalone_url, post)
+                    self.assertIsNotNone(response.context["result"], response.context["row_errors"])
+                    self.assertContains(response, f"<th>L ({dimension})</th>", html=True)
+                    self.assertContains(response, f"<th>Weight each ({mass})</th>", html=True)
+                    self.assertContains(response, f"<td>{expected_length}</td>", html=True)
+                    self.assertContains(response, f"<td>{expected_weight}</td>", html=True)
+                    self.assertEqual(response.context["transport_values"]["load_unit_dimension_unit"], dimension)
+                # The same choices survive Flow's redirect and repeated GET refreshes.
+                flow_post = {f"{key}_0": value for key, value in post.items() if not key.endswith("[]") and key != "action"}
+                flow_post.update({key: value for key, value in post.items() if key.endswith("[]")})
+                flow_post.update(action="run_step", index="0", step_action_0="run_analysis")
+                self.assertEqual(self.client.post(reverse("full_packaging_mode"), flow_post).status_code, 302)
+                for _ in range(2):
+                    response = self.client.get(reverse("full_packaging_mode"))
+                    self.assertContains(response, f"<th>L ({dimension})</th>", html=True)
+                    self.assertContains(response, f"<td>{expected_weight}</td>", html=True)
+                json.dumps(self.client.session["full_packaging_mode_session"], allow_nan=False)
+        preferences.refresh_from_db()
+        self.assertEqual(preferences.default_length_unit, "in")
+        self.assertEqual(preferences.default_large_mass_unit, "lb")
 
     def test_workflow_source_switch_preserves_manual_payload_constraint(self):
         self.client.post(

@@ -316,6 +316,17 @@ not show debug axes or mesh overlays. Rendering changes must preserve the
 calculation/result contract rather than recalculate placements in templates or
 JavaScript.
 
+Standalone, public and Packaging Flow Per-item summary tables use the shared
+Transport presenter's `table_display` strings: load-unit dimensions and mass
+follow the effective load-unit selectors, with exactly two decimal places.
+Missing values display an em dash and rounded negative zero displays `0.00`.
+The web Summary uses `display.summary` for dimensions and weights at up to two
+decimal places, following the separate transport-unit selectors. Account
+defaults initialize new state; explicit selections remain authoritative.
+These web-only strings leave canonical scalars, report/legend formatting,
+packing results and workflow chaining unchanged. Incomplete inherited mass
+remains unavailable in both web and report presentation.
+
 ## Doors, access, and physical validation
 
 The renderer shows the transport-unit doors at the approved end of the model,

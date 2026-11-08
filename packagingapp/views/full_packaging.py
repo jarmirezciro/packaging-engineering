@@ -3414,9 +3414,11 @@ def _mark_incomplete_transport_weight(step, upstream):
         summary[key] = None
     for key in ("gross_weight", "loaded_weight"):
         step["result"].setdefault("display", {})[key] = "Unavailable (incomplete carton mass)"
+        step["result"]["display"].setdefault("summary", {})[key] = "Unavailable (incomplete carton mass)"
     for row in summary.get("product_rows") or []:
         row["weight_each"] = None
         row["weight_each_display"] = "Unavailable"
+        row.setdefault("table_display", {})["weight_each_display"] = "Unavailable"
     step.setdefault("messages", []).append("Carton gross weight is incomplete; weight and payload checks are unavailable. Geometric loading remains available.")
 
 
