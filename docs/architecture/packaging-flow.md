@@ -284,13 +284,88 @@ while preserving the existing downstream quantity and outer-dimension
 propagation rules. Full Packaging Workflow does not introduce a separate
 allowance calculation path.
 
-## Future combined report
+## Combined report
 
-A proposed Packaging Flow Report would use selected/effective results from each step and present:
+The entitled Packaging Flow PDF uses the current effective results and each
+step's local unit context. It reads the same workflow state as the summary.
+Downstream invalidation also clears cached pallet results and package analysis
+reports so their metrics cannot appear in the export after an upstream edit.
 
-- executive chain summary;
-- final package/pallet/transport KPIs;
-- main visualization;
-- step-by-step assumptions and details.
+## Named cases in the Regression & Case Compendium
 
-Do not build it by scraping rendered HTML or by re-running inconsistent calculations.
+The **Packaging Flow Cases** section at `/regressions` opens the registered
+Python presets through the existing case route with `?reset=1`. Each slug has
+its own session key. Article links without the reset parameter resume that
+case's session. The preset initializes ordinary Flow steps and accepts their
+shared-service results. Subsequent edits, optimization, summaries,
+visualizations, and entitled PDF exports follow the regular Flow paths.
+
+The counts below are current Flow results. Quantities in each chain are
+expressed per unit of the next packaging stage.
+
+| Case | Historical reference or fixture | Current Flow result |
+| --- | --- | --- |
+| PF-01 Think Beyond the Box | [Published study](../../packagingapp/content/blog/articles/think-beyond-the-box-packaging-flow-case-study.md) compares 16 and 24 cartons per pallet, both at 50 pallets per transport unit. | Opens on Alternative 7 with 12 products/carton × 24 cartons/pallet × 48 pallets = 13,824 products. The compact design now gives 20 cartons/pallet and 11,520 products. Alternative 23 now gives 21 cartons/pallet and 12,096 products. |
+| PF-02 TOPS Product and Pallet Optimization Benchmark | [TOPS comparison](../../packagingapp/content/blog/articles/tops-pro-case-size-optimization-kollipack-comparison.md) records 144 cartons and 1,152 products for the 8-pack, and 77 cartons and 1,232 products for the 16-pack. | Both counts reproduce. The 8-pack opens at 288 × 161 × 194 mm external because the preset's preferred 314 × 148 × 194 mm is an external size and the loader matches internal dimensions before falling back to the default candidate. For the 16-pack, select 356 × 280 × 153 mm internal, which passes 364 × 288 × 169 mm external to the pallet. |
+| PF-03 216 or 240 Cartons per Pallet? | [CapePack comparison](../../packagingapp/content/blog/articles/cartons-per-pallet-case-design-exploration.md) uses 12 primary cartons per shipping case. | The 20 × 18 × 8 in internal design opens at 20 cases and 240 primary cartons per pallet. The 15 × 12 × 16 in internal design gives 18 cases and 216 primary cartons. Palletization inherits the external size in both runs. |
+| PF-04 CapePack Parameter Fine-Tuning | [CapePack continuation](../../packagingapp/content/blog/articles/capepack-parameter-fine-tuning.md) uses a 72 in total height limit. | The starting 12-pack gives 30 cases and 360 primary cartons per pallet. Set the quantity to 16 and select the 16 × 12 × 20 in internal design to reproduce 24 cases and 384 primary cartons. |
+| PF-05 Full Chain with Bag | New demonstration based on the [public Bag Selection fixture](../../packagingapp/tools/bag/case_presets.py). | 6 products/bag × 4 bags/carton × 12 cartons/pallet × 30 pallets = 8,640 products. |
+| PF-06 Bag Design Final Capacity | New demonstration using the existing Bag Design and final-capacity services. | Starts at 4 products/bag × 24 bags/carton × 8 cartons/pallet = 768 products. Optimize final capacity ranks the 272 × 112 × 20 mm bag first. Accept and recalculate it to get 4 × 126 × 8 = 4,032. |
+| PF-07 Mixed Units Across the Chain | New demonstration based on [the metric-equivalence test](../../packagingapp/tests/test_task6_unit_presentation.py). | 60 products/carton × 18 cartons/pallet × 30 pallets = 32,400 products. The inherited pallet mass is 497.979756 kg before conversion for display in pounds. |
+| PF-08 Nested Packaging Chain | New demonstration using two ordinary Container Selection steps. | 55 products/inner carton × 2 inner cartons/outer carton × 6 outer cartons/pallet × 30 pallets = 19,800 products. |
+
+### PF-01 transport discrepancy
+
+The current selected 600 × 250 × 300 mm internal carton is 608 × 258 × 316 mm
+external. The pallet has four layers above its 80 mm deck. Its configured
+transport envelope is 1,225.4 × 825.4 × 1,344 mm, including the footprint
+allowance. The 12,032 × 2,352 × 2,698 mm transport unit takes 10 lengthwise
+and 14 rotated pallets on each of two levels, occupying 2,688 mm in height.
+
+With these upright orientations a horizontal slice can have at most two
+pallets across its width, and the 1,225.4 mm-wide orientation can appear at
+most 14 times along the length because two of them cannot sit side by side.
+Even with 14 of the shorter orientation, 25 pallets would require 25,035 mm
+of summed length across the two available positions, which provide 24,064 mm.
+That caps each horizontal slice at 24 pallets. Across the full height,
+49 pallets would require 65,856 pallet-mm of height and the unit provides at
+most 64,752. The current 48 is therefore a geometric limit for this envelope.
+
+A capacity-only run with the same height, transport unit, and rotation rules
+returned 50 when only the footprint changed to the nominal 1,200 × 800 mm.
+The rotated lane then takes 15 pallets instead of 14 on each level.
+The earliest committed preset (`68fc1ec`) used zero overhang. Commit
+`b635c34` added 25.4 mm allowances in both axes, and `f6061c0` records the
+earlier automated result of 38 moving to 48. The archived article's pallet
+capture shows a 1,200 mm carton stack. The exact transport row from the
+historical capture is unavailable, so the footprint comparison isolates a
+verified cause of the two-load difference without assigning unrecorded
+settings to the article. The current preset leaves product mass unspecified.
+
+### Demonstration inputs
+
+- PF-05 uses a 180 × 120 × 40 mm, 250 g product and a 450 mm length × 330 mm
+  opening-width bag with 18 g tare and a 5 kg payload limit. The public fixture requests four
+  products and Single mode selects its capacity of six. The downstream
+  physical bundle envelope is 318 × 208 × 120 mm and weighs 1.518 kg.
+  The carton is 590 × 390 × 250 mm internal with 4 mm caliper, 450 g tare,
+  and a 15 kg payload limit.
+- PF-06 uses a 90 × 60 × 20 mm, 50 g product and requests a four-product bag
+  design. Bag Design carries content mass. No material or bag tare is
+  specified. The carton uses a 375 mm internal height so every generated
+  bag design fits. Its 30 kg payload limit accommodates the top-ranked
+  design's 25.2 kg of contents per carton.
+- PF-07 uses a 100 × 80 × 60 mm product entered in inches at 1 lb, a
+  40 × 30 × 25 cm internal carton with 450 g tare and a 35 kg payload limit,
+  and a pallet that reads carton dimensions in inches and mass in kilograms.
+  Its bottom-carton load limit is 100 kg. The transport and load inputs use
+  feet and pounds.
+- PF-08 starts from the PF-07 physical product and carton in metric units
+  and applies a 5 mm product length allowance at the first step. The second
+  step receives the finished 408 × 308 × 266 mm carton at 25.39758 kg with
+  zero inherited allowance. The outer carton is 820 × 320 × 280 mm internal
+  with 650 g tare and an 80 kg payload limit.
+- PF-05 through PF-08 use a 1,200 × 800 × 144 mm manual pallet, zero overhang,
+  and a 1,200 mm total height limit. No empty-pallet tare is entered. The
+  complete chains use a 6,000 × 2,500 × 2,600 mm transport unit with a
+  20,000 kg maximum gross weight and 1,000 kg tare.

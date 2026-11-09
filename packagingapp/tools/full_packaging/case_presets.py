@@ -1,11 +1,54 @@
-"""Named, public Packaging Flow examples used by KolliLabs articles.
+"""Named, public Packaging Flow examples for the compendium and articles.
 
 The preset only describes inputs and the preferred starting alternative. The
-existing shared Container, Palletization, and Transport engines remain the
-single source of calculation logic.
+shared tool engines remain the single source of calculation logic.
 """
 
 from copy import deepcopy
+
+from ...units import convert_length, convert_mass
+from ..bag.case_presets import SEO_BAG_SELECTION_EXAMPLE_CONFIG
+
+
+_DEMO_PALLET = {
+    "length": 1200,
+    "width": 800,
+    "height": 144,
+    "max_stack_height": 1200,
+    "max_width_stickout": 0,
+    "max_length_stickout": 0,
+}
+
+_DEMO_TRANSPORT = {
+    "length": 6000,
+    "width": 2500,
+    "height": 2600,
+    "max_weight": 20000,
+    "tare_weight": 1000,
+    "packing_mode": "space_evenly",
+    "calculate_max_quantity": True,
+}
+
+_BAG_DEMO_CARTON = {
+    "box_l": 590,
+    "box_w": 390,
+    "box_h": 250,
+    "box_weight": 450,
+    "box_thickness_mm": 4,
+    "box_max_payload": 15000,
+    "r3": "on",
+}
+
+_UNIT_DEMO_CARTON = {
+    "box_l": 400,
+    "box_w": 300,
+    "box_h": 250,
+    "box_weight": 450,
+    "box_max_payload": 35000,
+    "r1": "on",
+    "r2": "on",
+    "r3": "on",
+}
 
 
 _CASE_PRESETS = {
@@ -169,6 +212,107 @@ _CASE_PRESETS = {
             "reference_tare_lb": 50,
         },
     },
+    "full-chain-with-bag": {
+        "slug": "full-chain-with-bag",
+        "title": "Full Chain with Bag",
+        "description": (
+            "Engineering demonstration using the public Bag Selection example, "
+            "a manual shipping carton, a pallet, and a short transport unit."
+        ),
+        "bag": {**SEO_BAG_SELECTION_EXAMPLE_CONFIG},
+        "carton": _BAG_DEMO_CARTON,
+        "pallet": _DEMO_PALLET,
+        "transport": _DEMO_TRANSPORT,
+    },
+    "bag-design-final-capacity": {
+        "slug": "bag-design-final-capacity",
+        "title": "Bag Design Final Capacity",
+        "description": (
+            "Engineering demonstration for comparing bag designs against the "
+            "same downstream carton and pallet. Use Optimize final capacity "
+            "to rank alternatives by products per pallet."
+        ),
+        "bag": {
+            "mode": "design",
+            "action": "run_design",
+            "product_l": 90,
+            "product_w": 60,
+            "product_h": 20,
+            "product_weight": 50,
+            "desired_qty": 4,
+        },
+        "carton": {**_BAG_DEMO_CARTON, "box_h": 375, "box_max_payload": 30000},
+        "pallet": _DEMO_PALLET,
+    },
+    "mixed-units-across-the-chain": {
+        "slug": "mixed-units-across-the-chain",
+        "title": "Mixed Units Across the Chain",
+        "description": (
+            "Engineering demonstration based on the unit-equivalence fixture. "
+            "Inspect the same physical load as the chain moves between inches, "
+            "centimetres, millimetres, feet, grams, kilograms, and pounds."
+        ),
+        "carton": {
+            **_UNIT_DEMO_CARTON,
+            "product_l": convert_length(100, "mm", "in"),
+            "product_w": convert_length(80, "mm", "in"),
+            "product_h": convert_length(60, "mm", "in"),
+            "product_dimension_unit": "in",
+            "product_weight": 1,
+            "product_mass_unit": "lb",
+            "box_l": 40,
+            "box_w": 30,
+            "box_h": 25,
+            "container_dimension_unit": "cm",
+        },
+        "display_units": {
+            "pallet_box_dimension_unit": "in",
+            "mass_unit": "kg",
+            "load_unit_dimension_unit": "ft",
+            "load_unit_mass_unit": "lb",
+            "transport_dimension_unit": "ft",
+            "transport_mass_unit": "lb",
+        },
+        "pallet": {**_DEMO_PALLET, "max_weight_on_bottom_box": 100},
+        "transport": {
+            **_DEMO_TRANSPORT,
+            **{
+                key: convert_length(_DEMO_TRANSPORT[key], "mm", "ft")
+                for key in ("length", "width", "height")
+            },
+            **{
+                key: convert_mass(_DEMO_TRANSPORT[key], "kg", "lb")
+                for key in ("max_weight", "tare_weight")
+            },
+        },
+    },
+    "nested-packaging-chain": {
+        "slug": "nested-packaging-chain",
+        "title": "Nested Packaging Chain",
+        "description": (
+            "Engineering demonstration using two Container Selection steps. "
+            "The outer carton receives the inner carton's finished dimensions "
+            "and gross weight. The product allowance applies at the first step."
+        ),
+        "carton": {
+            **_UNIT_DEMO_CARTON,
+            "product_l": 100,
+            "product_w": 80,
+            "product_h": 60,
+            "product_allowance_l": 5,
+            "product_weight": 453.59237,
+        },
+        "outer_carton": {
+            "box_l": 820,
+            "box_w": 320,
+            "box_h": 280,
+            "box_weight": 650,
+            "box_max_payload": 80000,
+            "r3": "on",
+        },
+        "pallet": _DEMO_PALLET,
+        "transport": _DEMO_TRANSPORT,
+    },
 }
 
 
@@ -176,3 +320,8 @@ def get_case_preset(slug):
     """Return a defensive copy of one named case, or ``None`` when unknown."""
     preset = _CASE_PRESETS.get(str(slug or "").strip())
     return deepcopy(preset) if preset else None
+
+
+def get_case_titles():
+    """Return compendium links in registry order without exposing preset inputs."""
+    return [(slug, preset["title"]) for slug, preset in _CASE_PRESETS.items()]

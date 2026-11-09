@@ -639,17 +639,9 @@ def _accept_pending_result(step):
     step["expanded"] = True
 
 
-def _build_case_workflow(case_slug):
-    """Run a named article case through the existing shared backend engines."""
-    preset = get_case_preset(case_slug)
-    if not preset:
-        raise Http404("Unknown Packaging Flow case study.")
-
-    steps = []
-
+def _append_case_carton_design(steps, preset, display_units):
     product = preset["product"]
-    display_units = preset.get("display_units") or {}
-    box_step = _new_container_step()
+    box_step = _new_step("container")
     # Article/case presets are existing validation configurations, not new
     # blank Design-mode forms. Preserve their historical no-material/default
     # thickness inputs while the interactive new-design defaults remain active
@@ -696,16 +688,51 @@ def _build_case_workflow(case_slug):
         _process_container_step(box_step, steps, 0, box_post)
     _accept_pending_result(box_step)
 
+
+def _append_case_manual_carton(steps, config):
+    idx = len(steps)
+    step = _new_step("container")
+    steps.append(step)
+    post = {f"{key}_{idx}": str(value) for key, value in config.items()}
+    post.update({f"mode_{idx}": "single", f"step_action_{idx}": "run_single"})
+    _process_container_step(step, steps, idx, post)
+    _accept_pending_result(step)
+
+
+def _build_case_workflow(case_slug):
+    """Run a named case through the same step processors as interactive Flow."""
+    preset = get_case_preset(case_slug)
+    if not preset:
+        raise Http404("Unknown Packaging Flow case study.")
+
+    steps = []
+    display_units = preset.get("display_units") or {}
+    if "bag" in preset:
+        bag_step = _new_step("bag")
+        steps.append(bag_step)
+        bag_post = {f"{key}_0": str(value) for key, value in preset["bag"].items()}
+        _process_bag_step(bag_step, steps, 0, bag_post)
+        _accept_pending_result(bag_step)
+
+    if "carton" in preset:
+        _append_case_manual_carton(steps, preset["carton"])
+    else:
+        _append_case_carton_design(steps, preset, display_units)
+    if "outer_carton" in preset:
+        _append_case_manual_carton(steps, preset["outer_carton"])
+
     pallet_preset = preset["pallet"]
-    pallet_step = _new_pallet_step()
+    pallet_idx = len(steps)
+    pallet_step = _new_step("pallet")
     steps.append(pallet_step)
     pallet_step["config"].update({
-        "box_dimension_unit": display_units.get("container_dimension_unit", "mm"),
+        "box_dimension_unit": display_units.get(
+            "pallet_box_dimension_unit", display_units.get("container_dimension_unit", "mm")
+        ),
         "pallet_dimension_unit": display_units.get("pallet_dimension_unit", "mm"),
         "mass_unit": display_units.get("mass_unit", "g"),
-        "max_pallet_load": pallet_preset.get("max_pallet_load", ""),
     })
-    _apply_chained_defaults(pallet_step, steps, 1)
+    _apply_chained_defaults(pallet_step, steps, pallet_idx)
     pallet_cfg = _extract_pallet_config_from_step(pallet_step)
     pallet_cfg.update({
         "box_source": "manual",
@@ -713,25 +740,30 @@ def _build_case_workflow(case_slug):
         "pallet_l": pallet_preset["length"],
         "pallet_w": pallet_preset["width"],
         "pallet_height": pallet_preset.get("height", ""),
-        "box_dimension_unit": display_units.get("container_dimension_unit", "mm"),
-        "pallet_dimension_unit": display_units.get("pallet_dimension_unit", "mm"),
-        "mass_unit": display_units.get("mass_unit", "g"),
         "max_stack_height": pallet_preset["max_stack_height"],
         "max_pallet_load": pallet_preset.get("max_pallet_load", ""),
+        "max_weight_on_bottom_box": pallet_preset.get("max_weight_on_bottom_box", ""),
         "max_width_stickout": pallet_preset["max_width_stickout"],
         "max_length_stickout": pallet_preset["max_length_stickout"],
     })
     _update_pallet_config_on_step(pallet_step, pallet_cfg)
     pallet_step["analysis_ran"] = True
-    _run_pallet_analysis_shared(pallet_step, steps, 1)
+    _run_pallet_analysis_shared(pallet_step, steps, pallet_idx)
     _accept_pending_result(pallet_step)
 
     transport_preset = preset.get("transport")
     if transport_preset:
-        transport_step = _new_transport_step()
+        transport_idx = len(steps)
+        transport_step = _new_step("transport")
         steps.append(transport_step)
-        _apply_chained_defaults(transport_step, steps, 2)
+        _apply_chained_defaults(transport_step, steps, transport_idx)
         transport_cfg = transport_step["config"]
+        for unit_key in (
+            "load_unit_dimension_unit", "load_unit_mass_unit",
+            "transport_dimension_unit", "transport_mass_unit",
+        ):
+            if unit_key in display_units:
+                transport_cfg[unit_key] = display_units[unit_key]
         transport_cfg.update({
             "container_source": "manual",
             "container_l": transport_preset["length"],
@@ -754,7 +786,7 @@ def _build_case_workflow(case_slug):
                     rows[0][field] = bool(transport_preset[preset_key])
         transport_cfg["product_rows"] = sanitize_transport_rows_for_session(rows)
         transport_step["analysis_ran"] = True
-        _run_transport_analysis(transport_step, steps, 2)
+        _run_transport_analysis(transport_step, steps, transport_idx)
         _accept_pending_result(transport_step)
 
     return {
@@ -1060,6 +1092,8 @@ def _invalidate_downstream(steps, start_idx):
         steps[i]["summary"] = ""
         steps[i]["messages"] = ["This step was cleared because an upstream step changed."]
         steps[i]["result"] = None
+        steps[i]["selected_result"] = None
+        steps[i]["analysis_report"] = None
         steps[i]["image_url"] = None
         steps[i]["image_urls"] = {}
         steps[i]["threejs_scene"] = None

@@ -17,6 +17,7 @@ from packagingapp.tests.test_container_bag_unit_rollout import _bag_config as me
 from packagingapp.tools.bag.case_presets import BAG_SELECTION_CASE_PRESETS
 from packagingapp.tools.bag.service import analyze_bag_config
 from packagingapp.tools.container.case_presets import CONTAINER_SELECTION_CASE_PRESETS
+from packagingapp.tools.full_packaging.case_presets import get_case_titles
 from packagingapp.tools.palletization.case_presets import PALLETIZATION_CASE_PRESETS
 from packagingapp.tools.palletization.state import default_palletization_config
 from packagingapp.tools.transport.case_presets import (
@@ -127,6 +128,10 @@ class RegressionCompendiumTests(TestCase):
                     self.assertEqual(self.case_links(response, route), [
                         f"{reverse(route)}?{urlencode({'case': slug})}" for slug in presets
                     ])
+                self.assertContains(response, "Packaging Flow Cases")
+                for slug, title in get_case_titles():
+                    url = reverse("full_packaging_case", args=[slug])
+                    self.assertContains(response, f'href="{url}?reset=1">{escape(title)}</a>', count=1)
         self.assertRedirects(
             self.client.get("/regressions/", HTTP_HOST="localhost"),
             "/regressions",
