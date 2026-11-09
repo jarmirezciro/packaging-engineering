@@ -1,0 +1,2241 @@
+[
+  {
+    "flags": [
+      "r1"
+    ],
+    "approved_seconds": [
+      0.017551999997522216,
+      0.010258300000714371,
+      0.011493400001199916,
+      0.020564300000842195,
+      0.015134199999010889
+    ],
+    "implementation_seconds": [
+      0.08146290000149747,
+      0.09827270000096178,
+      0.07044130000213045,
+      0.08923099999810802,
+      0.06845880000037141
+    ],
+    "approved_source_sha256": "bdcaff48aa4afd94178f79f9a1ca85310410af3040b922a98742131f24088174",
+    "approved_median_ms": 15.134199999010889,
+    "implementation_median_ms": 81.46290000149747,
+    "partial_trials": {
+      "selected": true,
+      "selected_policy": "projected",
+      "incumbent_units": 71,
+      "mode_runs": 4,
+      "candidate_cap_per_window": 256,
+      "placement_cap_per_candidate": 512,
+      "trials": [
+        {
+          "policy": "projected",
+          "units": 87,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 16,
+            "3": 14,
+            "4": 10,
+            "5": 0,
+            "6": 0
+          },
+          "admissible": true,
+          "rejection_reason": null,
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 88,
+            "windows_with_candidates": 2,
+            "candidate_budget_reached": false,
+            "actions": [
+              {
+                "x_end": 10899.14,
+                "estimated_completion_depth": 12501.880000000001,
+                "ordinary_completion_depth": 12453.62,
+                "foundation_row_index": 2,
+                "upper_row_index": 1,
+                "support_z": 599.44,
+                "upper_quantity": 11,
+                "upper_remaining_before": 11,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    599.44,
+                    1000.7599999999999,
+                    1600.1999999999998
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      599.44,
+                      1000.7599999999999,
+                      1600.1999999999998
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        599.44,
+                        1000.7599999999999,
+                        1600.1999999999998
+                      ],
+                      "orientation_index": 0,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 599.44
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 599.44,
+                  "actual_depth": 599.44,
+                  "block_envelope_depth": 599.44,
+                  "width": 2001.5199999999998,
+                  "height": 1600.1999999999998,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.6646316973250862,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 3596.6400000000003,
+                "policy": "projected",
+                "x_start": 6997.7,
+                "sequence": 1,
+                "units_by_product": {
+                  "2": 15,
+                  "1": 11
+                }
+              },
+              {
+                "x_end": 14140.18,
+                "estimated_completion_depth": 7388.86,
+                "ordinary_completion_depth": 8150.86,
+                "foundation_row_index": 3,
+                "upper_row_index": 4,
+                "support_z": 800.0999999999999,
+                "upper_quantity": 10,
+                "upper_remaining_before": 14,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    551.18,
+                    1198.88,
+                    1198.88
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      551.18,
+                      1198.88,
+                      1198.88
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        551.18,
+                        1198.88,
+                        1198.88
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 551.18
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 551.18,
+                  "actual_depth": 551.18,
+                  "block_envelope_depth": 551.18,
+                  "width": 2397.76,
+                  "height": 1198.88,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.6169934640522876,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 2755.8999999999996,
+                "policy": "projected",
+                "x_start": 11348.72,
+                "sequence": 3,
+                "units_by_product": {
+                  "3": 14,
+                  "4": 10
+                }
+              }
+            ]
+          }
+        },
+        {
+          "policy": "compact",
+          "units": 71,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 16,
+            "3": 0,
+            "4": 6,
+            "5": 2,
+            "6": 0
+          },
+          "admissible": false,
+          "rejection_reason": "row_quantity_reduced",
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 70,
+            "windows_with_candidates": 2,
+            "candidate_budget_reached": false,
+            "actions": [
+              {
+                "x_end": 7896.86,
+                "estimated_completion_depth": 13347.7,
+                "ordinary_completion_depth": 12453.62,
+                "foundation_row_index": 2,
+                "upper_row_index": 1,
+                "support_z": 599.44,
+                "upper_quantity": 1,
+                "upper_remaining_before": 11,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    599.44,
+                    1000.7599999999999,
+                    1600.1999999999998
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      599.44,
+                      1000.7599999999999,
+                      1600.1999999999998
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        599.44,
+                        1000.7599999999999,
+                        1600.1999999999998
+                      ],
+                      "orientation_index": 0,
+                      "lane_count": 1,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 1,
+                      "actual_x_end": 599.44
+                    }
+                  ],
+                  "ny": 1,
+                  "nz": 1,
+                  "depth": 599.44,
+                  "actual_depth": 599.44,
+                  "block_envelope_depth": 599.44,
+                  "width": 1000.7599999999999,
+                  "height": 1600.1999999999998,
+                  "capacity": 1,
+                  "module_capacity": 1,
+                  "planned_quantity": 1,
+                  "repeatable": true,
+                  "transverse_capacity": 1,
+                  "transverse_utilization": 0.5744131368483412,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 599.44,
+                "policy": "compact",
+                "x_start": 6997.7,
+                "sequence": 1,
+                "units_by_product": {
+                  "2": 2,
+                  "1": 1
+                }
+              },
+              {
+                "x_end": 13248.64,
+                "estimated_completion_depth": 8150.86,
+                "ordinary_completion_depth": 8150.86,
+                "foundation_row_index": 5,
+                "upper_row_index": 4,
+                "support_z": 1198.88,
+                "upper_quantity": 2,
+                "upper_remaining_before": 14,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    551.18,
+                    1198.88,
+                    1198.88
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      551.18,
+                      1198.88,
+                      1198.88
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        551.18,
+                        1198.88,
+                        1198.88
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 551.18
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 551.18,
+                  "actual_depth": 551.18,
+                  "block_envelope_depth": 551.18,
+                  "width": 2397.76,
+                  "height": 1198.88,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7763157894736844,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 551.18,
+                "policy": "compact",
+                "x_start": 12697.46,
+                "sequence": 3,
+                "units_by_product": {
+                  "5": 2,
+                  "4": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "flags": [
+      "r2"
+    ],
+    "approved_seconds": [
+      0.007724299997789785,
+      0.01502999999866006,
+      0.01990319999822532,
+      0.018899000002420507,
+      0.016514200000528945
+    ],
+    "implementation_seconds": [
+      0.07708620000266819,
+      0.11648739999873214,
+      0.10349589999896125,
+      0.10996850000083214,
+      0.11544169999979204
+    ],
+    "approved_source_sha256": "bdcaff48aa4afd94178f79f9a1ca85310410af3040b922a98742131f24088174",
+    "approved_median_ms": 16.514200000528945,
+    "implementation_median_ms": 109.96850000083214,
+    "partial_trials": {
+      "selected": true,
+      "selected_policy": "projected",
+      "incumbent_units": 26,
+      "mode_runs": 4,
+      "candidate_cap_per_window": 256,
+      "placement_cap_per_candidate": 512,
+      "trials": [
+        {
+          "policy": "projected",
+          "units": 51,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 0,
+            "3": 0,
+            "4": 2,
+            "5": 2,
+            "6": 0
+          },
+          "admissible": true,
+          "rejection_reason": null,
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 173,
+            "windows_with_candidates": 2,
+            "candidate_budget_reached": false,
+            "actions": [
+              {
+                "x_end": 8000.999999999999,
+                "estimated_completion_depth": 23853.14,
+                "ordinary_completion_depth": 31854.14,
+                "foundation_row_index": 0,
+                "upper_row_index": 1,
+                "support_z": 1399.54,
+                "upper_quantity": 10,
+                "upper_remaining_before": 17,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    1600.1999999999998,
+                    1000.7599999999999,
+                    599.44
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      1600.1999999999998,
+                      1000.7599999999999,
+                      599.44
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        1600.1999999999998,
+                        1000.7599999999999,
+                        599.44
+                      ],
+                      "orientation_index": 0,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 1600.1999999999998
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 1600.1999999999998,
+                  "actual_depth": 1600.1999999999998,
+                  "block_envelope_depth": 1600.1999999999998,
+                  "width": 2001.5199999999998,
+                  "height": 599.44,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.37319141592316557,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 8000.999999999999,
+                "policy": "projected",
+                "x_start": 0.0,
+                "sequence": 1,
+                "units_by_product": {
+                  "0": 30,
+                  "1": 10
+                }
+              },
+              {
+                "x_end": 14353.539999999999,
+                "estimated_completion_depth": 8150.86,
+                "ordinary_completion_depth": 8150.86,
+                "foundation_row_index": 5,
+                "upper_row_index": 4,
+                "support_z": 1198.88,
+                "upper_quantity": 2,
+                "upper_remaining_before": 14,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    551.18,
+                    1198.88,
+                    1198.88
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      551.18,
+                      1198.88,
+                      1198.88
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        551.18,
+                        1198.88,
+                        1198.88
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 551.18
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 551.18,
+                  "actual_depth": 551.18,
+                  "block_envelope_depth": 551.18,
+                  "width": 2397.76,
+                  "height": 1198.88,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7763157894736844,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 551.18,
+                "policy": "projected",
+                "x_start": 13802.359999999999,
+                "sequence": 3,
+                "units_by_product": {
+                  "5": 2,
+                  "4": 2
+                }
+              }
+            ]
+          }
+        },
+        {
+          "policy": "compact",
+          "units": 29,
+          "units_by_product": {
+            "0": 12,
+            "1": 17,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0,
+            "6": 0
+          },
+          "admissible": true,
+          "rejection_reason": null,
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 166,
+            "windows_with_candidates": 1,
+            "candidate_budget_reached": false,
+            "actions": [
+              {
+                "x_end": 1196.34,
+                "estimated_completion_depth": 31450.279999999995,
+                "ordinary_completion_depth": 31854.14,
+                "foundation_row_index": 0,
+                "upper_row_index": 1,
+                "support_z": 1399.54,
+                "upper_quantity": 1,
+                "upper_remaining_before": 17,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    1000.7599999999999,
+                    1600.1999999999998,
+                    599.44
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      1000.7599999999999,
+                      1600.1999999999998,
+                      599.44
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        1000.7599999999999,
+                        1600.1999999999998,
+                        599.44
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 1,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 1,
+                      "actual_x_end": 1000.7599999999999
+                    }
+                  ],
+                  "ny": 1,
+                  "nz": 1,
+                  "depth": 1000.7599999999999,
+                  "actual_depth": 1000.7599999999999,
+                  "block_envelope_depth": 1000.7599999999999,
+                  "width": 1600.1999999999998,
+                  "height": 599.44,
+                  "capacity": 1,
+                  "module_capacity": 1,
+                  "planned_quantity": 1,
+                  "repeatable": true,
+                  "transverse_capacity": 1,
+                  "transverse_utilization": 0.4461247637051041,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 1000.7599999999999,
+                "policy": "compact",
+                "x_start": 0.0,
+                "sequence": 1,
+                "units_by_product": {
+                  "0": 3,
+                  "1": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "flags": [
+      "r3"
+    ],
+    "approved_seconds": [
+      0.0427497000018775,
+      0.05061580000256072,
+      0.05375520000234246,
+      0.045930399999633664,
+      0.04780709999977262
+    ],
+    "implementation_seconds": [
+      0.2169798999966588,
+      0.2473905000006198,
+      0.2366100999970513,
+      0.22666949999984354,
+      0.2293658000016876
+    ],
+    "approved_source_sha256": "bdcaff48aa4afd94178f79f9a1ca85310410af3040b922a98742131f24088174",
+    "approved_median_ms": 47.80709999977262,
+    "implementation_median_ms": 229.3658000016876,
+    "partial_trials": {
+      "selected": true,
+      "selected_policy": "projected",
+      "incumbent_units": 53,
+      "mode_runs": 4,
+      "candidate_cap_per_window": 256,
+      "placement_cap_per_candidate": 512,
+      "trials": [
+        {
+          "policy": "projected",
+          "units": 119,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 16,
+            "3": 48,
+            "4": 8,
+            "5": 0,
+            "6": 0
+          },
+          "admissible": true,
+          "rejection_reason": null,
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 292,
+            "windows_with_candidates": 2,
+            "candidate_budget_reached": false,
+            "actions": [
+              {
+                "x_end": 6997.7,
+                "estimated_completion_depth": 23086.06,
+                "ordinary_completion_depth": 29888.18,
+                "foundation_row_index": 0,
+                "upper_row_index": 1,
+                "support_z": 1600.1999999999998,
+                "upper_quantity": 15,
+                "upper_remaining_before": 17,
+                "upper_block": {
+                  "pattern": "adaptive_mixed_lane",
+                  "orientation": [
+                    1600.1999999999998,
+                    599.44,
+                    1000.7599999999999
+                  ],
+                  "nx": 11,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      1600.1999999999998,
+                      599.44,
+                      1000.7599999999999
+                    ],
+                    [
+                      599.44,
+                      1600.1999999999998,
+                      1000.7599999999999
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        1600.1999999999998,
+                        599.44,
+                        1000.7599999999999
+                      ],
+                      "orientation_index": 0,
+                      "lane_count": 1,
+                      "start_y": 0.0,
+                      "x_repetitions": 4,
+                      "unit_count": 4,
+                      "actual_x_end": 6400.799999999999,
+                      "stack_heights": [
+                        1,
+                        1,
+                        1,
+                        1
+                      ]
+                    },
+                    {
+                      "orientation": [
+                        599.44,
+                        1600.1999999999998,
+                        1000.7599999999999
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 1,
+                      "start_y": 599.44,
+                      "x_repetitions": 11,
+                      "unit_count": 11,
+                      "actual_x_end": 6593.84,
+                      "stack_heights": [
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1
+                      ]
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 6593.84,
+                  "actual_depth": 6593.84,
+                  "block_envelope_depth": 6593.84,
+                  "width": 2199.64,
+                  "height": 1000.7599999999999,
+                  "capacity": 15,
+                  "module_capacity": 15,
+                  "planned_quantity": 15,
+                  "repeatable": false,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7984944991314417,
+                  "actual_volume_efficiency": 0.9920218349779552
+                },
+                "upper_depth": 6593.84,
+                "policy": "projected",
+                "x_start": 0.0,
+                "sequence": 1,
+                "units_by_product": {
+                  "0": 30,
+                  "1": 15
+                }
+              },
+              {
+                "x_end": 13441.68,
+                "estimated_completion_depth": 10789.920000000002,
+                "ordinary_completion_depth": 13990.320000000002,
+                "foundation_row_index": 3,
+                "upper_row_index": 4,
+                "support_z": 1595.12,
+                "upper_quantity": 8,
+                "upper_remaining_before": 14,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    1198.88,
+                    1198.88,
+                    551.18
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      1198.88,
+                      1198.88,
+                      551.18
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        1198.88,
+                        1198.88,
+                        551.18
+                      ],
+                      "orientation_index": 0,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 1198.88
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 1198.88,
+                  "actual_depth": 1198.88,
+                  "block_envelope_depth": 1198.88,
+                  "width": 2397.76,
+                  "height": 551.18,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.47958046542117344,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 4795.52,
+                "policy": "projected",
+                "x_start": 8646.16,
+                "sequence": 3,
+                "units_by_product": {
+                  "3": 48,
+                  "4": 8
+                }
+              }
+            ]
+          }
+        },
+        {
+          "policy": "compact",
+          "units": 53,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 6,
+            "3": 0,
+            "4": 0,
+            "5": 0,
+            "6": 0
+          },
+          "admissible": false,
+          "rejection_reason": "row_quantity_reduced",
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 147,
+            "windows_with_candidates": 1,
+            "candidate_budget_reached": false,
+            "actions": [
+              {
+                "x_end": 599.44,
+                "estimated_completion_depth": 28887.420000000002,
+                "ordinary_completion_depth": 29888.18,
+                "foundation_row_index": 2,
+                "upper_row_index": 1,
+                "support_z": 1300.48,
+                "upper_quantity": 1,
+                "upper_remaining_before": 17,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    599.44,
+                    1600.1999999999998,
+                    1000.7599999999999
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      599.44,
+                      1600.1999999999998,
+                      1000.7599999999999
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        599.44,
+                        1600.1999999999998,
+                        1000.7599999999999
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 1,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 1,
+                      "actual_x_end": 599.44
+                    }
+                  ],
+                  "ny": 1,
+                  "nz": 1,
+                  "depth": 599.44,
+                  "actual_depth": 599.44,
+                  "block_envelope_depth": 599.44,
+                  "width": 1600.1999999999998,
+                  "height": 1000.7599999999999,
+                  "capacity": 1,
+                  "module_capacity": 1,
+                  "planned_quantity": 1,
+                  "repeatable": true,
+                  "transverse_capacity": 1,
+                  "transverse_utilization": 0.4937932680830746,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 599.44,
+                "policy": "compact",
+                "x_start": 0.0,
+                "sequence": 1,
+                "units_by_product": {
+                  "2": 5,
+                  "1": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "flags": [
+      "r1",
+      "r2"
+    ],
+    "approved_seconds": [
+      0.1111060000002908,
+      0.10732579999967129,
+      0.10902379999970435,
+      0.12546719999954803,
+      0.10743279999951483
+    ],
+    "implementation_seconds": [
+      0.4357458999984374,
+      0.44290510000064387,
+      0.5951588999996602,
+      0.45371890000023996,
+      0.45294050000302377
+    ],
+    "approved_source_sha256": "bdcaff48aa4afd94178f79f9a1ca85310410af3040b922a98742131f24088174",
+    "approved_median_ms": 109.02379999970435,
+    "implementation_median_ms": 452.94050000302377,
+    "partial_trials": {
+      "selected": true,
+      "selected_policy": "projected",
+      "incumbent_units": 77,
+      "mode_runs": 4,
+      "candidate_cap_per_window": 256,
+      "placement_cap_per_candidate": 512,
+      "trials": [
+        {
+          "policy": "projected",
+          "units": 102,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 16,
+            "3": 27,
+            "4": 12,
+            "5": 0,
+            "6": 0
+          },
+          "admissible": true,
+          "rejection_reason": null,
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 266,
+            "windows_with_candidates": 2,
+            "candidate_budget_reached": false,
+            "actions": [
+              {
+                "x_end": 9598.66,
+                "estimated_completion_depth": 11752.579999999998,
+                "ordinary_completion_depth": 12453.62,
+                "foundation_row_index": 2,
+                "upper_row_index": 1,
+                "support_z": 899.16,
+                "upper_quantity": 8,
+                "upper_remaining_before": 11,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    599.44,
+                    1000.7599999999999,
+                    1600.1999999999998
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      599.44,
+                      1000.7599999999999,
+                      1600.1999999999998
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        599.44,
+                        1000.7599999999999,
+                        1600.1999999999998
+                      ],
+                      "orientation_index": 2,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 599.44
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 599.44,
+                  "actual_depth": 599.44,
+                  "block_envelope_depth": 599.44,
+                  "width": 2001.5199999999998,
+                  "height": 1600.1999999999998,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7243661577251714,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 2397.76,
+                "policy": "projected",
+                "x_start": 6997.7,
+                "sequence": 1,
+                "units_by_product": {
+                  "2": 16,
+                  "1": 8
+                }
+              },
+              {
+                "x_end": 14188.439999999999,
+                "estimated_completion_depth": 6837.679999999999,
+                "ordinary_completion_depth": 8150.86,
+                "foundation_row_index": 3,
+                "upper_row_index": 4,
+                "support_z": 1198.88,
+                "upper_quantity": 12,
+                "upper_remaining_before": 14,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    551.18,
+                    1198.88,
+                    1198.88
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      551.18,
+                      1198.88,
+                      1198.88
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        551.18,
+                        1198.88,
+                        1198.88
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 551.18
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 551.18,
+                  "actual_depth": 551.18,
+                  "block_envelope_depth": 551.18,
+                  "width": 2397.76,
+                  "height": 1198.88,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7754942912837653,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 3307.08,
+                "policy": "projected",
+                "x_start": 10599.42,
+                "sequence": 3,
+                "units_by_product": {
+                  "3": 27,
+                  "4": 12
+                }
+              }
+            ]
+          }
+        },
+        {
+          "policy": "compact",
+          "units": 77,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 16,
+            "3": 6,
+            "4": 6,
+            "5": 2,
+            "6": 0
+          },
+          "admissible": false,
+          "rejection_reason": "row_quantity_reduced",
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 214,
+            "windows_with_candidates": 2,
+            "candidate_budget_reached": false,
+            "actions": [
+              {
+                "x_end": 7597.139999999999,
+                "estimated_completion_depth": 13047.980000000001,
+                "ordinary_completion_depth": 12453.62,
+                "foundation_row_index": 2,
+                "upper_row_index": 1,
+                "support_z": 899.16,
+                "upper_quantity": 1,
+                "upper_remaining_before": 11,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    599.44,
+                    1000.7599999999999,
+                    1600.1999999999998
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      599.44,
+                      1000.7599999999999,
+                      1600.1999999999998
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        599.44,
+                        1000.7599999999999,
+                        1600.1999999999998
+                      ],
+                      "orientation_index": 2,
+                      "lane_count": 1,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 1,
+                      "actual_x_end": 599.44
+                    }
+                  ],
+                  "ny": 1,
+                  "nz": 1,
+                  "depth": 599.44,
+                  "actual_depth": 599.44,
+                  "block_envelope_depth": 599.44,
+                  "width": 1000.7599999999999,
+                  "height": 1600.1999999999998,
+                  "capacity": 1,
+                  "module_capacity": 1,
+                  "planned_quantity": 1,
+                  "repeatable": true,
+                  "transverse_capacity": 1,
+                  "transverse_utilization": 0.6677750516528923,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 599.44,
+                "policy": "compact",
+                "x_start": 6997.7,
+                "sequence": 1,
+                "units_by_product": {
+                  "2": 2,
+                  "1": 1
+                }
+              },
+              {
+                "x_end": 12799.06,
+                "estimated_completion_depth": 8150.86,
+                "ordinary_completion_depth": 8150.86,
+                "foundation_row_index": 5,
+                "upper_row_index": 4,
+                "support_z": 1198.88,
+                "upper_quantity": 2,
+                "upper_remaining_before": 14,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    551.18,
+                    1198.88,
+                    1198.88
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      551.18,
+                      1198.88,
+                      1198.88
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        551.18,
+                        1198.88,
+                        1198.88
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 551.18
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 551.18,
+                  "actual_depth": 551.18,
+                  "block_envelope_depth": 551.18,
+                  "width": 2397.76,
+                  "height": 1198.88,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7763157894736844,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 551.18,
+                "policy": "compact",
+                "x_start": 12247.88,
+                "sequence": 3,
+                "units_by_product": {
+                  "5": 2,
+                  "4": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "flags": [
+      "r1",
+      "r3"
+    ],
+    "approved_seconds": [
+      0.21395470000061323,
+      0.17098909999913303,
+      0.17089879999912228,
+      0.20924880000166013,
+      0.16303749999860884
+    ],
+    "implementation_seconds": [
+      0.5733536000007007,
+      0.6014084000016737,
+      0.5794362999986333,
+      0.828369399998337,
+      0.6858934000010777
+    ],
+    "approved_source_sha256": "bdcaff48aa4afd94178f79f9a1ca85310410af3040b922a98742131f24088174",
+    "approved_median_ms": 170.98909999913303,
+    "implementation_median_ms": 601.4084000016737,
+    "partial_trials": {
+      "selected": false,
+      "selected_policy": null,
+      "incumbent_units": 127,
+      "mode_runs": 4,
+      "candidate_cap_per_window": 256,
+      "placement_cap_per_candidate": 512,
+      "trials": [
+        {
+          "policy": "projected",
+          "units": 121,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 16,
+            "3": 36,
+            "4": 14,
+            "5": 4,
+            "6": 4
+          },
+          "admissible": false,
+          "rejection_reason": "row_quantity_reduced",
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 381,
+            "windows_with_candidates": 2,
+            "candidate_budget_reached": true,
+            "actions": [
+              {
+                "x_end": 8196.58,
+                "estimated_completion_depth": 9799.32,
+                "ordinary_completion_depth": 9649.46,
+                "foundation_row_index": 2,
+                "upper_row_index": 1,
+                "support_z": 1300.48,
+                "upper_quantity": 2,
+                "upper_remaining_before": 2,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    599.44,
+                    1600.1999999999998,
+                    1000.7599999999999
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      599.44,
+                      1600.1999999999998,
+                      1000.7599999999999
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        599.44,
+                        1600.1999999999998,
+                        1000.7599999999999
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 1,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 1,
+                      "actual_x_end": 599.44
+                    }
+                  ],
+                  "ny": 1,
+                  "nz": 1,
+                  "depth": 599.44,
+                  "actual_depth": 599.44,
+                  "block_envelope_depth": 599.44,
+                  "width": 1600.1999999999998,
+                  "height": 1000.7599999999999,
+                  "capacity": 1,
+                  "module_capacity": 1,
+                  "planned_quantity": 1,
+                  "repeatable": true,
+                  "transverse_capacity": 1,
+                  "transverse_utilization": 0.4937932680830746,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 1198.88,
+                "policy": "projected",
+                "x_start": 6997.7,
+                "sequence": 1,
+                "units_by_product": {
+                  "2": 10,
+                  "1": 2
+                }
+              },
+              {
+                "x_end": 12646.66,
+                "estimated_completion_depth": 6299.199999999999,
+                "ordinary_completion_depth": 8150.86,
+                "foundation_row_index": 3,
+                "upper_row_index": 4,
+                "support_z": 1196.34,
+                "upper_quantity": 14,
+                "upper_remaining_before": 14,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    551.18,
+                    1198.88,
+                    1198.88
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      551.18,
+                      1198.88,
+                      1198.88
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        551.18,
+                        1198.88,
+                        1198.88
+                      ],
+                      "orientation_index": 2,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 551.18
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 551.18,
+                  "actual_depth": 551.18,
+                  "block_envelope_depth": 551.18,
+                  "width": 2397.76,
+                  "height": 1198.88,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7750410509031199,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 3858.2599999999998,
+                "policy": "projected",
+                "x_start": 8646.16,
+                "sequence": 3,
+                "units_by_product": {
+                  "3": 30,
+                  "4": 14
+                }
+              }
+            ]
+          }
+        },
+        {
+          "policy": "compact",
+          "units": 87,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 16,
+            "3": 2,
+            "4": 14,
+            "5": 4,
+            "6": 4
+          },
+          "admissible": false,
+          "rejection_reason": "row_quantity_reduced",
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 381,
+            "windows_with_candidates": 2,
+            "candidate_budget_reached": true,
+            "actions": [
+              {
+                "x_end": 7597.139999999999,
+                "estimated_completion_depth": 10248.9,
+                "ordinary_completion_depth": 9649.46,
+                "foundation_row_index": 2,
+                "upper_row_index": 1,
+                "support_z": 1300.48,
+                "upper_quantity": 1,
+                "upper_remaining_before": 2,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    599.44,
+                    1600.1999999999998,
+                    1000.7599999999999
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      599.44,
+                      1600.1999999999998,
+                      1000.7599999999999
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        599.44,
+                        1600.1999999999998,
+                        1000.7599999999999
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 1,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 1,
+                      "actual_x_end": 599.44
+                    }
+                  ],
+                  "ny": 1,
+                  "nz": 1,
+                  "depth": 599.44,
+                  "actual_depth": 599.44,
+                  "block_envelope_depth": 599.44,
+                  "width": 1600.1999999999998,
+                  "height": 1000.7599999999999,
+                  "capacity": 1,
+                  "module_capacity": 1,
+                  "planned_quantity": 1,
+                  "repeatable": true,
+                  "transverse_capacity": 1,
+                  "transverse_utilization": 0.4937932680830746,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 599.44,
+                "policy": "compact",
+                "x_start": 6997.7,
+                "sequence": 1,
+                "units_by_product": {
+                  "2": 5,
+                  "1": 1
+                }
+              },
+              {
+                "x_end": 9646.92,
+                "estimated_completion_depth": 8150.86,
+                "ordinary_completion_depth": 8150.86,
+                "foundation_row_index": 5,
+                "upper_row_index": 4,
+                "support_z": 1198.88,
+                "upper_quantity": 2,
+                "upper_remaining_before": 14,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    551.18,
+                    1198.88,
+                    1198.88
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      551.18,
+                      1198.88,
+                      1198.88
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        551.18,
+                        1198.88,
+                        1198.88
+                      ],
+                      "orientation_index": 2,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 551.18
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 551.18,
+                  "actual_depth": 551.18,
+                  "block_envelope_depth": 551.18,
+                  "width": 2397.76,
+                  "height": 1198.88,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7763157894736844,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 551.18,
+                "policy": "compact",
+                "x_start": 9095.74,
+                "sequence": 3,
+                "units_by_product": {
+                  "5": 2,
+                  "4": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "flags": [
+      "r2",
+      "r3"
+    ],
+    "approved_seconds": [
+      0.07562909999978729,
+      0.08284329999878537,
+      0.0847143999999389,
+      0.09177180000187946,
+      0.0865436000021873
+    ],
+    "implementation_seconds": [
+      0.6678780000002007,
+      0.6469159000007494,
+      0.8122513999987859,
+      0.7571564999998373,
+      0.6645349999998871
+    ],
+    "approved_source_sha256": "bdcaff48aa4afd94178f79f9a1ca85310410af3040b922a98742131f24088174",
+    "approved_median_ms": 84.7143999999389,
+    "implementation_median_ms": 667.8780000002007,
+    "partial_trials": {
+      "selected": true,
+      "selected_policy": "projected",
+      "incumbent_units": 111,
+      "mode_runs": 4,
+      "candidate_cap_per_window": 256,
+      "placement_cap_per_candidate": 512,
+      "trials": [
+        {
+          "policy": "projected",
+          "units": 121,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 16,
+            "3": 36,
+            "4": 14,
+            "5": 4,
+            "6": 4
+          },
+          "admissible": true,
+          "rejection_reason": null,
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 512,
+            "windows_with_candidates": 2,
+            "candidate_budget_reached": true,
+            "actions": [
+              {
+                "x_end": 6997.7,
+                "estimated_completion_depth": 17246.6,
+                "ordinary_completion_depth": 24048.72,
+                "foundation_row_index": 0,
+                "upper_row_index": 1,
+                "support_z": 1600.1999999999998,
+                "upper_quantity": 15,
+                "upper_remaining_before": 17,
+                "upper_block": {
+                  "pattern": "adaptive_mixed_lane",
+                  "orientation": [
+                    1600.1999999999998,
+                    599.44,
+                    1000.7599999999999
+                  ],
+                  "nx": 11,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      1600.1999999999998,
+                      599.44,
+                      1000.7599999999999
+                    ],
+                    [
+                      599.44,
+                      1600.1999999999998,
+                      1000.7599999999999
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        1600.1999999999998,
+                        599.44,
+                        1000.7599999999999
+                      ],
+                      "orientation_index": 0,
+                      "lane_count": 1,
+                      "start_y": 0.0,
+                      "x_repetitions": 4,
+                      "unit_count": 4,
+                      "actual_x_end": 6400.799999999999,
+                      "stack_heights": [
+                        1,
+                        1,
+                        1,
+                        1
+                      ]
+                    },
+                    {
+                      "orientation": [
+                        599.44,
+                        1600.1999999999998,
+                        1000.7599999999999
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 1,
+                      "start_y": 599.44,
+                      "x_repetitions": 11,
+                      "unit_count": 11,
+                      "actual_x_end": 6593.84,
+                      "stack_heights": [
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1
+                      ]
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 6593.84,
+                  "actual_depth": 6593.84,
+                  "block_envelope_depth": 6593.84,
+                  "width": 2199.64,
+                  "height": 1000.7599999999999,
+                  "capacity": 15,
+                  "module_capacity": 15,
+                  "planned_quantity": 15,
+                  "repeatable": false,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7984944991314417,
+                  "actual_volume_efficiency": 0.9920218349779552
+                },
+                "upper_depth": 6593.84,
+                "policy": "projected",
+                "x_start": 0.0,
+                "sequence": 1,
+                "units_by_product": {
+                  "0": 30,
+                  "1": 15
+                }
+              },
+              {
+                "x_end": 12633.96,
+                "estimated_completion_depth": 6286.5,
+                "ordinary_completion_depth": 8150.86,
+                "foundation_row_index": 3,
+                "upper_row_index": 4,
+                "support_z": 1198.88,
+                "upper_quantity": 14,
+                "upper_remaining_before": 14,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    551.18,
+                    1198.88,
+                    1198.88
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      551.18,
+                      1198.88,
+                      1198.88
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        551.18,
+                        1198.88,
+                        1198.88
+                      ],
+                      "orientation_index": 2,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 551.18
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 551.18,
+                  "actual_depth": 551.18,
+                  "block_envelope_depth": 551.18,
+                  "width": 2397.76,
+                  "height": 1198.88,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7754942912837653,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 3858.2599999999998,
+                "policy": "projected",
+                "x_start": 8646.16,
+                "sequence": 3,
+                "units_by_product": {
+                  "3": 30,
+                  "4": 14
+                }
+              }
+            ]
+          }
+        },
+        {
+          "policy": "compact",
+          "units": 60,
+          "units_by_product": {
+            "0": 27,
+            "1": 17,
+            "2": 16,
+            "3": 0,
+            "4": 0,
+            "5": 0,
+            "6": 0
+          },
+          "admissible": false,
+          "rejection_reason": "row_quantity_reduced",
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 256,
+            "windows_with_candidates": 1,
+            "candidate_budget_reached": true,
+            "actions": [
+              {
+                "x_end": 599.44,
+                "estimated_completion_depth": 23047.959999999995,
+                "ordinary_completion_depth": 24048.72,
+                "foundation_row_index": 2,
+                "upper_row_index": 1,
+                "support_z": 1300.48,
+                "upper_quantity": 1,
+                "upper_remaining_before": 17,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    599.44,
+                    1600.1999999999998,
+                    1000.7599999999999
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      599.44,
+                      1600.1999999999998,
+                      1000.7599999999999
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        599.44,
+                        1600.1999999999998,
+                        1000.7599999999999
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 1,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 1,
+                      "actual_x_end": 599.44
+                    }
+                  ],
+                  "ny": 1,
+                  "nz": 1,
+                  "depth": 599.44,
+                  "actual_depth": 599.44,
+                  "block_envelope_depth": 599.44,
+                  "width": 1600.1999999999998,
+                  "height": 1000.7599999999999,
+                  "capacity": 1,
+                  "module_capacity": 1,
+                  "planned_quantity": 1,
+                  "repeatable": true,
+                  "transverse_capacity": 1,
+                  "transverse_utilization": 0.4937932680830746,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 599.44,
+                "policy": "compact",
+                "x_start": 0.0,
+                "sequence": 1,
+                "units_by_product": {
+                  "2": 5,
+                  "1": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "flags": [
+      "r1",
+      "r2",
+      "r3"
+    ],
+    "approved_seconds": [
+      0.2690275999993901,
+      0.26700939999864204,
+      0.27134230000228854,
+      0.2776845000007597,
+      0.4766440000021248
+    ],
+    "implementation_seconds": [
+      1.0354623999992327,
+      1.0317030000005616,
+      0.9230698999999731,
+      1.0879448000014236,
+      1.072672499998589
+    ],
+    "approved_source_sha256": "bdcaff48aa4afd94178f79f9a1ca85310410af3040b922a98742131f24088174",
+    "approved_median_ms": 271.34230000228854,
+    "implementation_median_ms": 1035.4623999992327,
+    "partial_trials": {
+      "selected": false,
+      "selected_policy": null,
+      "incumbent_units": 127,
+      "mode_runs": 4,
+      "candidate_cap_per_window": 256,
+      "placement_cap_per_candidate": 512,
+      "trials": [
+        {
+          "policy": "projected",
+          "units": 121,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 16,
+            "3": 36,
+            "4": 14,
+            "5": 4,
+            "6": 4
+          },
+          "admissible": false,
+          "rejection_reason": "row_quantity_reduced",
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 474,
+            "windows_with_candidates": 2,
+            "candidate_budget_reached": true,
+            "actions": [
+              {
+                "x_end": 8196.58,
+                "estimated_completion_depth": 9799.32,
+                "ordinary_completion_depth": 9649.46,
+                "foundation_row_index": 2,
+                "upper_row_index": 1,
+                "support_z": 1300.48,
+                "upper_quantity": 2,
+                "upper_remaining_before": 2,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    599.44,
+                    1600.1999999999998,
+                    1000.7599999999999
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      599.44,
+                      1600.1999999999998,
+                      1000.7599999999999
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        599.44,
+                        1600.1999999999998,
+                        1000.7599999999999
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 1,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 1,
+                      "actual_x_end": 599.44
+                    }
+                  ],
+                  "ny": 1,
+                  "nz": 1,
+                  "depth": 599.44,
+                  "actual_depth": 599.44,
+                  "block_envelope_depth": 599.44,
+                  "width": 1600.1999999999998,
+                  "height": 1000.7599999999999,
+                  "capacity": 1,
+                  "module_capacity": 1,
+                  "planned_quantity": 1,
+                  "repeatable": true,
+                  "transverse_capacity": 1,
+                  "transverse_utilization": 0.4937932680830746,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 1198.88,
+                "policy": "projected",
+                "x_start": 6997.7,
+                "sequence": 1,
+                "units_by_product": {
+                  "2": 10,
+                  "1": 2
+                }
+              },
+              {
+                "x_end": 12633.96,
+                "estimated_completion_depth": 6286.5,
+                "ordinary_completion_depth": 8150.86,
+                "foundation_row_index": 3,
+                "upper_row_index": 4,
+                "support_z": 1198.88,
+                "upper_quantity": 14,
+                "upper_remaining_before": 14,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    551.18,
+                    1198.88,
+                    1198.88
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      551.18,
+                      1198.88,
+                      1198.88
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        551.18,
+                        1198.88,
+                        1198.88
+                      ],
+                      "orientation_index": 2,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 551.18
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 551.18,
+                  "actual_depth": 551.18,
+                  "block_envelope_depth": 551.18,
+                  "width": 2397.76,
+                  "height": 1198.88,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7754942912837653,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 3858.2599999999998,
+                "policy": "projected",
+                "x_start": 8646.16,
+                "sequence": 3,
+                "units_by_product": {
+                  "3": 30,
+                  "4": 14
+                }
+              }
+            ]
+          }
+        },
+        {
+          "policy": "compact",
+          "units": 93,
+          "units_by_product": {
+            "0": 30,
+            "1": 17,
+            "2": 16,
+            "3": 8,
+            "4": 14,
+            "5": 4,
+            "6": 4
+          },
+          "admissible": false,
+          "rejection_reason": "row_quantity_reduced",
+          "support_beds": {
+            "candidate_cap_per_window": 256,
+            "placement_cap_per_candidate": 512,
+            "candidates_evaluated": 474,
+            "windows_with_candidates": 2,
+            "candidate_budget_reached": true,
+            "actions": [
+              {
+                "x_end": 7597.139999999999,
+                "estimated_completion_depth": 10248.9,
+                "ordinary_completion_depth": 9649.46,
+                "foundation_row_index": 2,
+                "upper_row_index": 1,
+                "support_z": 1300.48,
+                "upper_quantity": 1,
+                "upper_remaining_before": 2,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    599.44,
+                    1600.1999999999998,
+                    1000.7599999999999
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      599.44,
+                      1600.1999999999998,
+                      1000.7599999999999
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        599.44,
+                        1600.1999999999998,
+                        1000.7599999999999
+                      ],
+                      "orientation_index": 1,
+                      "lane_count": 1,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 1,
+                      "actual_x_end": 599.44
+                    }
+                  ],
+                  "ny": 1,
+                  "nz": 1,
+                  "depth": 599.44,
+                  "actual_depth": 599.44,
+                  "block_envelope_depth": 599.44,
+                  "width": 1600.1999999999998,
+                  "height": 1000.7599999999999,
+                  "capacity": 1,
+                  "module_capacity": 1,
+                  "planned_quantity": 1,
+                  "repeatable": true,
+                  "transverse_capacity": 1,
+                  "transverse_utilization": 0.4937932680830746,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 599.44,
+                "policy": "compact",
+                "x_start": 6997.7,
+                "sequence": 1,
+                "units_by_product": {
+                  "2": 5,
+                  "1": 1
+                }
+              },
+              {
+                "x_end": 9347.2,
+                "estimated_completion_depth": 8150.86,
+                "ordinary_completion_depth": 8150.86,
+                "foundation_row_index": 5,
+                "upper_row_index": 4,
+                "support_z": 1198.88,
+                "upper_quantity": 2,
+                "upper_remaining_before": 14,
+                "upper_block": {
+                  "pattern": "single_orientation",
+                  "orientation": [
+                    551.18,
+                    1198.88,
+                    1198.88
+                  ],
+                  "nx": 1,
+                  "y_start": 0.0,
+                  "orientations": [
+                    [
+                      551.18,
+                      1198.88,
+                      1198.88
+                    ]
+                  ],
+                  "lanes": [
+                    {
+                      "orientation": [
+                        551.18,
+                        1198.88,
+                        1198.88
+                      ],
+                      "orientation_index": 2,
+                      "lane_count": 2,
+                      "start_y": 0.0,
+                      "x_repetitions": 1,
+                      "unit_count": 2,
+                      "actual_x_end": 551.18
+                    }
+                  ],
+                  "ny": 2,
+                  "nz": 1,
+                  "depth": 551.18,
+                  "actual_depth": 551.18,
+                  "block_envelope_depth": 551.18,
+                  "width": 2397.76,
+                  "height": 1198.88,
+                  "capacity": 2,
+                  "module_capacity": 2,
+                  "planned_quantity": 2,
+                  "repeatable": true,
+                  "transverse_capacity": 2,
+                  "transverse_utilization": 0.7763157894736844,
+                  "actual_volume_efficiency": 1.0
+                },
+                "upper_depth": 551.18,
+                "policy": "compact",
+                "x_start": 8796.02,
+                "sequence": 3,
+                "units_by_product": {
+                  "5": 2,
+                  "4": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+]

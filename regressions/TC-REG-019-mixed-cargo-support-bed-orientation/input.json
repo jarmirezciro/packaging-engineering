@@ -1,0 +1,35 @@
+{
+  "id": "TC-REG-019",
+  "status": "unresolved; diagnosis only",
+  "provenance": {
+    "dimensions": "User task transcription; original submitted POST/screenshot state was not supplied",
+    "weights": "Existing 48ft-semitrailer-3stop-benchmark preset and TC-REG-017, in lb; not independently confirmed original POST weights",
+    "conversion": "packagingapp.tools.transport.service canonical mm/kg conversion; no display rounding",
+    "difference_from_TC_REG_017": "A is 15.70 x 55.10 x 63.00 in here, versus 15.75 x 55.15 x 63.00 in TC-REG-017",
+    "difference_from_public_preset": "A/B/C sequence 1; B and E non-stackable; public preset has B/C sequence 2 and B/E stackable",
+    "original_screenshot_rotation_combinations": "Unavailable; enumerate all seven nonempty combinations instead"
+  },
+  "config": {
+    "container_source": "manual",
+    "container_l": 566.90,
+    "container_w": 98.50,
+    "container_h": 108.00,
+    "max_weight": "",
+    "tare_weight": "",
+    "packing_mode": "front_to_back_infill",
+    "load_unit_dimension_unit": "in",
+    "load_unit_mass_unit": "lb",
+    "transport_dimension_unit": "in",
+    "transport_mass_unit": "lb"
+  },
+  "rotation_configurations": [["r1"], ["r2"], ["r3"], ["r1", "r2"], ["r1", "r3"], ["r2", "r3"], ["r1", "r2", "r3"]],
+  "rows": [
+    {"name":"A","length":15.70,"width":55.10,"height":63.00,"qty":30,"weight":88.11,"stackable":true,"sequence":1,"max_qty":false,"r1":false,"r2":false,"r3":true},
+    {"name":"B","length":63.00,"width":23.60,"height":39.40,"qty":17,"weight":191.93,"stackable":false,"sequence":1,"max_qty":false,"r1":false,"r2":false,"r3":true},
+    {"name":"C","length":23.60,"width":17.70,"height":51.20,"qty":16,"weight":1198.76,"stackable":true,"sequence":1,"max_qty":false,"r1":false,"r2":false,"r3":true},
+    {"name":"D","length":31.50,"width":47.20,"height":15.70,"qty":48,"weight":11.02,"stackable":true,"sequence":3,"max_qty":false,"r1":false,"r2":false,"r3":true},
+    {"name":"E","length":47.20,"width":47.20,"height":21.70,"qty":14,"weight":1375.67,"stackable":false,"sequence":3,"max_qty":false,"r1":false,"r2":false,"r3":true},
+    {"name":"F","length":47.20,"width":47.20,"height":21.70,"qty":4,"weight":661.38,"stackable":true,"sequence":3,"max_qty":false,"r1":false,"r2":false,"r3":true},
+    {"name":"G","length":47.20,"width":47.20,"height":21.70,"qty":4,"weight":165.35,"stackable":true,"sequence":3,"max_qty":false,"r1":false,"r2":false,"r3":true}
+  ]
+}

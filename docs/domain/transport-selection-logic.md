@@ -243,6 +243,20 @@ No new session configuration, UI control or presentation-side calculation is
 needed. Geometry-only benchmark runs omit payload; configured positive payload
 limits continue to apply. The geometry does not certify package strength.
 
+For an incomplete approved result, the engine can also evaluate partial upper
+batches through two fixed, bounded support-bed constructions. It reuses the
+same block, infill and physical-validation paths and retains the approved
+incumbent unless the complete outcome loads more units without losing any row.
+`*_infill_partial_support_beds` contains primitive policy/rejection diagnostics;
+the selected placements remain authoritative for standalone, public, Flow,
+Three.js and PDF/report output. No service input or session setting is added.
+The supported construction search also handles stackable upper cargo
+and can reserve part of the foundation roof for an intermediate tier. Its
+`*_infill_supported_constructions` diagnostics use JSON-safe data. The
+all-stackable R3 TC-REG-019 request loads 127 units in Progressive Infill.
+The same selected placements drive standalone, public, Flow, Three.js and
+report output.
+
 ## Max qty preprocessing
 
 **Max qty?** is implemented in the transport service, not as a special packing

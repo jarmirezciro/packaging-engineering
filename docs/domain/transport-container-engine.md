@@ -258,9 +258,10 @@ materialization, not the number of future packing branches.
 
 ## Bounded support-bed construction in Mixed Cargo Infill
 
-The ordinary parent construction remains the incumbent. If an infill request
+The ordinary parent construction and the approved full-request support-bed
+construction remain unchanged in `_pack_container_approved()`. If an infill request
 is incomplete and contains both stackable and non-stackable positive-quantity
-rows, `pack_container()` permits one additional construction through the same
+rows, that path permits one additional construction through the same
 mode orchestration (`_pack_container_blocks`). This is not another packing
 engine, a beam search, a product permutation, or a reopening of committed space.
 Both baseline modes and complete ordinary outcomes bypass it.
@@ -297,8 +298,8 @@ uncommitted compound in this additional construction; no existing block moves.
 Work is capped at 256 evaluated compounds per product window and 512 placement
 objects per compound. Larger requests and exhausted budgets retain the ordinary
 fallback. Layer/lane samples reuse the geometry-bounded adaptive count helper.
-Initial synthesis covers one foundation SKU and one non-stackable upper SKU;
-multiple foundation SKUs within a new bed, partial upper requests, and new
+The original synthesis covers one foundation SKU and one complete non-stackable
+upper request. Multiple foundation SKUs within a new bed and new
 stackable-cap synthesis are not introduced. Existing mixed support unions and
 stackable supported-top placement remain available through their established
 paths. A positive configured payload still applies; a geometry-only experiment
@@ -313,6 +314,92 @@ Progressive's sequence restrictions continue to apply. See
 `SupportBedConstructionTests` in `test_transport_mixed_cargo_infill.py` and the
 equivalent-unit/service/scene/serialization test in
 `test_transport_unit_integration.py`.
+
+### Bounded partial support-bed constructions — TC-REG-019
+
+The owner approved this extension after the diagnosis under
+`regressions/TC-REG-019-mixed-cargo-support-bed-orientation/`. If the approved
+outcome above is still incomplete, `pack_container()` may run two more complete
+constructions: fixed **projected** and **compact** local ranking policies.
+The two baseline modes, complete outcomes, ineligible requests and a zero
+support-bed budget bypass them. There are at most four parent-mode runs.
+
+Before an uncommitted non-stackable anchor's ordinary block, the new chooser
+derives homogeneous foundation lane/column/layer counts from enabled geometry,
+remaining quantity and room for the shortest eligible upper height. It samples
+large count ranges with the existing bounded count helper, round-robins eligible
+foundation rows, and attempts at most 256 bed/roof configurations per window,
+including configurations rejected for payload or no upper fit. Foundation plus
+cap materialization is capped at 512 units. Every upper orientation that fits
+the real roof participates through the existing Product Block generator and
+fill planner, including non-stackable Adaptive Mixed-Lane Blocks. The upper
+quantity can be partial or complete. There is no dimension/name special case.
+
+Projected ranking uses estimated completion depth, compound depth, upper
+quantity, foundation quantity and stable geometry. Compact ranking uses compound
+depth, upper quantity, actual compound volume, estimated completion and stable
+geometry. The disjoint-row projection is not a hard rejection in this new path:
+a useful partial bed can have a worse estimate than ordinary full completion.
+The original full-request chooser and its projection gate remain unchanged.
+
+Each construction commits at most one compound per anchor and carries exact
+remaining quantities, indices and weight through its existing parent blocks,
+Native/DGFE or Balanced residual closure, side infill and supported-top closure.
+Later-only foundation eligibility and the parent sequence restrictions remain.
+The two policies are fixed whole constructions, not a branching search or a
+reopening of committed windows.
+
+The complete alternatives pass orientation, identity, sequence, quantity/index,
+weight/payload and shared bounds/overlap/full-support validation. Selection
+requires strictly more units and no row loss against the **approved incumbent**,
+including its full-request support-bed improvement. Highest admissible total
+wins; stable policy order resolves new-policy ties. Rejection preserves the
+incumbent placement signature exactly. Additive primitive diagnostics under
+`*_infill_partial_support_beds` record both policies and rejection reasons.
+Shared consumers continue using the selected ordinary placement list.
+
+This compatibility portfolio raised the Progressive Infill R3 reconstruction
+from 53 to 119 units with 15 non-stackable B on A. Its projected E/D choice left
+no room for F/G. `PartialSupportBedConstructionTests` protect those two policies
+and their fallback behavior.
+
+### Supported constructions with either current-row role
+
+The public path uses the compatibility portfolio as its incumbent and can try
+up to two additional parent runs for an incomplete mixed infill result. They
+prefer the current row as upper cargo and as foundation, respectively. Either
+role can be used at the uncommitted frontier. Foundation and intermediate cargo
+must be stackable. Upper cargo can
+use either flag, and the planner retains its original flag and orientations.
+Progressive Fill uses one sequence per compound. Balanced Spread uses its
+sequence-neutral rows. Complete, single-row and baseline-mode outcomes bypass
+these additional runs.
+
+The planner samples homogeneous foundation footprints and layer counts across
+eligible row pairs and orientations. It ranks roof Product Blocks using
+estimated tail depth, with stackable adaptive blocks eligible on actual support.
+It keeps a shortlist across foundation orientations and heights. For a staged
+option, an upper column can rest on an intermediate panel whose units tile the
+column's footprint. The planner reserves the chosen upper batch and payload
+before assigning panels. It checks each coplanar union and the whole compound
+before committing. It can use different middle rows in different columns and
+tries full and reduced middle allowances. The bounded search covers a single
+intermediate tier and a homogeneous foundation. It does not reopen a window.
+
+Each window tries up to 256 bed or staged configurations and each compound
+commits up to 512 units. Two trials share a request limit of 1,024 configurations.
+Roof Product Blocks and tail estimates are cached for the request. The existing
+parents commit the selected compound and process the remaining quantities.
+The complete result must pass the same physical checks and strictly increase
+the total while preserving every row's compatibility quantity. Equal totals
+and rejected trials keep the incumbent geometry. The engine records trial
+counts, rejection reasons and exhaustion in `*_infill_supported_constructions`.
+
+The four TC-REG-019 Progressive Infill R3 variants load 125 to 127 units.
+With all rows stackable, 15 B units rest on A and the total rises from 83 to
+127. The owner approved six revised public outcomes after reviewing both
+layouts. Compatibility tests still protect the original counts and support
+behavior. See [the reference matrix and verification](../../regressions/TC-REG-019-mixed-cargo-support-bed-orientation/generalized/results.md).
 
 ## What Balanced Spread is
 

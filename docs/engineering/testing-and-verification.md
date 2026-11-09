@@ -152,6 +152,29 @@ quantity/index carry-forward and side/top closure of the compound window.
 Test changed stackability on older residual fixtures without rewriting their
 original expectations. Configured-payload checks remain part of the suite.
 
+TC-REG-019 partial support-bed coverage is included in
+`test_transport_mixed_cargo_infill.PartialSupportBedConstructionTests` and
+`test_transport_unit_integration.TransportManualUnitBoundaryTests.test_partial_support_beds_reach_shared_outputs_with_equivalent_units`.
+Keep the 15.70×55.10-inch A task reconstruction separate from TC-REG-017.
+Protect both fixed policies, no row loss against the approved full-bed result,
+exact incumbent geometry on ties/rejection, all seven rotation configurations,
+frozen baseline-mode signatures, unrelated R1/R2/R3 geometries, height/payload/
+sequence/support shortages, index/quantity continuation, bounded large requests,
+and unit/scene/report/JSON parity.
+
+`test_transport_mixed_cargo_infill.SupportedConstructionTests` checks the public
+112-case rotation and stackability matrix, including all four R3 Progressive
+Infill targets at 123 or more with their respective incumbent row counts
+preserved. It also covers independent foundation and upper rotations, both
+current-row roles, coplanar intermediate panels, payload reservation and search
+limits. The all-stackable checkbox POST through the shared engine is covered in
+`test_transport_unit_integration.TransportUnitSelectorSurfaceTests.test_all_stackable_r3_post_uses_same_supported_load_for_scene_report_and_flow`.
+Run the independent feasibility harness against public selection with
+`regressions/TC-REG-019-mixed-cargo-support-bed-orientation/reproduce.py --assert-target`.
+The reconstructed semitrailer and current-row top-infill tests preserve their
+original assertions on the compatibility path and check the six owner-approved
+outcomes through public selection.
+
 The current active `engine.py` dispatch implements the unchanged Balanced Spread
 and Progressive Fill baselines plus their opt-in Mixed Cargo Infill variants.
 Progressive Fill is canonicalized to `front_to_back`; the historical

@@ -1,0 +1,170 @@
+Creating test database for alias 'default'...
+
+.C:\PackagingEngineering\.venv\Lib\site-packages\django\core\handlers\base.py:61: UserWarning: No directory at: C:\PackagingEngineering\staticfiles\
+  mw_instance = middleware(adapted_handler)
+..........Bad Request: /container-tool/export/pdf/
+............F..........................E...........E..FFFFF..........................................................................................................................................................
+======================================================================
+ERROR: test_valid_larger_row_losing_trial_and_equal_total_keep_exact_incumbent (packagingapp.tests.test_transport_mixed_cargo_infill.PartialSupportBedConstructionTests.test_valid_larger_row_losing_trial_and_equal_total_keep_exact_incumbent)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\PackagingEngineering\packagingapp\tests\test_transport_mixed_cargo_infill.py", line 1832, in test_valid_larger_row_losing_trial_and_equal_total_keep_exact_incumbent
+    patch.object(engine, "_pack_container_blocks", side_effect=[trial, trial]):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PackagingEngineering\regressions\TC-REG-019-mixed-cargo-support-bed-orientation\generalized\probe.py", line 10, in trial_pack
+    return r.e._select_supported_construction_outcome(incumbent, container, rows, options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PackagingEngineering\packagingapp\utils\container_tool\engine.py", line 9918, in _select_supported_construction_outcome
+    trial = _pack_container_blocks(
+            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jaram\AppData\Local\spyder-6\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jaram\AppData\Local\spyder-6\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jaram\AppData\Local\spyder-6\Lib\unittest\mock.py", line 1185, in _execute_mock_call
+    result = next(effect)
+             ^^^^^^^^^^^^
+StopIteration
+
+======================================================================
+ERROR: test_row_loss_rejects_even_a_larger_trial_and_equal_counts_keep_geometry (packagingapp.tests.test_transport_mixed_cargo_infill.SupportBedConstructionTests.test_row_loss_rejects_even_a_larger_trial_and_equal_counts_keep_geometry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\PackagingEngineering\packagingapp\tests\test_transport_mixed_cargo_infill.py", line 1632, in test_row_loss_rejects_even_a_larger_trial_and_equal_counts_keep_geometry
+    with patch.object(engine, "_pack_container_blocks", side_effect=[baseline, trial, trial, trial]):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PackagingEngineering\regressions\TC-REG-019-mixed-cargo-support-bed-orientation\generalized\probe.py", line 10, in trial_pack
+    return r.e._select_supported_construction_outcome(incumbent, container, rows, options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PackagingEngineering\packagingapp\utils\container_tool\engine.py", line 9918, in _select_supported_construction_outcome
+    trial = _pack_container_blocks(
+            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jaram\AppData\Local\spyder-6\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jaram\AppData\Local\spyder-6\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jaram\AppData\Local\spyder-6\Lib\unittest\mock.py", line 1185, in _execute_mock_call
+    result = next(effect)
+             ^^^^^^^^^^^^
+StopIteration
+
+======================================================================
+FAIL: test_case_study_current_product_is_eligible_for_supported_top_infill (packagingapp.tests.test_transport_mixed_cargo_infill.MixedCargoInfillTests.test_case_study_current_product_is_eligible_for_supported_top_infill) (mode='space_evenly_infill')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\PackagingEngineering\packagingapp\tests\test_transport_mixed_cargo_infill.py", line 1064, in test_case_study_current_product_is_eligible_for_supported_top_infill
+    self.assertGreater(top_units, 0)
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence (packagingapp.tests.test_transport_mixed_cargo_infill.SupportedTopAdaptiveMixedLaneTests.test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence) (perturbed=False, g_sequence=3, mode='front_to_back_infill')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\PackagingEngineering\packagingapp\tests\test_transport_mixed_cargo_infill.py", line 461, in test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence
+    expected = [30, 17, 16, 36 if g_sequence == 3 else 44, 14, 4, 4 if g_sequence == 3 else 0]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [30, 17, 16, 48, 14, 4, 4] != [30, 17, 16, 36, 14, 4, 4]
+
+First differing element 3:
+48
+36
+
+- [30, 17, 16, 48, 14, 4, 4]
+?              ^^
+
++ [30, 17, 16, 36, 14, 4, 4]
+?              ^^
+
+
+======================================================================
+FAIL: test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence (packagingapp.tests.test_transport_mixed_cargo_infill.SupportedTopAdaptiveMixedLaneTests.test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence) (perturbed=False, g_sequence=4, mode='front_to_back_infill')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\PackagingEngineering\packagingapp\tests\test_transport_mixed_cargo_infill.py", line 461, in test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence
+    expected = [30, 17, 16, 36 if g_sequence == 3 else 44, 14, 4, 4 if g_sequence == 3 else 0]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [30, 17, 16, 48, 14, 4, 2] != [30, 17, 16, 44, 14, 4, 0]
+
+First differing element 3:
+48
+44
+
+- [30, 17, 16, 48, 14, 4, 2]
+?               ^         ^
+
++ [30, 17, 16, 44, 14, 4, 0]
+?               ^         ^
+
+
+======================================================================
+FAIL: test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence (packagingapp.tests.test_transport_mixed_cargo_infill.SupportedTopAdaptiveMixedLaneTests.test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence) (perturbed=True, g_sequence=3, mode='space_evenly_infill')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\PackagingEngineering\packagingapp\tests\test_transport_mixed_cargo_infill.py", line 461, in test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence
+    expected = [30, 17, 16, 36 if g_sequence == 3 else 44, 14, 4, 4 if g_sequence == 3 else 0]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [30, 17, 16, 48, 14, 4, 4] != [30, 17, 16, 44, 14, 4, 4]
+
+First differing element 3:
+48
+44
+
+- [30, 17, 16, 48, 14, 4, 4]
+?               ^
+
++ [30, 17, 16, 44, 14, 4, 4]
+?               ^
+
+
+======================================================================
+FAIL: test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence (packagingapp.tests.test_transport_mixed_cargo_infill.SupportedTopAdaptiveMixedLaneTests.test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence) (perturbed=True, g_sequence=4, mode='space_evenly_infill')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\PackagingEngineering\packagingapp\tests\test_transport_mixed_cargo_infill.py", line 461, in test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence
+    expected = [30, 17, 16, 36 if g_sequence == 3 else 44, 14, 4, 4 if g_sequence == 3 else 0]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [30, 17, 16, 48, 14, 4, 4] != [30, 17, 16, 44, 14, 4, 4]
+
+First differing element 3:
+48
+44
+
+- [30, 17, 16, 48, 14, 4, 4]
+?               ^
+
++ [30, 17, 16, 44, 14, 4, 4]
+?               ^
+
+
+======================================================================
+FAIL: test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence (packagingapp.tests.test_transport_mixed_cargo_infill.SupportedTopAdaptiveMixedLaneTests.test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence) (perturbed=True, g_sequence=4, mode='front_to_back_infill')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\PackagingEngineering\packagingapp\tests\test_transport_mixed_cargo_infill.py", line 461, in test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence
+    expected = [30, 17, 16, 36 if g_sequence == 3 else 44, 14, 4, 4 if g_sequence == 3 else 0]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [30, 17, 16, 48, 14, 4, 4] != [30, 17, 16, 48, 14, 4, 0]
+
+First differing element 6:
+4
+0
+
+- [30, 17, 16, 48, 14, 4, 4]
+?                         ^
+
++ [30, 17, 16, 48, 14, 4, 0]
+?                         ^
+
+
+----------------------------------------------------------------------
+Ran 220 tests in 394.860s
+
+FAILED (failures=6, errors=2)
+Destroying test database for alias 'default'...
+
+Found 220 test(s).
+System check identified no issues (0 silenced).

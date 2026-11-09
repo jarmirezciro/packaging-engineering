@@ -1,0 +1,23 @@
+{
+  "approved_constructor_body_unchanged": true,
+  "public_signature_unchanged": true,
+  "placement_and_other_dataclasses_unchanged": true,
+  "existing_functions_changed": [
+    "_commit_support_bed",
+    "_pack_container_front_to_back",
+    "_pack_container_blocks",
+    "pack_container"
+  ],
+  "new_functions": [
+    "_choose_partial_support_bed",
+    "_pack_container_approved",
+    "_partial_support_bed_outcome_reason",
+    "_partial_support_bed_shapes"
+  ],
+  "unchanged_existing_functions": 116,
+  "existing_test_assertions_unchanged": {
+    "packagingapp/tests/test_transport_mixed_cargo_infill.py": 52,
+    "packagingapp/tests/test_transport_unit_integration.py": 26
+  },
+  "engine_sha256": "75baac144a2d9c9203e185d9e94ab3c2726c582cb8c1a1ae474935e4d3e17d3c"
+}

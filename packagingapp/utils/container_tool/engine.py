@@ -10,6 +10,7 @@ import math
 from collections import Counter
 from dataclasses import dataclass, replace
 from fractions import Fraction
+from itertools import repeat, zip_longest
 from typing import Dict, List, Optional, Tuple
 
 from packagingapp.tools.transport.modes import (
@@ -48,6 +49,8 @@ MONO_LANE_TRANSITION_PLACEMENT_CAP = 512
 MONO_LANE_TRANSITION_STACK_LAYER_CAP = 2
 SUPPORT_BED_CANDIDATE_CAP = 256
 SUPPORT_BED_PLACEMENT_CAP = 512
+SUPPORTED_CONSTRUCTION_REQUEST_CAP = 1024
+SUPPORTED_CONSTRUCTION_POLICIES = ("upper_first", "foundation_first")
 UNSUPPORTED_MODE_MESSAGE = (
     "Only Balanced Spread and Progressive Fill are currently available."
 )
@@ -3923,19 +3926,451 @@ def _choose_support_bed(
     return (best[1] if best else None), evaluated
 
 
+def _partial_support_bed_shapes(
+    foundation: NormalizedProduct, quantity: int, container: Dict,
+    available: float, cap_height: float,
+):
+    """Yield homogeneous, quantity-bounded columns; never scan millimetres."""
+    for orientation_index, orientation in enumerate(foundation.orientations):
+        length, width, height = orientation
+        max_layers = _fit_count(container["H"] - cap_height, height)
+        if max_layers <= 0:
+            continue
+        max_lanes = min(_fit_count(container["W"], width), quantity)
+        for ny in _bounded_adaptive_lane_counts(max_lanes):
+            max_columns = min(_fit_count(available, length), quantity // ny)
+            for nx in _bounded_adaptive_lane_counts(max_columns):
+                for nz in _bounded_adaptive_lane_counts(min(max_layers, quantity // (nx * ny))):
+                    yield foundation, orientation_index, orientation, nx, ny, nz
+
+
+def _choose_partial_support_bed(
+    anchor: NormalizedProduct, products: List[NormalizedProduct],
+    remaining: Dict[int, int], next_indices: Dict[int, int], container: Dict,
+    x_start: float, loaded_weight: float, sequence_restricted: bool,
+    context: List[Placement], *, policy: str,
+) -> Tuple[Optional[Dict], int]:
+    """Choose one bounded physical roof plan, including partial/adaptive caps.
+
+    The two policies change only local ranking. The existing orchestration
+    constructs their complete continuations; neither projection nor local
+    packed volume certifies that a trial beats the approved incumbent.
+    """
+    count = int(remaining.get(anchor.row_index, 0))
+    available = container["L"] - x_start
+    if anchor.stackable or count <= 0 or available <= TOLERANCE:
+        return None, 0
+    heights = [h for l, w, h in anchor.orientations
+               if l <= available + TOLERANCE and w <= container["W"] + TOLERANCE
+               and h < container["H"] - TOLERANCE]
+    if not heights or SUPPORT_BED_CANDIDATE_CAP <= 0:
+        return None, 0
+    generators = [
+        _partial_support_bed_shapes(
+            foundation,
+            min(int(remaining[foundation.row_index]), SUPPORT_BED_PLACEMENT_CAP - 1),
+            container, available, min(heights),
+        )
+        for foundation in products
+        if foundation.row_index != anchor.row_index and foundation.stackable
+        and remaining.get(foundation.row_index, 0) > 0
+        and (not sequence_restricted or foundation.sequence == anchor.sequence)
+    ]
+    best = None
+    attempted = 0
+    seen = set()
+    projections = {}
+    ordinary_depth = _support_bed_tail_depth(products, remaining, container)
+    local_context = [p for p in context if p.x + p.l > x_start + TOLERANCE]
+    # Round-robin foundations so a large first row cannot consume every slot.
+    for group in zip_longest(*generators):
+        for shape in group:
+            if shape is None:
+                continue
+            if attempted >= SUPPORT_BED_CANDIDATE_CAP:
+                return (best[1] if best else None), attempted
+            attempted += 1
+            foundation, orientation_index, orientation, nx, ny, nz = shape
+            length, width, height = orientation
+            depth, bed_width, support_z = nx * length, ny * width, nz * height
+            foundation_count = nx * ny * nz
+            shape_key = (foundation.row_index, orientation, nx, ny, nz)
+            if shape_key in seen:
+                continue
+            seen.add(shape_key)
+            bed_weight = loaded_weight + foundation_count * foundation.weight
+            cap_quantity = _payload_units_available(
+                container, bed_weight, anchor.weight,
+                min(count, SUPPORT_BED_PLACEMENT_CAP - foundation_count),
+            )
+            if cap_quantity <= 0 or (
+                _has_payload_limit(container)
+                and bed_weight > container["max_weight"] + TOLERANCE
+            ):
+                continue
+            roof = Space(x_start, 0.0, support_z, depth, bed_width, container["H"] - support_z)
+            roof_container = {**container, "L": depth, "W": bed_width, "H": roof.H}
+            candidates, _ = build_product_block_candidates(anchor, roof_container, depth, cap_quantity)
+            for cap in candidates:
+                quantity, _modules, cap_depth = _fill_candidate_plan(cap, cap_quantity, depth)
+                if quantity <= 0:
+                    continue
+                projection_key = (foundation.row_index, foundation_count, quantity)
+                if projection_key not in projections:
+                    after = dict(remaining)
+                    after[foundation.row_index] -= foundation_count
+                    after[anchor.row_index] -= quantity
+                    projections[projection_key] = _support_bed_tail_depth(products, after, container)
+                projected = depth + projections[projection_key]
+                stable = (foundation.input_order, orientation_index, nx, ny, nz, _candidate_stable_key(cap))
+                volume = foundation_count * foundation.unit_volume + quantity * anchor.unit_volume
+                key = (
+                    (round(projected, 9), round(depth, 9), -quantity, -foundation_count, stable)
+                    if policy == "projected" else
+                    (round(depth, 9), -quantity, -round(volume, 9), round(projected, 9), stable)
+                )
+                if best is not None and key >= best[0]:
+                    continue
+                bed, _ = _best_single_orientation_block(
+                    orientation, orientation_index, foundation,
+                    {**container, "W": bed_width, "H": support_z}, depth,
+                )
+                if bed is None:
+                    continue
+                bed_units = _materialize_product_block_in_space(
+                    foundation, bed, Space(x_start, 0.0, 0.0, depth, bed_width, support_z),
+                    next_indices[foundation.row_index], foundation_count,
+                )
+                cap_units = _materialize_product_block_in_space(
+                    anchor, cap, roof, next_indices[anchor.row_index], quantity,
+                )
+                if len(bed_units) != foundation_count or len(cap_units) != quantity:
+                    continue
+                units = bed_units + cap_units
+                if _top_candidate_validation_reason(
+                    units, local_context,
+                    Space(x_start, 0.0, 0.0, available, container["W"], container["H"]), container,
+                ) is not None:
+                    continue
+                best = (key, {
+                    "placements": units,
+                    "usage": {foundation.row_index: foundation_count, anchor.row_index: quantity},
+                    "x_end": x_start + depth,
+                    "estimated_completion_depth": float(projected) if math.isfinite(projected) else None,
+                    "ordinary_completion_depth": float(ordinary_depth) if math.isfinite(ordinary_depth) else None,
+                    "foundation_row_index": int(foundation.row_index),
+                    "upper_row_index": int(anchor.row_index), "support_z": float(support_z),
+                    "upper_quantity": int(quantity), "upper_remaining_before": int(count),
+                    "upper_block": _candidate_metadata(cap), "upper_depth": float(cap_depth),
+                    "policy": policy,
+                })
+    return (best[1] if best else None), attempted
+
+
+def _support_pairs(products, remaining, container, available, weight, restricted, anchor=None):
+    """Yield feasible foundation orientations for distinct active rows."""
+    for foundation in products:
+        if not foundation.stackable or remaining.get(foundation.row_index, 0) <= 0:
+            continue
+        uppers = products if anchor is None or foundation is anchor else (anchor,)
+        for upper in uppers:
+            if (
+                foundation.row_index == upper.row_index or remaining.get(upper.row_index, 0) <= 0
+                or (restricted and upper.sequence != foundation.sequence)
+                or (_has_payload_limit(container) and
+                    weight + foundation.weight + upper.weight > container["max_weight"] + TOLERANCE)
+            ):
+                continue
+            heights = [h for l, w, h in upper.orientations
+                       if l <= available + TOLERANCE and w <= container["W"] + TOLERANCE]
+            if not heights:
+                continue
+            upper_height = min(heights)
+            for index, orientation in enumerate(foundation.orientations):
+                l, w, h = orientation
+                if (l <= available + TOLERANCE and w <= container["W"] + TOLERANCE
+                        and h + upper_height <= container["H"] + TOLERANCE):
+                    yield foundation, upper, index, orientation, upper_height
+
+
+def _supported_bed_counts(orientation, quantity, available, width, height):
+    """Seed quantity and cross-section boundaries before smaller beds."""
+    length, lane_width, unit_height = orientation
+    max_nx = min(quantity, _fit_count(available, length))
+    max_ny = min(quantity, _fit_count(width, lane_width))
+    max_nz = min(quantity, _fit_count(height, unit_height))
+    lanes = _bounded_adaptive_lane_counts(max_ny)[::-1]
+    layers = _bounded_adaptive_lane_counts(max_nz)[::-1]
+    sections = ((ny, nz, min(max_nx, quantity // (ny * nz)))
+                for ny in lanes for nz in layers if ny * nz <= quantity)
+    sections = list(sections)
+    for ny, nz, nx in sections:
+        yield nx, ny, nz
+    for ny, nz, maximum in sections:
+        for nx in _bounded_adaptive_lane_counts(maximum)[:-1][::-1]:
+            yield nx, ny, nz
+
+
+def _supported_roof_blocks(search, product, roof, quantity):
+    # Product Blocks are relative to a rectangular plane. Payload is already
+    # reflected in the supplied quantity; XYZ offsets are applied at commit.
+    key = (product.row_index, roof.L, roof.W, roof.H, quantity)
+    cache = search["roof_blocks"]
+    if key not in cache:
+        candidates, _ = build_product_block_candidates(
+            product, {"L": roof.L, "W": roof.W, "H": roof.H}, roof.L, quantity,
+        )
+        plans = []
+        for cap in candidates:
+            # The shared materializer constructs a full module before slicing.
+            if cap.module_capacity > SUPPORT_BED_PLACEMENT_CAP:
+                continue
+            count, _, depth = _fill_candidate_plan(
+                cap, quantity, roof.L, allow_stackable_adaptive=True,
+            )
+            if count > 0:
+                plans.append((cap, count, depth))
+        cache[key] = plans
+    return cache[key]
+
+
+def _stage_supported_roof(
+    search, upper, roof, target, middle_rows, remaining, next_indices, container,
+    weight, unit_limit, *, partial,
+):
+    """Allocate real upper columns, reserving their capacity before adding a tier."""
+    heights = {h for _, _, h in upper.orientations if h <= roof.H + TOLERANCE}
+    best = None
+    for height in sorted(heights):
+        single_layer = replace(roof, H=height)
+        for cap, columns, depth in _supported_roof_blocks(search, upper, single_layer, target):
+            layers = _fit_count(roof.H, height) if upper.stackable else 1
+            if cap.nz != 1 or columns * layers < target:
+                continue
+            if any(abs(h - height) > TOLERANCE for _, _, h in cap.orientations):
+                continue
+            key = (-columns, depth, _candidate_stable_key(cap))
+            if best is None or key < best[0]:
+                best = key, cap, columns
+    if best is None:
+        return [], Counter()
+    _, cap, columns = best
+    bases = _materialize_product_block_in_space(
+        upper, cap, replace(roof, H=cap.occupied_height), next_indices[upper.row_index], columns,
+    )
+    height = cap.orientations[0][2]
+    full_layers = _fit_count(roof.H, height) if upper.stackable else 1
+    spare_layers = columns * full_layers - target
+    middle_units = []
+    usage = Counter()
+    supported_columns = []
+    for base in bases:
+        placed = []
+        layers = full_layers
+        for middle in middle_rows:
+            count = remaining[middle.row_index]
+            limit = max(1, count // 2) if partial else count
+            feasible = _payload_units_available(
+                container, weight + target * upper.weight,
+                middle.weight, min(limit - usage[middle.row_index], unit_limit - len(middle_units)),
+            )
+            if feasible <= 0:
+                continue
+            panel = Space(base.x, base.y, roof.z, base.l, base.w, roof.H - height)
+            # A panel is one middle tier, possibly tiled by several units.
+            for index, orientation in enumerate(middle.orientations):
+                length, width, tier_height = orientation
+                nx, ny = _fit_count(panel.L, length), _fit_count(panel.W, width)
+                if (not nx or not ny or nx * ny > feasible or tier_height > panel.H + TOLERANCE
+                        or abs(nx * length - panel.L) > TOLERANCE
+                        or abs(ny * width - panel.W) > TOLERANCE):
+                    continue
+                next_layers = _fit_count(roof.H - tier_height, height) if upper.stackable else 1
+                if full_layers - next_layers > spare_layers:
+                    continue
+                block, _ = _best_single_orientation_block(
+                    orientation, index, middle, {"W": panel.W, "H": tier_height}, panel.L,
+                )
+                placed = _materialize_product_block_in_space(
+                    middle, block, replace(panel, H=tier_height),
+                    next_indices[middle.row_index] + usage[middle.row_index], nx * ny,
+                )
+                if not _frontier_supports_full_base(replace(base, z=base.z + tier_height), placed):
+                    placed = []
+                    continue
+                spare_layers -= full_layers - next_layers
+                layers = next_layers
+                usage[middle.row_index] += len(placed)
+                weight += len(placed) * middle.weight
+                break
+            if placed:
+                break
+        middle_units.extend(placed)
+        supported_columns.append((replace(base, z=base.z + placed[0].h) if placed else base, layers))
+    if not middle_units:
+        return [], Counter()
+    upper_units = []
+    # Give each staged column its reserved upper first, then add upper layers.
+    supported_columns.sort(key=lambda column: column[0].z <= roof.z + TOLERANCE)
+    for layer in range(min(full_layers, target)):
+        for base, layers in supported_columns:
+            if layer < layers and len(upper_units) < target:
+                upper_units.append(replace(
+                    base, z=base.z + layer * height,
+                    item_index=next_indices[upper.row_index] + len(upper_units),
+                ))
+    if len(upper_units) != target:
+        return [], Counter()
+    return middle_units + upper_units, usage
+
+
+def _choose_supported_construction(
+    anchor, products, remaining, next_indices, container, x_start, loaded_weight,
+    sequence_restricted, context, *, search,
+):
+    """Rank bounded compound families, then materialize only a shortlist."""
+    available = container["L"] - x_start
+    limit = min(SUPPORT_BED_CANDIDATE_CAP, search["remaining_attempts"])
+    search["window_budget_reached"] = False
+    if limit <= 0 or available <= TOLERANCE or remaining.get(anchor.row_index, 0) <= 0:
+        return None, 0
+    pair_shapes = [
+        ((foundation, upper, index, orientation), _supported_bed_counts(
+            orientation, min(remaining[foundation.row_index], SUPPORT_BED_PLACEMENT_CAP - 1),
+            available, container["W"], container["H"] - upper_height,
+        ))
+        for foundation, upper, index, orientation, upper_height in _support_pairs(
+            products, remaining, container, available, loaded_weight, sequence_restricted, anchor,
+        )
+    ]
+    streams = (zip(repeat(pair), shapes) for pair, shapes in pair_shapes)
+    attempted = 0
+    shortlist = {}
+    tails = search["tail_depths"]
+
+    def rank(foundation, upper, usage, depth, stable):
+        projected = depth
+        for product in products:
+            quantity = remaining[product.row_index] - usage.get(product.row_index, 0)
+            key = product.row_index, quantity
+            if key not in tails:
+                tails[key] = _support_bed_tail_depth([product], {product.row_index: quantity}, container)
+            projected += tails[key]
+        preferred = upper if search["policy"] == "upper_first" else foundation
+        return (
+            preferred.row_index != anchor.row_index, round(projected, 9),
+            -sum(usage.values()), round(depth, 9), stable,
+        )
+
+    def plans():
+        for group in zip_longest(*streams):
+            yield from (plan for plan in group if plan is not None)
+
+    direct_limit = max(1, limit - min(32, limit // 4))
+    for pair, shape in plans():
+        if attempted >= direct_limit:
+            search["window_budget_reached"] = True
+            break
+        attempted += 1
+        foundation, upper, index, orientation = pair
+        nx, ny, nz = shape
+        length, width, height = orientation
+        depth, bed_width, support_z = nx * length, ny * width, nz * height
+        lower_count = nx * ny * nz
+        weight = loaded_weight + lower_count * foundation.weight
+        upper_limit = _payload_units_available(
+            container, weight, upper.weight,
+            min(remaining[upper.row_index], SUPPORT_BED_PLACEMENT_CAP - lower_count),
+        )
+        if upper_limit <= 0 or (_has_payload_limit(container) and weight > container["max_weight"] + TOLERANCE):
+            continue
+        roof = Space(x_start, 0.0, support_z, depth, bed_width, container["H"] - support_z)
+        for cap, count, _ in _supported_roof_blocks(search, upper, roof, upper_limit):
+            usage = {foundation.row_index: lower_count, upper.row_index: count}
+            stable = foundation.input_order, upper.input_order, index, shape, _candidate_stable_key(cap)
+            key = rank(foundation, upper, usage, depth, stable)
+            family = foundation.row_index, upper.row_index, index, nz
+            if family not in shortlist or key < shortlist[family][0]:
+                shortlist[family] = key, pair, roof, cap, usage, weight, stable
+
+    best = None
+    local_context = [p for p in context if p.x + p.l > x_start + TOLERANCE]
+    window = Space(x_start, 0.0, 0.0, available, container["W"], container["H"])
+    for direct in sorted(shortlist.values(), key=lambda option: option[0])[:16]:
+        key, pair, roof, cap, usage, weight, stable = direct
+        foundation, upper, index, orientation = pair
+        count = usage[upper.row_index]
+        lower_count = usage[foundation.row_index]
+        bed, _ = _best_single_orientation_block(
+            orientation, index, foundation, {"W": roof.W, "H": roof.z}, roof.L,
+        )
+        bed_units = _materialize_product_block_in_space(
+            foundation, bed, replace(roof, z=0.0, H=roof.z), next_indices[foundation.row_index], lower_count,
+        )
+        upper_units = _materialize_product_block_in_space(
+            upper, cap, roof, next_indices[upper.row_index], count,
+        )
+        options = [(key, usage, upper_units, Counter())]
+        middle_rows = [p for p in products if p.row_index not in usage and p.stackable
+                       and remaining[p.row_index] > 0
+                       and (not sequence_restricted or p.sequence == anchor.sequence)
+                       and any(h + min(v[2] for v in upper.orientations) <= roof.H + TOLERANCE
+                               for _, _, h in p.orientations)]
+        for partial in (False, True):
+            if not middle_rows:
+                break
+            if attempted >= limit:
+                search["window_budget_reached"] = True
+                break
+            attempted += 1
+            staged, middle_usage = _stage_supported_roof(
+                search, upper, roof, count, middle_rows, remaining, next_indices, container,
+                weight, SUPPORT_BED_PLACEMENT_CAP - lower_count - count, partial=partial,
+            )
+            if staged:
+                combined = {**usage, **middle_usage}
+                options.append((rank(foundation, upper, combined, roof.L, stable),
+                                combined, staged, middle_usage))
+        for key, quantities, top_units, middle_usage in sorted(options, key=lambda option: option[0]):
+            if best is not None and key >= best[0]:
+                break
+            units = bed_units + top_units
+            if len(units) != sum(quantities.values()) or _top_candidate_validation_reason(
+                units, local_context, window, container,
+            ) is not None:
+                continue
+            best = key, {
+                "placements": units, "usage": quantities, "x_end": x_start + roof.L,
+                "foundation_row_index": foundation.row_index, "upper_row_index": upper.row_index,
+                "support_z": roof.z, "upper_quantity": count,
+                "middle_units_by_product": {str(row): qty for row, qty in middle_usage.items()},
+                "upper_depth": max(p.x + p.l - x_start for p in top_units if p.row_index == upper.row_index),
+                "policy": search["policy"],
+            }
+            break
+    search["remaining_attempts"] -= attempted
+    return (best[1] if best else None), attempted
+
+
 def _commit_support_bed(
     anchor, products, remaining, next_indices, container, frontier, loaded_weight,
     sequence_restricted, placements, support_loaded, stats, phase_order,
+    *, policy: Optional[str] = None, construction_search: Optional[Dict] = None,
 ) -> Tuple[float, float]:
     """Commit one validated compound plan with separate quantity accounting."""
-    trial, evaluated = _choose_support_bed(
-        anchor, products, remaining, next_indices, container, frontier,
-        loaded_weight, sequence_restricted, placements,
-    )
+    args = (anchor, products, remaining, next_indices, container, frontier,
+            loaded_weight, sequence_restricted, placements)
+    if construction_search is not None:
+        trial, evaluated = _choose_supported_construction(*args, search=construction_search)
+    elif policy is not None:
+        trial, evaluated = _choose_partial_support_bed(*args, policy=policy)
+    else:
+        trial, evaluated = _choose_support_bed(*args)
     stats["candidates_evaluated"] += evaluated
     stats["windows_with_candidates"] += int(evaluated > 0)
     stats["candidate_budget_reached"] = (
         stats["candidate_budget_reached"] or evaluated >= SUPPORT_BED_CANDIDATE_CAP
+        or (construction_search is not None and construction_search["window_budget_reached"])
     )
     if trial is None:
         return frontier, loaded_weight
@@ -6923,6 +7358,8 @@ def _pack_container_front_to_back(
     requested_mode: str,
     *,
     enable_support_beds: bool = False,
+    support_bed_policy: Optional[str] = None,
+    construction_search: Optional[Dict] = None,
 ) -> Dict:
     """Load complete blocks, then close each bounded local transition frontier."""
     normalized_container = _normalize_container(container)
@@ -6973,6 +7410,7 @@ def _pack_container_front_to_back(
                 next_item_index, normalized_container, frontier_x, loaded_weight,
                 sequence_restricted, placements, support_bed_loaded,
                 support_bed_stats, phase_order,
+                policy=support_bed_policy, construction_search=construction_search,
             )
             entering_qty = int(remaining_quantities[product.row_index])
         available_length = max(normalized_container["L"] - frontier_x, 0.0)
@@ -8741,6 +9179,8 @@ def _pack_container_blocks(
         MONO_LANE_TRANSITION_DEFAULT_CANDIDATE_BUDGET
     ),
     enable_support_beds: bool = False,
+    support_bed_policy: Optional[str] = None,
+    construction_search: Optional[Dict] = None,
 ) -> Dict:
     """Pack with an active mode or return a graceful unsupported-mode result."""
     if max_lane_transitions not in {0, 1}:
@@ -8766,6 +9206,8 @@ def _pack_container_blocks(
             normalized_input_products,
             requested_mode,
             enable_support_beds=enable_support_beds,
+            support_bed_policy=support_bed_policy,
+            construction_search=construction_search,
         )
         return _select_mono_lane_transition_outcome(
             baseline,
@@ -8820,6 +9262,7 @@ def _pack_container_blocks(
                 next_item_index, normalized_container, frontier, loaded_weight,
                 sequence_restricted, placements, support_bed_loaded,
                 support_bed_stats, phase_order,
+                policy=support_bed_policy, construction_search=construction_search,
             )
         entering_qty = int(remaining_quantities[product.row_index])
         available_length = max(normalized_container["L"] - frontier, 0.0)
@@ -9296,7 +9739,7 @@ def _pack_container_blocks(
     )
 
 
-def pack_container(
+def _pack_container_approved(
     container: Dict,
     products: List[Dict],
     mode: Optional[str] = None,
@@ -9346,6 +9789,197 @@ def pack_container(
     result = trial if selected else baseline
     result[diagnostic_key] = diagnostics
     return result
+
+
+def _partial_support_bed_outcome_reason(
+    result: Dict, container: Dict, products: List[NormalizedProduct],
+) -> Optional[str]:
+    """Validate a whole alternate outcome before it can replace the incumbent."""
+    by_row = {p.row_index: p for p in products}
+    indices = {p.row_index: [] for p in products}
+    counts = Counter()
+    balanced = result["packing_mode"] == SPACE_EVENLY_INFILL_MODE
+    for placement in result["placements"]:
+        product = by_row.get(placement.row_index)
+        if product is None:
+            return "unknown_product_row"
+        if (
+            placement.product_name != product.name or placement.stackable != product.stackable
+            or abs(placement.weight - product.weight) > TOLERANCE
+            or placement.sequence != (1 if balanced else product.sequence)
+        ):
+            return "product_identity_or_sequence_mismatch"
+        if min(placement.l, placement.w, placement.h) <= 0 or (
+            placement.l, placement.w, placement.h
+        ) not in product.orientations:
+            return "forbidden_orientation"
+        indices[placement.row_index].append(placement.item_index)
+        counts[placement.row_index] += 1
+    unplaced = Counter(item["row_index"] for item in result["unplaced"])
+    if any(row not in by_row for row in unplaced):
+        return "unknown_unplaced_row"
+    for row, product in by_row.items():
+        if counts[row] + unplaced[row] != product.qty:
+            return "quantity_accounting_mismatch"
+        if sorted(indices[row]) != list(range(counts[row])):
+            return "item_index_mismatch"
+    weight = sum(p.weight for p in result["placements"])
+    if abs(weight - result["loaded_weight"]) > TOLERANCE:
+        return "loaded_weight_mismatch"
+    if _has_payload_limit(container) and weight > container["max_weight"] + TOLERANCE:
+        return "payload_exceeded"
+    valid, reason = _validate_frontier_geometry(result["placements"], container)
+    return None if valid else reason
+
+
+def _pack_container_compatible(
+    container: Dict,
+    products: List[Dict],
+    mode: Optional[str] = None,
+    *,
+    max_lane_transitions: int = MONO_LANE_TRANSITION_MAX_SUPPORTED,
+    mono_transition_candidate_budget: int = MONO_LANE_TRANSITION_DEFAULT_CANDIDATE_BUDGET,
+) -> Dict:
+    """Retain the approved outcome unless a bounded partial-bed trial dominates."""
+    options = {
+        "max_lane_transitions": max_lane_transitions,
+        "mono_transition_candidate_budget": mono_transition_candidate_budget,
+    }
+    incumbent = _pack_container_approved(container, products, mode, **options)
+    requested_mode = incumbent.get("packing_mode")
+    diagnostic_key = f"{requested_mode}_support_beds"
+    if (
+        requested_mode not in {FRONT_TO_BACK_INFILL_MODE, SPACE_EVENLY_INFILL_MODE}
+        or not incumbent["unplaced"] or diagnostic_key not in incumbent
+        or SUPPORT_BED_CANDIDATE_CAP <= 0
+    ):
+        return incumbent
+    normalized_container = _normalize_container(container)
+    normalized_products = normalize_products(products)
+    before = Counter(p.row_index for p in incumbent["placements"])
+    result = incumbent
+    trials = []
+    selected_policy = None
+    for policy in ("projected", "compact"):
+        trial = _pack_container_blocks(
+            container, products, requested_mode, enable_support_beds=True,
+            support_bed_policy=policy, **options,
+        )
+        reason = _partial_support_bed_outcome_reason(trial, normalized_container, normalized_products)
+        after = Counter(p.row_index for p in trial["placements"])
+        if reason is None and any(after[p.row_index] < before[p.row_index] for p in normalized_products):
+            reason = "row_quantity_reduced"
+        if reason is None and len(trial["placements"]) <= len(incumbent["placements"]):
+            reason = "no_total_quantity_improvement"
+        trials.append({
+            "policy": policy, "units": len(trial["placements"]),
+            "units_by_product": {str(p.row_index): int(after[p.row_index]) for p in normalized_products},
+            "admissible": reason is None, "rejection_reason": reason,
+            "support_beds": trial[diagnostic_key],
+        })
+        if reason is None and len(trial["placements"]) > len(result["placements"]):
+            result = trial
+            selected_policy = policy
+    if selected_policy is not None:
+        diagnostics = dict(result[diagnostic_key])
+        diagnostics.update({
+            "selected": True, "mode_runs": 4,
+            "ordinary_units": incumbent[diagnostic_key]["ordinary_units"],
+            "trial_units": len(result["placements"]),
+            "selection_reason": "more_units_without_row_loss",
+        })
+        result[diagnostic_key] = diagnostics
+    result[f"{requested_mode}_partial_support_beds"] = {
+        "selected": selected_policy is not None, "selected_policy": selected_policy,
+        "incumbent_units": len(incumbent["placements"]), "mode_runs": 4,
+        "candidate_cap_per_window": SUPPORT_BED_CANDIDATE_CAP,
+        "placement_cap_per_candidate": SUPPORT_BED_PLACEMENT_CAP,
+        "trials": trials,
+    }
+    return result
+
+
+def _select_supported_construction_outcome(incumbent, container, products, options):
+    mode = incumbent["packing_mode"]
+    if (
+        mode not in {FRONT_TO_BACK_INFILL_MODE, SPACE_EVENLY_INFILL_MODE}
+        or not incumbent["unplaced"] or SUPPORT_BED_CANDIDATE_CAP <= 0
+    ):
+        return incumbent
+    normalized_container = _normalize_container(container)
+    normalized = normalize_products(products)
+    remaining = {p.row_index: p.qty for p in normalized}
+    if next(_support_pairs(
+        normalized, remaining, normalized_container, normalized_container["L"], 0.0,
+        mode == FRONT_TO_BACK_INFILL_MODE,
+    ), None) is None:
+        return incumbent
+    before = Counter(p.row_index for p in incumbent["placements"])
+    trials = []
+    result = incumbent
+    selected_policy = None
+    search = {"roof_blocks": {}, "tail_depths": {}}
+    for policy in SUPPORTED_CONSTRUCTION_POLICIES:
+        search.update(policy=policy, remaining_attempts=SUPPORTED_CONSTRUCTION_REQUEST_CAP // 2)
+        trial = _pack_container_blocks(
+            container, products, mode, enable_support_beds=True,
+            construction_search=search, **options,
+        )
+        units = len(trial["placements"])
+        after = Counter(p.row_index for p in trial["placements"])
+        if any(after[row] < quantity for row, quantity in before.items()):
+            reason = "row_quantity_reduced"
+        elif units <= len(incumbent["placements"]):
+            reason = "no_total_quantity_improvement"
+        else:
+            reason = _partial_support_bed_outcome_reason(trial, normalized_container, normalized)
+        stats = trial[f"{mode}_support_beds"]
+        trials.append({
+            "policy": policy, "units": units,
+            "units_by_product": {str(p.row_index): after[p.row_index] for p in normalized},
+            "rejection_reason": reason, "support_beds": stats,
+            "request_budget_reached": search["remaining_attempts"] <= 0,
+        })
+        if reason is None and units > len(result["placements"]):
+            result = trial
+            selected_policy = policy
+            if not result["unplaced"]:
+                break
+    incumbent_beds = incumbent.get(f"{mode}_support_beds", {})
+    partial_key = f"{mode}_partial_support_beds"
+    mode_runs = incumbent.get(partial_key, incumbent_beds).get("mode_runs", 1) + len(trials)
+    if selected_policy is not None:
+        result[f"{mode}_support_beds"].update(
+            selected=True, mode_runs=mode_runs,
+            ordinary_units=incumbent_beds.get("ordinary_units", len(incumbent["placements"])),
+            trial_units=len(result["placements"]),
+            selection_reason="more_units_without_row_loss",
+        )
+        if partial_key in incumbent:
+            result[partial_key] = incumbent[partial_key]
+    result[f"{mode}_supported_constructions"] = {
+        "selected_policy": selected_policy, "incumbent_units": len(incumbent["placements"]),
+        "mode_runs": mode_runs, "candidate_cap_per_request": SUPPORTED_CONSTRUCTION_REQUEST_CAP,
+        "trials": trials,
+    }
+    return result
+
+
+def pack_container(
+    container: Dict,
+    products: List[Dict],
+    mode: Optional[str] = None,
+    *,
+    max_lane_transitions: int = MONO_LANE_TRANSITION_MAX_SUPPORTED,
+    mono_transition_candidate_budget: int = MONO_LANE_TRANSITION_DEFAULT_CANDIDATE_BUDGET,
+) -> Dict:
+    """Pack the requested mode and compare supported constructions for mixed infill."""
+    options = {
+        "max_lane_transitions": max_lane_transitions,
+        "mono_transition_candidate_budget": mono_transition_candidate_budget,
+    }
+    incumbent = _pack_container_compatible(container, products, mode, **options)
+    return _select_supported_construction_outcome(incumbent, container, products, options)
 
 
 def pack_container_sequence_loading(container: Dict, products: List[Dict]) -> Dict:

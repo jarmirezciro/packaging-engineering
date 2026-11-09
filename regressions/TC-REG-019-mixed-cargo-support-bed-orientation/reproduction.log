@@ -1,0 +1,22 @@
+reference r1 [30, 17, 16, 0, 8, 0, 0] 71 B/A 0
+reference r2 [9, 17, 0, 0, 0, 0, 0] 26 B/A 0
+reference r3 [26, 17, 10, 0, 0, 0, 0] 53 B/A 0
+reference r1+r2 [30, 17, 16, 6, 8, 0, 0] 77 B/A 0
+reference r1+r3 [30, 17, 16, 42, 14, 4, 4] 127 B/A 15
+reference r2+r3 [30, 17, 16, 30, 14, 4, 0] 111 B/A 17
+reference r1+r2+r3 [30, 17, 16, 42, 14, 4, 4] 127 B/A 15
+generalization partial-r3 [0, 3] True
+generalization partial-r1 [0, 3] True
+generalization partial-r2 [0, 3] True
+generalization complete-upper [8, 1] None
+generalization two-upper [8, 2] None
+generalization three-upper [6, 3] False
+generalization seven-upper [0, 3] True
+generalization short-foundation [0, 3] None
+generalization height-shortage [0, 3] None
+generalization height-exact [0, 3] True
+generalization different-sequence [0, 3] None
+generalization payload-shortage [0, 3] None
+generalization payload-sufficient [0, 3] True
+generalization multiple-foundations [0, 3, 0] True
+generalization unrelated-aspect-ratio [0, 3] True

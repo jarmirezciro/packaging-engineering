@@ -1,0 +1,8 @@
+00/r3/front_to_back_infill median ms [91.9, 178.0]
+01/r3/front_to_back_infill median ms [106.9, 199.9]
+10/r3/front_to_back_infill median ms [166.7, 313.5]
+11/r3/front_to_back_infill median ms [42.6, 216.6]
+11/r1-r2-r3/front_to_back median ms [101.3, 108.1]
+11/r1-r2-r3/space_evenly median ms [2.8, 3.0]
+11/r1-r2-r3/front_to_back_infill median ms [117.1, 595.5]
+11/r1-r2-r3/space_evenly_infill median ms [79.4, 418.2]

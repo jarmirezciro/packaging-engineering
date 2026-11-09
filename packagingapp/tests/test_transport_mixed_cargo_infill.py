@@ -1,7 +1,10 @@
 import hashlib
+import gzip
 import json
 from collections import Counter
-from itertools import combinations
+from dataclasses import asdict
+from itertools import combinations, product as flag_product
+from pathlib import Path
 from unittest.mock import patch
 
 from django.test import SimpleTestCase
@@ -209,6 +212,28 @@ def stackability_expv2_2(*, easycargo_sequences=False, stackable_overrides=None)
         ))
     ]
     return {"L": 566.9 * 25.4, "W": 98.5 * 25.4, "H": 108 * 25.4, "max_weight": None}, rows
+
+
+def mixed_support_orientation_case(flags=("r3",)):
+    """TC-REG-019 task inputs; never substitute TC-REG-017 dimensions."""
+    from packagingapp.tools.transport.service import (
+        build_container_from_config, normalize_transport_rows_for_calculation,
+        validate_transport_rows, validate_transport_unit_state,
+    )
+
+    path = Path(__file__).resolve().parents[2] / "regressions/TC-REG-019-mixed-cargo-support-bed-orientation/input.json"
+    fixture = json.loads(path.read_text())
+    units, errors = validate_transport_unit_state(fixture["config"])
+    assert not errors, errors
+    selected, errors = build_container_from_config(fixture["config"], unit_state=units)
+    assert not errors, errors
+    rows = [{**row, **{key: key in flags for key in ("r1", "r2", "r3")}}
+            for row in fixture["rows"]]
+    rows, errors = normalize_transport_rows_for_calculation(rows, units)
+    assert not errors, errors
+    rows, errors = validate_transport_rows(rows)
+    assert not errors, errors
+    return selected, rows
 
 
 class SupportedTopAdaptiveMixedLaneTests(SimpleTestCase):
@@ -420,13 +445,28 @@ class SupportedTopAdaptiveMixedLaneTests(SimpleTestCase):
                 self.assertEqual(len(placements), 15 if gap == 0 else 14)
 
     def test_complete_reconstructed_semitrailer_experiments_keep_physics_and_sequence(self):
+        approved_changes = {
+            (False, 3, FRONT_TO_BACK_INFILL_MODE): ([30, 17, 16, 48, 14, 4, 4], 15),
+            (False, 4, FRONT_TO_BACK_INFILL_MODE): ([30, 17, 16, 48, 14, 4, 2], 1),
+            (True, 3, SPACE_EVENLY_INFILL_MODE): ([30, 17, 16, 48, 14, 4, 4], 17),
+            (True, 4, SPACE_EVENLY_INFILL_MODE): ([30, 17, 16, 48, 14, 4, 4], 17),
+            (True, 4, FRONT_TO_BACK_INFILL_MODE): ([30, 17, 16, 48, 14, 4, 4], 17),
+        }
+
+        def count_b_on_a(outcome):
+            foundations = [p for p in outcome["placements"] if p.row_index == 0]
+            return sum(
+                engine._frontier_supports_full_base(p, foundations)
+                for p in outcome["placements"] if p.row_index == 1 and p.z > TOLERANCE
+            )
+
         for perturbed in (False, True):
             for g_sequence in (3, 4):
                 rows = semitrailer_roof_experiment(perturbed=perturbed, g_sequence=g_sequence)
                 for mode in INFILL_MODES:
                     with self.subTest(perturbed=perturbed, g_sequence=g_sequence, mode=mode):
                         selected_container = container(mode, length=567, width=98.5, height=107)
-                        result = pack_container(selected_container, rows)
+                        result = engine._pack_container_compatible(selected_container, rows)
                         physical = assert_transport_result_physical(self, result, selected_container, rows)
                         if mode == SPACE_EVENLY_INFILL_MODE:
                             expected = [30, 17, 16, 44, 14, 4, 4] if perturbed else [30, 17, 13, 45, 14, 4, 4]
@@ -435,16 +475,23 @@ class SupportedTopAdaptiveMixedLaneTests(SimpleTestCase):
                         else:
                             expected = [30, 17, 16, 36 if g_sequence == 3 else 44, 14, 4, 4 if g_sequence == 3 else 0]
                         self.assertEqual([physical["packed_by_row"].get(i, 0) for i in range(7)], expected)
-                        foundations = [p for p in result["placements"] if p.row_index == 0]
-                        on_a = sum(
-                            engine._frontier_supports_full_base(p, foundations)
-                            for p in result["placements"] if p.row_index == 1 and p.z > TOLERANCE
-                        )
-                        self.assertEqual(on_a, 17 if perturbed else 15)
-                        repeated = pack_container(selected_container, rows)
+                        self.assertEqual(count_b_on_a(result), 17 if perturbed else 15)
+                        repeated = engine._pack_container_compatible(selected_container, rows)
                         self.assertEqual(geometry_signature(result), geometry_signature(repeated))
                         json.dumps({key: value for key, value in result.items()
                                     if "infill" in key})
+
+                        public = pack_container(selected_container, rows)
+                        public_physical = assert_transport_result_physical(self, public, selected_container, rows)
+                        approved = approved_changes.get((perturbed, g_sequence, mode))
+                        if approved is None:
+                            self.assertEqual(geometry_signature(public), geometry_signature(result))
+                        else:
+                            public_counts, public_on_a = approved
+                            self.assertEqual([public_physical["packed_by_row"].get(i, 0) for i in range(7)],
+                                             public_counts)
+                            self.assertEqual(count_b_on_a(public), public_on_a)
+                            self.assertTrue(public[f"{mode}_supported_constructions"]["selected_policy"])
 
 
 class MixedCargoInfillTests(SimpleTestCase):
@@ -1023,7 +1070,7 @@ class MixedCargoInfillTests(SimpleTestCase):
                     {**selected_container, "packing_mode": parent_modes[mode]},
                     source,
                 )
-                result = pack_container(
+                result = engine._pack_container_compatible(
                     {**selected_container, "packing_mode": mode},
                     source,
                 )
@@ -1076,6 +1123,19 @@ class MixedCargoInfillTests(SimpleTestCase):
                         )
                     )
                 self.assert_physical(result, selected_container)
+                public = pack_container(selected_container, source, mode)
+                physical = assert_transport_result_physical(self, public, selected_container, source)
+                if mode == SPACE_EVENLY_INFILL_MODE:
+                    self.assertEqual(result_count, 339)
+                    self.assertEqual(physical["packed_by_row"], {0: 20, 1: 100, 2: 340})
+                    self.assertEqual(public[f"{mode}_top_infill_units_by_product"].get("2"), 3)
+                    self.assertFalse(any(
+                        action["anchor_product"] == "P3" and action["filler_product"] == "P3"
+                        and action["anchor_eligible"] for action in public[f"{mode}_top_actions"]
+                    ))
+                    self.assertTrue(public[f"{mode}_supported_constructions"]["selected_policy"])
+                else:
+                    self.assertEqual(geometry_signature(public), geometry_signature(result))
 
     def test_supported_top_residuals_are_local_roof_clear_and_height_specific(self):
         selected_container = {"L": 100.0, "W": 100.0, "H": 300.0}
@@ -1604,13 +1664,13 @@ class SupportBedConstructionTests(SimpleTestCase):
         trial = {**baseline, "placements": [Placement("Foundation", i, 0, 3, 2, True,
                   0, 0, i * 15.7, 31.5, 47.2, 15.7) for i in range(2)],
                  f"{FRONT_TO_BACK_INFILL_MODE}_support_beds": engine._new_support_bed_stats()}
-        with patch.object(engine, "_pack_container_blocks", side_effect=[baseline, trial]):
-            result = pack_container(selected, rows, FRONT_TO_BACK_INFILL_MODE)
+        with patch.object(engine, "_pack_container_blocks", side_effect=[baseline, trial, trial, trial]):
+            result = engine._pack_container_compatible(selected, rows, FRONT_TO_BACK_INFILL_MODE)
         self.assertEqual(geometry_signature(result), geometry_signature(baseline))
         self.assertFalse(result[f"{FRONT_TO_BACK_INFILL_MODE}_support_beds"]["selected"])
         equal = {**baseline, f"{FRONT_TO_BACK_INFILL_MODE}_support_beds": engine._new_support_bed_stats()}
-        with patch.object(engine, "_pack_container_blocks", side_effect=[baseline, equal]):
-            result = pack_container(selected, rows, FRONT_TO_BACK_INFILL_MODE)
+        with patch.object(engine, "_pack_container_blocks", side_effect=[baseline, equal, equal, equal]):
+            result = engine._pack_container_compatible(selected, rows, FRONT_TO_BACK_INFILL_MODE)
         self.assertEqual(geometry_signature(result), geometry_signature(baseline))
 
     def test_complete_loads_and_baseline_modes_do_not_run_support_trials(self):
@@ -1624,3 +1684,274 @@ class SupportBedConstructionTests(SimpleTestCase):
         for mode in INFILL_MODES:
             with patch.object(engine, "_choose_support_bed", side_effect=AssertionError("unexpected search")):
                 self.checked(selected, rows, mode)
+
+
+class PartialSupportBedConstructionTests(SimpleTestCase):
+    """TC-REG-019: bounded partial caps; the separate 123 target stays explicit."""
+
+    def small_case(self, family="r3", *, height=40, payload=None, quantity=5):
+        lower, upper = {
+            "r3": ((20, 30, 20), (35, 30, 10)),
+            "r1": ((20, 20, 30), (10, 35, 30)),
+            "r2": ((20, 20, 30), (35, 10, 30)),
+        }[family]
+        flags = {key: key == family for key in ("r1", "r2", "r3")}
+        return {"L": 100, "W": 40, "H": height, "max_weight": payload}, [
+            product("Lower", *lower, 8, weight=1, **flags),
+            product("Upper", *upper, quantity, weight=1, stackable=False, **flags),
+        ]
+
+    def checked(self, selected, rows, mode):
+        incumbent = engine._pack_container_approved(selected, rows, mode)
+        result = pack_container(selected, rows, mode)
+        physical = assert_transport_result_physical(self, result, selected, rows)
+        before = Counter(p.row_index for p in incumbent["placements"])
+        self.assertTrue(all(physical["packed_by_row"].get(i, 0) >= before[i] for i in range(len(rows))))
+        json.dumps({k: v for k, v in result.items() if "infill" in k}, allow_nan=False)
+        return result, physical["packed_by_row"]
+
+    def test_r3_reference_adds_supported_b_without_losing_any_row(self):
+        selected, rows = mixed_support_orientation_case()
+        self.assertAlmostEqual(rows[0]["length"], 15.7 * 25.4)
+        self.assertAlmostEqual(rows[0]["width"], 55.1 * 25.4)
+        self.assertFalse(rows[1]["stackable"])
+        for mode in (FRONT_TO_BACK_INFILL_MODE,):
+            with self.subTest(mode=mode):
+                result, counts = self.checked(selected, rows, mode)
+                self.assertGreater(len(result["placements"]), 53)
+                self.assertTrue(result[f"{mode}_partial_support_beds"]["selected"])
+                a = [p for p in result["placements"] if p.row_index == 0]
+                b = [p for p in result["placements"] if p.row_index == 1 and p.z > 0]
+                self.assertGreater(len(b), 0)
+                self.assertTrue(all(not p.stackable for p in b))
+                self.assertTrue(all(engine._frontier_supports_full_base(p, a) for p in b))
+                self.assertEqual(counts[1], 17)
+                self.assertEqual(geometry_signature(result), geometry_signature(pack_container(selected, rows, mode)))
+
+    def test_all_rotations_preserve_saved_baseline_modes_and_each_mixed_row(self):
+        path = Path(__file__).resolve().parents[2] / "regressions/TC-REG-019-mixed-cargo-support-bed-orientation/implementation/reference-before.json.gz"
+        for before in json.loads(gzip.decompress(path.read_bytes())):
+            with self.subTest(flags=before["flags"], mode=before["mode"]):
+                result, counts = self.checked(before["container"], before["products"], before["mode"])
+                self.assertTrue(all(counts.get(i, 0) >= qty for i, qty in enumerate(before["counts"])))
+                if before["mode"] in (SPACE_EVENLY_MODE, FRONT_TO_BACK_MODE):
+                    # Compare all placement fields, including names, flags, weight and indices.
+                    from dataclasses import asdict
+                    encoded = json.dumps([asdict(p) for p in result["placements"]], sort_keys=True,
+                                         separators=(",", ":"), allow_nan=False).encode()
+                    self.assertEqual(hashlib.sha256(encoded).hexdigest(), before["signature_sha256"])
+
+    def test_partial_caps_work_in_each_vertical_family_and_at_other_scales(self):
+        for family in ("r1", "r2", "r3"):
+            for scale in (1, 3.7, 25.4):
+                selected, rows = self.small_case(family)
+                selected = {**selected, **{key: selected[key] * scale for key in ("L", "W", "H")}}
+                rows = [{**row, **{key: row[key] * scale for key in ("length", "width", "height")}} for row in rows]
+                for mode in INFILL_MODES:
+                    with self.subTest(family=family, scale=scale, mode=mode):
+                        result, counts = self.checked(selected, rows, mode)
+                        self.assertGreaterEqual(counts.get(0, 0), 2)
+                        self.assertEqual(counts[1], 3)
+                        self.assertTrue(any(p.row_index == 1 and p.z > 0 for p in result["placements"]))
+
+    def test_projection_is_a_ranking_estimate_and_both_policies_remain_available(self):
+        selected, rows = self.small_case()
+        normalized = engine.normalize_products(rows)
+        products = engine.sort_products(normalized, selected)
+        self.assertEqual(engine._support_bed_tail_depth(products, {0: 8, 1: 5}, selected), 210)
+        self.assertEqual(40 + engine._support_bed_tail_depth(products, {0: 6, 1: 4}, selected), 220)
+        for policy in ("projected", "compact"):
+            plan, attempted = engine._choose_partial_support_bed(
+                normalized[1], products, {0: 8, 1: 5}, {0: 0, 1: 0}, selected,
+                0, 0, False, [], policy=policy,
+            )
+            self.assertIsNotNone(plan)
+            self.assertGreater(plan["usage"][1], 0)
+            self.assertLess(plan["usage"][1], 5)
+            self.assertLessEqual(attempted, engine.SUPPORT_BED_CANDIDATE_CAP)
+        result, _ = self.checked(selected, rows, FRONT_TO_BACK_INFILL_MODE)
+        self.assertEqual([t["policy"] for t in result[f"{FRONT_TO_BACK_INFILL_MODE}_partial_support_beds"]["trials"]],
+                         ["projected", "compact"])
+
+    def test_unrelated_aspect_ratio_and_multiple_eligible_supporters(self):
+        selected = {"L": 72, "W": 27, "H": 34}
+        rows = [product("Lower", 14, 22, 15, 7, weight=1),
+                product("Upper", 25, 22, 9, 5, weight=1, stackable=False)]
+        for mode in INFILL_MODES:
+            _, counts = self.checked(selected, rows, mode)
+            self.assertGreaterEqual(counts.get(0, 0), 2)
+            self.assertEqual(counts[1], 3)
+        selected, rows = self.small_case()
+        rows.append(product("Other lower", 18, 32, 12, 4, weight=1))
+        for mode in INFILL_MODES:
+            result, counts = self.checked(selected, rows, mode)
+            self.assertEqual(counts[1], 3)
+            self.assertGreaterEqual(counts.get(0, 0) + counts.get(2, 0), 2)
+            assert_transport_result_physical(self, result, selected, rows)
+
+    def test_height_payload_sequence_and_foundation_shortages_stay_authoritative(self):
+        for mode in INFILL_MODES:
+            for height, payload, lower_qty, sequence, expected in (
+                (29, None, 8, 1, {1: 3}), (30, None, 8, 1, None),
+                (40, 3, 8, 1, {1: 3}), (40, 5, 8, 1, {0: 2, 1: 3}),
+                (40, None, 1, 1, {1: 3}), (40, None, 8, 2, None),
+            ):
+                with self.subTest(mode=mode, height=height, payload=payload, quantity=lower_qty, sequence=sequence):
+                    selected, rows = self.small_case(height=height, payload=payload)
+                    rows[0].update(qty=lower_qty, sequence=sequence)
+                    _, counts = self.checked(selected, rows, mode)
+                    if expected is not None:
+                        self.assertEqual(counts, expected)
+                    elif sequence == 2 and mode == FRONT_TO_BACK_INFILL_MODE:
+                        self.assertEqual(counts, {1: 3})
+                    else:
+                        self.assertGreaterEqual(counts.get(0, 0), 2)
+                        self.assertEqual(counts[1], 3)
+
+    def test_complete_requests_and_zero_budget_keep_the_approved_geometry(self):
+        for quantity in (1, 2, 3, 7, 5000):
+            selected, rows = self.small_case(quantity=quantity)
+            for mode in INFILL_MODES:
+                result, _ = self.checked(selected, rows, mode)
+                for trial in result.get(f"{mode}_partial_support_beds", {}).get("trials", []):
+                    self.assertLessEqual(trial["support_beds"]["candidates_evaluated"], engine.SUPPORT_BED_CANDIDATE_CAP)
+                    for action in trial["support_beds"]["actions"]:
+                        self.assertLessEqual(sum(action["units_by_product"].values()), engine.SUPPORT_BED_PLACEMENT_CAP)
+        selected, rows = self.small_case(quantity=1)
+        with patch.object(engine, "_choose_partial_support_bed", side_effect=AssertionError("complete outcome searched")):
+            for mode in INFILL_MODES:
+                self.checked(selected, rows, mode)
+        selected, rows = self.small_case()
+        with patch.object(engine, "SUPPORT_BED_CANDIDATE_CAP", 0):
+            for mode in INFILL_MODES:
+                result = pack_container(selected, rows, mode)
+                self.assertEqual(geometry_signature(result), geometry_signature(engine._pack_container_approved(selected, rows, mode)))
+
+    def test_whole_outcome_validation_rejects_gaps_flags_rotations_and_payload(self):
+        selected, rows = self.small_case()
+        def outcome(placements):
+            counts = Counter(p.row_index for p in placements)
+            return {"packing_mode": FRONT_TO_BACK_INFILL_MODE, "placements": placements,
+                    "loaded_weight": sum(p.weight for p in placements),
+                    "unplaced": [{"row_index": i} for i, row in enumerate(rows) for _ in range(row["qty"] - counts[i])]}
+        adjacent = [Placement("Lower", i, 0, 1, 1, True, i * 20, 0, 0, 20, 30, 20) for i in range(2)]
+        upper = Placement("Upper", 0, 1, 1, 1, False, 0, 0, 20, 35, 30, 10)
+        normalized = engine.normalize_products(rows)
+        self.assertIsNone(engine._partial_support_bed_outcome_reason(outcome(adjacent + [upper]), selected, normalized))
+        from dataclasses import replace
+        gap = [adjacent[0], replace(adjacent[1], x=30), upper]
+        self.assertEqual(engine._partial_support_bed_outcome_reason(outcome(gap), selected, normalized), "unsupported_elevated_placement")
+        self.assertEqual(engine._partial_support_bed_outcome_reason(outcome(adjacent + [replace(upper, stackable=True)]), selected, normalized),
+                         "product_identity_or_sequence_mismatch")
+        self.assertEqual(engine._partial_support_bed_outcome_reason(outcome(adjacent + [replace(upper, h=11)]), selected, normalized),
+                         "forbidden_orientation")
+        self.assertEqual(engine._partial_support_bed_outcome_reason(outcome(adjacent + [upper]), {**selected, "max_weight": 2}, normalized),
+                         "payload_exceeded")
+
+    def test_valid_larger_row_losing_trial_and_equal_total_keep_exact_incumbent(self):
+        from dataclasses import replace
+        selected, rows = self.small_case()
+        mode = FRONT_TO_BACK_INFILL_MODE
+        incumbent = engine._pack_container_approved(selected, rows, mode)
+        lower = [Placement("Lower", i, 0, 1, 1, True, i * 20, 0, 0, 20, 30, 20) for i in range(4)]
+        lower += [Placement("Lower", i + 4, 0, 1, 1, True, 80, 0, i * 20, 20, 30, 20) for i in range(2)]
+        upper = [Placement("Upper", i, 1, 1, 1, False, i * 35, 0, 20, 35, 30, 10) for i in range(2)]
+        losing = {**incumbent, "placements": lower + upper, "loaded_weight": 8,
+                  "unplaced": [{"row_index": i} for i, qty in ((0, 2), (1, 3)) for _ in range(qty)],
+                  f"{mode}_support_beds": engine._new_support_bed_stats()}
+        self.assertIsNone(engine._partial_support_bed_outcome_reason(losing, selected, engine.normalize_products(rows)))
+        equal = {**incumbent, "placements": [replace(p, x=p.x + 1) for p in incumbent["placements"]]}
+        self.assertIsNone(engine._partial_support_bed_outcome_reason(equal, selected, engine.normalize_products(rows)))
+        for trial, reason in ((losing, "row_quantity_reduced"), (equal, "no_total_quantity_improvement")):
+            with patch.object(engine, "_pack_container_approved", return_value=incumbent), \
+                    patch.object(engine, "_pack_container_blocks", side_effect=[trial, trial]):
+                result = engine._pack_container_compatible(selected, rows, mode)
+            self.assertEqual(geometry_signature(result), geometry_signature(incumbent))
+            self.assertTrue(all(t["rejection_reason"] == reason for t in result[f"{mode}_partial_support_beds"]["trials"]))
+
+
+class SupportedConstructionTests(SimpleTestCase):
+    """TC-REG-019 follow-up: unchanged inputs, local role choice and staged support."""
+
+    def test_reference_matrix_preserves_rows_and_falls_back_to_exact_geometry(self):
+        baseline = Path(__file__).resolve().parents[2] / (
+            "regressions/TC-REG-019-mixed-cargo-support-bed-orientation/generalized/before.json.gz"
+        )
+        records = json.loads(gzip.decompress(baseline.read_bytes()))["cases"]
+        for b, e in flag_product((False, True), repeat=2):
+            for size in (1, 2, 3):
+                for flags in combinations(("r1", "r2", "r3"), size):
+                    selected, rows = mixed_support_orientation_case(flags)
+                    rows[1]["stackable"], rows[4]["stackable"] = b, e
+                    for mode in (FRONT_TO_BACK_MODE, SPACE_EVENLY_MODE, *INFILL_MODES):
+                        key = f"{int(b)}{int(e)}/{'-'.join(flags)}/{mode}"
+                        with self.subTest(key=key):
+                            before = records[key]
+                            result = pack_container(selected, rows, mode)
+                            physical = assert_transport_result_physical(self, result, selected, rows)
+                            total = len(result["placements"])
+                            counts = physical["packed_by_row"]
+                            self.assertTrue(all(counts.get(i, 0) >= qty
+                                                for i, qty in enumerate(before["counts"])))
+                            if mode not in INFILL_MODES or total == sum(before["counts"]):
+                                encoded = json.dumps(
+                                    [asdict(p) for p in result["placements"]], sort_keys=True,
+                                    separators=(",", ":"), allow_nan=False,
+                                ).encode()
+                                self.assertEqual(hashlib.sha256(encoded).hexdigest(), before["signature"])
+                            if flags == ("r3",) and mode == FRONT_TO_BACK_INFILL_MODE:
+                                self.assertGreaterEqual(total, 123)
+                                self.assertTrue(all(p.stackable == rows[p.row_index]["stackable"]
+                                                    for p in result["placements"]))
+                                stats = result[f"{mode}_supported_constructions"]
+                                self.assertLessEqual(sum(t["support_beds"]["candidates_evaluated"]
+                                                         for t in stats["trials"]), 1024)
+                                if b and e:
+                                    foundations = [p for p in result["placements"] if p.row_index == 0]
+                                    self.assertEqual(sum(
+                                        engine._frontier_supports_full_base(p, foundations)
+                                        for p in result["placements"] if p.row_index == 1 and p.z > TOLERANCE
+                                    ), 15)
+
+    def test_both_current_row_roles_with_independent_rotation_families(self):
+        for scale in (1, 3.7):
+            selected = {"L": 100 * scale, "W": 40 * scale, "H": 40 * scale}
+            products = normalize_products([
+                product("Crates", 20 * scale, 20 * scale, 30 * scale, 8, r2=True, r3=False, weight=1),
+                product("Cases", 10 * scale, 35 * scale, 30 * scale, 5, r1=True, r3=False, weight=1),
+            ])
+            for anchor, policy in zip(products, engine.SUPPORTED_CONSTRUCTION_POLICIES[::-1]):
+                with self.subTest(scale=scale, anchor=anchor.name):
+                    search = {"remaining_attempts": 256, "policy": policy,
+                              "roof_blocks": {}, "tail_depths": {}}
+                    args = (anchor, products, {0: 8, 1: 5}, {0: 0, 1: 0}, selected)
+                    trial, attempted = engine._choose_supported_construction(*args, 0, 0, True, [], search=search)
+                    self.assertGreater(attempted, 0)
+                    self.assertIsNotNone(trial)
+                    self.assertEqual((trial["foundation_row_index"], trial["upper_row_index"]), (0, 1))
+                    upper = [p for p in trial["placements"] if p.row_index == 1]
+                    self.assertTrue(all(p.stackable and p.h == 10 * scale and p.z >= 20 * scale for p in upper))
+                    self.assertTrue(all(p.h == 20 * scale for p in trial["placements"] if p.row_index == 0))
+
+    def test_middle_coplanar_union_reserves_upper_quantity_and_payload(self):
+        upper, middle = normalize_products([
+            product("Cases", 30, 30, 10, 3, weight=2),
+            product("Inserts", 15, 30, 10, 4, weight=1),
+        ])
+        roof = Space(0, 0, 16, 60, 30, 24)
+        search = {"roof_blocks": {}}
+        args = (search, upper, roof, 3, [middle], {0: 3, 1: 4}, {0: 0, 1: 0})
+        for payload, expected_middle in ((10, 2), (9, 0)):
+            with self.subTest(payload=payload):
+                units, usage = engine._stage_supported_roof(
+                    *args, {"max_weight": payload}, 2, 512, partial=False,
+                )
+                self.assertEqual(usage[middle.row_index], expected_middle)
+                if expected_middle:
+                    inserts = [p for p in units if p.row_index == middle.row_index]
+                    cases = [p for p in units if p.row_index == upper.row_index]
+                    self.assertEqual(len(cases), 3)
+                    staged = next(p for p in cases if p.z == 26 and
+                                  engine._frontier_supports_full_base(p, inserts))
+                    self.assertFalse(engine._frontier_supports_full_base(staged, inserts[:1]))
+                    self.assertTrue(engine._frontier_supports_full_base(staged, inserts))

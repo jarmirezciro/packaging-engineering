@@ -1,0 +1,14 @@
+Creating test database for alias 'default'...
+
+.C:\PackagingEngineering\.venv\Lib\site-packages\django\core\handlers\base.py:61: UserWarning: No directory at: C:\PackagingEngineering\staticfiles\
+  mw_instance = middleware(adapted_handler)
+..........Bad Request: /container-tool/export/pdf/
+.......................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 210 tests in 284.139s
+
+OK
+Destroying test database for alias 'default'...
+
+Found 210 test(s).
+System check identified no issues (0 silenced).

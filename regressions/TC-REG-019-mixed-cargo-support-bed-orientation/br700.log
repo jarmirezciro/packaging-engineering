@@ -1,0 +1,37 @@
+{'runs': 100, 'valid': 100, 'cases': 25}
+{'runs': 200, 'valid': 200, 'cases': 50}
+{'runs': 300, 'valid': 300, 'cases': 75}
+{'runs': 400, 'valid': 400, 'cases': 100}
+{'runs': 500, 'valid': 500, 'cases': 125}
+{'runs': 600, 'valid': 600, 'cases': 150}
+{'runs': 700, 'valid': 700, 'cases': 175}
+{'runs': 800, 'valid': 800, 'cases': 200}
+{'runs': 900, 'valid': 900, 'cases': 225}
+{'runs': 1000, 'valid': 1000, 'cases': 250}
+{'runs': 1100, 'valid': 1100, 'cases': 275}
+{'runs': 1200, 'valid': 1200, 'cases': 300}
+{'runs': 1300, 'valid': 1300, 'cases': 325}
+{'runs': 1400, 'valid': 1400, 'cases': 350}
+{'runs': 1500, 'valid': 1500, 'cases': 375}
+{'runs': 1600, 'valid': 1600, 'cases': 400}
+{'runs': 1700, 'valid': 1700, 'cases': 425}
+{'runs': 1800, 'valid': 1800, 'cases': 450}
+{'runs': 1900, 'valid': 1900, 'cases': 475}
+{'runs': 2000, 'valid': 2000, 'cases': 500}
+{'runs': 2100, 'valid': 2100, 'cases': 525}
+{'runs': 2200, 'valid': 2200, 'cases': 550}
+{'runs': 2300, 'valid': 2300, 'cases': 575}
+{'runs': 2400, 'valid': 2400, 'cases': 600}
+{'runs': 2500, 'valid': 2500, 'cases': 625}
+{'runs': 2600, 'valid': 2600, 'cases': 650}
+{'runs': 2700, 'valid': 2700, 'cases': 675}
+{'runs': 2800, 'valid': 2800, 'cases': 700}
+{
+  "runs": 2800,
+  "valid": 2800,
+  "cases": 700,
+  "elapsed_seconds_including_validation": 1862.659872799999,
+  "engine_sha256": "bdcaff48aa4afd94178f79f9a1ca85310410af3040b922a98742131f24088174",
+  "input_sha256": "8ed970b177b832a4f89a1fb0201ccf5fef48a1b939cbd1975ce9e984fd4f6536",
+  "conversion": "Unmodified make_container/make_products, including archived R1/R3 swap"
+}

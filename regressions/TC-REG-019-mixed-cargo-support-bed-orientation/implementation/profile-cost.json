@@ -1,0 +1,130 @@
+[
+  {
+    "flags": [
+      "r3"
+    ],
+    "profiled_functions": [
+      {
+        "function": "build_product_block_candidates",
+        "calls": 546,
+        "own_seconds": 0.0062626,
+        "cumulative_seconds": 0.11676270000000001
+      },
+      {
+        "function": "_adaptive_mixed_lane_blocks",
+        "calls": 384,
+        "own_seconds": 0.0047949,
+        "cumulative_seconds": 0.042708300000000005
+      },
+      {
+        "function": "_support_bed_tail_depth",
+        "calls": 215,
+        "own_seconds": 0.0065452,
+        "cumulative_seconds": 0.0319819
+      },
+      {
+        "function": "_pack_container_approved",
+        "calls": 1,
+        "own_seconds": 0.0001093,
+        "cumulative_seconds": 0.0770548
+      },
+      {
+        "function": "_choose_partial_support_bed",
+        "calls": 14,
+        "own_seconds": 0.0080538,
+        "cumulative_seconds": 0.1997201
+      },
+      {
+        "function": "pack_container",
+        "calls": 1,
+        "own_seconds": 0.0001522,
+        "cumulative_seconds": 0.35879370000000005
+      },
+      {
+        "function": "_partial_support_bed_outcome_reason",
+        "calls": 2,
+        "own_seconds": 0.0005508,
+        "cumulative_seconds": 0.0257812
+      }
+    ],
+    "attempted_beds": [
+      {
+        "policy": "projected",
+        "attempts": 292,
+        "windows": 2,
+        "actions": 2
+      },
+      {
+        "policy": "compact",
+        "attempts": 147,
+        "windows": 1,
+        "actions": 1
+      }
+    ]
+  },
+  {
+    "flags": [
+      "r1",
+      "r2",
+      "r3"
+    ],
+    "profiled_functions": [
+      {
+        "function": "build_product_block_candidates",
+        "calls": 1135,
+        "own_seconds": 0.051192800000000004,
+        "cumulative_seconds": 0.6872123
+      },
+      {
+        "function": "_adaptive_mixed_lane_blocks",
+        "calls": 9909,
+        "own_seconds": 0.0474469,
+        "cumulative_seconds": 0.254193
+      },
+      {
+        "function": "_support_bed_tail_depth",
+        "calls": 554,
+        "own_seconds": 0.0231814,
+        "cumulative_seconds": 0.15115520000000002
+      },
+      {
+        "function": "_pack_container_approved",
+        "calls": 1,
+        "own_seconds": 3.82e-05,
+        "cumulative_seconds": 0.4494826
+      },
+      {
+        "function": "_choose_partial_support_bed",
+        "calls": 14,
+        "own_seconds": 0.0280939,
+        "cumulative_seconds": 0.7971034
+      },
+      {
+        "function": "pack_container",
+        "calls": 1,
+        "own_seconds": 0.0003394,
+        "cumulative_seconds": 1.5172801
+      },
+      {
+        "function": "_partial_support_bed_outcome_reason",
+        "calls": 2,
+        "own_seconds": 0.0007158,
+        "cumulative_seconds": 0.035877200000000005
+      }
+    ],
+    "attempted_beds": [
+      {
+        "policy": "projected",
+        "attempts": 474,
+        "windows": 2,
+        "actions": 2
+      },
+      {
+        "policy": "compact",
+        "attempts": 474,
+        "windows": 2,
+        "actions": 2
+      }
+    ]
+  }
+]

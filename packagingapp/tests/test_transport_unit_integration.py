@@ -223,6 +223,38 @@ class TransportResultUnitPresentationTests(SimpleTestCase):
 
 
 class TransportManualUnitBoundaryTests(SimpleTestCase):
+    def test_partial_support_beds_reach_shared_outputs_with_equivalent_units(self):
+        from pathlib import Path
+        from packagingapp.tests.test_transport_mixed_cargo_infill import mixed_support_orientation_case
+
+        path = Path(__file__).resolve().parents[2] / "regressions/TC-REG-019-mixed-cargo-support-bed-orientation/input.json"
+        fixture = json.loads(path.read_text())
+        selected, normalized_rows = mixed_support_orientation_case()
+        metric_config = _transport_config(
+            packing_mode="front_to_back_infill", container_l=selected["L"],
+            container_w=selected["W"], container_h=selected["H"], max_weight="", tare_weight="",
+        )
+        metric_rows = [
+            {key: value for key, value in row.items()
+             if key != "canonicalized" and not key.startswith("canonical_")}
+            for row in normalized_rows
+        ]
+        metric = analyze_transport_config(metric_config, metric_rows)
+        imperial = analyze_transport_config(fixture["config"], fixture["rows"])
+        for analysis in (metric, imperial):
+            self.assertTrue(analysis["ok"], analysis["messages"])
+            self.assertGreater(len(analysis["result"]["placements"]), 53)
+            self.assertEqual(len(analysis["threejs_scene"]["items"]), len(analysis["result"]["placements"]))
+            self.assertEqual(analysis["serialized_result"]["summary"]["placed_units"], len(analysis["result"]["placements"]))
+            self.assertFalse(analysis["serialized_result"]["summary"]["product_rows"][1]["stackable"])
+            self.assertTrue(analysis["serialized_result"]["front_to_back_infill_partial_support_beds"]["selected"])
+            json.dumps(analysis["serialized_result"], allow_nan=False)
+            json.dumps(analysis["safe_rows"], allow_nan=False)
+        self.assertEqual(
+            [tuple(round(value, 7) for value in item) for item in _geometry_signature(metric)],
+            [tuple(round(value, 7) for value in item) for item in _geometry_signature(imperial)],
+        )
+
     def test_support_beds_reach_scene_report_and_json_with_equivalent_units(self):
         from packagingapp.tests.test_transport_mixed_cargo_infill import stackability_expv2_2
 
@@ -422,6 +454,57 @@ class FullPackagingUnitInheritanceTests(SimpleTestCase):
 
 
 class TransportUnitSelectorSurfaceTests(TestCase):
+    def test_all_stackable_r3_post_uses_same_supported_load_for_scene_report_and_flow(self):
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[2] / (
+            "regressions/TC-REG-019-mixed-cargo-support-bed-orientation/input.json"
+        )
+        fixture = json.loads(path.read_text())
+        rows = [{**row, "stackable": True} for row in fixture["rows"]]
+        config = fixture["config"]
+        analysis = analyze_transport_config(config, rows)
+        self.assertTrue(analysis["ok"], analysis["messages"])
+        result = analysis["serialized_result"]
+        scene = analysis["threejs_scene"]
+        summary = result["summary"]
+        self.assertEqual(summary["placed_units"], 127)
+        self.assertEqual(len(scene["items"]), summary["placed_units"])
+        self.assertEqual(scene["units"], "mm")
+        self.assertAlmostEqual(scene["transport_unit"]["length"], 566.9 * 25.4)
+        self.assertTrue(all(row["stackable"] for row in summary["product_rows"]))
+        self.assertEqual([row["qty_packed"] for row in summary["product_rows"]], [30, 17, 16, 48, 14, 2, 0])
+        arrays = {
+            f"item_{key}[]": [str(int(row[key])) if isinstance(row[key], bool) else str(row[key])
+                               for row in rows]
+            for key in ("name", "length", "width", "height", "qty", "max_qty", "weight",
+                        "sequence", "stackable", "r1", "r2", "r3")
+        }
+        post = {key: str(value) for key, value in config.items()}
+        for url_name in ("container_tool", "transport_container_calculator"):
+            with self.subTest(url_name=url_name):
+                response = self.client.post(reverse(url_name), {**post, **arrays, "action": "run_analysis"})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["result"]["summary"], summary)
+                self.assertEqual(response.context["threejs_scene"], scene)
+                self.assertTrue(all(row["stackable"] for row in response.context["product_rows"]))
+                report = self.client.session["transport_container_last_export"]
+                self.assertEqual(report["summary"], summary)
+                self.assertEqual(report["product_legend"], scene["products"])
+                json.dumps(report, allow_nan=False)
+
+        workflow_url = reverse("full_packaging_mode")
+        self.client.post(workflow_url, {"action": "add_step", "after_index": "start", "step_type": "transport"})
+        response = self.client.post(workflow_url, {
+            **{f"{key}_0": value for key, value in post.items()}, **arrays,
+            "action": "run_step", "index": "0", "step_action_0": "run_analysis",
+        })
+        self.assertEqual(response.status_code, 302)
+        step = self.client.session["full_packaging_mode_session"]["steps"][0]
+        self.assertEqual(step["result"]["summary"], summary)
+        self.assertEqual(step["threejs_scene"], scene)
+        json.dumps(step, allow_nan=False)
+
     def test_standalone_and_public_transport_render_shared_selectors(self):
         for url_name in ("container_tool", "transport_container_calculator"):
             response = self.client.get(reverse(url_name))
