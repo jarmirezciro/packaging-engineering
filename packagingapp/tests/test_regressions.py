@@ -1,6 +1,7 @@
 import json
 import tempfile
 from html.parser import HTMLParser
+from math import prod
 from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
@@ -10,13 +11,18 @@ from django.utils.html import escape
 
 from packagingapp.models import UserPreferences
 from packagingapp.tests.benchmark_shared_mosaic_patterns import BENCHMARK_CASES
+from packagingapp.tests.test_container_bag_unit_rollout import _bag_config as metric_bag_fixture
+from packagingapp.tools.bag.case_presets import BAG_SELECTION_CASE_PRESETS
+from packagingapp.tools.bag.service import analyze_bag_config
 from packagingapp.tools.container.case_presets import CONTAINER_SELECTION_CASE_PRESETS
+from packagingapp.tools.palletization.case_presets import PALLETIZATION_CASE_PRESETS
 from packagingapp.tools.transport.case_presets import (
     TRANSPORT_CONTAINER_CASE_PRESETS,
     get_transport_container_case_preset,
 )
 from packagingapp.tools.transport.service import _prepare_transport_analysis
 from packagingapp.units import convert_length, convert_mass
+from packagingapp.utils.package_design_arrangements import build_canonical_design_arrangements
 
 
 NEW_REGRESSION_CASE_SLUGS = (
@@ -110,6 +116,14 @@ class RegressionCompendiumTests(TestCase):
                         for slug in CONTAINER_SELECTION_CASE_PRESETS
                     ],
                 )
+                for heading, route, presets in (
+                    ("Palletization Cases", "palletization_calculator", PALLETIZATION_CASE_PRESETS),
+                    ("Bag Selection Cases", "bag_selection_mode1", BAG_SELECTION_CASE_PRESETS),
+                ):
+                    self.assertContains(response, heading)
+                    self.assertEqual(self.case_links(response, route), [
+                        f"{reverse(route)}?{urlencode({'case': slug})}" for slug in presets
+                    ])
         self.assertRedirects(
             self.client.get("/regressions/", HTTP_HOST="localhost"),
             "/regressions",
@@ -294,6 +308,140 @@ class RegressionCompendiumTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.context["result"])
         self.assertEqual(response.context["form"]["container_l"].value(), "")
+
+
+class BagCompendiumTests(TestCase):
+    def test_bag_links_load_standalone_results_with_case_units_and_scenes(self):
+        user = get_user_model().objects.create_user(username="bag-case-units")
+        UserPreferences.objects.create(user=user, default_length_unit="ft", default_small_mass_unit="oz")
+        self.client.force_login(user)
+        page = self.client.get(reverse("regressions"))
+        parser = CaseLinkParser("bag_selection_mode1")
+        parser.feed(page.content.decode())
+        self.assertEqual(len(parser.links), len(BAG_SELECTION_CASE_PRESETS))
+
+        single_capacities = {
+            "maximum-bag-capacity": 2,
+            "sealing-and-bag-orientation": 1,
+            "bottle-dimensional-allowances": 30,
+            "imperial-metric-units": 12,
+            "pillow-bag-visualization": 6,
+        }
+        design_quantities = {"three-dimensional-bag-design": 12, "non-smooth-quantity-design": 8}
+        cases = list(zip(parser.links, BAG_SELECTION_CASE_PRESETS.items()))
+        for link, (slug, preset) in cases + cases[:1]:
+            with self.subTest(case=slug):
+                self.assertContains(page, escape(preset["label"]))
+                response = self.client.get(link)
+                self.assertTemplateUsed(response, "bag_selection/bag_selection_mode1.html")
+                self.assertContains(response, 'data-scene-script="bagThreeJsScene"')
+                self.assertEqual(response.context["mode"], "standalone")
+                config = response.context["bag_config"]
+                expected = preset["config"]
+                for key, value in expected.items():
+                    self.assertEqual(config[key], str(value), key)
+                for key, fallback in (
+                    ("product_dimension_unit", "mm"), ("bag_dimension_unit", "mm"),
+                    ("product_mass_unit", "g"), ("bag_mass_unit", "g"),
+                    ("product_allowance_l", "0"), ("product_allowance_w", "0"), ("product_allowance_h", "0"),
+                    ("product_source", "manual"), ("bag_source", "manual"), ("product_shape", "cuboid"),
+                ):
+                    self.assertEqual(response.context["form"][key].value(), str(expected.get(key, fallback)), key)
+
+                scene = response.context["threejs_scene"]
+                self.assertEqual(scene["productShape"], config["product_shape"])
+                self.assertEqual(response.context["product_unit_scene"]["displayUnit"], config["product_dimension_unit"])
+                self.assertEqual((scene["packageType"], scene["mode"], scene["units"]), ("bag", config["mode"], "mm"))
+                bag = scene["bag"]
+                self.assertEqual((bag["openingSide"], bag["openingAt"]), ("width", "length-end"))
+                self.assertEqual((bag["sealingAllowance"], bag["fitTolerance"]), (10, 2))
+                self.assertAlmostEqual(scene["container"]["length"] - bag["usableBodyLength"], 10)
+                for item in scene["products"]:
+                    self.assertLessEqual(item["x"] + item["dx"], bag["usableBodyLength"] + 0.000001)
+
+                result = response.context["result"]
+                if slug in single_capacities:
+                    quantity = single_capacities[slug]
+                    self.assertEqual(result["max_quantity"], quantity)
+                    self.assertEqual(prod(scene["usedLayout"]), quantity)
+                    self.assertAlmostEqual(scene["selectedRequiredBag"]["length"], result["best_required"][0])
+                    self.assertAlmostEqual(scene["selectedRequiredBag"]["width"], result["best_required"][1])
+                    self.assertAlmostEqual(bag["flatLength"], result["bag_len"], places=6)
+                    self.assertAlmostEqual(bag["flatWidth"], result["bag_w"], places=6)
+                    report = response.context["analysis_report"]
+                    self.assertEqual(self.client.session["bag_selection_single_export"]["analysis_report"], report)
+                    if slug == "bottle-dimensional-allowances":
+                        self.assertEqual(report["effective_product_dimensions_display"], "66.294 × 66.294 × 257.048 mm")
+                        self.assertEqual(scene["productDefinition"], {"length": 63.246, "width": 63.246, "height": 254})
+                    if slug == "pillow-bag-visualization":
+                        self.assertEqual(report["total_weight_display"], "1518 g")
+                        self.assertEqual(report["payload_usage_display"], "30%")
+                else:
+                    quantity = design_quantities[slug]
+                    self.assertEqual(result["design_quantity"], quantity)
+                    self.assertEqual(result["additional_capacity"], quantity - expected["desired_qty"])
+                    self.assertEqual(scene, result["render_data"])
+                    self.assertEqual({item["orientationIndex"] for item in scene["products"]}, {result["orientation_index"]})
+                    self.assertEqual(bag["flatLength"], result["bag_length"])
+                    self.assertEqual(bag["flatWidth"], result["bag_width"])
+                    canonical = build_canonical_design_arrangements(
+                        tuple(expected[f"product_{axis}"] for axis in "lwh"), expected["desired_qty"], 1, 1, 1
+                    )
+                    candidates = response.context["design_candidates"]
+                    self.assertEqual([row["arrangement_id"] for row in candidates], [
+                        row["arrangement_id"] for row in canonical["arrangements"]
+                    ])
+                    self.assertEqual(len({row["candidate_id"] for row in candidates}), len(candidates))
+                    self.assertEqual(self.client.session["bag_selection_design_export"]["selected_candidate"]["candidate_id"], result["candidate_id"])
+                self.assertEqual(len(scene["products"]), quantity)
+                json.dumps(dict(self.client.session), allow_nan=False)
+
+        plain = self.client.get(reverse("bag_selection_mode1"))
+        self.assertIsNone(plain.context["result"])
+        self.assertEqual(plain.context["form"]["product_l"].value(), "")
+        self.assertEqual(plain.context["form"]["product_dimension_unit"].value(), "ft")
+        self.assertEqual(plain.context["form"]["bag_mass_unit"].value(), "oz")
+
+    def test_sealing_case_accepts_swapped_bag_and_reports_no_fit(self):
+        url = f"{reverse('bag_selection_mode1')}?case=sealing-and-bag-orientation"
+        initial = self.client.get(url)
+        self.assertEqual(initial.context["result"]["best_required"], (122, 62))
+        data = {**initial.context["bag_config"], "bag_length": 65, "bag_width": 130}
+        edited = self.client.post(url, data)
+        self.assertFalse(edited.context["form"].errors)
+        self.assertEqual(edited.context["result"]["max_quantity"], 0)
+        self.assertIsNone(edited.context["threejs_scene"])
+        self.assertEqual(self.client.get(url).context["result"]["max_quantity"], 1)
+
+    def test_design_case_keeps_candidate_ids_and_accepts_selection_and_quantity_edits(self):
+        url = f"{reverse('bag_selection_mode1')}?case=non-smooth-quantity-design"
+        initial = self.client.get(url)
+        data = initial.context["bag_config"]
+        ids = [row["candidate_id"] for row in initial.context["design_candidates"]]
+        selected = self.client.post(url, {
+            **data, "action": "select_design_candidate", "selected_design_candidate_id": ids[-1],
+        })
+        self.assertEqual([row["candidate_id"] for row in selected.context["design_candidates"]], ids)
+        self.assertEqual(selected.context["result"]["candidate_id"], ids[-1])
+        self.assertEqual(selected.context["threejs_scene"], selected.context["result"]["render_data"])
+        edited = self.client.post(url, {**data, "desired_qty": 9})
+        self.assertEqual(edited.context["result"]["design_quantity"], 9)
+        self.assertEqual(len(edited.context["threejs_scene"]["products"]), 9)
+
+    def test_mixed_unit_case_matches_metric_fixture(self):
+        response = self.client.get(reverse("bag_selection_mode1"), {"case": "imperial-metric-units"})
+        metric = analyze_bag_config(metric_bag_fixture(), "run_single")
+        self.assertEqual(response.context["result"]["max_quantity"], metric["result"]["max_quantity"])
+        self.assertEqual(response.context["threejs_scene"], metric["threejs_scene"])
+        report = response.context["analysis_report"]
+        for key in ("product_weight", "bag_weight", "payload_capacity"):
+            self.assertAlmostEqual(report[key], metric["analysis_report"][key], places=6)
+        for key, unit in (("product_dimensions", "cm"), ("bag_dimensions", "in"), ("payload_capacity", "lb")):
+            self.assertTrue(report[f"{key}_display"].endswith(f" {unit}"), key)
+
+    def test_unknown_bag_cases_return_404(self):
+        for slug in ("unknown-case", "../../manage.py"):
+            self.assertEqual(self.client.get(reverse("bag_selection_mode1"), {"case": slug}).status_code, 404)
 
 
 class RegressionPresetSourceTests(SimpleTestCase):

@@ -165,3 +165,12 @@ arrangement into the shared `packageType=bag` Three.js scene. The standalone,
 Packaging Flow, public calculator, and Multi-product Bag consumer all render
 that contract. No active Bag result path writes a Matplotlib PNG. Standalone
 PDFs embed the validated current Three.js snapshot.
+
+## Case compendium
+
+`/regressions` lists the Bag Selection cases from
+`packagingapp/tools/bag/case_presets.py`. Each case opens the standalone tool
+with its configured inputs and units and runs the normal analysis on load.
+Submissions use the current form values. To add a case from a screenshot,
+transcribe its mode, manual inputs and units into a new registry entry, then
+verify the resulting quantity or candidates against the current tool.

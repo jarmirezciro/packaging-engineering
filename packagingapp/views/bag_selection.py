@@ -2,10 +2,14 @@ import json
 
 from django.conf import settings
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.urls import reverse
 from django.utils import timezone
 
+from ..tools.bag.case_presets import (
+    SEO_BAG_SELECTION_EXAMPLE_CONFIG,
+    get_bag_selection_case_preset,
+)
 from ..tools.bag.presenter import selected_bag_summary, selected_product_summary
 from ..tools.bag.serializers import sanitize_bag_config_for_session
 from ..tools.bag.service import (
@@ -32,23 +36,6 @@ from ..catalogue_units import (
     annotate_packaging_picker_rows,
     annotate_product_picker_rows,
 )
-
-
-SEO_BAG_SELECTION_EXAMPLE_CONFIG = {
-    "mode": "single",
-    "action": "run_single",
-    "product_source": "manual",
-    "product_l": 180,
-    "product_w": 120,
-    "product_h": 40,
-    "product_weight": 250,
-    "desired_qty": 4,
-    "bag_source": "manual",
-    "bag_length": 450,
-    "bag_width": 330,
-    "bag_weight": 18,
-    "bag_max_payload": 5000,
-}
 
 
 def _read_raw_bag_config(
@@ -493,7 +480,7 @@ def _build_bag_selection_page_context(
         ) or "single"
         current_action = config.get("action") or ""
 
-        if result and analysis_report and current_form_mode == "single":
+        if result and analysis_report and current_form_mode in ("single", "design"):
             export_form = form
             if request.method != "POST":
                 export_form = form.__class__(config)
@@ -501,16 +488,24 @@ def _build_bag_selection_page_context(
                 if not export_form.is_valid():
                     export_form = None
 
-            export_payload = _build_single_export_payload(
-                form=export_form,
-                analysis=analysis,
-                selected_product=selected_product,
-                selected_material=selected_material,
-            ) if export_form is not None else None
-            if export_payload:
-                request.session["bag_selection_last_export"] = export_payload
-                request.session["bag_selection_single_export"] = export_payload
-                request.session.modified = True
+            if export_form is not None and current_form_mode == "single":
+                export_payload = _build_single_export_payload(
+                    form=export_form,
+                    analysis=analysis,
+                    selected_product=selected_product,
+                    selected_material=selected_material,
+                )
+                if export_payload:
+                    request.session["bag_selection_last_export"] = export_payload
+                    request.session["bag_selection_single_export"] = export_payload
+            elif export_form is not None:
+                design_export = _build_design_export_payload(
+                    form=export_form,
+                    analysis=analysis,
+                    selected_product=selected_product,
+                )
+                if design_export:
+                    request.session["bag_selection_design_export"] = design_export
 
         if result and analysis_report and current_form_mode == "optimal" and current_action == "select_candidate":
             optimal_export_payload = _build_optimal_export_payload(
@@ -526,12 +521,6 @@ def _build_bag_selection_page_context(
 
         for message in analysis["messages"]:
             form.add_error(None, message)
-
-        if result and analysis_report and current_form_mode == "design":
-            design_export = _build_design_export_payload(form=form, analysis=analysis, selected_product=selected_product)
-            if design_export:
-                request.session["bag_selection_design_export"] = design_export
-                request.session.modified = True
 
     product_summary = selected_product_summary(
         selected_product=selected_product,
@@ -678,10 +667,20 @@ def _build_bag_selection_seo_schema(request):
 
 
 def bag_selection_mode1(request):
+    case_slug = (request.GET.get("case") or "").strip() if request.method == "GET" else ""
+    case_preset = get_bag_selection_case_preset(case_slug)
+    if case_slug and case_preset is None:
+        raise Http404("Unknown Bag Selection case.")
+
     return render(
         request,
         "bag_selection/bag_selection_mode1.html",
-        _build_bag_selection_page_context(request, mode="standalone"),
+        _build_bag_selection_page_context(
+            request,
+            mode="standalone",
+            initial_config=case_preset["config"] if case_preset else None,
+            run_initial_analysis=bool(case_preset),
+        ),
     )
 
 
