@@ -13,15 +13,13 @@ from .serializers import (
     serialize_transport_result,
     serialize_transport_threejs_scene,
 )
-from .presenter import attach_transport_result_presentation, format_transport_table_number
+from .presenter import attach_transport_result_presentation
 from ...units import (
     LENGTH_UNITS,
     MASS_UNITS,
     UnsupportedUnitError,
     convert_length,
     convert_mass,
-    format_length,
-    format_mass,
 )
 from ...units.input import convert_optional, validate_unit
 from ...utils.container_tool.engine import pack_container, run_container_tool, summarize
@@ -295,7 +293,7 @@ def normalize_transport_rows_for_calculation(raw_rows, unit_state):
 
 
 def transport_rows_for_display(rows, dimension_unit="mm", mass_unit="kg"):
-    """Adapt canonical session rows to one coherent editable display context."""
+    """Supply exact input values in the selected units for browser formatting."""
     try:
         display_dimension_unit = validate_unit(
             dimension_unit, LENGTH_UNITS, "mm", "load-unit dimension"
@@ -317,16 +315,10 @@ def transport_rows_for_display(rows, dimension_unit="mm", mass_unit="kg"):
             unit = display_mass_unit if is_mass else display_dimension_unit
             canonical_unit = "kg" if is_mass else "mm"
             converter = convert_mass if is_mass else convert_length
-            formatter = format_mass if is_mass else format_length
             try:
                 canonical = _canonical_row_quantity(row, key, unit, converter, canonical_unit)
                 display[f"canonical_{key}"] = "" if canonical is None else canonical
-                display[key] = "" if canonical is None else format_transport_table_number(formatter(
-                    canonical,
-                    canonical_unit=canonical_unit,
-                    display_unit=unit,
-                    max_decimal_places=2,
-                ))
+                display[key] = "" if canonical is None else str(converter(canonical, canonical_unit, unit))
             except (TypeError, ValueError):
                 # Retain invalid manual text for the existing validation path.
                 pass

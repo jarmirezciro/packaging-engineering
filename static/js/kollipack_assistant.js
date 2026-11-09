@@ -109,8 +109,9 @@
             return "";
         }
         const first = controls[0];
-        return first && first.value !== undefined && first.value !== null
-            ? String(first.value)
+        const value = first && (root.KolliPackNumericInputs?.getValue(first) ?? first.value);
+        return value !== undefined && value !== null
+            ? String(value)
             : "";
     }
 
@@ -574,6 +575,7 @@
                     control.dispatchEvent(new root.Event("input", {bubbles: true}));
                     control.dispatchEvent(new root.Event("change", {bubbles: true}));
                 }
+                root.KolliPackNumericInputs?.commit(control);
             });
         });
         return plan.length;

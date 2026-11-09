@@ -109,6 +109,10 @@
         return form.querySelector('[name="' + CSS.escape(name) + '"]');
     }
 
+    function inputNumber(input) {
+        return input ? numeric(window.KolliPackNumericInputs.getValue(input)) : null;
+    }
+
     function update(panel) {
         var form = panel.closest("form");
         var names = panel.dataset;
@@ -123,7 +127,7 @@
             field(form, names.allowanceHeightName),
         ];
         var allowance = allowanceInputs.map(function (input) {
-            var value = numeric(input && input.value);
+            var value = inputNumber(input);
             return value === null ? 0 : value;
         });
         var summary = panel.querySelector("[data-effective-dimensions]");
@@ -133,7 +137,7 @@
         var unit = unitInput && unitInput.value ? unitInput.value : "mm";
         var lengthFactors = { mm: 1, cm: 10, m: 1000, in: 25.4, ft: 304.8 };
         var factor = lengthFactors[unit] || 1;
-        var nominal = nominalInputs.map(function (input) { return numeric(input && input.value); });
+        var nominal = nominalInputs.map(inputNumber);
         var catalogueNominal = null;
         if (names.productSource === "catalogue") {
             catalogueNominal = [

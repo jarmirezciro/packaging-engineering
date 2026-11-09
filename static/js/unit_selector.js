@@ -1,6 +1,9 @@
 (function () {
     "use strict";
 
+    // Full Packaging Flow includes several tool script partials on one page.
+    if (window.KolliPackUnitSelector) return;
+
     // Keep all browser-side factors together.  The server remains the
     // authoritative conversion boundary; these factors only prevent a
     // surprising round trip while the user edits the form.
@@ -20,6 +23,8 @@
             lb: 453.59237,
         }),
     });
+    const numericInputs = window.KolliPackNumericInputs;
+    const inputOrigins = new WeakMap();
 
     function unitKey(value, quantity) {
         const key = String(value || "").trim().toLowerCase();
@@ -32,24 +37,6 @@
         if (value === "" || value === null || value === undefined) return null;
         const parsed = Number(value);
         return Number.isFinite(parsed) ? parsed : null;
-    }
-
-    function formatDisplayValue(baseValue, unit, quantity, precision) {
-        const factor = FACTORS_TO_BASE[quantity][unit];
-        const displayValue = baseValue / factor;
-        if (!Number.isFinite(displayValue)) return "";
-        if (precision !== undefined && precision !== "") {
-            const places = Number(precision);
-            if (Number.isInteger(places) && places >= 0 && places <= 8) {
-                const formatted = displayValue.toFixed(places);
-                return Number(formatted) === 0 ? (0).toFixed(places) : formatted;
-            }
-        }
-        if (Object.is(displayValue, -0) || displayValue === 0) return "0";
-
-        // Eight decimal places are enough for an editable presentation of
-        // supported units while the per-input base value prevents drift.
-        return displayValue.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
     }
 
     function formatCatalogueDisplayValue(baseValue, unit, quantity) {
@@ -85,15 +72,24 @@
         return unitKey(hidden ? hidden.value : "", quantity);
     }
 
+    function inputQuantity(input, canonicalUnit) {
+        const group = input.dataset.unitGroup;
+        const selector = document.querySelector(
+            `[data-unit-selector][data-unit-group="${CSS.escape(group)}"]`
+        );
+        const knownUnit = canonicalUnit || groupHiddenInput(group)?.value;
+        return selector?.dataset.unitQuantity || (FACTORS_TO_BASE.mass[knownUnit] ? "mass" : "length");
+    }
+
     function canonicalValue(input, quantity) {
         if (!input) return null;
         const stored = numericValue(input.dataset && input.dataset.unitCanonicalValue);
         if (stored !== null) return stored;
 
-        const visible = numericValue(input.value);
-        if (visible === null) return null;
+        const exact = numericValue(numericInputs.getValue(input));
+        if (exact === null) return null;
         const unit = currentUnit(input.dataset.unitGroup, quantity);
-        return visible * FACTORS_TO_BASE[quantity][unit];
+        return exact * FACTORS_TO_BASE[quantity][unit];
     }
 
     function fromCanonicalValue(value, unit, quantity) {
@@ -125,33 +121,44 @@
     }
 
     function recordCanonicalValue(input, unit, quantity) {
-        const visible = numericValue(input.value);
-        if (visible === null) {
+        const raw = numericInputs.getValue(input);
+        const exact = numericValue(raw);
+        if (exact === null) {
             delete input.dataset.unitCanonicalValue;
+            inputOrigins.delete(input);
             return;
         }
-        input.dataset.unitCanonicalValue = String(visible * FACTORS_TO_BASE[quantity][unit]);
+        input.dataset.unitCanonicalValue = String(exact * FACTORS_TO_BASE[quantity][unit]);
+        inputOrigins.set(input, {unit, raw});
+    }
+
+    function writeConvertedValue(input, baseValue, unit, quantity) {
+        const origin = inputOrigins.get(input);
+        const value = baseValue / FACTORS_TO_BASE[quantity][unit];
+        let raw = origin?.unit === unit ? origin.raw : String(value);
+        // Catalogue ModelForms already limit submitted display values to
+        // 12 decimals before quantizing to the model's canonical scale.
+        const places = Number(input.dataset.unitSubmissionDecimals);
+        if (origin?.unit !== unit && Number.isInteger(places) && places > 0 && places <= 20) {
+            const bounded = value.toFixed(places);
+            if (Number(bounded) !== 0 || value === 0) {
+                raw = bounded.replace(/0+$/, "").replace(/\.$/, "");
+            }
+        }
+        numericInputs.setValue(input, Number.isFinite(value) ? raw : "");
     }
 
     function convertGroup(group, quantity, fromUnit, toUnit) {
-        const preservePrecision = groupHiddenInput(group)?.dataset.unitPreservePrecision !== undefined;
         groupInputs(group).forEach((input) => {
-            const stored = numericValue(input.dataset.unitCanonicalValue);
-            const visible = numericValue(input.value);
-            const baseValue = stored === null
-                ? (visible === null ? null : visible * FACTORS_TO_BASE[quantity][fromUnit])
-                : stored;
-
+            if (numericValue(input.dataset.unitCanonicalValue) === null) {
+                recordCanonicalValue(input, fromUnit, quantity);
+            }
+            const baseValue = numericValue(input.dataset.unitCanonicalValue);
             if (baseValue === null) {
-                input.value = "";
-                delete input.dataset.unitCanonicalValue;
+                numericInputs.setValue(input, "");
                 return;
             }
-
-            input.value = preservePrecision
-                ? String(baseValue / FACTORS_TO_BASE[quantity][toUnit])
-                : formatDisplayValue(baseValue, toUnit, quantity, input.dataset.unitDisplayPrecision);
-            input.dataset.unitCanonicalValue = String(baseValue);
+            writeConvertedValue(input, baseValue, toUnit, quantity);
         });
     }
 
@@ -171,20 +178,19 @@
     function setCanonicalValue(input, canonicalValue, canonicalUnit) {
         if (!input || !input.dataset || !input.dataset.unitGroup) return;
         const group = input.dataset.unitGroup;
-        const selector = document.querySelector(
-            `[data-unit-selector][data-unit-group="${CSS.escape(group)}"]`
-        );
-        const quantity = selector?.dataset.unitQuantity || "length";
+        const quantity = inputQuantity(input, canonicalUnit);
         const numeric = numericValue(canonicalValue);
         if (numeric === null) {
-            input.value = "";
+            numericInputs.setValue(input, "");
             delete input.dataset.unitCanonicalValue;
+            inputOrigins.delete(input);
             return;
         }
         const sourceUnit = unitKey(canonicalUnit, quantity);
         const baseValue = numeric * FACTORS_TO_BASE[quantity][sourceUnit];
         const targetUnit = currentUnit(group, quantity);
-        input.value = formatDisplayValue(baseValue, targetUnit, quantity, input.dataset.unitDisplayPrecision);
+        inputOrigins.set(input, {unit: sourceUnit, raw: String(canonicalValue)});
+        writeConvertedValue(input, baseValue, targetUnit, quantity);
         input.dataset.unitCanonicalValue = String(baseValue);
     }
 
@@ -212,7 +218,8 @@
     function storedUnit(storageKey, quantity) {
         if (!storageKey) return null;
         try {
-            return unitKey(window.localStorage.getItem(storageKey), quantity);
+            const saved = window.localStorage.getItem(storageKey);
+            return saved ? unitKey(saved, quantity) : null;
         } catch (error) {
             return null;
         }
@@ -304,16 +311,17 @@
         document.querySelectorAll("[data-unit-input]").forEach((input) => {
             if (input.dataset.unitSelectorBound === "true") return;
             input.dataset.unitSelectorBound = "true";
-            const selector = input.closest("form")?.querySelector(
-                `[data-unit-selector][data-unit-group="${CSS.escape(input.dataset.unitGroup)}"]`
-            );
-            const quantity = selector?.dataset.unitQuantity || "length";
+            const quantity = inputQuantity(input, input.dataset.unitCanonicalUnit);
+            const unit = currentUnit(input.dataset.unitGroup, quantity);
             const canonical = numericValue(input.dataset.unitCanonicalValue);
             if (canonical === null) {
-                recordCanonicalValue(input, currentUnit(input.dataset.unitGroup, quantity), quantity);
-            } else if (input.dataset.unitCanonicalUnit) {
-                const sourceUnit = unitKey(input.dataset.unitCanonicalUnit, quantity);
-                input.dataset.unitCanonicalValue = String(canonical * FACTORS_TO_BASE[quantity][sourceUnit]);
+                recordCanonicalValue(input, unit, quantity);
+            } else {
+                const sourceUnit = input.dataset.unitCanonicalUnit;
+                if (sourceUnit) {
+                    input.dataset.unitCanonicalValue = String(canonical * FACTORS_TO_BASE[quantity][unitKey(sourceUnit, quantity)]);
+                }
+                inputOrigins.set(input, {unit, raw: numericInputs.getValue(input)});
             }
             input.addEventListener("input", () => {
                 recordCanonicalValue(input, currentUnit(input.dataset.unitGroup, quantity), quantity);
@@ -354,11 +362,10 @@
             const quantity = selector.dataset.unitQuantity;
             const saved = storedUnit(selector.dataset.unitStorageKey, quantity);
             const selected = saved || currentUnit(group, quantity);
-            if (saved && groupDisplays(group).length === 0) {
+            if (saved && saved !== currentUnit(group, quantity)) {
                 convertGroup(group, quantity, currentUnit(group, quantity), selected);
-            } else {
-                convertDisplayGroup(group, quantity, selected);
             }
+            convertDisplayGroup(group, quantity, selected);
             setVisibleUnit(group, selected);
             if (!notifiedGroups.has(group)) {
                 notifyUnitChanged(group, quantity, selected);

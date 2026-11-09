@@ -110,9 +110,16 @@ The high-risk boundaries use `packagingapp.units.kg_to_g` or `g_to_kg`:
   their existing accepted-unit surface.
 
 Authoritative calculation conversions do not occur in packing algorithms,
-templates, or JavaScript. The shared JavaScript selector only converts the
-currently displayed form value; the server normalizes submitted values into
+templates, or JavaScript. The shared JavaScript selector converts the exact
+form value for editing; the server normalizes submitted values into
 the canonical calculation units before invoking an engine.
+
+Editable continuous number inputs share a browser formatter. It displays up
+to three decimal places on initialization, unit conversion and blur, while
+keeping the unrounded value for form submission. Unit switching reuses each
+input's canonical value, and a user edit replaces it. The input keeps its
+unrounded display when rounding would hide a nonzero value or change native
+validation. Integer fields and formatted results follow their existing rules.
 
 ## Consumer assessment
 
@@ -303,14 +310,13 @@ scene, result cards, and PDF/report values remain canonical metric.
 
 The multi-row Transport table deliberately shares one dimension state and one
 mass state. All rendered load rows, including restored manual rows,
-carry JSON-safe exact canonical scalars beside their two-decimal editable
-presentation values. Unit switching changes only the presentation values;
+carry JSON-safe exact canonical scalars beside their editable values.
+Unit switching changes only the presentation values;
 editing one physical input updates only its own canonical scalar and marks
 the row manual, preserving the other dimensions and weight. Browser input
-initialization retains server-supplied precision; Transport inputs opt in to
-two-decimal automatic conversion without reformatting typing or changing
-other tools' precision. This prevents rounded `in`/`lb` presentation from
-becoming a calculation input. Catalogue-backed transport
+initialization retains server-supplied precision and applies the shared
+three-decimal display rule without reformatting typing. This prevents rounded
+`in`/`lb` values from becoming calculation inputs. Catalogue-backed transport
 units continue using model dimensions and tare directly in `mm`/`kg`.
 
 Packaging Flow stores the four prefixed Transport unit states in the existing

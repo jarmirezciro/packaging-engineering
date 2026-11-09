@@ -201,6 +201,7 @@ class CataloguePhysicalUnitFormMixin:
     catalogue_length_fields = ()
     catalogue_mass_fields = ()
     catalogue_field_precision = {}
+    submission_decimal_places = 12
 
     def __init__(
         self,
@@ -217,36 +218,40 @@ class CataloguePhysicalUnitFormMixin:
         )
         super().__init__(*args, **kwargs)
 
-        for field_name in (*self.catalogue_length_fields, *self.catalogue_mass_fields):
-            field = self.fields[field_name]
-            # The model precision is applied after conversion in clean().
-            field.max_digits = 24
-            field.decimal_places = 12
-            field.validators = [
-                validator
-                for validator in field.validators
-                if not isinstance(validator, DecimalValidator)
-            ]
-            field.validators.append(DecimalValidator(max_digits=24, decimal_places=12))
-
         if not self.is_bound:
             self.initial["catalogue_length_unit"] = self.entry_length_unit
             self.initial["catalogue_mass_unit"] = self.entry_mass_unit
-            for field_name in self.catalogue_length_fields:
-                if self.initial.get(field_name) not in (None, ""):
+
+        for field_names, quantity, group, canonical_unit, display_unit in (
+            (self.catalogue_length_fields, "length", CATALOGUE_ENTRY_LENGTH_GROUP, "mm", self.entry_length_unit),
+            (self.catalogue_mass_fields, "mass", CATALOGUE_ENTRY_MASS_GROUP, "kg", self.entry_mass_unit),
+        ):
+            for field_name in field_names:
+                field = self.fields[field_name]
+                # The model precision is applied after conversion in clean().
+                field.max_digits = 24
+                field.decimal_places = self.submission_decimal_places
+                field.validators = [
+                    validator for validator in field.validators
+                    if not isinstance(validator, DecimalValidator)
+                ]
+                field.validators.append(DecimalValidator(max_digits=24, decimal_places=field.decimal_places))
+                field.widget.attrs.update({
+                    "data-unit-input": "true",
+                    "data-unit-group": group,
+                    "data-unit-submission-decimals": field.decimal_places,
+                })
+                canonical = self.initial.get(field_name)
+                if not self.is_bound and canonical not in (None, ""):
+                    field.widget.attrs.update({
+                        "data-unit-canonical-value": str(canonical),
+                        "data-unit-canonical-unit": canonical_unit,
+                    })
                     self.initial[field_name] = format_catalogue_value(
-                        self.initial[field_name],
-                        quantity="length",
-                        display_unit=self.entry_length_unit,
-                        max_decimal_places=8,
-                    )
-            for field_name in self.catalogue_mass_fields:
-                if self.initial.get(field_name) not in (None, ""):
-                    self.initial[field_name] = format_catalogue_value(
-                        self.initial[field_name],
-                        quantity="mass",
-                        display_unit=self.entry_mass_unit,
-                        max_decimal_places=8,
+                        canonical,
+                        quantity=quantity,
+                        display_unit=display_unit,
+                        max_decimal_places=field.decimal_places,
                     )
 
     def clean(self):

@@ -20,6 +20,7 @@ from packagingapp.tools.transport.service import (
     transport_rows_for_display,
     validate_transport_unit_state,
 )
+from packagingapp.units import convert_length, convert_mass
 from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordinates import (
     allowed_product_orientations,
 )
@@ -379,8 +380,8 @@ class TransportManualUnitBoundaryTests(SimpleTestCase):
             }
         )
         display = transport_rows_for_display(inherited, "in", "lb")[0]
-        self.assertEqual(display["length"], "48.24")
-        self.assertEqual(display["weight"], "2200.00")
+        self.assertAlmostEqual(float(display["length"]) * 25.4, 1225.4)
+        self.assertAlmostEqual(float(display["weight"]) * 0.45359237, 997.903214)
         self.assertEqual(display["canonical_length"], 1225.4)
         self.assertEqual(display["canonical_weight"], 997.903214)
 
@@ -556,11 +557,10 @@ class TransportUnitSelectorSurfaceTests(TestCase):
                 row = selected.context["product_rows"][0]
                 self.assertEqual(tuple(row[f"r{i}"] for i in range(1, 4)), tuple(flags))
                 for key in ("length", "width", "height", "weight"):
-                    self.assertRegex(row[key], r"^\d+\.\d{2}$")
-                    self.assertNotEqual(row[f"canonical_{key}"], "")
+                    self.assertEqual(float(row[key]), row[f"canonical_{key}"])
                 self.assertEqual(
-                    _TransportFormParser(selected.content.decode()).fields["item_length[]"][0],
-                    "200.00",
+                    float(_TransportFormParser(selected.content.decode()).fields["item_length[]"][0]),
+                    200,
                 )
 
                 config = _transport_config(**dict(zip(
@@ -760,16 +760,13 @@ class TransportUnitSelectorSurfaceTests(TestCase):
 
 
 class TransportEditablePrecisionTests(SimpleTestCase):
-    def test_inherited_rows_render_clean_values_and_exact_metadata_in_both_contexts(self):
+    def test_inherited_rows_render_exact_inputs_and_metadata_in_both_contexts(self):
         inherited = _transport_rows_from_selected({
             "label": "Exact upstream load", "length": 400.04999999999995,
             "width": 1600.1999999999998, "height": 1000.7599999999998,
             "weight_kg": 300.000000123,
         })
-        for dimension, mass, expected in (
-            ("mm", "kg", ["400.05", "1600.20", "1000.76", "300.00"]),
-            ("in", "lb", ["15.75", "63.00", "39.40", "661.39"]),
-        ):
+        for dimension, mass in (("mm", "kg"), ("in", "lb")):
             displayed = transport_rows_for_display(inherited, dimension, mass)
             for workflow in (False, True):
                 with self.subTest(dimension=dimension, workflow=workflow):
@@ -777,12 +774,12 @@ class TransportEditablePrecisionTests(SimpleTestCase):
                         "product_rows": displayed, "is_workflow": workflow, "is_first_step": False,
                     })
                     fields = _TransportFormParser(html).fields
-                    for key, value in zip(("length", "width", "height", "weight"), expected):
-                        self.assertEqual(fields[f"item_{key}[]"], [value])
-                        self.assertEqual(
-                            float(fields[f"item_canonical_{key}[]"][0]),
-                            inherited[0][f"canonical_{key}"],
-                        )
+                    for key in ("length", "width", "height", "weight"):
+                        canonical = inherited[0][f"canonical_{key}"]
+                        exact = (convert_mass(canonical, "kg", mass) if key == "weight"
+                                 else convert_length(canonical, "mm", dimension))
+                        self.assertEqual(float(fields[f"item_{key}[]"][0]), exact)
+                        self.assertEqual(float(fields[f"item_canonical_{key}[]"][0]), canonical)
 
     def test_all_supported_units_preserve_canonical_values_for_every_row_source(self):
         canonical = {
@@ -798,7 +795,9 @@ class TransportEditablePrecisionTests(SimpleTestCase):
                         displayed = transport_rows_for_display(rows, dimension, mass)
                         self.assertEqual(rows, original)
                         for key, value in canonical.items():
-                            self.assertRegex(displayed[0][key], r"^\d+\.\d{2}$")
+                            exact = (convert_mass(value, "kg", mass) if key == "weight"
+                                     else convert_length(value, "mm", dimension))
+                            self.assertEqual(float(displayed[0][key]), exact)
                             self.assertEqual(displayed[0][f"canonical_{key}"], value)
                         state, errors = validate_transport_unit_state(_transport_config(
                             load_unit_dimension_unit=dimension, load_unit_mass_unit=mass,
@@ -823,8 +822,6 @@ class TransportEditablePrecisionTests(SimpleTestCase):
                 ))
                 self.assertTrue(original["ok"], original["messages"])
                 rows = transport_rows_for_display(original["safe_rows"], "in", "lb")
-                self.assertEqual([rows[0][key] for key in ("length", "width", "height", "weight")],
-                                 ["15.75", "63.00", "39.40", "661.38"])
                 for _ in range(3):
                     repeated = analyze_transport_config(config, rows)
                     self.assertTrue(repeated["ok"], repeated["messages"])
@@ -851,7 +848,7 @@ class TransportEditablePrecisionTests(SimpleTestCase):
         self.assertEqual(blank["length"], "")
         self.assertEqual(blank["weight"], "")
         zero = transport_rows_for_display(_transport_rows(weight=-0.0), "mm", "kg")[0]
-        self.assertEqual(zero["weight"], "0.00")
+        self.assertEqual(float(zero["weight"]), 0)
         self.assertEqual(zero["canonical_weight"], -0.0)
 
 
@@ -913,10 +910,11 @@ class TransportEditablePrecisionSurfaceTests(TestCase):
                         self.assertEqual(result, previous)
                     previous = deepcopy(result)
                     rows = _TransportFormParser(response.content.decode()).fields
-                    for key, expected in (("length", "15.75"), ("width", "63.00"),
-                                          ("height", "39.40"), ("weight", "661.38")):
-                        self.assertEqual(rows[f"item_{key}[]"], [expected])
-                        self.assertNotEqual(rows[f"item_canonical_{key}[]"], [""])
+                    for key in ("length", "width", "height", "weight"):
+                        canonical = float(rows[f"item_canonical_{key}[]"][0])
+                        exact = (convert_mass(canonical, "kg", "lb") if key == "weight"
+                                 else convert_length(canonical, "mm", "in"))
+                        self.assertEqual(float(rows[f"item_{key}[]"][0]), exact)
                     self.assertEqual(rows["item_qty[]"], ["2"])
                     self.assertEqual(rows["item_sequence[]"], ["1"])
                     self.assertContains(response, "<th>Weight each (lb)</th>", html=True)

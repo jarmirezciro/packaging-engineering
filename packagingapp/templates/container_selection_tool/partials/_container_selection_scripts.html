@@ -77,13 +77,10 @@
         if (spec.kind === "density") {
             const imperial = ["in", "ft"].includes(currentContainerDimensionUnit(prefix));
             input.dataset.grammageCanonical = value === null ? "" : String(value);
-            input.value = value === null ? "" : formatBoardNumber(value / (imperial ? LB_MSF_TO_GSM : 1), overridden ? 8 : 1);
+            window.KolliPackNumericInputs.setValue(input, value === null ? "" : value / (imperial ? LB_MSF_TO_GSM : 1));
             getRoot(prefix).querySelectorAll("[data-grammage-unit]").forEach(label => label.textContent = "(" + (imperial ? "lb/MSF" : "g/m²") + ")");
         } else {
             window.KolliPackUnitSelector.setCanonicalValue(input, value, spec.kind === "length" ? "mm" : "g");
-            if (!overridden && key === "caliper" && value !== null) {
-                input.value = formatBoardNumber(window.KolliPackUnitSelector.fromCanonicalValue(value, currentContainerDimensionUnit(prefix), "length"), currentContainerDimensionUnit(prefix) === "mm" ? 3 : 6);
-            }
         }
         showPropertySource(prefix, key, overridden);
         if (key === "product_weight" && data.inherited_product) {

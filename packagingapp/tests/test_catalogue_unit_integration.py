@@ -82,7 +82,8 @@ class CatalogueEntryUnitFormTests(SimpleTestCase):
         self.assertEqual(form.initial["product_length"], "12")
         self.assertEqual(form.initial["product_width"], "8")
         self.assertEqual(form.initial["product_height"], "5")
-        self.assertEqual(form.initial["weight"], "2.75577828")
+        self.assertEqual(form.initial["weight"], "2.755778277311")
+        self.assertEqual(form.fields["weight"].widget.attrs["data-unit-canonical-value"], "1.250")
         self.assertEqual(product.product_length, Decimal("304.800"))
 
         unchanged = ProductForm(
@@ -91,7 +92,7 @@ class CatalogueEntryUnitFormTests(SimpleTestCase):
                 "product_length": "12",
                 "product_width": "8",
                 "product_height": "5",
-                "weight": "2.75577828",
+                "weight": form.initial["weight"],
                 "desired_qty": "1",
                 "rotation_1": "on",
                 "catalogue_length_unit": "in",
