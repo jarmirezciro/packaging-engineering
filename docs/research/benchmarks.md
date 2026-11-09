@@ -149,7 +149,7 @@ The two cases also cover imperial units and allowances in the compendium.
 
 ## Palletization cases
 
-The [case compendium](/regressions) opens the public Palletization calculator
+The [case compendium](/regressions) opens the standalone Palletization tool
 with editable inputs. The [preset registry](../../packagingapp/tools/palletization/case_presets.py)
 records the exact inputs. Quantities below are shipping cartons per pallet
 unless the row specifies products, primary cartons, or bottles.

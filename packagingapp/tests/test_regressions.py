@@ -121,7 +121,7 @@ class RegressionCompendiumTests(TestCase):
                     ],
                 )
                 for heading, route, presets in (
-                    ("Palletization Cases", "palletization_calculator", PALLETIZATION_CASE_PRESETS),
+                    ("Palletization Cases", "palletization_mode1", PALLETIZATION_CASE_PRESETS),
                     ("Bag Selection Cases", "bag_selection_mode1", BAG_SELECTION_CASE_PRESETS),
                 ):
                     self.assertContains(response, heading)
@@ -194,6 +194,10 @@ class RegressionCompendiumTests(TestCase):
                 ), f"Overlapping cartons: {first} and {second}")
 
     def test_palletization_links_load_calculate_select_and_recalculate(self):
+        user = get_user_model().objects.create_user(username="pallet-case-units")
+        UserPreferences.objects.create(user=user, default_length_unit="ft", default_small_mass_unit="oz")
+        self.client.force_login(user)
+
         # Current default results. The benchmark notes record historical results
         # separately, including the compact Think Beyond the Box alternative.
         capacities = {
@@ -216,8 +220,8 @@ class RegressionCompendiumTests(TestCase):
             "think-beyond-the-box-alternative-7": (6, 4, 24),
         }
         page = self.client.get(reverse("regressions"))
-        route = reverse("palletization_calculator")
-        links = self.case_links(page, "palletization_calculator")
+        route = reverse("palletization_mode1")
+        links = self.case_links(page, "palletization_mode1")
         self.assertEqual(len(links), len(PALLETIZATION_CASE_PRESETS))
         self.assertEqual(set(capacities), set(PALLETIZATION_CASE_PRESETS))
 
@@ -226,8 +230,8 @@ class RegressionCompendiumTests(TestCase):
                 self.assertEqual(link, f"{route}?{urlencode({'case': slug})}")
                 self.assertContains(page, escape(preset["label"]))
                 response = self.client.get(link)
-                self.assertTemplateUsed(response, "marketing/palletization_calculator.html")
-                self.assertFalse(response.context["is_initial_example"])
+                self.assertTemplateUsed(response, "palletization/palletization_mode1.html")
+                self.assertEqual(response.context["mode"], "standalone")
                 config = {**default_palletization_config(), **preset["config"]}
                 self.assertEqual(response.context["pallet_config"], config)
                 form = response.context["form"]
@@ -249,39 +253,61 @@ class RegressionCompendiumTests(TestCase):
 
                 if len(rows) > 1:
                     alternative = rows[1]["result_key"]
-                    switched = self.client.post(route, {
+                    switched = self.client.post(link, {
                         **config, "action": "select_result", "selected_result_key": alternative,
                     })
                     self.assertEqual(switched.context["selected_result"]["result_key"], alternative)
                     self.assert_pallet_case_geometry(switched)
 
-                # Post to the same URL as the normal calculator form. The edit
-                # leaves room for one carton layer and exercises both unit systems.
+                # The standalone form posts back to the case URL. Allow room
+                # for exactly one layer of the edited carton height.
+                box_height = config["box_h"] + 1
                 carton_height = convert_length(
-                    config["box_h"], config["box_dimension_unit"], config["pallet_dimension_unit"]
+                    box_height, config["box_dimension_unit"], config["pallet_dimension_unit"]
                 )
                 stack_height = config["pallet_height"] + carton_height * 1.01
-                edited = self.client.post(route, {
-                    **config, "action": "run_analysis", "max_stack_height": stack_height,
+                edited = self.client.post(link, {
+                    **config, "action": "run_analysis", "box_h": box_height,
+                    "max_stack_height": stack_height,
                 })
+                self.assertEqual(edited.context["form"]["box_h"].value(), str(box_height))
                 self.assertEqual(edited.context["form"]["max_stack_height"].value(), str(stack_height))
                 self.assert_pallet_case_geometry(edited)
                 self.assertEqual(edited.context["selected_result"]["layers"], 1)
 
     def test_palletization_cases_leave_standalone_and_seo_defaults_available(self):
+        route = reverse("palletization_mode1")
         seo_route = reverse("palletization_calculator")
-        self.client.get(seo_route, {"case": "capepack-72in-16-pack"})
+        self.client.get(route, {"case": "capepack-72in-16-pack"})
 
-        standalone = self.client.get(reverse("palletization_mode1"))
+        standalone = self.client.get(route)
         self.assertTemplateUsed(standalone, "palletization/palletization_mode1.html")
         self.assertEqual(standalone.context["pallet_config"], default_palletization_config())
         self.assertIsNone(standalone.context["selected_result"])
+        self.assertEqual(self.client.get(route, {"case": "unknown-pallet-case"}).status_code, 404)
+
+        article_case = self.client.get(seo_route, {"case": "tops-pro-48x40-benchmark"})
+        self.assertTemplateUsed(article_case, "marketing/palletization_calculator.html")
+        self.assertFalse(article_case.context["is_initial_example"])
+        self.assertEqual(article_case.context["selected_result"]["total_boxes"], 50)
 
         example = self.client.get(seo_route)
         self.assertTrue(example.context["is_initial_example"])
         self.assertEqual(example.context["form"]["box_l"].value(), 400)
         self.assertEqual(example.context["form"]["pallet_dimension_unit"].value(), "mm")
         self.assertEqual(example.context["selected_result"]["total_boxes"], 40)
+
+        user = get_user_model().objects.create_user(username="pallet-default-units")
+        UserPreferences.objects.create(user=user, default_length_unit="ft", default_small_mass_unit="oz")
+        self.client.force_login(user)
+        standalone = self.client.get(route)
+        self.assertEqual(standalone.context["pallet_config"], {
+            **default_palletization_config(),
+            "box_dimension_unit": "ft",
+            "pallet_dimension_unit": "ft",
+            "mass_unit": "oz",
+        })
+        self.assertIsNone(standalone.context["selected_result"])
 
     def test_case_links_preserve_inputs_results_and_exports_across_session(self):
         page = self.client.get(reverse("regressions"))

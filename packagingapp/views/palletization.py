@@ -2,7 +2,7 @@ import json
 
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
@@ -547,10 +547,20 @@ def _build_palletization_seo_schema(request):
 
 
 def palletization_mode1(request):
+    case_slug = (request.GET.get("case") or "").strip() if request.method == "GET" else ""
+    case_preset = get_palletization_case_preset(case_slug)
+    if case_slug and case_preset is None:
+        raise Http404("Unknown Palletization case.")
+
     return render(
         request,
         "palletization/palletization_mode1.html",
-        _build_palletization_page_context(request, mode="standalone"),
+        _build_palletization_page_context(
+            request,
+            mode="standalone",
+            initial_config=case_preset["config"] if case_preset else None,
+            run_initial_analysis=bool(case_preset),
+        ),
     )
 
 
