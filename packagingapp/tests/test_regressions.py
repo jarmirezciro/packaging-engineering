@@ -1,6 +1,8 @@
 import json
 import tempfile
+from collections import defaultdict
 from html.parser import HTMLParser
+from itertools import combinations
 from math import prod
 from urllib.parse import urlencode
 
@@ -16,6 +18,7 @@ from packagingapp.tools.bag.case_presets import BAG_SELECTION_CASE_PRESETS
 from packagingapp.tools.bag.service import analyze_bag_config
 from packagingapp.tools.container.case_presets import CONTAINER_SELECTION_CASE_PRESETS
 from packagingapp.tools.palletization.case_presets import PALLETIZATION_CASE_PRESETS
+from packagingapp.tools.palletization.state import default_palletization_config
 from packagingapp.tools.transport.case_presets import (
     TRANSPORT_CONTAINER_CASE_PRESETS,
     get_transport_container_case_preset,
@@ -130,6 +133,150 @@ class RegressionCompendiumTests(TestCase):
             301,
             fetch_redirect_response=False,
         )
+
+    def assert_pallet_case_geometry(self, response):
+        result = response.context["selected_result"]
+        self.assertIsNotNone(result, response.context["form"].errors)
+        scene = response.context["threejs_scene"]
+        self.assertEqual(scene["units"], "mm")
+        self.assertEqual(len(scene["placements"]), result["total_boxes"])
+        self.assertEqual(scene["total_cases"], result["total_boxes"])
+        self.assertEqual(scene["layers"], result["layers"])
+
+        config = response.context["pallet_config"]
+        box_unit = config["box_dimension_unit"]
+        pallet_unit = config["pallet_dimension_unit"]
+        for axis, suffix in (("length", "l"), ("width", "w"), ("height", "h")):
+            self.assertAlmostEqual(
+                scene["case"][axis], convert_length(float(config[f"box_{suffix}"]), box_unit, "mm")
+            )
+            pallet_field = f"pallet_{axis if axis == 'height' else suffix}"
+            self.assertAlmostEqual(
+                scene["pallet"][axis], convert_length(float(config[pallet_field]), pallet_unit, "mm")
+            )
+
+        limits = {}
+        for axis, length in (("x", "length"), ("y", "width")):
+            allowance = convert_length(float(config[f"max_{length}_stickout"] or 0), pallet_unit, "mm")
+            limits[axis] = (-allowance / 2, scene["pallet"][length] + allowance / 2)
+        deck = scene["pallet"]["height"]
+        limits["z"] = (deck, convert_length(float(config["max_stack_height"]), pallet_unit, "mm"))
+
+        epsilon = 1e-6
+        length, width = scene["case"]["length"], scene["case"]["width"]
+        footprints = {"LxW": (length, width), "WxL": (width, length)}
+        layers = defaultdict(list)
+        for carton in scene["placements"]:
+            layers[carton["layer"]].append(carton)
+            self.assertIn(carton["orientation"], footprints)
+            length, width = footprints[carton["orientation"]]
+            self.assertAlmostEqual(carton["dx"], length)
+            self.assertAlmostEqual(carton["dy"], width)
+            self.assertAlmostEqual(carton["dz"], scene["case"]["height"])
+            self.assertAlmostEqual(carton["z"], deck + (carton["layer"] - 1) * carton["dz"])
+            for axis, (lower, upper) in limits.items():
+                self.assertGreater(carton[f"d{axis}"], 0)
+                self.assertGreaterEqual(carton[axis], lower - epsilon)
+                self.assertLessEqual(carton[axis] + carton[f"d{axis}"], upper + epsilon)
+
+        self.assertEqual(set(layers), set(range(1, result["layers"] + 1)))
+        for layer in layers.values():
+            for first, second in combinations(layer, 2):
+                self.assertTrue(any(
+                    first[axis] + first[f"d{axis}"] <= second[axis] + epsilon
+                    or second[axis] + second[f"d{axis}"] <= first[axis] + epsilon
+                    for axis in ("x", "y")
+                ), f"Overlapping cartons: {first} and {second}")
+
+    def test_palletization_links_load_calculate_select_and_recalculate(self):
+        # Current default results. The benchmark notes record historical results
+        # separately, including the compact Think Beyond the Box alternative.
+        capacities = {
+            "tops-pro-48x40-benchmark": (10, 5, 50),
+            "tops-case-pack-8": (24, 6, 144),
+            "tops-case-pack-16": (11, 7, 77),
+            "capepack-original-216": (9, 2, 18),
+            "capepack-original-240": (4, 5, 20),
+            "capepack-72in-12-pack": (10, 3, 30),
+            "capepack-72in-16-pack": (8, 3, 24),
+            "north-american-splitrow": (24, 6, 144),
+            "pinwheel-mosaic": (24, 8, 192),
+            "brick-centre-filled": (18, 5, 90),
+            "maximum-pallet-load": (6, 4, 22),
+            "bottom-carton-load": (24, 8, 192),
+            "overhang-feasibility": (1, 2, 2),
+            "fractional-dimensions": (34, 6, 204),
+            "exact-stack-height": (8, 1, 8),
+            "think-beyond-the-box-compact": (5, 4, 20),
+            "think-beyond-the-box-alternative-7": (6, 4, 24),
+        }
+        page = self.client.get(reverse("regressions"))
+        route = reverse("palletization_calculator")
+        links = self.case_links(page, "palletization_calculator")
+        self.assertEqual(len(links), len(PALLETIZATION_CASE_PRESETS))
+        self.assertEqual(set(capacities), set(PALLETIZATION_CASE_PRESETS))
+
+        for link, (slug, preset) in zip(links, PALLETIZATION_CASE_PRESETS.items()):
+            with self.subTest(case=slug):
+                self.assertEqual(link, f"{route}?{urlencode({'case': slug})}")
+                self.assertContains(page, escape(preset["label"]))
+                response = self.client.get(link)
+                self.assertTemplateUsed(response, "marketing/palletization_calculator.html")
+                self.assertFalse(response.context["is_initial_example"])
+                config = {**default_palletization_config(), **preset["config"]}
+                self.assertEqual(response.context["pallet_config"], config)
+                form = response.context["form"]
+                for key in form.fields.keys() & config.keys():
+                    self.assertEqual(form[key].value(), config[key], key)
+                advanced = int(config["show_advanced"])
+                self.assertContains(response, f'name="show_advanced" id="show_advanced" value="{advanced}"')
+                self.assert_pallet_case_geometry(response)
+                selected = response.context["selected_result"]
+                self.assertEqual(
+                    (selected["boxes_layer_A"], selected["layers"], selected["total_boxes"]),
+                    capacities[slug],
+                )
+                rows = response.context["results_table"]
+                self.assertIn(selected["result_key"], [row["result_key"] for row in rows])
+                export = self.client.session["palletization_last_export"]
+                self.assertEqual(export["analysis_report"], selected)
+                json.dumps(export, allow_nan=False)
+
+                if len(rows) > 1:
+                    alternative = rows[1]["result_key"]
+                    switched = self.client.post(route, {
+                        **config, "action": "select_result", "selected_result_key": alternative,
+                    })
+                    self.assertEqual(switched.context["selected_result"]["result_key"], alternative)
+                    self.assert_pallet_case_geometry(switched)
+
+                # Post to the same URL as the normal calculator form. The edit
+                # leaves room for one carton layer and exercises both unit systems.
+                carton_height = convert_length(
+                    config["box_h"], config["box_dimension_unit"], config["pallet_dimension_unit"]
+                )
+                stack_height = config["pallet_height"] + carton_height * 1.01
+                edited = self.client.post(route, {
+                    **config, "action": "run_analysis", "max_stack_height": stack_height,
+                })
+                self.assertEqual(edited.context["form"]["max_stack_height"].value(), str(stack_height))
+                self.assert_pallet_case_geometry(edited)
+                self.assertEqual(edited.context["selected_result"]["layers"], 1)
+
+    def test_palletization_cases_leave_standalone_and_seo_defaults_available(self):
+        seo_route = reverse("palletization_calculator")
+        self.client.get(seo_route, {"case": "capepack-72in-16-pack"})
+
+        standalone = self.client.get(reverse("palletization_mode1"))
+        self.assertTemplateUsed(standalone, "palletization/palletization_mode1.html")
+        self.assertEqual(standalone.context["pallet_config"], default_palletization_config())
+        self.assertIsNone(standalone.context["selected_result"])
+
+        example = self.client.get(seo_route)
+        self.assertTrue(example.context["is_initial_example"])
+        self.assertEqual(example.context["form"]["box_l"].value(), 400)
+        self.assertEqual(example.context["form"]["pallet_dimension_unit"].value(), "mm")
+        self.assertEqual(example.context["selected_result"]["total_boxes"], 40)
 
     def test_case_links_preserve_inputs_results_and_exports_across_session(self):
         page = self.client.get(reverse("regressions"))
