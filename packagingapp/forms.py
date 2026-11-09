@@ -415,7 +415,7 @@ class PackagingMaterialImagesZipUploadForm(forms.Form):
     )
 
 
-class NonNegativeFiniteFloatField(forms.FloatField):
+class FiniteFloatField(forms.FloatField):
     """Optional numeric input that rejects NaN and infinity explicitly."""
 
     def validate(self, value):
@@ -506,33 +506,30 @@ class ContainerSelectionMode1Form(forms.Form):
         initial="mm",
         widget=forms.HiddenInput(),
     )
-    product_allowance_l = NonNegativeFiniteFloatField(
-        min_value=0,
+    product_allowance_l = FiniteFloatField(
         initial=0,
         required=False,
         label="Length allowance",
         widget=forms.NumberInput(attrs={
-            "class": "form-control", "step": "any", "min": "0",
+            "class": "form-control", "step": "any",
             "data-unit-input": "true", "data-unit-group": "container-product-dimensions",
         }),
     )
-    product_allowance_w = NonNegativeFiniteFloatField(
-        min_value=0,
+    product_allowance_w = FiniteFloatField(
         initial=0,
         required=False,
         label="Width allowance",
         widget=forms.NumberInput(attrs={
-            "class": "form-control", "step": "any", "min": "0",
+            "class": "form-control", "step": "any",
             "data-unit-input": "true", "data-unit-group": "container-product-dimensions",
         }),
     )
-    product_allowance_h = NonNegativeFiniteFloatField(
-        min_value=0,
+    product_allowance_h = FiniteFloatField(
         initial=0,
         required=False,
         label="Height allowance",
         widget=forms.NumberInput(attrs={
-            "class": "form-control", "step": "any", "min": "0",
+            "class": "form-control", "step": "any",
             "data-unit-input": "true", "data-unit-group": "container-product-dimensions",
         }),
     )
@@ -930,7 +927,7 @@ class BagSelectionForm(forms.Form):
         widget=forms.HiddenInput(),
     )
 
-    product_allowance_l = NonNegativeFiniteFloatField(
+    product_allowance_l = FiniteFloatField(
         min_value=0,
         initial=0,
         required=False,
@@ -940,7 +937,7 @@ class BagSelectionForm(forms.Form):
             "data-unit-input": "true", "data-unit-group": "bag-product-dimensions",
         }),
     )
-    product_allowance_w = NonNegativeFiniteFloatField(
+    product_allowance_w = FiniteFloatField(
         min_value=0,
         initial=0,
         required=False,
@@ -950,7 +947,7 @@ class BagSelectionForm(forms.Form):
             "data-unit-input": "true", "data-unit-group": "bag-product-dimensions",
         }),
     )
-    product_allowance_h = NonNegativeFiniteFloatField(
+    product_allowance_h = FiniteFloatField(
         min_value=0,
         initial=0,
         required=False,

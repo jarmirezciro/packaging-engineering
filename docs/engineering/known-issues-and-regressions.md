@@ -124,6 +124,13 @@ means unresolved protection, not an accepted fix; **historical/retired** keeps
 an obsolete contract discoverable with its replacement. Do not delete or
 silently relabel a historical expectation to approve a new outcome.
 
+### Active Container Selection input and result regressions
+
+| ID | Defect and root cause | Protected behavior and test reference | Status |
+| --- | --- | --- | --- |
+| CS-REG-001 | Container Selection rejected valid negative allowances through form minima and the shared allowance sign check. | Signed allowances are applied once to nominal dimensions. Invalid effective axes stop packing across entry points. Catalogue dimensions, rendering geometry, units and rotation permissions are preserved. `packagingapp.tests.test_product_dimensional_allowance` | Protected |
+| CS-REG-002 | Legacy inference treated tare values without an override flag as manual, including a default zero. | Design requires an explicit override. Each candidate has its own estimated or unavailable tare, the selected value appears in Advanced, and Flow inherits gross weight and its source. Deliberate zero and restoring the automatic source are protected by `packagingapp.tests.test_container_geometry_first`. | Protected |
+
 ### Active Transport index
 
 Test paths below are relative to `packagingapp.tests.`. A module entry protects

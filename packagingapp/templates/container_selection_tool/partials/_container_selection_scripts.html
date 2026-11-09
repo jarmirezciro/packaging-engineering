@@ -108,9 +108,9 @@
     }
     function invalidateTareEstimate(prefix) {
         const data = advancedData(prefix);
-        if (data && data.baselines.tare.source === "estimated_material" && !propertyIsOverridden(prefix, "tare")) {
+        if (data && data.baselines.tare.source === "estimated_material") {
             data.baselines.tare = {value: null, source: "estimated_material", label: "Recalculate estimate"};
-            renderProperty(prefix, "tare");
+            if (!propertyIsOverridden(prefix, "tare")) renderProperty(prefix, "tare");
         }
     }
     function updateCorrugatedMaterialFields(prefix, changedBoard) {
@@ -298,6 +298,10 @@
         }
         const root = getRoot(prefix);
         if (!root) return;
+        const tareInput = getField(properties.tare.field, prefix);
+        form.addEventListener("formdata", function (event) {
+            if (tareInput && !propertyIsOverridden(prefix, "tare")) event.formData.delete(tareInput.name);
+        });
         const corrugatedMaterialField = getField("corrugated_material_id", prefix);
         if (corrugatedMaterialField) corrugatedMaterialField.addEventListener("change", function () {
             setHidden(prefix, "corrugated_material_user_selected", "1");
@@ -333,6 +337,9 @@
             });
         });
         root.addEventListener("input", function (event) {
+            if (["box_l", "box_w", "box_h"].some(name => event.target === getField(name, prefix))) {
+                invalidateTareEstimate(prefix);
+            }
             if (!event.target.matches('input[type="hidden"]')) markResultStale(prefix);
         });
         root.addEventListener("change", function (event) {

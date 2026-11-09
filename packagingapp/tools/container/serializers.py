@@ -17,22 +17,27 @@ def sanitize_container_config_for_session(config):
     original = config or {}
     base = default_container_config()
     base.update(original)
+    base["mode"] = normalize_selection_mode(base)
     thickness_override = base.get("box_thickness_user_override")
     if "box_thickness_user_override" not in original:
         # Existing sessions with an explicit thickness must keep behaving as
         # manual overrides after the new auto-caliper state is introduced.
         thickness_override = bool(str(base.get("box_thickness_mm") or "").strip())
     for key, flag in (("box_weight", "box_weight_user_override"), ("box_max_payload", "box_max_payload_user_override"), ("product_weight", "product_weight_user_override")):
+        if key == "box_weight" and base["mode"] == "design":
+            continue
         if flag not in original and base.get(key) not in (None, ""):
             base[flag] = "1"
     base["box_thickness_user_override"] = "1" if _as_bool(thickness_override) else ""
     base = normalize_container_override_scope(base)
+    if not _as_bool(base.get("box_weight_user_override")):
+        base["box_weight"] = ""
     thickness_override = base.get("box_thickness_user_override")
 
     return {
         **{key: _safe_str(base.get(key)) if key.endswith("_target") else "1" if _as_bool(base.get(key)) else ""
            for key in CONTAINER_ADVANCED_STATE_DEFAULTS},
-        "mode": normalize_selection_mode(base),
+        "mode": base["mode"],
         "action": _safe_str(base.get("action") or ""),
 
         "product_source": _safe_str(base.get("product_source") or "manual"),

@@ -17,8 +17,8 @@ PRODUCT_ALLOWANCE_KEYS = (
 )
 
 
-def normalize_product_allowances(values, unit="mm"):
-    """Return non-negative product allowances in canonical millimetres.
+def normalize_product_allowances(values, unit="mm", *, allow_negative=False):
+    """Return product allowances in canonical millimetres.
 
     Blank or missing values are deliberately treated as zero for backwards
     compatibility with saved sessions and older callers that do not know
@@ -31,13 +31,14 @@ def normalize_product_allowances(values, unit="mm"):
             continue
         try:
             numeric = float(value)
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError, OverflowError) as exc:
             raise ValueError("Product dimensional allowances must be numeric.") from exc
-        if not math.isfinite(numeric) or numeric < 0:
-            raise ValueError(
-                "Product dimensional allowances must be finite and non-negative."
-            )
-        normalized.append(float(convert_length(numeric, unit or "mm", "mm")))
+        if not allow_negative and numeric < 0:
+            raise ValueError("Product dimensional allowances must be non-negative.")
+        converted = float(convert_length(numeric, unit or "mm", "mm"))
+        if not math.isfinite(converted):
+            raise ValueError("Product dimensional allowances must be finite.")
+        normalized.append(converted)
     return tuple(normalized)
 
 

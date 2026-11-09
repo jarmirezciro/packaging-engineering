@@ -159,7 +159,11 @@ def _read_raw_container_config(
 
     if "box_thickness_user_override" not in source and "box_thickness_user_override" not in (initial_config or {}) and cfg.get("box_thickness_mm"):
         cfg["box_thickness_user_override"] = "1"
+    if cfg["mode"] == "design" and "box_weight_user_override" not in source:
+        cfg["box_weight"] = (initial_config or {}).get("box_weight", "")
     for key, flag in (("box_weight", "box_weight_user_override"), ("box_max_payload", "box_max_payload_user_override"), ("product_weight", "product_weight_user_override")):
+        if key == "box_weight" and cfg["mode"] == "design":
+            continue
         if flag not in source and flag not in (initial_config or {}) and cfg.get(key) not in (None, ""):
             cfg[flag] = "1"
     return sanitize_container_config_for_session(cfg)
@@ -693,7 +697,9 @@ def _build_container_selection_page_context(
     new_container_config = initial_config is None and request.method == "GET"
     config = apply_manual_rsc_design_defaults(
         config,
-        enabled=new_container_config,
+        enabled=new_container_config or (
+            initial_config is None and "corrugated_material_id" not in request.POST
+        ),
     )
 
     selected_product = get_selected_product(config, user=catalogue_user)

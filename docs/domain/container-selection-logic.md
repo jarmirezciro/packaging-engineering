@@ -169,6 +169,8 @@ and catalogue allowances use the active shared product-dimension unit; the
 catalogue picker converts its canonical millimetre dimensions for display.
 Missing or blank allowance fields normalize to zero, preserving older sessions
 and submissions.
+Container allowances may be positive, zero, or negative. Every resulting
+effective axis must be finite and strictly positive before packing starts.
 
 ## Assumptions
 
@@ -215,6 +217,11 @@ used as caliper.
 Caliper, grammage, carton tare, payload and product weight support independent
 calculation-only overrides in Single (manual or catalogue), Design and Optimal.
 Each has an explicit override flag and a contextual **Restore source** action.
+Design requires an explicit tare override flag, including for a deliberate zero.
+Otherwise each candidate resolves its own tare from its internal dimensions and
+the current board grammage. Advanced Parameters displays the selected
+candidate's estimate or unavailable state. The estimate belongs to the result
+and is omitted from the editable tare submission and saved input configuration.
 Catalogue objects remain read-only. Non-overridden values resolve again on the
 server, so a rounded imperial display cannot overwrite canonical values. Legacy
 thickness-only sessions and legacy custom grammage remain readable. The

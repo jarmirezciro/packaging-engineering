@@ -134,10 +134,19 @@ def build_container_advanced_context(config, form, selected_product=None, select
         dimensions = tuple(float(getattr(selected_material, "part_" + axis)) for axis in ("length", "width", "height"))
     elif config.get("mode") != "design" and all(cleaned.get(key) is not None for key in ("box_l", "box_w", "box_h")):
         dimensions = tuple(float(convert_length(cleaned[key], cleaned.get("container_dimension_unit") or "mm", "mm")) for key in ("box_l", "box_w", "box_h"))
-    tare = _resolve_container_weight(probe, source, selected_material, dimensions)
+    tare_override = str(cleaned.get("box_weight_user_override") or "") == "1"
     baseline_form = SimpleNamespace(data={**dict(probe.data), "box_weight_user_override": "", "box_max_payload_user_override": ""},
                                     cleaned_data={**cleaned, "box_weight_user_override": "", "box_max_payload_user_override": ""})
-    baseline_tare = _resolve_container_weight(baseline_form, source, selected_material, dimensions)
+    specification = (analysis_report or {}).get("effective_specification") or {}
+    if config.get("mode") == "design" and not tare_override and specification.get("carton_tare_source"):
+        baseline_tare = {
+            "tare_g": specification.get("carton_tare_g"),
+            "source": specification["carton_tare_source"],
+            "source_label": analysis_report["carton_tare_source_display"],
+        }
+    else:
+        baseline_tare = _resolve_container_weight(baseline_form, source, selected_material, dimensions)
+    tare = _resolve_container_weight(probe, source, selected_material, dimensions) if tare_override else baseline_tare
     product_source = config.get("product_source") or "manual"
     product_weight = _resolve_product_weight(probe, product_source, selected_product)
     product_baseline = float(kg_to_g(selected_product.weight)) if product_source == "catalogue" and selected_product is not None and selected_product.weight is not None else None
@@ -157,7 +166,7 @@ def build_container_advanced_context(config, form, selected_product=None, select
     def mass(value, unit):
         return number(convert_mass(value, "g", unit)) if value is not None else ""
     flags = {"caliper": properties["caliper_user_override"], "grammage": properties["grammage_user_override"],
-             "tare": str(cleaned.get("box_weight_user_override") or "") == "1",
+             "tare": tare_override,
              "payload": str(cleaned.get("box_max_payload_user_override") or "") == "1", "product_weight": product_override}
     baselines = {
         "caliper": {"value": properties["caliper_baseline_mm"], "label": properties["caliper_baseline_source_display"], "source": properties["caliper_baseline_source"]},

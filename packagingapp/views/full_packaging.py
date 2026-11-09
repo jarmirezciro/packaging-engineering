@@ -2248,7 +2248,11 @@ def _process_container_step(step, steps, idx, post):
         post.get(f"selected_design_candidate_id_{idx}", cfg.get("selected_design_candidate_id", "")),
     )
 
+    if cfg["mode"] == "design" and f"box_weight_user_override{suffix}" not in post:
+        cfg["box_weight"] = existing_cfg.get("box_weight", "")
     for key, flag in (("box_weight", "box_weight_user_override"), ("box_max_payload", "box_max_payload_user_override"), ("product_weight", "product_weight_user_override")):
+        if key == "box_weight" and cfg["mode"] == "design":
+            continue
         if f"{flag}{suffix}" not in post and post.get(f"{key}{suffix}") not in (None, ""):
             cfg[flag] = "1"
     if idx != 0:

@@ -19,6 +19,7 @@ from packagingapp.tools.container.service import (
     build_container_form, get_corrugated_materials,
 )
 from packagingapp.tools.container.state import default_container_config
+from packagingapp.units import convert_mass
 from packagingapp.views.container_selection import _build_design_export_payload, _build_single_export_payload, _read_raw_container_config
 from packagingapp.views import full_packaging as flow
 
@@ -95,6 +96,8 @@ class GeometryFirstContainerTests(TestCase):
         self.assertEqual(float(advanced["inputs"]["box_thickness_mm"]), 4.08)
         self.assertEqual(float(advanced["inputs"]["combined_grammage_g_m2"]), 560.2)
         self.assertEqual(advanced["properties"]["grammage_source"], "reference_assumption")
+        self.assertEqual(advanced["inputs"]["box_weight"], "")
+        self.assertEqual(advanced["labels"]["tare"], "Unavailable")
         markup = FormMarkup(response.content.decode())
         panels = [attrs for _, attrs in markup.nodes if "data-tool-advanced-panel" in attrs]
         self.assertEqual(len(panels), 2)
@@ -324,6 +327,117 @@ class GeometryFirstContainerTests(TestCase):
         config["corrugated_material_user_selected"] = "1"
         analysis = analyze_container_form(self.form(config), config)
         self.assertEqual(analysis["analysis_report"]["grammage_source"], "construction")
+
+    def test_design_reference_tares_and_selected_candidate_match_in_both_surfaces(self):
+        config = self.config(
+            mode="design", action="run_design", desired_qty="16",
+            product_l="6", product_w="5", product_h="7",
+            product_allowance_w="-1",
+            product_dimension_unit="in", product_mass_unit="lb", product_weight="1",
+            container_dimension_unit="in", container_mass_unit="lb",
+            r1="", r2="", r3="on",
+        )
+        # Simulate a legacy/default weight without evidence of an intentional edit.
+        for key in ("box_weight_user_override", "corrugated_material_id", "r1", "r2"):
+            config.pop(key)
+        config["box_weight"] = "0"
+        self.assertEqual(sanitize_container_config_for_session(config)["box_weight"], "")
+        standalone_url = reverse("container_selection_mode1")
+        flow_url = reverse("full_packaging_mode")
+        self.client.post(flow_url, {"action": "add_step", "step_type": "container"})
+        self.client.post(flow_url, {"action": "add_step", "after_index": "0", "step_type": "pallet"})
+
+        def submit(flow_mode, values):
+            if flow_mode:
+                response = self.client.post(flow_url, {**{f"{key}_0": value for key, value in values.items()},
+                                                       "action": "run_step", "index": "0"}, follow=True)
+                return response.context["steps"][0]
+            return self.client.post(standalone_url, values).context
+
+        expected = {
+            "16 × 12 × 14 in": ("1.178 lb", "17.178 lb"),
+            "24 × 8 × 14 in": ("1.139 lb", "17.139 lb"),
+            "24 × 16 × 7 in": ("1.475 lb", "17.475 lb"),
+        }
+        for flow_mode in (False, True):
+            with self.subTest(flow=flow_mode):
+                context = submit(flow_mode, config)
+                candidates = context["design_candidates"]
+                self.assertEqual({
+                    row["container_dimensions_display"]: (row["carton_tare_display"], row["gross_carton_weight_display"])
+                    for row in candidates[:3]
+                }, expected)
+                for row in candidates:
+                    self.assertEqual(row["carton_tare_source"], "estimated_material")
+                    self.assertAlmostEqual(float(convert_mass(row["gross_carton_weight_g"], "g", "lb")),
+                                           16 + float(row["carton_tare_display"].split()[0]), places=3)
+                self.assertEqual(context["container_advanced"]["labels"]["tare"], "Estimated from assumed material data")
+                first_report = context["analysis_report"]
+                candidate = next(row for row in candidates if row["candidate_id"] != first_report["candidate_id"])
+                selected = submit(flow_mode, {
+                    **config, "action": "select_design_candidate", "selected_design_candidate_id": candidate["candidate_id"],
+                    "corrugated_material_id": self.board.code, "box_weight": context["container_advanced"]["inputs"]["box_weight"],
+                })
+                report = selected["analysis_report"]
+                self.assertEqual(report["candidate_id"], candidate["candidate_id"])
+                self.assertNotEqual(report["carton_tare_g"], first_report["carton_tare_g"])
+                self.assertAlmostEqual(float(selected["container_advanced"]["inputs"]["box_weight"]),
+                                       convert_mass(report["effective_specification"]["carton_tare_g"], "g", "lb"), places=10)
+                if flow_mode:
+                    pending = selected["pending_result"]
+                    self.assertEqual(selected["config"]["box_weight"], "")
+                    self.assertEqual(pending["carton_tare_source"], "estimated_material")
+                    self.assertEqual(pending["weight_g"], report["gross_carton_weight_g"])
+                    self.client.post(flow_url, {"action": "use_step_result", "index": "0"})
+                    saved_steps = self.client.session["full_packaging_mode_session"]["steps"]
+                    inherited = flow._apply_payload_to_config(saved_steps[1]["config"], "pallet", saved_steps[0]["selected"])
+                    self.assertEqual(inherited["box_weight"], report["gross_carton_weight_g"])
+                    self.assertEqual(saved_steps[0]["selected"]["effective_specification"]["carton_tare_source"], "estimated_material")
+                    manual = submit(True, {**config, "box_weight_user_override": "1"})
+                    self.assertEqual(manual["analysis_report"]["carton_tare_source"], "manual")
+                    self.assertEqual(manual["analysis_report"]["carton_tare_g"], 0)
+                    self.assertEqual(manual["config"]["box_weight"], "0")
+                    partial = submit(True, {**config, "box_weight": "1.178"})
+                    self.assertEqual(partial["analysis_report"]["carton_tare_g"], 0)
+                    restored = submit(True, {**config, "box_weight_user_override": ""})
+                    self.assertEqual(restored["analysis_report"]["carton_tare_source"], "estimated_material")
+                    self.assertEqual(restored["config"]["box_weight"], "")
+                    self.assertEqual(submit(True, config)["analysis_report"]["carton_tare_source"], "estimated_material")
+
+    def test_design_tare_override_restore_and_material_changes_in_supported_mass_units(self):
+        url = reverse("container_selection_mode1")
+        config = self.config(mode="design", action="run_design", corrugated_material_id=self.board.code)
+        initial = self.client.post(url, config).context["analysis_report"]
+        for unit in ("g", "kg", "oz", "lb"):
+            with self.subTest(unit=unit):
+                for value in (0, 1.25):
+                    response = self.client.post(url, {**config, "container_mass_unit": unit,
+                                                      "box_weight": value, "box_weight_user_override": "1"})
+                    report = response.context["analysis_report"]
+                    self.assertEqual(report["carton_tare_source"], "manual")
+                    self.assertAlmostEqual(report["effective_specification"]["carton_tare_g"], convert_mass(value, unit, "g"))
+                    self.assertEqual(float(response.context["container_advanced"]["inputs"]["box_weight"]), value)
+                restored = self.client.post(url, {**config, "container_mass_unit": unit,
+                                                  "box_weight": "1.25", "box_weight_user_override": ""}).context
+                self.assertEqual(restored["analysis_report"]["carton_tare_g"], initial["carton_tare_g"])
+                estimate = restored["container_advanced"]["inputs"]["box_weight"]
+                self.assertAlmostEqual(float(estimate), convert_mass(initial["effective_specification"]["carton_tare_g"], "g", unit), places=8)
+                recalculated = self.client.post(url, {**config, "container_mass_unit": unit,
+                    "box_weight": estimate, "combined_grammage_g_m2": "700", "grammage_user_override": "1"}).context
+                self.assertGreater(recalculated["analysis_report"]["carton_tare_g"], initial["carton_tare_g"])
+                self.assertEqual(recalculated["analysis_report"]["carton_tare_source"], "estimated_material")
+
+        alternate_board = (CorrugatedBoardConstruction.objects.filter(is_active=True, combined_grammage_g_m2__gt=0)
+                           .exclude(combined_grammage_g_m2=self.board.combined_grammage_g_m2).first())
+        changed = self.client.post(url, {**config, "corrugated_material_id": alternate_board.code,
+                                        "corrugated_material_user_selected": "1"}).context["analysis_report"]
+        self.assertNotEqual(changed["carton_tare_g"], initial["carton_tare_g"])
+        no_material = self.client.post(url, {**config, "corrugated_material_id": "",
+                                           "corrugated_material_user_selected": "1", "box_weight": "0"}).context
+        self.assertEqual(no_material["container_advanced"]["inputs"]["box_weight"], "")
+        self.assertEqual(no_material["container_advanced"]["labels"]["tare"], "Unavailable")
+        self.assertIsNone(no_material["analysis_report"]["carton_tare_g"])
+        self.assertIsNone(no_material["analysis_report"]["gross_carton_weight_g"])
 
     def test_effective_snapshot_retains_upstream_weight_uncertainty(self):
         sku = self.sku(part_weight=".350")

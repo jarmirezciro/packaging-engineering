@@ -35,7 +35,7 @@
 <input type="hidden" name="{{ container_ui.names.product_dimension_unit }}"
        id="{{ container_ui.unit_selectors.product_dimensions.hidden_id }}"
        value="{{ container_values.product_dimension_unit|default:'mm' }}"
-       data-unit-hidden data-unit-group="{{ container_ui.unit_selectors.product_dimensions.group }}">
+       data-unit-hidden data-unit-preserve-precision data-unit-group="{{ container_ui.unit_selectors.product_dimensions.group }}">
 <input type="hidden" name="{{ container_ui.names.product_mass_unit }}"
        id="{{ container_ui.unit_selectors.product_mass.hidden_id }}"
        value="{{ container_values.product_mass_unit|default:'g' }}"

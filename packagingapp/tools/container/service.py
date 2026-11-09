@@ -1,3 +1,4 @@
+import math
 from types import SimpleNamespace
 from django.conf import settings
 
@@ -763,10 +764,11 @@ def _normalize_manual_container_inputs(form, config, product_source, container_s
                 for key in PRODUCT_ALLOWANCE_KEYS
             ),
             product_dimension_unit or "mm",
+            allow_negative=True,
         )
     except (TypeError, ValueError, UnsupportedUnitError):
         product_allowances = (0.0, 0.0, 0.0)
-        messages.append("Product dimensional allowances must be finite and non-negative.")
+        messages.append("Product dimensional allowances must be finite numbers.")
 
     container = None
     if container_source == "manual" and container_dimension_unit is not None:
@@ -793,6 +795,14 @@ def _normalize_manual_container_inputs(form, config, product_source, container_s
         "container_mass_unit": container_mass_unit,
         "messages": messages,
     }
+
+
+def _resolve_packing_product(nominal_product, allowances, messages):
+    effective = apply_product_allowances(nominal_product, allowances)
+    if effective is not None and any(not math.isfinite(value) or value <= 0 for value in effective):
+        messages.append("Effective product dimensions must be finite and greater than zero.")
+        return None
+    return effective
 
 
 def _resolve_manual_quantity(form, key, unit_key, converter, canonical_unit):
@@ -965,7 +975,11 @@ def _resolve_container_weight(
     properties = resolve_container_material_properties(
         form, container_source, selected_material, selected_board_construction,
     )
-    explicit = _analysis_override(form, "box_weight", "box_weight_user_override", container_source, selected_material)
+    cleaned = getattr(form, "cleaned_data", {}) or {}
+    if cleaned.get("mode") == "design":
+        explicit = str(cleaned.get("box_weight_user_override") or "") == "1"
+    else:
+        explicit = _analysis_override(form, "box_weight", "box_weight_user_override", container_source, selected_material)
     if explicit:
         explicit_tare = _resolve_manual_quantity(form, "box_weight", "container_mass_unit", convert_mass, "g")
         if explicit_tare is not None:
@@ -1422,13 +1436,12 @@ def _analyze_container_design(
     product_allowances=None,
     selected_board_construction=None,
 ):
-    packing_product = packing_product if packing_product is not None else product
     product_allowances = tuple(product_allowances or (0.0, 0.0, 0.0))
     messages = list(initial_messages or [])
     notices = []
     desired_quantity = form.cleaned_data.get("desired_qty")
     action = form.cleaned_data.get("action") or ""
-    if packing_product is None or any(float(value) <= 0 for value in packing_product):
+    if packing_product is None and not messages:
         messages.append("Enter product length, width, and height greater than zero in millimetres.")
     if desired_quantity is None or int(desired_quantity) <= 0:
         messages.append("Enter the desired quantity as a positive whole number.")
@@ -1563,9 +1576,10 @@ def analyze_container_form(
         selected_product=selected_product,
         normalized_product=normalized_inputs["product"],
     )
-    packing_product = apply_product_allowances(
+    packing_product = _resolve_packing_product(
         nominal_product,
         normalized_inputs["product_allowances"],
+        messages,
     )
     product_unit_scene = build_product_unit_scene(
         nominal_product,
@@ -1784,13 +1798,14 @@ def analyze_container_capacity(
         selected_product=selected_product,
         normalized_product=normalized_inputs["product"],
     )
-    product = apply_product_allowances(
+    messages = list(normalized_inputs["messages"])
+    product = _resolve_packing_product(
         nominal_product,
         normalized_inputs["product_allowances"],
+        messages,
     )
-    messages = list(normalized_inputs["messages"])
 
-    if product is None or any(float(value) <= 0 for value in product):
+    if product is None and not messages:
         messages.append("Enter product length, width, and height greater than zero in millimetres.")
     if not any((r1, r2, r3)):
         messages.append("Enable at least one permitted product orientation.")

@@ -134,6 +134,7 @@
     }
 
     function convertGroup(group, quantity, fromUnit, toUnit) {
+        const preservePrecision = groupHiddenInput(group)?.dataset.unitPreservePrecision !== undefined;
         groupInputs(group).forEach((input) => {
             const stored = numericValue(input.dataset.unitCanonicalValue);
             const visible = numericValue(input.value);
@@ -147,7 +148,9 @@
                 return;
             }
 
-            input.value = formatDisplayValue(baseValue, toUnit, quantity, input.dataset.unitDisplayPrecision);
+            input.value = preservePrecision
+                ? String(baseValue / FACTORS_TO_BASE[quantity][toUnit])
+                : formatDisplayValue(baseValue, toUnit, quantity, input.dataset.unitDisplayPrecision);
             input.dataset.unitCanonicalValue = String(baseValue);
         });
     }

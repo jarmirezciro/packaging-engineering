@@ -265,8 +265,8 @@ class ProductDimensionalAllowanceContractTests(SimpleTestCase):
             product_l="",
             product_w="",
             product_h="",
-            product_allowance_l="0.12",
-            product_allowance_w="0.12",
+            product_allowance_l="-0.12",
+            product_allowance_w="0",
             product_allowance_h="0.12",
             # Catalogue dimensions are canonical mm, but the shared picker
             # keeps the active imperial display unit for the allowance fields.
@@ -284,8 +284,10 @@ class ProductDimensionalAllowanceContractTests(SimpleTestCase):
         self.assertTrue(result["ok"], result["messages"])
         self.assertEqual(
             result["analysis_report"]["effective_product_dimensions_display"],
-            "2.61 × 2.61 × 10.12 in",
+            "2.37 × 2.49 × 10.12 in",
         )
+        self.assertEqual(result["product_unit_scene"]["productDefinition"],
+                         {"length": 63.246, "width": 63.246, "height": 254.0})
 
     def test_workflow_inherited_dimensions_reset_allowance_to_prevent_double_counting(self):
         config = default_container_config()
@@ -312,7 +314,7 @@ class ProductDimensionalAllowanceContractTests(SimpleTestCase):
         )
 
     def test_invalid_allowance_values_are_rejected(self):
-        for value in ("-0.1", "NaN", "Infinity"):
+        for value in ("invalid", "NaN", "Infinity", "-Infinity"):
             form = ContainerSelectionMode1Form(data=_container_data(product_allowance_l=value))
             self.assertFalse(form.is_valid(), value)
             self.assertIn("product_allowance_l", form.errors)
@@ -323,6 +325,37 @@ class ProductDimensionalAllowanceContractTests(SimpleTestCase):
         )
         self.assertIsNone(result["result"])
         self.assertTrue(any("allowances" in message for message in result["messages"]))
+
+    def test_non_positive_or_non_finite_effective_dimensions_stop_all_entry_points(self):
+        for mode, action in (("single", "run_single"), ("design", "run_design"), ("optimal", "find_top5")):
+            for unit, nominal, allowance in (("in", "2.49", "-2.49"), ("in", "2.49", "-3"),
+                                             ("in", "1e307", "1e307"), ("mm", "1e308", "1e308")):
+                with self.subTest(mode=mode, nominal=nominal, allowance=allowance):
+                    data = _container_data(mode=mode, action=action, product_dimension_unit=unit,
+                                           product_l=nominal, product_allowance_l=allowance)
+                    form = ContainerSelectionMode1Form(data)
+                    self.assertTrue(form.is_valid(), form.errors)
+                    for analyze in (analyze_container_form, analyze_container_capacity):
+                        result = analyze(form, data)
+                        self.assertFalse(result["ok"])
+                        self.assertIsNone(result["result"])
+                        self.assertTrue(any("dimensions" in message or "allowances" in message for message in result["messages"]))
+
+    def test_signed_imperial_and_metric_allowances_preserve_geometry_and_rotation(self):
+        configs = (
+            _container_data(product_l="6", product_w="5", product_h="7",
+                            product_allowance_l="-0.5", product_allowance_w="-0.5", product_allowance_h="-1"),
+            _container_data(product_dimension_unit="mm", product_l="152.4", product_w="127", product_h="177.8",
+                            product_allowance_l="-12.7", product_allowance_w="-12.7", product_allowance_h="-25.4"),
+            _container_data(product_l="5.5", product_w="4.5", product_h="6"),
+        )
+        for data in configs:
+            with self.subTest(data=data):
+                form = ContainerSelectionMode1Form(data)
+                self.assertTrue(form.is_valid(), form.errors)
+                result = analyze_container_capacity(form, data)
+                self.assertTrue(result["ok"], result["messages"])
+                self.assertEqual(result["result"]["max_quantity"], 9)
 
 
 class ProductDimensionalAllowanceUiTests(TestCase):
@@ -346,3 +379,30 @@ class ProductDimensionalAllowanceUiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="product_allowance_l_0"')
         self.assertContains(response, 'id="productAdditionalParameters_0"')
+
+    def test_signed_allowances_reach_design_in_standalone_and_workflow(self):
+        data = _container_data(mode="design", action="run_design", desired_qty="16",
+                               product_l="6", product_w="5", product_h="7",
+                               product_allowance_l="-0.5", product_allowance_w="-0.5", product_allowance_h="-1",
+                               product_shape="cylinder")
+        data.pop("r1")
+        data.pop("r2")
+        standalone = self.client.post(reverse("container_selection_mode1"), data)
+        flow_url = reverse("full_packaging_mode")
+        self.client.post(flow_url, {"action": "add_step", "step_type": "container"})
+        flow = self.client.post(flow_url, {**{f"{key}_0": value for key, value in data.items()},
+                                          "action": "run_step", "index": "0"}, follow=True)
+        for response, context, suffix in ((standalone, standalone.context, ""), (flow, flow.context["steps"][0], "_0")):
+            with self.subTest(suffix=suffix):
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "Positive allowances increase packing dimensions; negative allowances reduce them.")
+                for axis in "lwh":
+                    self.assertRegex(response.content.decode(), rf'<input\b(?=[^>]*name="product_allowance_{axis}{suffix}")(?![^>]*\bmin=)[^>]*>')
+                report = context["analysis_report"]
+                self.assertEqual(report["effective_product_dimensions_display"], "5.5 × 4.5 × 6 in")
+                self.assertEqual(report["nominal_product_dimensions_display"], "6 × 5 × 7 in")
+                self.assertAlmostEqual(context["product_unit_scene"]["productDefinition"]["length"], 152.4)
+        self.assertEqual(
+            [row["candidate_id"] for row in standalone.context["design_candidates"]],
+            [row["candidate_id"] for row in flow.context["steps"][0]["design_candidates"]],
+        )

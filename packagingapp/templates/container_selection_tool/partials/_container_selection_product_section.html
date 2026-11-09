@@ -288,7 +288,7 @@
             </div>
         </div>
 
-        {% include "shared/_product_dimensional_allowance.html" with ui=container_ui values=container_values product_source=current_product_source selected_product=selected_product advanced_fields_template="container_selection_tool/partials/_container_selection_product_advanced_fields.html" advanced_subtitle="Optional weight, allowances and visualization." advanced_open=container_advanced.product_open advanced_state_name=container_ui.names.product_advanced_open %}
+        {% include "shared/_product_dimensional_allowance.html" with ui=container_ui values=container_values product_source=current_product_source selected_product=selected_product advanced_fields_template="container_selection_tool/partials/_container_selection_product_advanced_fields.html" advanced_subtitle="Optional weight, allowances and visualization." advanced_open=container_advanced.product_open advanced_state_name=container_ui.names.product_advanced_open signed_allowances=True %}
 
     </div>
 </div>
