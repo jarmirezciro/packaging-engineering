@@ -55,6 +55,9 @@ class FullPackagingCaseTests(TestCase):
             "bag-design-final-capacity": (("bag", "container", "pallet"), (4, 24, 8)),
             "mixed-units-across-the-chain": (("container", "pallet", "transport"), (60, 18, 30)),
             "nested-packaging-chain": (("container", "container", "pallet", "transport"), (55, 2, 6, 30)),
+            "capepack-bottle-24": (("container", "pallet"), (24, 42)),
+            "capepack-bottle-15": (("container", "pallet"), (15, 72)),
+            "capepack-bottle-20": (("container", "pallet"), (20, 48)),
         }
         self.assertEqual([slug for slug, _ in get_case_titles()], list(expected))
         compendium = self.client.get(reverse("regressions"))
@@ -106,6 +109,83 @@ class FullPackagingCaseTests(TestCase):
             self.assertAlmostEqual(
                 convert_mass(float(weight), config[mass_unit], "kg"), upstream["weight_kg"],
             )
+
+    def test_capepack_bottles_preserve_captured_geometry_and_pallet_controls(self):
+        cases = (
+            (24, (2.49, 2.49, 10), 3.19, (6, 2, 2), (405.888, 140.718, 524.256),
+             1219, (0, 0), (21, 2), (6, 4, 1)),
+            (15, (2.52, 2.52, 9.75), 1.19, (5, 3, 1), (343.408, 209.298, 263.906),
+             1219.2, (1.45, 1), (18, 4), (15, 1, 1)),
+            (20, (2.46, 2.46, 10.25), 1.19, (5, 4, 1), (335.788, 270.258, 276.606),
+             1219, (0, 0), (12, 4), (5, 2, 2)),
+        )
+        for quantity, nominal, weight, arrangement, outer, deck_length_mm, overhang, layers, alternate in cases:
+            with self.subTest(bottles_per_carton=quantity):
+                slug = f"capepack-bottle-{quantity}"
+                self.open_case(slug)
+                carton, pallet = self.case_steps(slug)
+                config, design, selected = carton["config"], carton["result"], carton["selected"]
+                self.assertEqual(config["product_shape"], "bottle")
+                self.assertEqual((config["product_dimension_unit"], config["container_dimension_unit"]), ("in", "in"))
+                self.assertEqual(config["product_mass_unit"], "lb")
+                self.assertEqual(float(config["product_weight"]), weight)
+                self.assertEqual((config["r1"], config["r2"], config["r3"]), (False, False, True))
+                self.assertEqual(tuple(design[key] for key in ("rows", "columns", "layers")), arrangement)
+                self.assertEqual(design["orientation_index"], 0)
+                self.assertEqual(selected["box_thickness_mm"], 4.064)
+                self.assertEqual(selected["weight_status"], "gross_estimated")
+                self.assertEqual(carton["threejs_scene"]["productShape"], "bottle")
+                self.assertEqual(len(carton["threejs_scene"]["products"]), quantity)
+                for index, (short, axis) in enumerate(zip("lwh", ("length", "width", "height"))):
+                    allowance = 0.12 if short in "lw" else 0
+                    self.assertEqual(float(config[f"product_{short}"]), nominal[index])
+                    self.assertEqual(float(config[f"product_allowance_{short}"]), allowance)
+                    self.assertAlmostEqual(
+                        carton["product_unit_scene"]["productDefinition"][axis],
+                        convert_length(nominal[index], "in", "mm"),
+                    )
+                    self.assertAlmostEqual(
+                        selected[f"internal_{axis}"],
+                        convert_length((nominal[index] + allowance) * arrangement[index], "in", "mm"),
+                        delta=0.00501,
+                    )
+                    self.assertAlmostEqual(selected[axis], outer[index])
+                    self.assertAlmostEqual(pallet["threejs_scene"]["case"][axis], outer[index])
+
+                cfg, result, scene = pallet["config"], pallet["selected_result"], pallet["threejs_scene"]
+                self.assertEqual((cfg["box_dimension_unit"], cfg["pallet_dimension_unit"], cfg["mass_unit"]), ("in", "in", "lb"))
+                self.assertEqual((cfg["pallet_w"], cfg["max_stack_height"]), (40, 50))
+                self.assertEqual((cfg["max_length_stickout"], cfg["max_width_stickout"]), overhang)
+                self.assertAlmostEqual(scene["pallet"]["length"], deck_length_mm)
+                self.assertAlmostEqual(scene["pallet"]["height"], 141)
+                self.assertEqual((result["boxes_layer_A"], result["layers"]), layers)
+                self.assertEqual(len(scene["placements"]), prod(layers))
+                self.assertEqual(pallet["selected"]["total_base_units"], quantity * prod(layers))
+
+                alternate_candidate = next(
+                    row for row in carton["design_candidates"]
+                    if tuple(row[key] for key in ("rows", "columns", "layers")) == alternate
+                )
+                self.post_case(
+                    slug, "run_step", 0, step_action_0="select_design_candidate",
+                    selected_design_candidate_id_0=alternate_candidate["candidate_id"],
+                )
+                self.post_case(slug, "use_step_result", 0)
+                self.assert_cleared(self.case_steps(slug)[1:])
+                self.post_case(slug, "run_step", 1, step_action_1="run_analysis", max_stack_height_1="35")
+                edited_carton, edited_pallet = self.case_steps(slug)
+                self.assertEqual(edited_carton["selected"]["selected_candidate_id"], alternate_candidate["candidate_id"])
+                self.assertEqual(float(edited_pallet["config"]["max_stack_height"]), 35)
+                self.assert_inherited_output(edited_carton["selected"], edited_pallet)
+                self.assertEqual(
+                    edited_pallet["pending_result"]["total_base_units"],
+                    quantity * edited_pallet["selected_result"]["total_boxes"],
+                )
+                self.open_case(slug)
+                reset_carton, reset_pallet = self.case_steps(slug)
+                self.assertEqual(reset_carton["selected"], selected)
+                self.assertEqual(reset_pallet["config"], cfg)
+                self.assertEqual(reset_pallet["selected"]["total_base_units"], quantity * prod(layers))
 
     def test_think_beyond_the_box_compact_alternative_recalculates_the_chain(self):
         slug = "think-beyond-the-box"

@@ -313,6 +313,13 @@ expressed per unit of the next packaging stage.
 | PF-06 Bag Design Final Capacity | New demonstration using the existing Bag Design and final-capacity services. | Starts at 4 products/bag × 24 bags/carton × 8 cartons/pallet = 768 products. Optimize final capacity ranks the 272 × 112 × 20 mm bag first. Accept and recalculate it to get 4 × 126 × 8 = 4,032. |
 | PF-07 Mixed Units Across the Chain | New demonstration based on [the metric-equivalence test](../../packagingapp/tests/test_task6_unit_presentation.py). | 60 products/carton × 18 cartons/pallet × 30 pallets = 32,400 products. The inherited pallet mass is 497.979756 kg before conversion for display in pounds. |
 | PF-08 Nested Packaging Chain | New demonstration using two ordinary Container Selection steps. | 55 products/inner carton × 2 inner cartons/outer carton × 6 outer cartons/pallet × 30 pallets = 19,800 products. |
+| PF-09 CapePack Bottle — 24 Units | [Bottle benchmark case A](../research/benchmarks.md#palletization-cases) | 24 bottles/carton × 21 cartons/layer × 2 layers = 1,008 bottles. Zero overhang reproduces the captured layout. |
+| PF-10 CapePack Bottle — 15 Units | Bottle benchmark case B | 15 bottles/carton × 18 cartons/layer × 4 layers = 1,080 bottles, with the captured 1.45 in length and 1 in width overhang. |
+| PF-11 CapePack Bottle — 20 Units | Bottle benchmark case C | 20 bottles/carton × 12 cartons/layer × 4 layers = 960 bottles, with zero overhang. |
+
+The bottle presets start Design Mode with the shared Container Selection
+inputs. Flow resolves the reference candidate by its internal dimensions and
+arrangement, then passes the generated external carton to Palletization.
 
 ### PF-01 transport discrepancy
 

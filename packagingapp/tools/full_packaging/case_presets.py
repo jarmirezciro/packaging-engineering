@@ -8,6 +8,7 @@ from copy import deepcopy
 
 from ...units import convert_length, convert_mass
 from ..bag.case_presets import SEO_BAG_SELECTION_EXAMPLE_CONFIG
+from ..container.case_presets import get_container_selection_case_preset
 
 
 _DEMO_PALLET = {
@@ -49,6 +50,39 @@ _UNIT_DEMO_CARTON = {
     "r2": "on",
     "r3": "on",
 }
+
+_CAPE_BOTTLE_DISPLAY_UNITS = {
+    "container_dimension_unit": "in",
+    "pallet_dimension_unit": "in",
+    "mass_unit": "lb",
+}
+
+_CAPE_BOTTLE_PALLET = {
+    # Manual equivalent of the captured NA4840 catalogue pallet.
+    "length": convert_length(1219, "mm", "in"),
+    "width": 40,
+    "height": convert_length(141, "mm", "in"),
+    "max_stack_height": 50,
+    "max_width_stickout": 0,
+    "max_length_stickout": 0,
+}
+
+
+def _bottle_carton_design(source_case, *, weight_lb, dimensions_mm, arrangement, **product_overrides):
+    config = get_container_selection_case_preset(source_case)["config"]
+    config.pop("selected_design_candidate_id", None)
+    config.update(
+        product_weight=weight_lb,
+        product_mass_unit="lb",
+        container_mass_unit="lb",
+        corrugated_material_id="FEFCO_C_175_140_175",
+        **product_overrides,
+    )
+    return {
+        "config": config,
+        "preferred_dimensions": dimensions_mm,
+        "preferred_arrangement": arrangement,
+    }
 
 
 _CASE_PRESETS = {
@@ -312,6 +346,54 @@ _CASE_PRESETS = {
         },
         "pallet": _DEMO_PALLET,
         "transport": _DEMO_TRANSPORT,
+    },
+    "capepack-bottle-24": {
+        "slug": "capepack-bottle-24",
+        "title": "CapePack Bottle — 24 Units / 1,008 per Pallet",
+        "description": (
+            "The captured two-tier bottle carton and 42-carton pallet layout, "
+            "reproduced with zero overhang. The capture leaves its overhang controls collapsed."
+        ),
+        "box_design": _bottle_carton_design(
+            "bottle-packaging-24", weight_lb=3.19, dimensions_mm=(397.76, 132.59, 508),
+            arrangement=(6, 2, 2),
+        ),
+        "display_units": _CAPE_BOTTLE_DISPLAY_UNITS,
+        "pallet": _CAPE_BOTTLE_PALLET,
+    },
+    "capepack-bottle-15": {
+        "slug": "capepack-bottle-15",
+        "title": "CapePack Bottle — 15 Units / 1,080 per Pallet",
+        "description": (
+            "The captured 5 × 3 × 1 bottle carton and four-layer pallet layout "
+            "with 1.45 in length and 1 in width overhang allowed."
+        ),
+        "box_design": _bottle_carton_design(
+            "bottle-packaging-15", weight_lb=1.19, dimensions_mm=(335.28, 201.17, 247.65),
+            arrangement=(5, 3, 1),
+        ),
+        "display_units": _CAPE_BOTTLE_DISPLAY_UNITS,
+        "pallet": {
+            **_CAPE_BOTTLE_PALLET,
+            "length": 48,
+            "max_width_stickout": 1,
+            "max_length_stickout": 1.45,
+        },
+    },
+    "capepack-bottle-20": {
+        "slug": "capepack-bottle-20",
+        "title": "CapePack Bottle — 20 Units / 960 per Pallet",
+        "description": (
+            "The captured 5 × 4 × 1 bottle carton and four-layer pallet layout "
+            "with zero permitted overhang."
+        ),
+        "box_design": _bottle_carton_design(
+            "bottle-packaging-24", weight_lb=1.19, dimensions_mm=(327.66, 262.13, 260.35),
+            arrangement=(5, 4, 1), product_l=2.46, product_w=2.46, product_h=10.25,
+            desired_qty=20,
+        ),
+        "display_units": _CAPE_BOTTLE_DISPLAY_UNITS,
+        "pallet": _CAPE_BOTTLE_PALLET,
     },
 }
 

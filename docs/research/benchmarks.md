@@ -163,8 +163,9 @@ unless the row specifies products, primary cartons, or bottles.
 | PB-05 `capepack-original-240` | Registered | Original CapePack study and Flow `cape-pack-12-carton-two-layouts` | 4 × 5 = 20, 240 primary cartons | 4 × 5 = 20 | 20 × 18 × 8 in internal, 516 × 465.2 × 219.2 mm external. The shorter carton fits five layers. |
 | PB-06 `capepack-72in-12-pack` | Registered | [CapePack fine-tuning study](../../packagingapp/content/blog/articles/capepack-parameter-fine-tuning.md), Flow `capepack-parameter-fine-tuning` | 10 × 3 = 30, 360 primary cartons | 10 × 3 = 30 | 18 × 8 × 20 in internal, 465.2 × 211.2 × 524 mm external. |
 | PB-07 `capepack-72in-16-pack` | Registered | Fine-tuning study and [Flow case test](../../packagingapp/tests/test_full_packaging_case.py) | 8 × 3 = 24, 384 primary cartons | 8 × 3 = 24 | 16 × 12 × 20 in internal, 414.4 × 312.8 × 524 mm external. |
-| PB-08 Bottle 24-pack | Deferred — incomplete source | [Bottle benchmark](../../packagingapp/content/blog/articles/capepack-kollipack-bottle-case-pallet-benchmark.md), Container Selection `bottle-packaging-24` | 21 × 2 = 42, 1,008 bottles | External carton verified. Captured pallet setup unresolved. | 6 × 2 × 2 upright, 405.888 × 140.718 × 524.256 mm external. Exact KolliPack deck height and overhang are unverified. |
-| PB-09 Bottle 15-pack | Deferred — incomplete source | Bottle benchmark, Container Selection `bottle-packaging-15` | 18 × 4 = 72, 1,080 bottles | External carton verified. Captured pallet setup unresolved. | 5 × 3 × 1 upright, 343.408 × 209.298 × 263.906 mm external. Capture allowed overhang and the exact KolliPack inputs are unavailable. |
+| PB-08 Bottle 24-pack | Covered in Packaging Flow | [Bottle benchmark](../../packagingapp/content/blog/articles/capepack-kollipack-bottle-case-pallet-benchmark.md), Flow `capepack-bottle-24` | 21 × 2 = 42, 1,008 bottles | 21 × 2 = 42, 1,008 bottles | 6 × 2 × 2 upright, 405.888 × 140.718 × 524.256 mm external. Zero overhang reproduces the layout. The original controls are collapsed. |
+| PB-09 Bottle 15-pack | Covered in Packaging Flow | Bottle benchmark, Flow `capepack-bottle-15` | 18 × 4 = 72, 1,080 bottles | 18 × 4 = 72, 1,080 bottles | 5 × 3 × 1 upright, 343.408 × 209.298 × 263.906 mm external. The captured KolliPack length and width allowances are 1.45 and 1 in. |
+| PB-10 Bottle 20-pack | Covered in Packaging Flow | Bottle benchmark, Flow `capepack-bottle-20` | 12 × 4 = 48, 960 bottles | 12 × 4 = 48, 960 bottles | 5 × 4 × 1 upright, 335.788 × 270.258 × 276.606 mm external. The capture shows zero overhang. |
 | PR-01 `north-american-splitrow` | Registered | [Splitrow tests](../../packagingapp/tests/test_pallet_splitrow.py), Stage 2 `na4840_splitrow` | Splitrow 24 × 6 = 144 | Splitrow 24 × 6 = 144, tied with Block and Pinwheel | Splitrow mixes 18 and six cartons by orientation. Block ranks first. |
 | PR-02 `pinwheel-mosaic` | Registered | [Stage 2 benchmark utility](../../packagingapp/tests/benchmark_palletization_stage2.py), `standard` | Frozen footprint has 24-carton Pinwheel and Splitrow | Pinwheel 24 × 8 = 192, with interlock available | Uses the complete unweighted benchmark. Hybrid and Nested are visible on the Brick case and remain covered by the pattern suite. |
 | PR-03 `brick-centre-filled` | Registered | Stage 2 `brick_and_centre_filled`, shared pattern core | Brick 18 × 5 = 90, Centre-filled pinwheel 9 × 5 = 45 | Brick 90 and Centre-filled pinwheel 45 | Spiral bonded weave is an internal Brick construction. Block is a separate result and ranks first on this input. |
@@ -186,14 +187,17 @@ because only the 2.25 lb primary-carton weight and net contents are known. The
 standalone presets therefore leave gross shipping-carton mass and cargo load
 limit blank.
 
-The two recovered bottle cartons already incorporate 0.12 in horizontal
-allowance at the product level and 0.16 in board caliper at the carton level.
-The historical setup lists a 48 × 40 in deck and 50 in overall limit. The
-article reports variation in the captured KolliPack pallet heights and
-overhangs and gives no exact per-run values for those inputs. Its third case
-used a 2.46 × 10.25 in nominal bottle, a 5 × 4 × 1 arrangement, and zero
-overhang, reaching 12 × 4 = 48 cartons and 960 bottles per pallet. That
-third configuration remains an article reference within the two-variant limit.
+The three bottle Flow cases apply 0.12 in allowance on each horizontal product
+axis, zero on height, and 0.16 in caliper with the captured FEFCO C-flute board.
+The original KolliPack pallet captures are `Screenshot 2026-11-02 224021.png`
+(24-pack), `Screenshot 2026-11-03 001437.png` (15-pack), and
+`Screenshot 2026-11-03 002826.png` (20-pack). All show a 50 in total height
+limit and a blank cargo limit. The 24- and 20-pack cases use the manual
+equivalent of the captured NA4840 catalogue pallet (1,219 × 1,016 × 141 mm).
+The 15-pack uses the captured manual 48 × 40 in footprint and 141 mm deck.
+The 24-pack carries the captured 3.19 lb bottle input for geometry parity.
+The other two use 1.19 lb per bottle. These are geometric comparisons with
+the source study.
 
 The TOPS 10-, 18-, and 24-pack variants add no distinct regression to this
 compendium. CapePack’s 16 × 15 × 12 in internal alternative remains documented

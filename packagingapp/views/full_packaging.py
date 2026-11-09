@@ -639,15 +639,15 @@ def _accept_pending_result(step):
     step["expanded"] = True
 
 
-def _append_case_carton_design(steps, preset, display_units):
+def _case_carton_design_post(preset, display_units):
+    box_design = preset["box_design"]
+    if "config" in box_design:
+        return {
+            f"{key}_0": str(value) for key, value in box_design["config"].items()
+            if value is not False
+        }
+
     product = preset["product"]
-    box_step = _new_step("container")
-    # Article/case presets are existing validation configurations, not new
-    # blank Design-mode forms. Preserve their historical no-material/default
-    # thickness inputs while the interactive new-design defaults remain active
-    # for genuinely new workflow steps.
-    box_step["new_container_config"] = False
-    steps.append(box_step)
     box_post = {
         "mode_0": "design",
         "product_source_0": "manual",
@@ -660,32 +660,50 @@ def _append_case_carton_design(steps, preset, display_units):
         "product_mass_unit_0": display_units.get("product_mass_unit", "g"),
         "desired_qty_0": str(product["desired_quantity"]),
         "box_thickness_mm_0": str(
-            preset["box_design"].get("thickness")
-            if preset["box_design"].get("thickness") is not None
-            else preset["box_design"].get("thickness_mm") or ""
+            box_design.get("thickness")
+            if box_design.get("thickness") is not None
+            else box_design.get("thickness_mm") or ""
         ),
         "container_dimension_unit_0": display_units.get("container_dimension_unit", "mm"),
         "container_mass_unit_0": display_units.get("container_mass_unit", "g"),
-        "step_action_0": "run_design",
     }
     for rotation in ("r1", "r2", "r3"):
         if product.get(rotation):
             box_post[f"{rotation}_0"] = "on"
+    return box_post
+
+
+def _append_case_carton_design(steps, preset, display_units):
+    box_step = _new_step("container")
+    # Keep each preset's board and caliper settings instead of applying the
+    # defaults used when a user adds a blank Design step.
+    box_step["new_container_config"] = False
+    steps.append(box_step)
+    box_post = _case_carton_design_post(preset, display_units)
+    box_post["action_0"] = "run_design"
     _process_container_step(box_step, steps, 0, box_post)
 
-    preferred_dimensions = preset["box_design"]["preferred_dimensions"]
+    box_design = preset["box_design"]
+    preferred_dimensions = box_design["preferred_dimensions"]
+    preferred_arrangement = box_design.get("preferred_arrangement")
     preferred_candidate = next(
         (
             candidate
             for candidate in (box_step.get("design_candidates") or [])
             if _candidate_matches_dimensions(candidate, preferred_dimensions)
+            and (
+                preferred_arrangement is None
+                or (candidate["rows"], candidate["columns"], candidate["layers"]) == preferred_arrangement
+            )
         ),
         None,
     )
     if preferred_candidate is not None:
         box_post["selected_design_candidate_id_0"] = preferred_candidate["candidate_id"]
-        box_post["step_action_0"] = "select_design_candidate"
+        box_post["action_0"] = "select_design_candidate"
         _process_container_step(box_step, steps, 0, box_post)
+    elif preferred_arrangement is not None:
+        raise Http404("The reference carton design is unavailable.")
     _accept_pending_result(box_step)
 
 
