@@ -117,7 +117,35 @@ KolliPack-style mosaic illustration: 102
 Improvement: +18 (+21.4%)
 ```
 
-Use this only after reproducing it with the current engine/script. It is an educational example, not a broad competitor benchmark.
+The best uniform grid is 7 × 2 × 6 in orientation (70, 130, 30).
+The historical article illustration shows 70 units in the main block plus
+32 in the top region. The same inputs with all rotations enabled now yield
+106 in Container Selection. The current legacy residual-space candidate
+produces 106, and the independently evaluated shared Mosaic candidate
+produces 84.
+
+## Container Selection cases
+
+The [case compendium](/regressions) opens the standalone Container Selection
+tool with editable inputs and a calculated result. The links use the same
+Python preset registry as the public box calculator. Historical results are
+recorded here separately from the output calculated on each visit.
+
+| Case | Input source | Historical reference | Verified Container Selection result |
+|---|---|---|---|
+| Mosaic Packing Benchmark | [3D box packing article](../../packagingapp/content/blog/articles/box-selection-3d-bin-packing-problem.md) | 84 uniform, 102 illustrated | 106 with all rotations |
+| Product Orientation Capacity | Existing `product-orientation-capacity` preset and [orientation article](../../packagingapp/content/blog/articles/how-many-products-fit-in-a-box-orientation-case-study.md) | R1 10, R2 12, R3 15, all 18 | R1 10, R2 16 (pinwheel), R3 15, all 18 |
+| Pinwheel Packing Benchmark | [Shared Mosaic benchmark](../../packagingapp/tests/benchmark_shared_mosaic_patterns.py), `reference_imperial_equivalent` | 12 legacy, 16 pinwheel | 16 with R3 only |
+| Bottle Packaging — 24 Units | [Bottle benchmark article](../../packagingapp/content/blog/articles/capepack-kollipack-bottle-case-pallet-benchmark.md), Case A | 24 per carton, 42 cartons and 1,008 bottles per pallet | 6 × 2 × 2 upright, 15.66 × 5.22 × 20 in internal |
+| Bottle Packaging — 15 Units | [Bottle benchmark article](../../packagingapp/content/blog/articles/capepack-kollipack-bottle-case-pallet-benchmark.md), Case B | 15 per carton, 72 cartons and 1,080 bottles per pallet | 5 × 3 × 1 upright, 13.2 × 7.92 × 9.75 in internal |
+| Design Mode Quantity Optimization | [Asymmetric seven-unit Design fixture](../../packagingapp/tests/test_product_shape_visualization.py) | 180 × 120 × 80 mm, all rotations, request of 7 | Designs for 8 units. The generator evaluates 60 grids and retains 30 distinct carton geometries. The first is 240 × 180 × 320 mm. |
+
+The bottle cases use the documented KolliPack nominal diameters and heights
+(2.49 × 10 in and 2.52 × 9.75 in, respectively), 0.12 in on each horizontal
+product axis, zero height allowance, and the article's approximately 0.16 in
+caliper. The preset uses the bottle visualization and selects the captured
+carton arrangement in Design Mode. The pallet totals are historical references.
+The two cases also cover imperial units and allowances in the compendium.
 
 ## Future benchmark: packaging and logistics CO2
 

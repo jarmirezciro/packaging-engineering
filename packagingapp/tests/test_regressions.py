@@ -9,11 +9,14 @@ from django.urls import reverse
 from django.utils.html import escape
 
 from packagingapp.models import UserPreferences
+from packagingapp.tests.benchmark_shared_mosaic_patterns import BENCHMARK_CASES
+from packagingapp.tools.container.case_presets import CONTAINER_SELECTION_CASE_PRESETS
 from packagingapp.tools.transport.case_presets import (
     TRANSPORT_CONTAINER_CASE_PRESETS,
     get_transport_container_case_preset,
 )
 from packagingapp.tools.transport.service import _prepare_transport_analysis
+from packagingapp.units import convert_length, convert_mass
 
 
 NEW_REGRESSION_CASE_SLUGS = (
@@ -26,13 +29,14 @@ NEW_REGRESSION_CASE_SLUGS = (
 
 
 class CaseLinkParser(HTMLParser):
-    def __init__(self):
+    def __init__(self, tool_name):
         super().__init__()
+        self.case_prefix = f"{reverse(tool_name)}?case="
         self.links = []
 
     def handle_starttag(self, tag, attrs):
         href = dict(attrs).get("href", "")
-        if tag == "a" and href.startswith(f"{reverse('container_tool')}?case="):
+        if tag == "a" and href.startswith(self.case_prefix):
             self.links.append(href)
 
 
@@ -44,8 +48,8 @@ class RegressionCompendiumTests(TestCase):
         settings.enable()
         self.addCleanup(settings.disable)
 
-    def case_links(self, response):
-        parser = CaseLinkParser()
+    def case_links(self, response, tool_name="container_tool"):
+        parser = CaseLinkParser(tool_name)
         parser.feed(response.content.decode())
         return parser.links
 
@@ -70,7 +74,12 @@ class RegressionCompendiumTests(TestCase):
         for actual, expected in zip(rows, preset["rows"]):
             for key, value in expected.items():
                 if key in {"length", "width", "height", "weight"}:
-                    self.assertAlmostEqual(actual[key], value, msg=key)
+                    if key == "weight":
+                        canonical = convert_mass(value, preset["config"].get("load_unit_mass_unit", "kg"), "kg")
+                    else:
+                        canonical = convert_length(value, preset["config"].get("load_unit_dimension_unit", "mm"), "mm")
+                    self.assertAlmostEqual(actual[f"canonical_{key}"], canonical, msg=key)
+                    self.assertAlmostEqual(float(actual[key]), value, delta=0.005001, msg=key)
                 else:
                     self.assertEqual(actual[key], value, key)
 
@@ -93,6 +102,14 @@ class RegressionCompendiumTests(TestCase):
                         f"{reverse('container_tool')}?{urlencode({'case': slug})}"
                     )
                 self.assertEqual(self.case_links(response), expected_links)
+                self.assertContains(response, "Container Selection Cases")
+                self.assertEqual(
+                    self.case_links(response, "container_selection_mode1"),
+                    [
+                        f"{reverse('container_selection_mode1')}?{urlencode({'case': slug})}"
+                        for slug in CONTAINER_SELECTION_CASE_PRESETS
+                    ],
+                )
         self.assertRedirects(
             self.client.get("/regressions/", HTTP_HOST="localhost"),
             "/regressions",
@@ -128,6 +145,81 @@ class RegressionCompendiumTests(TestCase):
                 self.assertEqual(export["summary"], result["summary"])
                 json.dumps(dict(self.client.session))
                 self.assertEqual(get_transport_container_case_preset(slug), preset)
+
+    def test_container_case_links_load_inputs_and_calculate_in_standalone_tool(self):
+        user = get_user_model().objects.create_user(username="container-case-units")
+        UserPreferences.objects.create(user=user, default_length_unit="ft")
+        self.client.force_login(user)
+        page = self.client.get(reverse("regressions"))
+        links = self.case_links(page, "container_selection_mode1")
+        self.assertEqual(len(links), len(CONTAINER_SELECTION_CASE_PRESETS))
+        single_capacities = {
+            "mosaic-packing-benchmark": 106,
+            "product-orientation-capacity": 18,
+            "pinwheel-packing-benchmark": 16,
+        }
+        design_results = {
+            "bottle-packaging-24": (24, (6, 2, 2), "15.66 × 5.22 × 20 in"),
+            "bottle-packaging-15": (15, (5, 3, 1), "13.2 × 7.92 × 9.75 in"),
+            "design-mode-quantity-optimization": (8, (2, 1, 4), "240 × 180 × 320 mm"),
+        }
+        for link, (slug, preset) in zip(links, CONTAINER_SELECTION_CASE_PRESETS.items()):
+            with self.subTest(case=slug):
+                self.assertContains(page, escape(preset["label"]))
+                response = self.client.get(link)
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(response, "container_selection/container_selection_mode1.html")
+                self.assertEqual(response.context["mode"], "standalone")
+                form = response.context["form"]
+                self.assertFalse(form.errors)
+                for key, expected in preset["config"].items():
+                    self.assertEqual(form[key].value(), expected if isinstance(expected, bool) else str(expected), key)
+                unit = preset["config"].get("product_dimension_unit", "mm")
+                self.assertEqual(form["product_dimension_unit"].value(), unit)
+                self.assertEqual(form["container_dimension_unit"].value(), unit)
+                result = response.context["result"]
+                scene = response.context["threejs_scene"]
+                if slug in single_capacities:
+                    quantity = single_capacities[slug]
+                    self.assertEqual(result.max_quantity, quantity)
+                    self.assertIn("container_selection_single_export", self.client.session)
+                else:
+                    quantity, arrangement, dimensions = design_results[slug]
+                    self.assertEqual(result["design_quantity"], quantity)
+                    self.assertEqual((result["rows"], result["columns"], result["layers"]), arrangement)
+                    self.assertEqual(result["container_dimensions_display"], dimensions)
+                    self.assertIn("container_selection_design_export", self.client.session)
+                    if unit == "in":
+                        self.assertEqual(scene["productShape"], "bottle")
+                        self.assertAlmostEqual(result["corrugated_caliper_mm"], 4.064)
+                    else:
+                        candidates = response.context["design_candidates"]
+                        self.assertEqual(result["additional_capacity"], 1)
+                        self.assertEqual(len(candidates), 30)
+                        self.assertEqual(len({row["container_dimensions_display"] for row in candidates}), 30)
+                self.assertEqual(len(scene["products"]), quantity)
+                json.dumps(dict(self.client.session), allow_nan=False)
+
+    def test_container_orientation_case_accepts_edits_and_keeps_the_public_example(self):
+        slug = "product-orientation-capacity"
+        preset = CONTAINER_SELECTION_CASE_PRESETS[slug]
+        query = urlencode({"case": slug})
+        url = f"{reverse('container_selection_mode1')}?{query}"
+        response = self.client.post(url, {**preset["config"], "r1": "", "r2": ""})
+        self.assertEqual(response.context["result"].max_quantity, 15)
+        self.assertEqual(self.client.get(url).context["result"].max_quantity, 18)
+
+        public = self.client.get(reverse("container_selection_calculator"), {"case": slug})
+        self.assertEqual(public.context["active_case_slug"], slug)
+        self.assertEqual(public.context["result"].max_quantity, 18)
+
+    def test_unknown_container_case_returns_404_and_plain_tool_keeps_defaults(self):
+        url = reverse("container_selection_mode1")
+        self.assertEqual(self.client.get(url, {"case": "unknown-case"}).status_code, 404)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["result"])
+        self.assertEqual(response.context["form"]["product_l"].value(), "")
 
     def test_post_to_case_url_calculates_edited_inputs(self):
         slug = "easycargo-40hc-mixed-cargo-benchmark"
@@ -205,6 +297,15 @@ class RegressionCompendiumTests(TestCase):
 
 
 class RegressionPresetSourceTests(SimpleTestCase):
+    def test_pinwheel_preset_matches_existing_mosaic_benchmark(self):
+        _, product, container, rotations = next(
+            case for case in BENCHMARK_CASES if case[0] == "reference_imperial_equivalent"
+        )
+        config = CONTAINER_SELECTION_CASE_PRESETS["pinwheel-packing-benchmark"]["config"]
+        self.assertEqual(tuple(config[f"product_{axis}"] for axis in "lwh"), product)
+        self.assertEqual(tuple(config[f"box_{axis}"] for axis in "lwh"), container)
+        self.assertEqual(tuple(config[f"r{index}"] for index in range(1, 4)), rotations)
+
     def assert_matches_source(self, slug, source_container, source_rows):
         preset = get_transport_container_case_preset(slug)
         prepared = _prepare_transport_analysis(preset["config"], preset["rows"])

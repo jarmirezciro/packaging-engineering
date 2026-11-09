@@ -4,7 +4,7 @@ import logging
 
 from django.conf import settings
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.urls import reverse
 from django.utils import timezone
 
@@ -1025,10 +1025,20 @@ def _build_container_selection_seo_schema(request):
 
 
 def container_selection_mode1(request):
+    case_slug = (request.GET.get("case") or "").strip() if request.method == "GET" else ""
+    case_preset = get_container_selection_case_preset(case_slug)
+    if case_slug and case_preset is None:
+        raise Http404("Unknown Container Selection case.")
+
     return render(
         request,
         "container_selection/container_selection_mode1.html",
-        _build_container_selection_page_context(request, mode="standalone"),
+        _build_container_selection_page_context(
+            request,
+            mode="standalone",
+            initial_config=case_preset["config"] if case_preset else None,
+            run_initial_analysis=case_preset is not None,
+        ),
     )
 
 
