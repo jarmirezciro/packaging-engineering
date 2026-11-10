@@ -201,12 +201,15 @@ The current standalone wrapper is still the source of truth. Workflow should ada
 When a Palletization step directly precedes Transport, the pallet output keeps
 the authoritative JSON-safe pallet browser scene beside its existing transport
 bounding dimensions under an explicit `palletization_result` source marker.
-Transport calculations still consume only the inherited rectangular row. After
-the shared transport service returns its authoritative cuboid placements, the
-Flow view decorates those scene items with a reference to the one shared pallet
-visualization payload and an orthogonal orientation code. The browser then
-clones one detailed pallet assembly per placement and applies the cuboid center
-and orientation to the parent group.
+The inherited dimensions are the physical envelope of the pallet plus every
+selected carton placement; configured overhang remains a solver constraint and
+is not assumed to be occupied. Transport calculations still consume only the
+inherited rectangular row. After the shared transport service returns its
+authoritative cuboid placements, the Flow view decorates those scene items with
+a reference to the one shared pallet visualization payload and an orthogonal
+orientation code. The browser then clones one detailed pallet assembly per
+placement and applies the physical envelope center and orientation to the
+parent group.
 
 This decoration is Flow-only. Standalone Transport, the public calculator, and
 non-palletized Flow inputs retain generic load cuboids. The adapter validates
@@ -325,13 +328,15 @@ arrangement, then passes the generated external carton to Palletization.
 
 The current selected 600 × 250 × 300 mm internal carton is 608 × 258 × 316 mm
 external. The pallet has four layers above its 80 mm deck. Its configured
-transport envelope is 1,225.4 × 825.4 × 1,344 mm, including the footprint
-allowance. The 12,032 × 2,352 × 2,698 mm transport unit takes 10 lengthwise
-and 14 rotated pallets on each of two levels, occupying 2,688 mm in height.
+maximum envelope is 1,225.4 × 825.4 × 1,344 mm, while the selected carton
+placements occupy the smaller physical envelope transferred to Transport.
+The 12,032 × 2,352 × 2,698 mm transport unit still takes 10 lengthwise and
+14 rotated pallets on each of two levels, occupying 2,688 mm in height.
 
 With these upright orientations a horizontal slice can have at most two
-pallets across its width, and the 1,225.4 mm-wide orientation can appear at
-most 14 times along the length because two of them cannot sit side by side.
+pallets across its width, and the configured maximum-envelope orientation can
+appear at most 14 times along the length because two of them cannot sit side by
+side.
 Even with 14 of the shorter orientation, 25 pallets would require 25,035 mm
 of summed length across the two available positions, which provide 24,064 mm.
 That caps each horizontal slice at 24 pallets. Across the full height,

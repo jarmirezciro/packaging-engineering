@@ -37,6 +37,7 @@ from ..tools.palletization.presenter import (
 )
 from ..tools.palletization.height import resolve_pallet_height
 from ..tools.palletization.serializers import sanitize_palletization_config_for_session
+from ..utils.palletization.geometry import palletized_load_footprint
 from ..tools.palletization.service import (
     analyze_palletization_capacity,
     analyze_palletization_config,
@@ -439,6 +440,7 @@ def _build_pallet_workflow_payload(
     selected_row,
     selected_pallet_material,
     upstream,
+    actual_footprint=None,
 ):
     upstream_units = (upstream or {}).get("total_base_units", 1)
     payload = build_pallet_pending_result(
@@ -453,18 +455,15 @@ def _build_pallet_workflow_payload(
         return None
     pallet_l = _to_float(effective.get("pallet_l"), None)
     pallet_w = _to_float(effective.get("pallet_w"), None)
-    length_overhang = max(
-        _to_float(effective.get("max_length_stickout"), 0) or 0,
-        0.0,
-    )
-    width_overhang = max(
-        _to_float(effective.get("max_width_stickout"), 0) or 0,
-        0.0,
-    )
-    if pallet_l is not None:
-        payload["length"] = round(pallet_l + length_overhang, 2)
-    if pallet_w is not None:
-        payload["width"] = round(pallet_w + width_overhang, 2)
+    actual_footprint = actual_footprint or selected_row.get("actual_footprint")
+    if actual_footprint:
+        payload["length"] = float(actual_footprint["length"])
+        payload["width"] = float(actual_footprint["width"])
+    else:
+        if pallet_l is not None:
+            payload["length"] = pallet_l
+        if pallet_w is not None:
+            payload["width"] = pallet_w
     prev_weight_kg = _to_float((upstream or {}).get("weight_kg"), None)
     if prev_weight_kg is None:
         legacy_weight_g = _to_float((upstream or {}).get("weight_g"), None)
@@ -500,6 +499,14 @@ def _build_pallet_workflow_payload(
     payload["package_type"] = "pallet"
     payload["source_type"] = PALLETIZATION_VISUAL_SOURCE
     return _carry_effective_container_specification(payload, upstream)
+
+
+def _actual_pallet_footprint(effective, selected_row):
+    return palletized_load_footprint(
+        (effective or {}).get("pallet_l"),
+        (effective or {}).get("pallet_w"),
+        (selected_row or {}).get("placements3d") or [],
+    )
 
 
 def _pallet_config_for_upstream_weight(config, upstream):
@@ -587,6 +594,17 @@ def _run_pallet_analysis_shared(step, steps, idx):
     if not selected_row:
         return
 
+    raw_result = analysis.get("result") or {}
+    raw_results = raw_result.get("raw_results") or []
+    for safe_row, raw_row in zip(serialized.get("results_table") or [], raw_results):
+        footprint = _actual_pallet_footprint(effective, raw_row)
+        if footprint:
+            safe_row["actual_footprint"] = footprint
+    selected_raw_row = raw_result.get("selected_row")
+    actual_footprint = _actual_pallet_footprint(effective, selected_raw_row)
+    if actual_footprint:
+        selected_row["actual_footprint"] = actual_footprint
+
     step["result"] = result_card_from_row(
         selected_row,
         effective.get("pallet_l"),
@@ -599,6 +617,7 @@ def _run_pallet_analysis_shared(step, steps, idx):
         selected_row,
         selected_pallet_material,
         _selected_input_for_step(steps, idx),
+        actual_footprint=actual_footprint,
     )
 
 
@@ -1442,10 +1461,10 @@ def _pallet_placement_orientation(item, source_bounds):
 def _normalize_pallet_visualization_for_transport(upstream):
     """Return a JSON-safe pallet scene aligned to the calculated load cuboid.
 
-    The inherited transport row contains the palletized load's effective
-    footprint, including any configured overhang. The browser scene keeps the
-    pallet's own coordinate origin, so its center is carried explicitly while
-    the complete assembly is validated against the effective footprint.
+    The inherited transport row contains the actual physical load footprint.
+    The browser scene keeps the pallet's own coordinate origin, so the actual
+    scene envelope supplies its center while the configured overhang remains a
+    separate constraint marker in the source scene.
     """
     if not upstream or upstream.get("source_type") != PALLETIZATION_VISUAL_SOURCE:
         return None
@@ -1474,26 +1493,20 @@ def _normalize_pallet_visualization_for_transport(upstream):
     try:
         pallet_length = float(pallet.get("length") or 0)
         pallet_width = float(pallet.get("width") or 0)
-        allowed = scene.get("allowed_footprint") or {}
-        footprint_length = float(allowed.get("length") or pallet_length)
-        footprint_width = float(allowed.get("width") or pallet_width)
-        footprint_x_value = allowed.get("x")
-        footprint_y_value = allowed.get("y")
-        footprint_x = (
-            float(footprint_x_value)
-            if footprint_x_value not in (None, "")
-            else (pallet_length - footprint_length) / 2.0
-        )
-        footprint_y = (
-            float(footprint_y_value)
-            if footprint_y_value not in (None, "")
-            else (pallet_width - footprint_width) / 2.0
-        )
         pallet_height = float(pallet.get("height") or 0)
-        center_x = footprint_x + footprint_length / 2.0
-        center_y = footprint_y + footprint_width / 2.0
     except (TypeError, ValueError):
         return None
+    footprint = palletized_load_footprint(
+        pallet_length,
+        pallet_width,
+        placements,
+    )
+    if not footprint:
+        return None
+    footprint_length = footprint["length"]
+    footprint_width = footprint["width"]
+    center_x = footprint["center_x"]
+    center_y = footprint["center_y"]
     if (
         pallet_length <= 0
         or pallet_width <= 0
@@ -2969,11 +2982,14 @@ def _evaluate_pallet_capacity_step(step, temporary_steps, idx):
     selected_row = analysis.get("selected_row")
     if not analysis.get("ok") or not selected_row:
         return None
+    effective = analysis["effective_config"]
+    actual_footprint = _actual_pallet_footprint(effective, selected_row)
     return _build_pallet_workflow_payload(
-        analysis["effective_config"],
+        effective,
         selected_row,
         selected_pallet_material,
         _selected_input_for_step(temporary_steps, idx),
+        actual_footprint=actual_footprint,
     )
 
 

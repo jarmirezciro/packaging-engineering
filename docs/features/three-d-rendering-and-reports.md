@@ -106,8 +106,12 @@ public SEO calculator render that contract with the shared Three.js pallet
 viewer. The payload uses Python coordinates `X=length`, `Y=width`, `Z=height`;
 the browser maps them to Three.js `X=length`, `Y=height`, `Z=width`.
 
-The scene includes the pallet base, allowed overhang footprint, carton
-placements, layer indices, selected pattern metadata, and stack metrics.
+The scene includes the physical pallet base and carton placements, the allowed
+overhang footprint as a separate constraint marker, layer indices, selected
+pattern metadata, and stack metrics. Packaging Flow derives its inherited
+transport length/width from the pallet plus all selected placements, preserving
+the scene's physical min/max bounds and center; it does not substitute the
+allowed-overhang envelope for occupied geometry.
 Three.js is the primary customer-facing pallet stack renderer. The historical
 Matplotlib renderer remains a backend helper only and is not the primary web or
 PDF visualization.

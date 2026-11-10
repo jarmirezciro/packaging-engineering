@@ -2,7 +2,7 @@ import json
 import tempfile
 from math import prod
 
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from packagingapp.models import PackagingCatalogue, PackagingMaterial
@@ -15,6 +15,46 @@ from packagingapp.utils.container_tool.engine import pack_container
 from packagingapp.views.full_packaging import (
     _decorate_transport_scene_with_pallet_visualization,
 )
+from packagingapp.utils.palletization.geometry import palletized_load_footprint
+
+
+class PalletizedLoadFootprintTests(SimpleTestCase):
+    def test_footprint_includes_pallet_all_layers_and_asymmetric_bounds(self):
+        footprint = palletized_load_footprint(
+            1219.2,
+            1016.0,
+            [
+                {"x": -6.35, "y": 4.0, "dx": 300.0, "dy": 400.0},
+                {"x": 900.0, "y": -12.7, "dx": 400.0, "dy": 100.0},
+                {"x": 400.0, "y": 900.0, "dx": 250.0, "dy": 200.0},
+            ],
+        )
+
+        self.assertEqual(
+            {
+                key: footprint[key]
+                for key in ("min_x", "max_x", "min_y", "max_y")
+            },
+            {"min_x": -6.35, "max_x": 1300.0, "min_y": -12.7, "max_y": 1100.0},
+        )
+        self.assertEqual(footprint["length"], 1306.35)
+        self.assertEqual(footprint["width"], 1112.7)
+        self.assertEqual(footprint["center_x"], (1300.0 - 6.35) / 2.0)
+        self.assertEqual(footprint["center_y"], (1100.0 - 12.7) / 2.0)
+        self.assertEqual(footprint["placement_count"], 3)
+
+    def test_empty_or_invalid_placements_fall_back_to_physical_pallet(self):
+        footprint = palletized_load_footprint(
+            1219.2,
+            1016.0,
+            [None, {"x": "invalid", "y": 0, "dx": 10, "dy": 10}],
+        )
+
+        self.assertEqual(footprint["length"], 1219.2)
+        self.assertEqual(footprint["width"], 1016.0)
+        self.assertEqual(footprint["center_x"], 609.6)
+        self.assertEqual(footprint["center_y"], 508.0)
+        self.assertEqual(footprint["placement_count"], 0)
 
 
 class FullPackagingCaseTests(TestCase):
@@ -601,8 +641,23 @@ class FullPackagingCaseTests(TestCase):
             pallet_step["config"]["max_length_stickout"],
             25.4,
         )
-        self.assertEqual(pallet_step["pending_result"]["length"], 1225.4)
-        self.assertEqual(pallet_step["pending_result"]["width"], 825.4)
+        selected_scene = pallet_step["threejs_scene"]
+        actual_footprint = palletized_load_footprint(
+            selected_scene["pallet"]["length"],
+            selected_scene["pallet"]["width"],
+            selected_scene["placements"],
+        )
+        self.assertEqual(
+            pallet_step["pending_result"]["length"], actual_footprint["length"]
+        )
+        self.assertEqual(
+            pallet_step["pending_result"]["width"], actual_footprint["width"]
+        )
+        self.assertLess(pallet_step["pending_result"]["length"], 1225.4)
+        self.assertLess(pallet_step["pending_result"]["width"], 825.4)
+        self.assertEqual(
+            pallet_step["selected_result"]["actual_footprint"], actual_footprint
+        )
         self.assertEqual(pallet_step["config"]["pallet_height"], 80.0)
         self.assertEqual(pallet_step["config"]["max_stack_height"], 1350)
         transport_row = workflow["steps"][2]["config"]["product_rows"][0]
@@ -723,6 +778,56 @@ class FullPackagingCaseTests(TestCase):
             decorated["items"][0]["source_type"],
             "palletization_result",
         )
+
+    def test_direct_pallet_visualization_uses_actual_asymmetric_center(self):
+        transport_scene = {
+            "items": [{
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "dx": 1210,
+                "dy": 805,
+                "dz": 600,
+            }],
+            "metadata": {"total_items": 1},
+        }
+        upstream = {
+            "source_type": "palletization_result",
+            "length": 1210,
+            "width": 805,
+            "height": 600,
+            "pallet_visualization": {
+                "pallet": {
+                    "length": 1200,
+                    "width": 800,
+                    "height": 108,
+                    "deck_thickness": 20,
+                },
+                "allowed_footprint": {
+                    "x": -5,
+                    "y": -2.5,
+                    "length": 1210,
+                    "width": 805,
+                },
+                "placements": [{
+                    "x": 0,
+                    "y": 0,
+                    "z": 108,
+                    "dx": 1210,
+                    "dy": 805,
+                    "dz": 492,
+                }],
+            },
+        }
+
+        decorated = _decorate_transport_scene_with_pallet_visualization(
+            transport_scene,
+            upstream,
+        )
+
+        bounds = decorated["workflow_visualizations"]["palletized_load"]["bounds"]
+        self.assertEqual(bounds["center_x"], 605.0)
+        self.assertEqual(bounds["center_y"], 402.5)
 
     def test_inherited_transport_orientation_and_stackability_choices_are_editable(self):
         case_url = reverse("full_packaging_case", args=["think-beyond-the-box"])

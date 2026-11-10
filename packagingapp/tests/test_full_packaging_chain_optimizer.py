@@ -19,12 +19,15 @@ from packagingapp.views.full_packaging import (
     DESIGN_CHAIN_PALLET_STALE_MESSAGE,
     SESSION_KEY,
     _evaluate_design_chain_step,
+    _evaluate_pallet_capacity_step,
+    _build_pallet_workflow_payload,
     _new_bag_step,
     _new_container_step,
     _new_pallet_step,
     _new_transport_step,
     _save_workflow,
 )
+from packagingapp.utils.palletization.geometry import palletized_load_footprint
 
 
 def container_candidate(candidate_id, rank, quantity, length=100):
@@ -508,6 +511,61 @@ class CapacityOnlyEvaluationTests(TestCase):
             full["result"]["selected_row"]["total_boxes"],
         )
         self.assertEqual(capacity["effective_config"], full["effective_config"])
+
+    def test_pallet_capacity_uses_the_same_actual_footprint_as_normal_flow(self):
+        config = {
+            "box_l": 400,
+            "box_w": 300,
+            "box_h": 200,
+            "pallet_l": 1200,
+            "pallet_w": 800,
+            "pallet_height": 144,
+            "max_stack_height": 1200,
+            "max_width_stickout": 25.4,
+            "max_length_stickout": 25.4,
+        }
+        selected_row = {
+            "pattern": "shared-core",
+            "stacking": "column",
+            "total_boxes": 2,
+            "used_height_mm": 400,
+            "placements3d": [
+                {"x": 0, "y": -5, "l": 1210, "w": 300},
+                {"x": 400, "y": 500, "l": 400, "w": 300},
+            ],
+        }
+        analysis = {
+            "ok": True,
+            "effective_config": config,
+            "selected_row": selected_row,
+        }
+        expected_footprint = palletized_load_footprint(
+            config["pallet_l"], config["pallet_w"], selected_row["placements3d"]
+        )
+
+        with patch(
+            "packagingapp.views.full_packaging.analyze_palletization_capacity",
+            return_value=analysis,
+        ):
+            capacity_output = _evaluate_pallet_capacity_step(
+                {"config": config, "selected_result_key": ""},
+                [{}, {"config": config}],
+                1,
+            )
+
+        normal_output = _build_pallet_workflow_payload(
+            config,
+            selected_row,
+            None,
+            None,
+            actual_footprint=expected_footprint,
+        )
+        self.assertEqual(capacity_output["length"], expected_footprint["length"])
+        self.assertEqual(capacity_output["width"], expected_footprint["width"])
+        self.assertEqual(capacity_output["length"], normal_output["length"])
+        self.assertEqual(capacity_output["width"], normal_output["width"])
+        self.assertEqual(capacity_output["length"], 1210.0)
+        self.assertEqual(capacity_output["width"], 805.0)
 
     def test_optimizer_and_normal_path_pass_same_external_carton_size_and_rank_on_it(self):
         candidate_a = container_candidate("thin", 2, 1, 390)
