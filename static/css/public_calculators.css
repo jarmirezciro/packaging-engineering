@@ -1,0 +1,325 @@
+/* Compact public calculator shell. The shared tool partials remain the source
+   of truth for fields, results, visualisations, and interaction behaviour. */
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) {
+    --public-tool-ink: #172338;
+    --public-tool-muted: #67758a;
+    --public-tool-border: #dfe6eb;
+    --public-tool-green: #0b8468;
+    --public-tool-green-dark: #09654f;
+    --public-tool-pale: #edf9f4;
+    width: 100%;
+    max-width: 1460px;
+    margin-inline: auto;
+    color: var(--public-tool-ink);
+    overflow-x: clip;
+}
+
+:is(.pallet-seo-content, .box-seo-content, .bag-seo-content, .transport-seo-content) {
+    width: min(1180px, 100%);
+    margin-inline: auto;
+}
+
+:is(.pallet-seo-breadcrumb, .box-seo-breadcrumb, .bag-seo-breadcrumb, .transport-seo-breadcrumb) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin: 0 auto .55rem;
+    color: var(--public-tool-muted);
+    font-size: .78rem;
+}
+
+:is(.pallet-seo-breadcrumb, .box-seo-breadcrumb, .bag-seo-breadcrumb, .transport-seo-breadcrumb) a {
+    color: var(--public-tool-green-dark);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+:is(.pallet-seo-hero, .box-seo-hero, .bag-seo-hero, .transport-seo-hero) {
+    display: block;
+    width: min(1180px, 100%);
+    margin-inline: auto;
+    padding: .3rem 0 1.05rem;
+    border: 0;
+    border-bottom: 1px solid var(--public-tool-border);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--public-tool-ink);
+    overflow: visible;
+}
+
+:is(.pallet-seo-hero, .box-seo-hero, .bag-seo-hero, .transport-seo-hero) > div:first-child {
+    max-width: 920px;
+}
+
+:is(.pallet-seo-eyebrow, .box-seo-eyebrow, .bag-seo-eyebrow, .transport-seo-eyebrow) {
+    display: block;
+    margin-bottom: .42rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--public-tool-green-dark);
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    line-height: 1.35;
+    text-transform: uppercase;
+}
+
+:is(.pallet-seo-hero, .box-seo-hero, .bag-seo-hero, .transport-seo-hero) h1 {
+    max-width: 900px;
+    margin: 0 0 .55rem;
+    color: var(--public-tool-ink);
+    font-size: clamp(1.7rem, 2.7vw, 2.15rem);
+    font-weight: 750;
+    letter-spacing: -.035em;
+    line-height: 1.12;
+}
+
+:is(.pallet-seo-lead, .box-seo-lead, .bag-seo-lead, .transport-seo-lead) {
+    max-width: 840px;
+    margin: 0;
+    color: var(--public-tool-muted);
+    font-size: .92rem;
+    line-height: 1.58;
+}
+
+:is(.pallet-seo-actions, .box-seo-actions, .bag-seo-actions, .transport-seo-actions) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: .7rem;
+    margin-top: .75rem;
+}
+
+:is(.pallet-seo-actions, .box-seo-actions, .bag-seo-actions, .transport-seo-actions) > a:first-child {
+    display: none;
+}
+
+:is(.pallet-seo-actions, .box-seo-actions, .bag-seo-actions, .transport-seo-actions) > a:last-child {
+    padding: .3rem 0;
+    border: 0;
+    color: var(--public-tool-green-dark);
+    background: transparent;
+    box-shadow: none;
+    font-size: .82rem;
+    font-weight: 750;
+}
+
+:is(.pallet-seo-actions, .box-seo-actions, .bag-seo-actions, .transport-seo-actions) > a:last-child:hover,
+:is(.pallet-seo-actions, .box-seo-actions, .bag-seo-actions, .transport-seo-actions) > a:last-child:focus-visible {
+    color: var(--public-tool-green);
+    text-decoration: underline;
+}
+
+:is(.pallet-seo-proof, .box-seo-proof, .bag-seo-proof, .transport-seo-proof) {
+    display: block;
+    margin-top: .45rem;
+}
+
+:is(.pallet-seo-proof, .box-seo-proof, .bag-seo-proof, .transport-seo-proof) span {
+    display: inline;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--public-tool-muted);
+    font-size: .76rem;
+    font-weight: 500;
+}
+
+:is(.pallet-seo-proof, .box-seo-proof, .bag-seo-proof, .transport-seo-proof) span:not(:first-child) {
+    display: none;
+}
+
+:is(.pallet-seo-proof, .box-seo-proof, .bag-seo-proof, .transport-seo-proof) span i {
+    color: var(--public-tool-green);
+    margin-right: .22rem;
+}
+
+:is(.pallet-seo-section, .box-seo-section, .bag-seo-section, .transport-seo-section) {
+    padding-top: 1rem;
+    scroll-margin-top: 96px;
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) > :is(#calculator) {
+    width: 100%;
+    margin-inline: auto;
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) > :is(#calculator) > :is(.pallet-seo-section-head, .box-seo-section-head, .bag-seo-section-head, .transport-seo-section-head) {
+    display: none;
+}
+
+:is(.pallet-tool-shell, .box-tool-shell, .bag-tool-shell, .transport-tool-shell) {
+    width: 100%;
+    max-width: 1460px;
+    margin-inline: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+:is(.pallet-example-live-banner, .box-seo-banner, .bag-seo-banner, .transport-seo-banner) {
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+    margin-bottom: .75rem;
+    padding: .65rem .8rem;
+    border: 1px solid #cdece0;
+    border-radius: 10px;
+    background: var(--public-tool-pale);
+    box-shadow: none;
+    color: var(--public-tool-green-dark);
+    font-size: .8rem;
+}
+
+:is(.pallet-example-live-banner, .box-seo-banner, .bag-seo-banner, .transport-seo-banner) p {
+    margin: .1rem 0 0;
+    color: #3d7565;
+    line-height: 1.45;
+}
+
+:is(.pallet-example-live-banner, .box-seo-banner, .bag-seo-banner, .transport-seo-banner) strong {
+    color: var(--public-tool-green-dark);
+}
+
+:is(.pallet-tool-disclosure, .box-seo-disclosure, .bag-seo-disclosure, .transport-seo-disclosure) {
+    display: none;
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) .tool-grid-3 {
+    gap: 13px;
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) .app-card {
+    border-color: var(--public-tool-border);
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(20, 45, 60, .035);
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) .app-card-body {
+    padding: 1.1rem;
+}
+
+/* Match the pallet fields to the carton field width on the public page. */
+.pallet-seo-page .tool-grid-3 > .app-card:nth-child(2) .tool-compact-grid-two {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* The step marker needs its own row above each editorial card heading. */
+.pallet-seo-page .pallet-process-step {
+    padding-top: 3.35rem;
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) :is(.pallet-help, .container-help, .bag-help) {
+    margin-bottom: .75rem;
+    border-color: var(--public-tool-border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 3px 12px rgba(20, 45, 60, .035);
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page) :is(.pallet-help summary, .container-help summary, .bag-help summary) {
+    padding: .72rem .9rem;
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page) :is(.pallet-help-icon, .container-help-icon, .bag-help-icon) {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--public-tool-pale);
+    color: var(--public-tool-green);
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page) :is(.pallet-help-title strong, .container-help-title strong, .bag-help-title strong) {
+    font-size: .9rem;
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page) :is(.pallet-help-title span, .container-help-title span, .bag-help-title span) {
+    font-size: .76rem;
+}
+
+.transport-seo-page .transport-instructions-card {
+    margin-bottom: .75rem;
+    border-color: var(--public-tool-border);
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(20, 45, 60, .035);
+}
+
+.transport-seo-page .transport-instructions-card .app-card-body {
+    padding: .8rem .9rem;
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) :is(.pallet-seo-section-head, .box-seo-section-head, .bag-seo-section-head, .transport-seo-section-head) {
+    max-width: 850px;
+    margin-bottom: 1rem;
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) :is(.pallet-seo-section h2, .box-seo-section h2, .bag-seo-section h2, .transport-seo-section h2) {
+    margin: .35rem 0 .55rem;
+    color: var(--public-tool-ink);
+    font-size: clamp(1.35rem, 2.3vw, 1.8rem);
+    font-weight: 750;
+    letter-spacing: -.025em;
+    line-height: 1.18;
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) :is(.pallet-seo-section-head p, .box-seo-section-head p, .bag-seo-section-head p, .transport-seo-section-head p) {
+    color: var(--public-tool-muted);
+    font-size: .9rem;
+    line-height: 1.65;
+}
+
+:is(.pallet-seo-card, .box-seo-card, .bag-seo-card, .transport-seo-card),
+:is(.pallet-faq details, .box-seo-faq details, .bag-seo-faq details, .transport-seo-faq details) {
+    border-color: var(--public-tool-border);
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(20, 45, 60, .035);
+}
+
+:is(.pallet-seo-card, .box-seo-card, .bag-seo-card, .transport-seo-card) {
+    padding: 1.1rem;
+}
+
+:is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) :is(.pallet-seo-cta, .box-seo-cta, .bag-seo-cta, .transport-seo-cta) {
+    margin-top: 2.5rem;
+    border-radius: 12px;
+    background: var(--public-tool-ink);
+    box-shadow: none;
+}
+
+@media (max-width: 767.98px) {
+    :is(.pallet-seo-hero, .box-seo-hero, .bag-seo-hero, .transport-seo-hero) {
+        padding-bottom: .85rem;
+    }
+
+    :is(.pallet-seo-hero, .box-seo-hero, .bag-seo-hero, .transport-seo-hero) h1 {
+        font-size: clamp(1.56rem, 7vw, 1.78rem);
+    }
+
+    :is(.pallet-seo-lead, .box-seo-lead, .bag-seo-lead, .transport-seo-lead) {
+        font-size: .86rem;
+    }
+
+    :is(.pallet-seo-actions, .box-seo-actions, .bag-seo-actions, .transport-seo-actions) {
+        justify-content: flex-start;
+        margin-top: .55rem;
+    }
+
+    :is(.pallet-seo-page, .box-seo-page, .bag-seo-page, .transport-seo-page) .app-card-body {
+        padding: .9rem;
+    }
+}
+
+@media (max-width: 991px) {
+    .pallet-seo-page .tool-grid-3 > .app-card:nth-child(2) .tool-compact-grid-two {
+        grid-template-columns: 1fr;
+    }
+}

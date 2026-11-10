@@ -45,205 +45,6 @@
         font-weight: 700;
     }
 
-    .pallet-seo-hero {
-        position: relative;
-        overflow: hidden;
-        display: grid;
-        grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
-        gap: 2.5rem;
-        align-items: center;
-        padding: clamp(2rem, 5vw, 4rem);
-        border-radius: 30px;
-        color: #fff;
-        background:
-            radial-gradient(circle at 86% 12%, rgba(52, 211, 153, .34), transparent 28%),
-            radial-gradient(circle at 10% 100%, rgba(59, 130, 246, .20), transparent 34%),
-            linear-gradient(135deg, #0f172a 0%, #12344d 48%, #10a37f 100%);
-        box-shadow: 0 26px 54px rgba(15, 23, 42, .18);
-    }
-
-    .pallet-seo-eyebrow {
-        display: inline-flex;
-        align-items: center;
-        gap: .5rem;
-        margin-bottom: 1rem;
-        padding: .45rem .75rem;
-        border: 1px solid rgba(255, 255, 255, .18);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, .11);
-        color: rgba(255, 255, 255, .92);
-        font-weight: 750;
-        font-size: .88rem;
-    }
-
-    .pallet-seo-hero h1 {
-        max-width: 820px;
-        margin: 0 0 1rem;
-        font-size: clamp(2.25rem, 5vw, 4.65rem);
-        line-height: 1.01;
-        letter-spacing: -.045em;
-        font-weight: 900;
-    }
-
-    .pallet-seo-lead {
-        max-width: 760px;
-        margin: 0;
-        color: rgba(255, 255, 255, .84);
-        font-size: clamp(1rem, 1.7vw, 1.17rem);
-        line-height: 1.7;
-    }
-
-    .pallet-seo-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: .75rem;
-        margin-top: 1.45rem;
-    }
-
-    .pallet-seo-proof {
-        display: flex;
-        flex-wrap: wrap;
-        gap: .55rem;
-        margin-top: 1.3rem;
-    }
-
-    .pallet-seo-proof span {
-        display: inline-flex;
-        align-items: center;
-        gap: .4rem;
-        padding: .42rem .66rem;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, .10);
-        border: 1px solid rgba(255, 255, 255, .14);
-        color: rgba(255, 255, 255, .84);
-        font-size: .82rem;
-        font-weight: 650;
-    }
-
-    .pallet-visual-card {
-        position: relative;
-        min-height: 390px;
-        border: 1px solid rgba(255, 255, 255, .28);
-        border-radius: 26px;
-        background: rgba(255, 255, 255, .94);
-        box-shadow: 0 24px 48px rgba(15, 23, 42, .24);
-        color: #0f172a;
-        padding: 1.25rem;
-    }
-
-    .pallet-visual-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        margin-bottom: 1rem;
-    }
-
-    .pallet-visual-head strong {
-        display: block;
-        font-size: 1rem;
-    }
-
-    .pallet-visual-head small {
-        color: #64748b;
-    }
-
-    .pallet-visual-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: .35rem;
-        padding: .38rem .58rem;
-        border-radius: 999px;
-        background: #dcfce7;
-        color: #166534;
-        font-size: .75rem;
-        font-weight: 800;
-    }
-
-    .pallet-scene {
-        position: relative;
-        height: 225px;
-        overflow: hidden;
-        border-radius: 18px;
-        background:
-            linear-gradient(rgba(15, 23, 42, .04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(15, 23, 42, .04) 1px, transparent 1px),
-            linear-gradient(180deg, #f8fafc, #eef7f3);
-        background-size: 24px 24px, 24px 24px, auto;
-        perspective: 900px;
-    }
-
-    .pallet-stack {
-        position: absolute;
-        left: 50%;
-        top: 49%;
-        width: 250px;
-        height: 165px;
-        transform: translate(-50%, -50%) rotateX(57deg) rotateZ(-27deg);
-        transform-style: preserve-3d;
-    }
-
-    .pallet-base-visual {
-        position: absolute;
-        inset: auto 8px 0;
-        height: 42px;
-        border: 3px solid #7c5c36;
-        border-radius: 7px;
-        background: repeating-linear-gradient(90deg, #d6b17d 0 24px, #b8874f 24px 29px);
-        box-shadow: 10px 14px 25px rgba(15, 23, 42, .18);
-    }
-
-    .pallet-box-grid {
-        position: absolute;
-        left: 22px;
-        right: 22px;
-        bottom: 39px;
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 5px;
-    }
-
-    .pallet-box-grid span {
-        aspect-ratio: 1.32;
-        border: 2px solid #0b7a60;
-        border-radius: 4px;
-        background: linear-gradient(145deg, #d1fae5, #6ee7b7);
-        box-shadow: inset -7px -6px 0 rgba(11, 122, 96, .12);
-    }
-
-    .pallet-box-grid span:nth-child(5),
-    .pallet-box-grid span:nth-child(6),
-    .pallet-box-grid span:nth-child(7),
-    .pallet-box-grid span:nth-child(8) {
-        transform: translateZ(32px);
-    }
-
-    .pallet-visual-stats {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: .6rem;
-        margin-top: .85rem;
-    }
-
-    .pallet-visual-stat {
-        padding: .7rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 13px;
-        background: #fff;
-    }
-
-    .pallet-visual-stat small {
-        display: block;
-        color: #64748b;
-        font-size: .72rem;
-    }
-
-    .pallet-visual-stat strong {
-        display: block;
-        margin-top: .12rem;
-        font-size: 1rem;
-    }
-
     .pallet-seo-section {
         padding: 4rem 0 0;
         scroll-margin-top: 96px;
@@ -505,17 +306,6 @@
         color: rgba(255, 255, 255, .78);
     }
 
-    @media (max-width: 1199.98px) {
-        .pallet-seo-hero {
-            grid-template-columns: 1fr;
-        }
-
-        .pallet-visual-card {
-            max-width: 720px;
-            width: 100%;
-        }
-    }
-
     @media (max-width: 991.98px) {
         .pallet-feature-grid,
         .pallet-process-grid,
@@ -526,21 +316,6 @@
     }
 
     @media (max-width: 575.98px) {
-        .pallet-seo-hero {
-            padding: 1.6rem;
-            border-radius: 22px;
-        }
-
-        .pallet-visual-card {
-            min-height: 350px;
-            padding: 1rem;
-        }
-
-        .pallet-stack {
-            width: 205px;
-        }
-
-        .pallet-visual-stats,
         .pallet-example-values {
             grid-template-columns: 1fr;
         }
@@ -589,42 +364,9 @@
             </div>
         </div>
 
-        <div class="pallet-visual-card" aria-label="Illustration of cartons arranged on a pallet">
-            <div class="pallet-visual-head">
-                <div>
-                    <strong>Pallet analysis preview</strong>
-                    <small>Carton-to-pallet decision support</small>
-                </div>
-                <span class="pallet-visual-badge"><i class="bi bi-stars"></i>Best ranked</span>
-            </div>
-            <div class="pallet-scene" aria-hidden="true">
-                <div class="pallet-stack">
-                    <div class="pallet-box-grid">
-                        <span></span><span></span><span></span><span></span>
-                        <span></span><span></span><span></span><span></span>
-                    </div>
-                    <div class="pallet-base-visual"></div>
-                </div>
-            </div>
-            <div class="pallet-visual-stats">
-                <div class="pallet-visual-stat"><small>Cartons/layer</small><strong>Calculated</strong></div>
-                <div class="pallet-visual-stat"><small>Total cartons</small><strong>Ranked</strong></div>
-                <div class="pallet-visual-stat"><small>Utilization</small><strong>Compared</strong></div>
-            </div>
-        </div>
     </section>
 
     <section id="calculator" class="pallet-seo-section" aria-labelledby="calculator-heading">
-        <div class="pallet-seo-section-head pallet-seo-content">
-            <span class="pallet-seo-kicker"><i class="bi bi-play-circle"></i>Interactive calculator</span>
-            <h2 id="calculator-heading">Calculate your pallet pattern now</h2>
-            <p>
-                Use external carton dimensions in millimetres, select or enter a pallet footprint,
-                and define the maximum carton stack height. KolliPack will rank the available layouts
-                and render the selected result.
-            </p>
-        </div>
-
         <div class="pallet-tool-shell">
             {% if is_initial_example %}
                 <div class="pallet-example-live-banner" role="status">
@@ -639,13 +381,6 @@
                     </div>
                 </div>
             {% endif %}
-            <div class="pallet-tool-disclosure">
-                <i class="bi bi-diagram-3"></i>
-                <div>
-                    <strong>This is the same palletization module used inside KolliPack and Packaging Flow.</strong>
-                    The calculator, result logic, shared UI, 3D rendering, and PDF export are maintained as one implementation.
-                </div>
-            </div>
             <form method="post" action="{% url 'palletization_calculator' %}" class="app-page" data-preserve-tool-scroll="palletization-seo">
                 {% csrf_token %}
                 {% include "palletization/palletization_wrapper.html" %}

@@ -19,21 +19,6 @@
     .box-seo-content { width: min(1180px, 100%); margin-inline: auto; }
     .box-seo-breadcrumb { display: flex; align-items: center; gap: .45rem; margin: .1rem 0 1rem; color: #64748b; font-size: .88rem; }
     .box-seo-breadcrumb a { color: var(--box-seo-green); text-decoration: none; font-weight: 700; }
-    .box-seo-hero { width: min(1320px, 100%); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr); gap: clamp(1.5rem, 4vw, 3.5rem); align-items: center; padding: clamp(2rem, 5vw, 4.5rem); border-radius: 30px; color: #fff; background: radial-gradient(circle at 90% 10%, rgba(52, 211, 153, .26), transparent 31%), linear-gradient(135deg, #0f172a, #12344d 55%, #0b7a60); box-shadow: 0 26px 54px rgba(15, 23, 42, .18); }
-    .box-seo-eyebrow, .box-seo-proof span { display: inline-flex; align-items: center; gap: .45rem; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; background: rgba(255,255,255,.1); }
-    .box-seo-eyebrow { padding: .45rem .75rem; margin-bottom: 1rem; font-size: .88rem; font-weight: 750; }
-    .box-seo-hero h1 { max-width: 850px; margin: 0 0 1rem; font-size: clamp(2.2rem, 5vw, 4.5rem); line-height: 1.01; letter-spacing: -.045em; font-weight: 900; }
-    .box-seo-lead { max-width: 780px; margin: 0; color: rgba(255,255,255,.84); font-size: clamp(1rem, 1.7vw, 1.17rem); line-height: 1.7; }
-    .box-seo-actions, .box-seo-proof { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: 1.35rem; }
-    .box-seo-proof span { padding: .42rem .66rem; color: rgba(255,255,255,.84); font-size: .82rem; font-weight: 650; }
-    .box-seo-visual { padding: 1.35rem; border: 1px solid rgba(255,255,255,.28); border-radius: 26px; background: rgba(255,255,255,.96); color: #0f172a; box-shadow: 0 24px 48px rgba(15,23,42,.24); }
-    .box-seo-visual h2 { margin: 0 0 .25rem; font-size: 1.12rem; font-weight: 830; }
-    .box-seo-visual p { margin-bottom: 1rem; color: #64748b; font-size: .9rem; }
-    .box-seo-sketch { min-height: 225px; display: grid; place-items: center; perspective: 750px; border-radius: 18px; overflow: hidden; background: linear-gradient(rgba(15,23,42,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.04) 1px, transparent 1px), linear-gradient(180deg, #f8fafc, #eef7f3); background-size: 24px 24px, 24px 24px, auto; }
-    .box-seo-cube { position: relative; width: 245px; height: 145px; transform: rotateX(57deg) rotateZ(-30deg); border: 4px solid #0b7a60; background: rgba(110,231,183,.18); box-shadow: 18px 20px 30px rgba(15,23,42,.16); }
-    .box-seo-cube::before, .box-seo-cube::after { content: ""; position: absolute; border: 3px solid #0b7a60; background: rgba(16,185,129,.12); }
-    .box-seo-cube::before { left: 12px; right: 12px; top: 12px; bottom: 12px; background: repeating-linear-gradient(90deg, rgba(245,158,11,.78) 0 26px, rgba(255,255,255,.5) 26px 29px); }
-    .box-seo-cube::after { left: -4px; right: -4px; top: -42px; height: 38px; transform-origin: bottom; transform: rotateX(35deg); background: rgba(201,166,107,.4); }
     .box-seo-section { padding: 4rem 0 0; scroll-margin-top: 96px; }
     .box-seo-section-head { max-width: 850px; margin-bottom: 1.4rem; }
     .box-seo-kicker { color: var(--box-seo-green); font-size: .78rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
@@ -57,9 +42,7 @@
     .box-seo-cta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.25rem; margin-top: 4rem; padding: clamp(1.5rem, 4vw, 2.5rem); border-radius: 25px; color: #fff; background: linear-gradient(135deg, #0f172a, #12344d 55%, #0b7a60); }
     .box-seo-cta h2 { margin: 0 0 .4rem; font-size: clamp(1.5rem, 3vw, 2.25rem); font-weight: 850; }
     .box-seo-cta p { max-width: 720px; margin: 0; color: rgba(255,255,255,.78); }
-    @media (max-width: 1199.98px) { .box-seo-hero { grid-template-columns: 1fr; } .box-seo-visual { max-width: 720px; } }
     @media (max-width: 991.98px) { .box-seo-grid { grid-template-columns: 1fr; } }
-    @media (max-width: 575.98px) { .box-seo-hero { padding: 1.6rem; border-radius: 22px; } .box-seo-visual { padding: 1rem; } .box-seo-cube { width: 190px; height: 120px; } }
 </style>
 {% endblock %}
 
@@ -87,19 +70,9 @@
                 <span><i class="bi bi-check2-circle"></i>PDF reports with KolliPack Plus</span>
             </div>
         </div>
-        <div class="box-seo-visual" aria-label="Illustration of products arranged in an open box">
-            <h2>Product packing interpretation</h2>
-            <p>Usable internal dimensions define capacity. Orientation permissions control which original product dimension may be vertical.</p>
-            <div class="box-seo-sketch" aria-hidden="true"><div class="box-seo-cube"></div></div>
-        </div>
     </section>
 
     <section id="calculator" class="box-seo-section" aria-labelledby="calculator-heading">
-        <div class="box-seo-section-head box-seo-content">
-            <span class="box-seo-kicker"><i class="bi bi-play-circle me-1"></i>Interactive calculator</span>
-            <h2 id="calculator-heading">Calculate product-to-box capacity</h2>
-            <p>Enter rectangular product and usable internal container dimensions in millimetres. Add product quantity, product weight, packaging tare, and maximum payload for a fuller capacity check.</p>
-        </div>
         <div class="box-tool-shell">
             {% if is_initial_example %}
                 <div class="box-seo-banner" role="status">
@@ -107,7 +80,6 @@
                     <div><strong>Live example loaded — edit any value to calculate your own box.</strong><p>Product {{ example_product_dimensions }} in a {{ example_container_dimensions }} RSC-style box. The visible metrics and 3D placement were generated by the real shared Container Selection calculation path.</p></div>
                 </div>
             {% endif %}
-            <div class="box-seo-disclosure"><i class="bi bi-diagram-3 fs-5" aria-hidden="true"></i><p><strong>One shared implementation.</strong> This public calculator and standalone Container Selection use the same form, validation, solver, result metrics, Three.js scene and viewer, public catalogue rules, Top-5 ranking, and snapshot-backed PDF path. Packaging Flow consumes the same prefixed components.</p></div>
             <form method="post" action="{% url 'container_selection_calculator' %}" class="app-page" data-preserve-tool-scroll="container-selection-seo">
                 {% csrf_token %}
                 {% include "container_selection_tool/container_selection_wrapper.html" %}
