@@ -1253,6 +1253,18 @@ def pattern_center_filled_pinwheel(area_l, area_w, box_l, box_w):
     )
 
 
+def pattern_perimeter_core_mosaic(area_l, area_w, box_l, box_w):
+    return _adapt_shared_layer(
+        shared_patterns.pattern_perimeter_core_mosaic(
+            area_l,
+            area_w,
+            box_l,
+            box_w,
+            policy=PALLETIZATION_SEARCH_POLICY,
+        )
+    )
+
+
 
 
 def pattern_nested_pinwheel(area_l, area_w, box_l, box_w, rotated=False):
@@ -1674,6 +1686,11 @@ def get_base_and_interlock_layers(pattern_name, area_l, area_w, box_l, box_w):
         # A compatible mirror/180-degree layer is derived conservatively by the
         # existing customer-safe interlock logic when available.
         interlock = []
+    elif pattern_name == "Perimeter-Core Mosaic":
+        base = pattern_perimeter_core_mosaic(area_l, area_w, box_l, box_w)
+        # The customer-safe interlock builder derives a validated mirror or
+        # rotation from the distinct base topology.
+        interlock = []
     elif pattern_name == "Splitrow":
         base = pattern_splitrow(area_l, area_w, box_l, box_w, swapped=False)
         interlock = pattern_splitrow(area_l, area_w, box_l, box_w, swapped=True)
@@ -1713,6 +1730,7 @@ PATTERNS = [
     # tie-breaking and duplicate-retention behaviour stay unchanged.
     "Nested pinwheel",
     "Centre-filled pinwheel",
+    "Perimeter-Core Mosaic",
 ]
 
 STACKINGS = [

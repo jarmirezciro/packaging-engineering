@@ -873,6 +873,126 @@ def pattern_center_filled_pinwheel(area_l, area_w, box_l, box_w):
 
     return max(valid, key=clearance_score)
 
+
+def _perimeter_core_mosaic_motif(
+    box_l: float,
+    box_w: float,
+) -> Tuple[List[Placement2D], float, float]:
+    """Build the ten-carton perimeter/core topology in local coordinates.
+
+    The construction is deliberately expressed in the carton dimensions.  It
+    is the mathematically validated reconstruction of the Cape Pack reference:
+    six ``L x S`` cartons surround four ``S x L`` cartons, where ``L`` is the
+    long carton side and ``S`` is the short side.
+    """
+    if min(box_l, box_w) <= 0:
+        return [], 0.0, 0.0
+
+    long_side = max(box_l, box_w)
+    short_side = min(box_l, box_w)
+    if long_side < 2.0 * short_side - 1e-9:
+        return [], 0.0, 0.0
+
+    horizontal_orientation = orientation_name(
+        long_side, short_side, box_l, box_w
+    )
+    rotated_orientation = orientation_name(
+        short_side, long_side, box_l, box_w
+    )
+    placements = [
+        Placement2D(0.0, 0.0, short_side, long_side, rotated_orientation),
+        Placement2D(0.0, long_side, short_side, long_side, rotated_orientation),
+        Placement2D(short_side, 0.0, long_side, short_side, horizontal_orientation),
+        Placement2D(short_side + long_side, 0.0, long_side, short_side, horizontal_orientation),
+        Placement2D(short_side, 2.0 * long_side - short_side, long_side, short_side, horizontal_orientation),
+        Placement2D(short_side + long_side, 2.0 * long_side - short_side, long_side, short_side, horizontal_orientation),
+        Placement2D(short_side, short_side, short_side, long_side, rotated_orientation),
+        Placement2D(2.0 * long_side, short_side, short_side, long_side, rotated_orientation),
+        Placement2D(2.0 * short_side, short_side, long_side, short_side, horizontal_orientation),
+        Placement2D(2.0 * short_side, 2.0 * short_side, long_side, short_side, horizontal_orientation),
+    ]
+    footprint_l = 2.0 * long_side + short_side
+    footprint_w = 2.0 * long_side
+    if not placements_are_valid(placements, footprint_l, footprint_w):
+        return [], 0.0, 0.0
+    return placements, footprint_l, footprint_w
+
+
+def _mirror_layer_x(
+    placements: List[Placement2D], contour_l: float
+) -> List[Placement2D]:
+    return [
+        Placement2D(
+            contour_l - placement.x - placement.l,
+            placement.y,
+            placement.l,
+            placement.w,
+            placement.orientation,
+        )
+        for placement in placements
+    ]
+
+
+def _mirror_layer_y(
+    placements: List[Placement2D], contour_w: float
+) -> List[Placement2D]:
+    return [
+        Placement2D(
+            placement.x,
+            contour_w - placement.y - placement.w,
+            placement.l,
+            placement.w,
+            placement.orientation,
+        )
+        for placement in placements
+    ]
+
+
+@_policy_scoped
+def pattern_perimeter_core_mosaic(area_l, area_w, box_l, box_w):
+    """Return a centered, validated ten-carton perimeter/core mosaic.
+
+    The family is feasible only when ``max(box_l, box_w) >=
+    2 * min(box_l, box_w)`` and the complete ``(2L + S) x (2L)`` footprint,
+    or its whole-pattern rotation, fits the available area.  No upper aspect
+    ratio is imposed.  Mirror and rotation equivalents are independently
+    validated before the first deterministic fitting candidate is returned.
+    """
+    if min(area_l, area_w, box_l, box_w) <= 0:
+        return []
+
+    motif, contour_l, contour_w = _perimeter_core_mosaic_motif(box_l, box_w)
+    if not motif:
+        return []
+
+    candidates = []
+    for layer in (
+        motif,
+        _mirror_layer_x(motif, contour_l),
+        _mirror_layer_y(motif, contour_w),
+        _mirror_layer_y(_mirror_layer_x(motif, contour_l), contour_w),
+    ):
+        candidates.append((layer, contour_l, contour_w))
+
+    rotated = _rotate_layer_90_clockwise(
+        motif, contour_l, contour_w, box_l, box_w
+    )
+    for layer in (
+        rotated,
+        _mirror_layer_x(rotated, contour_w),
+        _mirror_layer_y(rotated, contour_l),
+        _mirror_layer_y(_mirror_layer_x(rotated, contour_w), contour_l),
+    ):
+        candidates.append((layer, contour_w, contour_l))
+
+    for layer, used_l, used_w in candidates:
+        if used_l > area_l + 1e-9 or used_w > area_w + 1e-9:
+            continue
+        centered = center_placements_on_area(layer, area_l, area_w)
+        if len(centered) == 10 and placements_are_valid(centered, area_l, area_w):
+            return centered
+    return []
+
 def _enumerate_nested_pinwheel_candidates(
     area_l: float,
     area_w: float,

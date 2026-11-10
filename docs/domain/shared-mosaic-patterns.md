@@ -7,7 +7,7 @@ Stage 2 establishes one tool-independent constructive geometry core under
 both call this core through the public API in `patterns.py`.
 
 The core owns Block, Row, Splitrow, Brick, Pinwheel, Hybrid Pinwheel, Nested
-Pinwheel, and Centre-filled Pinwheel construction. Tool-specific selection,
+Pinwheel, Centre-filled Pinwheel, and Perimeter-Core Mosaic construction. Tool-specific selection,
 stacking, interlock policy, load engineering, presentation, and reporting are
 not part of the shared geometry library.
 
@@ -77,6 +77,8 @@ Available families are:
 - Hybrid Pinwheel;
 - Nested Pinwheel;
 - Centre-filled Pinwheel;
+- Perimeter-Core Mosaic: a validated ten-carton mixed-orientation topology for
+  `L >= 2*S`, with footprint `(2*L + S) x (2*L)` and no arbitrary upper ratio;
 - bounded two-region mosaics whose cut positions come from carton multiples.
 
 Patterns do not know about pallets, overhang, load height, interlock display,

@@ -40,6 +40,7 @@ PATTERN_FAMILIES = (
     "hybrid_pinwheel",
     "nested_pinwheel",
     "centre_filled_pinwheel",
+    "perimeter_core_mosaic",
     "regional_mosaic",
 )
 
@@ -159,6 +160,19 @@ def pattern_center_filled_pinwheel(
     policy: PatternSearchPolicy = CONTAINER_SEARCH_POLICY,
 ):
     return _core.pattern_center_filled_pinwheel(
+        area_l, area_w, box_l, box_w, policy=policy
+    )
+
+
+def pattern_perimeter_core_mosaic(
+    area_l,
+    area_w,
+    box_l,
+    box_w,
+    *,
+    policy: PatternSearchPolicy = CONTAINER_SEARCH_POLICY,
+):
+    return _core.pattern_perimeter_core_mosaic(
         area_l, area_w, box_l, box_w, policy=policy
     )
 
@@ -310,6 +324,14 @@ def enumerate_pattern_candidates(
             add("regional_mosaic", f"{axis}:{cut:.9g}", layer)
             if len(candidates) >= candidate_budget:
                 break
+        # Keep the family additive: all historical candidates retain their
+        # order and budget slots. When a caller exhausts the old bounded
+        # prefix, the new family is omitted rather than displacing it.
+        add(
+            "perimeter_core_mosaic",
+            "best",
+            pattern_perimeter_core_mosaic(*values, policy=search_policy),
+        )
     except PlacementBudgetExceeded:
         # Return only a fully valid bounded prefix; Container Selection will
         # retain its legacy solution if this prefix cannot improve it.

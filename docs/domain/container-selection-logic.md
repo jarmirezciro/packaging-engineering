@@ -79,6 +79,11 @@ and Stage 2 Palletization handover are documented in
 `shared-mosaic-patterns.md`. `MainBox` and the legacy pilot sequence remain
 unchanged and independently testable through `calculate_legacy_placements()`.
 
+The shared Perimeter-Core Mosaic is available to the bounded candidate search
+as an additive family. A same-quantity ten-carton candidate therefore remains
+available for geometry and rendering validation, while the legacy result still
+wins ties under the established selection contract.
+
 The root `MainBox.max_quantity` already includes provisional direct residual fills. It must not be added to the child results because those provisional fills are replaced by the complete child analyses. The final quantity is the root main grid plus the three complete child solutions.
 
 ## Current implementation notes

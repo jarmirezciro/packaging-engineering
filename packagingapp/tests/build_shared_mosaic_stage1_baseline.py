@@ -13,6 +13,8 @@ from packagingapp.utils.box_selection.engine import (
     calculate_placements,
     compare_packing_candidates,
 )
+from packagingapp.utils.box_selection.mosaic import _vertical_families
+from packagingapp.utils.packing_patterns.geometry import count_fitting_units
 from packagingapp.utils.packing_patterns import enumerate_pattern_candidates
 from packagingapp.utils.packing_patterns import patterns
 
@@ -21,6 +23,7 @@ BASELINE_COMMIT = "5754ef9e82b409b93984ac4ffa0672ce55324950"
 BASELINE_PATTERNS_SHA256 = "45b739ed645f4125330fd448c348c7ac4e605a0dc132abe63a9e481ab1c2e4c0"
 FIXTURE_PATH = Path(__file__).with_name("shared_mosaic_stage1_baseline.json")
 PATTERNS_PATH = Path(patterns.__file__).resolve()
+ADDITIVE_PATTERN_FAMILIES = frozenset({"perimeter_core_mosaic"})
 
 
 def _number(value):
@@ -56,10 +59,37 @@ def _box_signature(placements):
     ]
 
 
+def _historical_candidates(candidates):
+    return tuple(
+        candidate
+        for candidate in candidates
+        if candidate.family not in ADDITIVE_PATTERN_FAMILIES
+    )
+
+
+def _additive_candidate_count(product, container, flags):
+    count = 0
+    for _axis, footprint_l, footprint_w, vertical in _vertical_families(
+        product, *flags
+    ):
+        if count_fitting_units(container[2], vertical) <= 0:
+            continue
+        candidates = enumerate_pattern_candidates(
+            container[0], container[1], footprint_l, footprint_w
+        )
+        count += sum(
+            candidate.family in ADDITIVE_PATTERN_FAMILIES
+            for candidate in candidates
+        )
+    return count
+
+
 def build_baseline():
     enumerations = []
     for name, area_l, area_w, box_l, box_w in PATTERN_SCENARIOS:
-        candidates = enumerate_pattern_candidates(area_l, area_w, box_l, box_w)
+        candidates = _historical_candidates(
+            enumerate_pattern_candidates(area_l, area_w, box_l, box_w)
+        )
         enumerations.append(
             {
                 "name": name,
@@ -90,7 +120,8 @@ def build_baseline():
                 "selected_quantity": result.selected_quantity,
                 "winning_family": result.winning_family,
                 "geometry_valid": result.geometry_valid,
-                "mosaic_candidate_count": result.mosaic_candidate_count,
+                "mosaic_candidate_count": result.mosaic_candidate_count
+                - _additive_candidate_count(product, container, flags),
                 "mosaic_resource_limited": result.mosaic_resource_limited,
                 "selected_geometry_sha256": _digest(
                     _box_signature(selected_placements)

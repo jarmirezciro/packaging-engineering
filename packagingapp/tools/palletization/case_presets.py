@@ -132,6 +132,22 @@ PALLETIZATION_CASE_PRESETS = {
         "label": "Pinwheel & Mosaic",
         "config": {**_STANDARD_MOSAIC},
     },
+    "capepack-perimeter-core-10": {
+        "label": "Cape Pack Perimeter-Core Mosaic: 10 Cartons",
+        "config": {
+            "box_l": 18.32,
+            "box_w": 8.64,
+            "box_h": 20.32,
+            "box_dimension_unit": "in",
+            "pallet_l": 48,
+            "pallet_w": 40,
+            "pallet_height": 5.50,
+            "pallet_dimension_unit": "in",
+            "max_stack_height": 50,
+            "max_width_stickout": 0,
+            "max_length_stickout": 0,
+        },
+    },
     # Stage 2 brick_and_centre_filled, maximum_pallet_load and standard_pallet.
     "brick-centre-filled": {
         "label": "Brick & Centre-Filled",

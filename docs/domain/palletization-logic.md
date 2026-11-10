@@ -66,7 +66,15 @@ The project has discussed and implemented/refined these engineered pattern famil
 - Pinwheel / Block Pinwheel
 - Split Row
 - Hybrid Pinwheel
+- Perimeter-Core Mosaic
 - Mosaic patterns with main, secondary, and filler blocks
+
+Perimeter-Core Mosaic is the shared ten-carton mixed-orientation topology. It
+is feasible when the normalized carton sides satisfy `L >= 2*S` and its
+complete `(2*L + S) x (2*L)` footprint, or its whole-pattern rotation, fits
+the effective pallet area. The palletization catalogue preserves it as a
+distinct candidate when its placement geometry differs from Block, even when
+the carton count is tied.
 
 Pattern definitions are deterministic constructive heuristics. They are not generic unrestricted 2D nesting.
 

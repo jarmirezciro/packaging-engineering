@@ -19,6 +19,9 @@ from packagingapp.tools.palletization.state import default_palletization_config
 from packagingapp.utils.palletization import engine
 
 
+ADDITIVE_PATTERN_NAMES = frozenset({"Perimeter-Core Mosaic"})
+
+
 BASELINE_COMMIT = "5754ef9e82b409b93984ac4ffa0672ce55324950"
 BASELINE_ENGINE_SHA256 = "c7cc040b3c1f5c2cec68b35337ff729043e66042b5cfd3525b992363d0cb912d"
 FIXTURE_PATH = Path(__file__).with_name("palletization_stage2_baseline.json")
@@ -326,14 +329,25 @@ def _analysis_fixtures():
         if not analysis["ok"]:
             raise RuntimeError(f"baseline scenario {name!r} failed: {analysis['messages']}")
         selected = analysis["result"]["selected_row"]
+        historical_rows = [
+            row
+            for row in analysis["result"]["raw_results"]
+            if row.get("pattern") not in ADDITIVE_PATTERN_NAMES
+        ]
+        historical_serialized_result = _stable_scalar(analysis["serialized_result"])
+        historical_serialized_result["results_table"] = [
+            row
+            for row in historical_serialized_result.get("results_table", [])
+            if row.get("pattern") not in ADDITIVE_PATTERN_NAMES
+        ]
         fixtures.append(
             {
                 "name": name,
                 "input": _stable_scalar(updates),
                 "rows": [
-                    _analysis_row(row) for row in analysis["result"]["raw_results"]
+                    _analysis_row(row) for row in historical_rows
                 ],
-                "serialized_result": _stable_scalar(analysis["serialized_result"]),
+                "serialized_result": historical_serialized_result,
                 "threejs_scene": _stable_scalar(analysis["threejs_scene"]),
                 "export_analysis_rows": _stable_scalar(_analysis_rows(selected)),
             }

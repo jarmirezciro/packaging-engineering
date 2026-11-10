@@ -56,6 +56,7 @@ class SharedPatternParityTests(SimpleTestCase):
                 "hybrid_pinwheel",
                 "nested_pinwheel",
                 "centre_filled_pinwheel",
+                "perimeter_core_mosaic",
                 "regional_mosaic",
             ),
         )
@@ -79,6 +80,7 @@ class SharedPatternParityTests(SimpleTestCase):
             (pallet_engine.pattern_nested_pinwheel, shared_patterns.pattern_nested_pinwheel, {}),
             (pallet_engine.pattern_nested_pinwheel, shared_patterns.pattern_nested_pinwheel, {"rotated": True}),
             (pallet_engine.pattern_center_filled_pinwheel, shared_patterns.pattern_center_filled_pinwheel, {}),
+            (pallet_engine.pattern_perimeter_core_mosaic, shared_patterns.pattern_perimeter_core_mosaic, {}),
         )
         for fixture in fixtures:
             for original, shared, kwargs in functions:
@@ -117,6 +119,7 @@ class PalletSharedPatternDelegationTests(SimpleTestCase):
             ("pattern_hybrid_pinwheel", {}),
             ("pattern_nested_pinwheel", {}),
             ("pattern_center_filled_pinwheel", {}),
+            ("pattern_perimeter_core_mosaic", {}),
         )
         fixture = (1200.0, 1200.0, 400.0, 200.0)
 
@@ -149,6 +152,169 @@ class PalletSharedPatternDelegationTests(SimpleTestCase):
         self.assertEqual(_signature(container_before), _signature(container_after))
         self.assertEqual(len(container_before), 280)
         self.assertEqual(len(pallet_layer), 320)
+
+
+class PerimeterCoreMosaicTests(SimpleTestCase):
+    def test_cape_pack_topology_is_exactly_ten_mixed_orientation_cartons(self):
+        length, width = 18.32, 8.64
+        layer = shared_patterns.pattern_perimeter_core_mosaic(48.0, 40.0, length, width)
+
+        self.assertEqual(len(layer), 10)
+        self.assertEqual(sum(placement.l == length and placement.w == width for placement in layer), 6)
+        self.assertEqual(sum(placement.l == width and placement.w == length for placement in layer), 4)
+        self.assertTrue(
+            validate_placements(
+                layer,
+                48.0,
+                40.0,
+                expected_footprint=(length, width),
+            ).valid
+        )
+        self.assertAlmostEqual(
+            max(item.x + item.l for item in layer) - min(item.x for item in layer),
+            2 * length + width,
+        )
+        self.assertAlmostEqual(
+            max(item.y + item.w for item in layer) - min(item.y for item in layer),
+            2 * length,
+        )
+        self.assertAlmostEqual(10 * length * width / (48.0 * 40.0) * 100, 82.44)
+
+    def test_ratio_boundary_rotation_units_and_reversal_are_supported(self):
+        for ratio in (2.0, 2.125, 2.2, 2.25, 10.0):
+            with self.subTest(ratio=ratio):
+                short = 8.0
+                long = ratio * short
+                footprint = (2 * long + short, 2 * long)
+                layer = shared_patterns.pattern_perimeter_core_mosaic(
+                    footprint[0] + 3.0,
+                    footprint[1] + 5.0,
+                    long,
+                    short,
+                )
+                self.assertEqual(len(layer), 10)
+                self.assertTrue(validate_placements(layer, footprint[0] + 3.0, footprint[1] + 5.0).valid)
+
+        metric = shared_patterns.pattern_perimeter_core_mosaic(
+            48.0 * 25.4,
+            40.0 * 25.4,
+            18.32 * 25.4,
+            8.64 * 25.4,
+        )
+        imperial = shared_patterns.pattern_perimeter_core_mosaic(48.0, 40.0, 18.32, 8.64)
+        self.assertEqual(len(metric), len(imperial))
+        self.assertEqual(
+            {
+                (round(item.x / 25.4, 6), round(item.y / 25.4, 6),
+                 round(item.l / 25.4, 6), round(item.w / 25.4, 6))
+                for item in metric
+            },
+            {
+                (round(item.x, 6), round(item.y, 6), round(item.l, 6), round(item.w, 6))
+                for item in imperial
+            },
+        )
+        reversed_layer = shared_patterns.pattern_perimeter_core_mosaic(48.0, 40.0, 8.64, 18.32)
+        self.assertEqual(
+            {
+                (round(item.x, 6), round(item.y, 6), round(item.l, 6), round(item.w, 6))
+                for item in reversed_layer
+            },
+            {
+                (round(item.x, 6), round(item.y, 6), round(item.l, 6), round(item.w, 6))
+                for item in imperial
+            },
+        )
+
+        rotated_area = shared_patterns.pattern_perimeter_core_mosaic(
+            2 * 18.32,
+            2 * 18.32 + 8.64,
+            18.32,
+            8.64,
+        )
+        self.assertEqual(len(rotated_area), 10)
+        self.assertAlmostEqual(
+            max(item.x + item.l for item in rotated_area) - min(item.x for item in rotated_area),
+            2 * 18.32,
+        )
+
+    def test_invalid_ratio_and_insufficient_area_are_rejected(self):
+        self.assertEqual(
+            shared_patterns.pattern_perimeter_core_mosaic(1000.0, 1000.0, 19.9, 10.0),
+            [],
+        )
+        self.assertEqual(
+            shared_patterns.pattern_perimeter_core_mosaic(45.27, 36.63, 18.32, 8.64),
+            [],
+        )
+
+    def test_container_tie_keeps_legacy_but_exposes_shared_candidate(self):
+        candidates = enumerate_pattern_candidates(48.0, 40.0, 18.32, 8.64)
+        perimeter = [item for item in candidates if item.family == "perimeter_core_mosaic"]
+        self.assertEqual(len(perimeter), 1)
+        self.assertEqual(perimeter[0].quantity, 10)
+
+        comparison = compare_packing_candidates(
+            (18.32, 8.64, 20.32),
+            (48.0, 40.0, 20.32),
+            0,
+            0,
+            1,
+        )
+        self.assertEqual(comparison.legacy_quantity, 10)
+        self.assertEqual(comparison.selected_quantity, 10)
+        self.assertEqual(comparison.winning_family, "legacy")
+
+    def test_palletization_catalogue_retains_distinct_geometry_and_stack_counts(self):
+        unit = 25.4
+        rows = pallet_engine.run_palletization_analysis(
+            18.32 * unit,
+            8.64 * unit,
+            20.32 * unit,
+            48.0 * unit,
+            40.0 * unit,
+            50.0 * unit,
+            pallet_height=5.50 * unit,
+        )
+        block = next(row for row in rows if row["pattern"] == "Block")
+        perimeter = next(row for row in rows if row["pattern"] == "Perimeter-Core Mosaic")
+        block_geometry = {
+            (item.x, item.y, item.l, item.w) for item in block["layer_A_2d"]
+        }
+        perimeter_geometry = {
+            (item.x, item.y, item.l, item.w) for item in perimeter["layer_A_2d"]
+        }
+        self.assertNotEqual(block_geometry, perimeter_geometry)
+        self.assertEqual(
+            (perimeter["boxes_layer_A"], perimeter["layers"], perimeter["total_boxes"]),
+            (10, 2, 20),
+        )
+        self.assertAlmostEqual(perimeter["used_height_mm"] / unit + 5.50, 46.14)
+        self.assertAlmostEqual(perimeter["layer_footprint_util_pct"], 82.44)
+        self.assertEqual(
+            {item.orientation for item in perimeter["layer_A_2d"]},
+            {"LxW", "WxL"},
+        )
+
+        three_layers = pallet_engine.run_palletization_analysis(
+            18.32 * unit,
+            8.64 * unit,
+            20.32 * unit,
+            48.0 * unit,
+            40.0 * unit,
+            66.46 * unit,
+            pallet_height=5.50 * unit,
+        )
+        three_layer_perimeter = next(
+            row for row in three_layers if row["pattern"] == "Perimeter-Core Mosaic"
+        )
+        self.assertEqual((three_layer_perimeter["layers"], three_layer_perimeter["total_boxes"]), (3, 30))
+
+        brick_rows = pallet_engine.run_palletization_analysis(
+            400.0, 200.0, 200.0, 1200.0, 800.0, 1150.0, pallet_height=150.0
+        )
+        brick = next(row for row in brick_rows if row["pattern"] == "Brick")
+        self.assertEqual(brick["boxes_layer_A"], 12)
 
 
 class ContainerMosaicIntegrationTests(SimpleTestCase):

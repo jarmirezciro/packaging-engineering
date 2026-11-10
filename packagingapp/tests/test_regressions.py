@@ -218,6 +218,7 @@ class RegressionCompendiumTests(TestCase):
             "exact-stack-height": (8, 1, 8),
             "think-beyond-the-box-compact": (5, 4, 20),
             "think-beyond-the-box-alternative-7": (6, 4, 24),
+            "capepack-perimeter-core-10": (10, 2, 20),
         }
         page = self.client.get(reverse("regressions"))
         route = reverse("palletization_mode1")
@@ -349,6 +350,7 @@ class RegressionCompendiumTests(TestCase):
             "mosaic-packing-benchmark": 106,
             "product-orientation-capacity": 18,
             "pinwheel-packing-benchmark": 16,
+            "capepack-perimeter-core-10": 10,
         }
         design_results = {
             "bottle-packaging-24": (24, (6, 2, 2), "15.66 × 5.22 × 20 in"),
@@ -412,6 +414,36 @@ class RegressionCompendiumTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.context["result"])
         self.assertEqual(response.context["form"]["product_l"].value(), "")
+
+    def test_perimeter_core_pallet_candidate_has_shared_threejs_geometry(self):
+        slug = "capepack-perimeter-core-10"
+        preset = PALLETIZATION_CASE_PRESETS[slug]
+        link = f"{reverse('palletization_mode1')}?{urlencode({'case': slug})}"
+        initial = self.client.get(link)
+        config = {**default_palletization_config(), **preset["config"]}
+        perimeter = next(
+            row for row in initial.context["results_table"]
+            if row["pattern"] == "Perimeter-Core Mosaic"
+        )
+        selected = self.client.post(link, {
+            **config,
+            "action": "select_result",
+            "selected_result_key": perimeter["result_key"],
+        })
+        result = selected.context["selected_result"]
+        self.assertEqual(result["pattern"], "Perimeter-Core Mosaic")
+        scene = selected.context["threejs_scene"]
+        self.assertEqual(scene["metadata"]["pattern_name"], "Perimeter-Core Mosaic")
+        self.assertEqual(scene["total_cases"], 20)
+        layers = defaultdict(list)
+        for placement in scene["placements"]:
+            layers[placement["layer"]].append(placement)
+        self.assertEqual({len(layer) for layer in layers.values()}, {10})
+        self.assertEqual(
+            {item["orientation"] for item in layers[1]},
+            {"LxW", "WxL"},
+        )
+        json.dumps(dict(self.client.session), allow_nan=False)
 
     def test_post_to_case_url_calculates_edited_inputs(self):
         slug = "easycargo-40hc-mixed-cargo-benchmark"

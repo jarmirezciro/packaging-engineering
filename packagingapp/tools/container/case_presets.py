@@ -86,6 +86,26 @@ CONTAINER_SELECTION_CASE_PRESETS = {
             "r3": True,
         },
     },
+    "capepack-perimeter-core-10": {
+        "label": "Cape Pack Perimeter-Core Mosaic: 10 Cartons",
+        "product_dimensions_display": "18.32 × 8.64 × 20.32 in",
+        "container_dimensions_display": "48 × 40 × 20.32 in usable",
+        "config": {
+            "mode": "single",
+            "action": "run_single",
+            "product_dimension_unit": "in",
+            "product_l": 18.32,
+            "product_w": 8.64,
+            "product_h": 20.32,
+            "container_dimension_unit": "in",
+            "box_l": 48,
+            "box_w": 40,
+            "box_h": 20.32,
+            "r1": False,
+            "r2": False,
+            "r3": True,
+        },
+    },
     # KolliPack inputs from the CapePack bottle benchmark article, cases A and B.
     "bottle-packaging-24": {
         "label": "Bottle Packaging — 24 Units",
