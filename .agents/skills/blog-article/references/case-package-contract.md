@@ -84,6 +84,11 @@ The brief controls intent. Current backend evidence controls numerical claims.
 - Exclude inconsistent screenshots or label the discrepancy.
 - Keep raw evidence separate from composed figures.
 
+Use the [Evidence Archive Contract](../../../../docs/blog/evidence-archive-contract.md)
+for future preservation of case packages and their provenance. Keep original screenshots,
+calculation records and composed editorial figures individually identifiable. The archive
+accompanies existing case packages and accepts their current formats.
+
 ## Missing information
 
 When an input or result is unclear:
