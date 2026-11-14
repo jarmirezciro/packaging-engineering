@@ -1,6 +1,6 @@
 ---
 name: blog-article
-description: Create, rewrite, research, refresh, illustrate, validate, and integrate KolliLabs/KolliPack blog articles using the repository's file-based article architecture and current KolliPack evidence.
+description: Research, reproduce engineering cases, write, illustrate, audit, refine, and integrate KolliLabs/KolliPack blog articles. Use for evidence-led benchmarks, engineering articles, practical demos, approved-artifact integration, and calibration from owner feedback.
 ---
 
 # KolliLabs Blog Article Skill
@@ -8,6 +8,16 @@ description: Create, rewrite, research, refresh, illustrate, validate, and integ
 Use this skill to create a new KolliLabs article, rewrite or polish a draft, refresh an existing article, or turn a KolliPack calculation case into a business-oriented demo article.
 
 ## Supported modes
+
+Start with the [production workflow](references/production-workflow-v2.md). It routes the mode and editorial profile, hands evidence through writing, figures and QA, and determines whether the result can be integrated or published.
+
+- `benchmark_from_evidence`: investigate a comparator result using supplied source evidence and a bounded KolliPack reproduction when possible.
+- `research_deep_dive`: research and explain an engineering principle or decision.
+- `demo_from_case`: produce a concise practical demo from a reproducible KolliPack case.
+- `refine_article`: make a scoped correction while preserving unrelated approved material.
+- `calibrate_from_feedback`: turn owner feedback into traceable examples, regression coverage and review guidance.
+
+The existing modes remain available:
 
 - `polish`: improve a substantially complete author draft.
 - `research`: turn notes or questions into a sourced article.
@@ -20,7 +30,7 @@ Use this skill to create a new KolliLabs article, rewrite or polish a draft, ref
 
 ## Article profiles
 
-Choose the article profile before drafting.
+Choose the editorial profile before drafting and map it to existing metadata using the production workflow and `references/article-schema.md`.
 
 - `demo_case_study`: a reproducible KolliPack case using real inputs, outputs, figures, and a prepopulated tool link.
 - `engineering_deep_dive`: formulas, geometry, algorithms, standards, or detailed packaging principles.
@@ -62,10 +72,12 @@ Do not ask unnecessary questions. Infer conservative defaults from the article l
 7. Do not regenerate or redraw the official logo.
 8. Do not commit, push, merge, deploy, or publish unless explicitly requested.
 9. Preserve existing working prepopulated case routes.
-10. Keep rewritten articles in `draft` unless publication is explicitly requested.
+10. Use the production workflow's publication intent and preserve the live edition when preparing a revision for review.
 11. Treat competitor comparisons as bounded technical benchmarks, not complete product evaluations or legal opinions.
 
 # Editorial workflow
+
+Use the sequence and handoffs in the production workflow. Apply the steps below where relevant to the mode. A targeted correction starts at the affected component. Feedback calibration routes through the regression register and existing review guidance.
 
 ## 1. Classify and establish the brief
 
@@ -228,7 +240,7 @@ Before drawing figures, determine whether the article needs a **Packaging Scenar
 
 Keep **physical scenario illustrations** distinct from **software input comparisons** and **evidence-based result renders**. A conceptual illustration can be attractive but must not assert unverified geometry or quantities. In comparator articles, real results remain sourced from real screenshots/backend data; neither invented vendor UI nor decorative cubes count as result evidence.
 
-If the request supplies finished approved figures or copy, use `publish_approved` mode and `references/publish-approved-artifact.md`: preserve the files and wording, do not reinvent them.
+If the request is to integrate finished owner-approved copy and figures, use `publish_approved` and `references/publish-approved-artifact.md`. In other modes preserve each approved artifact outside the authorized change.
 
 Before integrating any new figure, inspect the rendered image at its native resolution and actual article/mobile display size and apply `references/visual-editorial-critic.md`. Never pass a result solely because its code produced a valid PNG/WebP.
 <!-- END KOLLILABS_BLOG_SKILL_UPDATE_V1:figure-contract -->
@@ -242,11 +254,10 @@ For every new or regenerated blog thumbnail, also read and follow
 `references/thumbnail-workflow.md`. The owner-approved thumbnail board and
 `docs/blog/thumbnail-design-system-v1.md` are authoritative for thumbnails;
 the older light editorial figure style remains authoritative for non-thumbnail
-article figures. Normal article authoring must create a validated brief and
-illustration spec, generate subject-only art, render all typography/branding
-deterministically, and stop at `review_required` until the owner approves the
-actual candidate. A direct regeneration reuses the validated brief/spec and
-writes a new versioned candidate instead of overwriting an approved asset.
+article figures. Use its validated brief/spec, subject-only art and deterministic
+composition. Apply the [thumbnail release rules](references/thumbnail-workflow.md#first-release-of-a-new-article)
+when the owner explicitly requests direct publication of a new article. A
+regeneration writes a versioned candidate while preserving the approved asset.
 
 Use the supplied real KolliPack screenshots and renders when claims depend on tool results.
 
@@ -303,45 +314,23 @@ For demo articles:
 - Include the exact prepopulated case CTA.
 - Do not keyword-stuff.
 
-## 11. Integrate
+## 11. Prepare integration
 
-- Create or update the article Markdown.
-- Add or update article assets.
+- Prepare article Markdown and assets for the production paths using the workflow's candidate review and integration sequence.
 - Preserve stable slugs.
 - Use descriptive image filenames, alt text, and captions.
 - Add useful internal links.
 - Add related articles only when genuinely relevant.
 - Preserve the working case URL.
-- Keep the article in draft.
-- Regenerate the registry when required.
+- Preserve current publication status when preparing a revision for review.
 
 ## 12. Validate
 
-Use the validation level appropriate to the task.
-
-For editorial demo-article rewrites with focused backend reproduction, run only:
-
-```bash
-python .agents/skills/blog-article/scripts/validate_article.py <article-file>
-```
-
-Also confirm:
-
-- Referenced image files exist.
-- CTA strings match the approved prepopulated URLs.
-- WebP files open and have expected dimensions.
-- Registry is regenerated when required.
-
-For external-tool comparisons, also confirm:
-
-- Comparator sources, capture dates, versions, and conversion assumptions are recorded.
-- The article includes the required affiliation and scope disclosure.
-- Each comparative claim is supported by the recorded test matrix or source.
-- Human/legal review triggers have been assessed; the skill does not provide legal approval.
-
-Do not run broad Django, browser, screenshot, deployment, or engine tests unless explicitly requested.
-
-Perform one focused correction pass. Stop and report remaining problems instead of entering repeated loops.
+Run the Iteration 2 auditor and complete the applicable evidence, editorial, visual and
+preservation checks using the [quality checklist](references/quality-checklist.md). Follow the
+[publication decision](references/production-workflow-v2.md#publication-intent-and-decision)
+before integrating a published version, then verify the final artifact. A focused
+correction reruns affected and dependent checks. Report any remaining blocker.
 
 # Final report
 
@@ -367,6 +356,7 @@ Report:
 - Primary keyword and search intent.
 - Comparator, source date/version, comparison scope, disclosure, and review status when applicable.
 - Minimal validation run.
+- Publication intent, readiness, authorization, and actual repository or live publication state.
 - Exact files changed.
 - Remaining warnings.
 

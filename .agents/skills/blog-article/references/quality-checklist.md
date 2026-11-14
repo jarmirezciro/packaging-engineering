@@ -10,8 +10,8 @@
 
 ## Evidence
 
-- [ ] Exact case inputs were extracted.
-- [ ] Current KolliPack backend reproduced the demo case once.
+- [ ] For an applicable calculation, exact case inputs were extracted.
+- [ ] The current KolliPack backend reproduced the demo or reconstructable comparator case.
 - [ ] Shared engine logic was called rather than duplicated.
 - [ ] Backend values were compared with screenshots and author notes.
 - [ ] Relevant alternatives were recorded.
@@ -31,7 +31,7 @@
 
 - [ ] At least six title candidates were considered.
 - [ ] Visible title, SEO title, and thumbnail headline serve different purposes.
-- [ ] The main result appears within the first 100 words.
+- [ ] Demo and business articles present the main result within the first 100 words. Other profiles orient readers to the engineering decision early.
 - [ ] The article has one continuous decision thread.
 - [ ] Every section advances the problem, result, consequence, decision, or CTA.
 - [ ] Technical implementation detail was removed from business articles.
@@ -69,7 +69,7 @@
 - [ ] Footer CTA is article-specific.
 - [ ] New-tab behavior is preserved through the current implementation.
 - [ ] The article explains what readers can change.
-- [ ] A missing or uncertain preset blocks publication.
+- [ ] A missing or uncertain preset blocks publication when the article requires a runnable case.
 
 ## Images
 
@@ -106,24 +106,22 @@
 
 ## Minimal validation
 
-- [ ] Run `python .agents/skills/blog-article/scripts/audit_editorial.py <article.md>` against the
-  [editorial regression register](../../../../docs/blog/editorial-regressions.md). Add `--json`
-  for machine-readable findings, `--comparative` for external comparisons that the title
-  does not signal, and `--require-case` for runnable benchmarks outside the demo metadata type.
+- [ ] Run and consume the Iteration 2 JSON report using the [audit procedure](production-workflow-v2.md#run-the-editorial-audit).
+  Review all applicable [regression IDs](../../../../docs/blog/editorial-regressions.md), including findings that need manual checks.
 - [ ] Resolve automated failures and review warnings. The audit exits nonzero for automated failures
   or unavailable production rendering. Its exit code does not determine publication readiness.
 - [ ] Record Fresh-Eyes decisions for EDR-01–03. Use Packaging Scenario Setup, Comparative Figure
   Workflow and the Visual Editorial Critic for EDR-04–08. Record what was actually inspected,
   including the rendered article, artwork labels, geometry and legibility at relevant display widths.
 - [ ] Use Thumbnail Workflow for EDR-09. Pass the workflow's validation JSON with
-  `--thumbnail-report` when available. Record the visual result and owner decision separately.
+  `--thumbnail-report` for new candidates. Record the visual result and applicable
+  [thumbnail release authorization](thumbnail-workflow.md#first-release-of-a-new-article) separately.
 - [ ] Review provenance and numerical accuracy for EDR-10 and confirm the live case inputs for EDR-11
   under the applicable case policy. For EDR-12, use the tracked production thumbnail baseline or supply
   a trusted JSON file with `--approval-record`. Its fields are `article_slug` and an `assets` mapping from
   static-relative paths to approved SHA-256 values. Record preservation review for anything it does not cover.
-- [ ] Record automated validation, editorial and visual decisions, and publication readiness separately.
-  Mark publication ready only when applicable automated, editorial, visual and evidence gates are
-  satisfied and required approvals are documented.
+- [ ] Record automated validation, editorial and visual decisions, publication readiness and
+  authorization separately. Apply the [release decision and final verification](production-workflow-v2.md#publication-intent-and-decision).
 - [ ] Article schema validator passes.
 - [ ] Referenced images exist.
 - [ ] CTA URL strings match approved routes.
@@ -139,4 +137,4 @@
 - [ ] Exact files changed are listed.
 - [ ] Validation is listed.
 - [ ] Remaining warnings are explicit.
-- [ ] Article remains a draft unless publication was requested.
+- [ ] Report the actual repository status and, only if verified, the live-site status.

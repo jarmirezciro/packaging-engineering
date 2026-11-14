@@ -15,7 +15,7 @@ The board is a style reference, not calculation evidence. The specific design co
 - `thumbnail`/`featured_image` remain static-relative paths; `og_image` may reuse the same asset.
 - `packagingapp/services/blog_repository.py`, the marketing views, and the blog templates remain consumers. They do not generate thumbnails.
 - Production assets remain under `static/img/blog/<slug>/`.
-- Candidate pilots and dry runs stay outside that production tree until owner approval.
+- Candidate pilots and dry runs stay outside the release tree until the applicable release gate. An isolated preview may use the intended static paths for validation.
 
 The implementation extends the existing `blog-article` skill and keeps `.agents/skills/blog-article/scripts/compose_thumbnail.py` as the stable entry point. Historical invocations without a subcommand retain the old generic composer behavior.
 
@@ -31,9 +31,17 @@ When an article is drafted, refreshed, rewritten, or prepared for publication:
 6. Visually review the raw illustration against the approved board before rendering. Retry a clear failure within the cumulative three-attempt budget; do not present a failed candidate.
 7. Render the final 1280×720 card with the deterministic renderer.
 8. Inspect the full card and its 360×203 blog-card preview, then generate the validation report, provenance record, and comparison sheet.
-9. Leave a passing candidate `review_required`. Only explicit owner approval may advance it to staging or replace the published asset.
+9. Leave a passing candidate `review_required` pending owner approval, subject to the first-release policy below.
 
 `editorial_illustration` is the default. Use `evidence_derived` only when the illustration is intended to show exact geometry/counts and verified source assets are supplied.
+
+### First release of a new article
+
+The [production workflow](production-workflow-v2.md#publication-intent-and-decision) permits a narrow exception to the individual owner-approval step. An explicit `direct_publish` request for a new article covers its newly generated first thumbnail. The full-size and 360×203 candidate must be inspected, deterministic checks must pass, and the final article and assets must pass Visual Editorial review. Complete the evidence, rights and any applicable human/legal checks before release.
+
+Record the owner's publication request, the reviewer and actual inspection outcome, the validation and provenance references, and the selected path and SHA-256. This records the release authorization and the reviewed bytes. Keep the tool's approval fields and the existing `can_publish` owner-approval path intact. A `review_required` tool record supplies candidate evidence and must never be edited to simulate owner approval. Codex makes the first-release decision in the article workflow, based on the documented review and explicit authorization.
+
+Failed or uninspected candidates remain blocked. This exception applies only to a new article's first release. `publish_approved`, staged replacements, changes to an existing approved thumbnail and requests that explicitly require review retain the normal owner-approval process. The canonical board, design standards and retry limits still apply.
 
 ## Commands
 
@@ -133,7 +141,7 @@ Offline tests use fake providers and make no API calls. The normal Codex image-g
 - Provider/alpha capability failure: persist the limitation and stop that generation path.
 - Three total attempts, counting provider failures and visual rejections: stop; do not retry again automatically.
 - Text overflow, missing font, invalid size/format, missing illustration, or bad path: reject.
-- Subjective visual match: always `review_required` until a human approves it.
+- Subjective visual match requires actual inspection. Use the owner-approval route by default and the first-release exception only under the conditions above.
 - Provider success or hard-check success never means publication approval.
 - Existing published article metadata and assets remain untouched on every failure.
 
