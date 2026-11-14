@@ -4,6 +4,7 @@
 
 | Slug | Title | Status | Type | Primary keyword | Published | Updated | Related tools |
 |---|---|---|---|---|---|---|---|
+| capepack-kollipack-stock-box-selection | CapePack and KolliPack: Choosing a Stock Box for 20 Units | published | demo_case_study | stock box selection | 2026-11-14 | 2026-11-14 | container-selection |
 | capepack-kollipack-bottle-case-pallet-benchmark | Same Pallet Capacity, Different Design Thinking: KolliPack and CapePack in Three Bottle Cases | published | demo_case_study | CapePack KolliPack bottle pallet benchmark | 2026-11-04 | 2026-11-04 | packaging-flow, container-selection, palletization |
 | capepack-parameter-fine-tuning | Can KolliPack Match CapePack After Parameter Fine-Tuning? | published | demo_case_study | CapePack KolliPack parameter fine tuning | 2026-11-01 | 2026-11-01 | packaging-flow |
 | cartons-per-pallet-case-design-exploration | Can KolliPack Match CapePack? From 216 to 240 Cartons per Pallet | published | demo_case_study | cartons per pallet case design | 2026-10-31 | 2026-10-31 | packaging-flow |
