@@ -33,6 +33,15 @@ Use existing research notes or the case package for handoffs. Carry the evidence
 
 Use the normal article and static paths for an authorized draft integration. Keep unapproved thumbnail candidates and proposed revisions to published articles in an isolated preview. The auditor resolves static references within its own checkout, so run it there with the candidate bytes at their intended static-relative paths and the article filename matching its slug. For a release, verify the proposed published metadata in the isolated version and rerun the same checks after final integration.
 
+## Drafting with incomplete evidence
+
+1. Investigate the gap or conflict using the available source material and a focused run of the existing backend when the known inputs support it. Check whether the results use the same inputs, units, restrictions, mode and metric. Keep source observations and reproduced results distinct.
+2. If the issue remains unresolved, omit the affected claim or narrow it to what the evidence establishes. If the central comparison falls away, choose the closest supported editorial angle, such as the engineering trade-off shown by a verified subset or a self-contained KolliPack result. Align the title, figures, captions, thumbnail and CTA with the revised scope. Keep unsupported numbers, inferred settings and unverified parity claims out of the draft.
+3. For `draft_only`, continue through writing, usable visuals and applicable QA whenever a complete, useful and factually defensible article is possible. In the backend and comparative references, a stop on conflicting evidence applies to the affected claim, comparison or figure and to release while a required gate remains open. If no factual article can be written, report the specific missing evidence and what it would establish.
+4. Record missing evidence, contradictions, excluded claims, QA failures, missing presets and publication blockers in research notes or the final report. Keep internal QA commentary, TODOs, evidence-processing explanations, unresolved-source lists and developer-facing caveats out of reader-facing copy. Keep any qualification a reader needs to interpret a material claim accurately.
+
+A required preset that is absent, broken or unverified blocks publication. Continue the draft without a named-case CTA until the destination is verified. Keep any alternative tool link clearly labeled as a general tool link.
+
 ## Run the editorial audit
 
 From the repository root, in the project Python environment:
@@ -57,7 +66,7 @@ The auditor returns `BLOCKED` or `REVIEW_REQUIRED` in `publication_readiness`. I
 
 ## Publication intent and decision
 
-- **`draft_only`** is the default for creation or preparation. Deliver the candidate, evidence record and QA findings as an unpublished draft. An existing published edition remains available while its proposed changes are reviewed.
+- **`draft_only`** is the default for creation or preparation. Deliver a complete unpublished candidate whenever the evidence supports one, with the evidence record and QA findings separately. `BLOCKED` and `REVIEW_REQUIRED` describe release readiness. Continue the draft under the evidence procedure above. An existing published edition remains available while its proposed changes are reviewed.
 - **`direct_publish`** requires an explicit owner request to publish. Proceed with ordinary in-scope writing and revisions without a mandatory intermediate draft approval. For a new article, that request covers first release of newly generated figures after visual and evidence review and of the thumbnail under the [first-release thumbnail policy](thumbnail-workflow.md#first-release-of-a-new-article). This first-release policy governs the general approval language in the demo, figure and visual review references when they are used together. Requests for owner review, replacement of an approved thumbnail, changes to previously approved deliverables and required human/legal review retain their existing approval requirements.
 - **`publish_approved`** integrates the exact owner-approved copy and assets using the preservation contract. Publication still requires explicit authorization. Changes beyond technical integration require owner review.
 

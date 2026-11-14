@@ -10,16 +10,16 @@ A demo article should help a reader:
 - See a verified KolliPack result.
 - Understand the business consequence.
 - Recognize what the calculation can and cannot decide.
-- Open the exact prepopulated case and experiment with it.
+- In the published demo, open the exact prepopulated case and experiment with it.
 
-## Mandatory inputs
+## Inputs to verify
 
 - Exact case inputs.
 - Author observations or `discussion.txt`.
 - Current KolliPack backend access.
 - Real KolliPack screenshots or approved figures.
 - Relevant tool or workflow.
-- Exact prepopulated case URL.
+- Exact prepopulated case URL for publication. An unpublished draft can proceed while that URL is missing.
 
 ## Editorial contract before drafting
 
@@ -31,26 +31,27 @@ Record these fields before writing:
 - Explicitly excluded stages or claims.
 - One-sentence comparison message bounded to the tested case.
 - Figure plan, including source panels, comparison rows and columns, and required labels.
-- Reader action for the prepopulated case.
+- Reader action for the prepopulated case, when verified.
 
 Do not infer an extra pallet, transport, or workflow stage from the route name or application
 surface. The article scope and the prepopulated case should describe the same chain.
 
 ## Mandatory evidence process
 
-1. Reproduce the supplied inputs through the current backend.
-2. Compare backend outputs with screenshots, notes, and article claims.
+1. Reproduce the case through the current backend when the known inputs support it.
+2. Compare available backend outputs with screenshots, notes, and article claims.
 3. Record useful alternatives and discrepancies.
 4. Use only supported numerical claims.
 5. Do not modify the engine during article work.
 
 See `backend-evidence-policy.md`.
 
-## Evidence stop condition
+## Evidence gaps and discrepancies
 
-If screenshots, source notes, backend output, or author claims do not agree, stop before drafting
-when the conflict could affect the article's conclusion. Report the exact discrepancy and request
-corrected evidence or author clarification. Do not silently choose a convenient interpretation.
+Use the [draft evidence procedure](production-workflow-v2.md#drafting-with-incomplete-evidence).
+Investigate conflicting results before choosing the story. If the conflict remains, omit or narrow
+the affected claim and complete the draft on a supported comparison or a narrower KolliPack result
+when possible. Record the unresolved issue and excluded claims in the research notes or final report.
 
 ## Recommended narrative
 
@@ -63,7 +64,7 @@ Use this sequence as a story guide, not a rigid heading template:
 5. Main numerical or operational contrast.
 6. Business consequence.
 7. Remaining engineering, supplier, or operational decision.
-8. Prepopulated case CTA.
+8. Prepopulated case CTA, when verified.
 9. Concise takeaway.
 
 ## Opening rule
@@ -106,16 +107,16 @@ Say this once clearly. Do not weaken every result with repeated disclaimers.
 
 ## Prepopulated case requirement
 
-Every demo article must include:
+Before publication, every demo article must include:
 
 - Exact case URL in front matter CTA.
 - Contextual body link or button.
 - Article-specific footer CTA.
 - New-tab behavior through the current blog implementation.
 - A short explanation of what the reader can change.
-- A warning when the case is missing or broken.
 
-Do not replace a working case with a generic empty tool link.
+For `draft_only`, leave out a missing or broken case CTA and record the release blocker
+outside the article. Preserve any existing working case link.
 
 ## Images
 
@@ -147,4 +148,5 @@ Run:
 
 ## Publication state
 
-Keep the article as `draft` until the author approves it.
+Keep `draft_only` articles unpublished. Follow the [publication decision](production-workflow-v2.md#publication-intent-and-decision)
+for release, including all applicable evidence, visual and authorization gates.

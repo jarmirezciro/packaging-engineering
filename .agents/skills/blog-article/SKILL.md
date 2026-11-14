@@ -43,7 +43,7 @@ Read `references/demo-case-study-profile.md` whenever the selected profile is `d
 When a demo case names or compares another tool or vendor, also read
 `references/comparative-benchmarking.md` and `docs/research/benchmarks.md`.
 
-## Required inputs
+## Inputs to resolve
 
 Resolve from the task, source package, or current repository:
 
@@ -54,7 +54,7 @@ Resolve from the task, source package, or current repository:
 - Exact case inputs when the article is a demo.
 - Existing screenshots and figures.
 - Figure source groups and intended comparison layout.
-- Required CTA and prepopulated case URL.
+- CTA and verified prepopulated case URL, when available. A missing required case blocks publication.
 - Requested image method.
 - Latest project version when backend reproduction is required.
 - Source link, capture date, version, and comparison assumptions when another tool or vendor is named.
@@ -122,17 +122,13 @@ Read:
 - Current prepopulated case link.
 - Public comparator source, screenshots, recording date, product/version details, and any supplied comparison notes.
 
-Create an internal evidence map. Do not begin drafting before the evidence map and story angle are clear.
-
-If the evidence is incoherent, incomplete, or contradictory, stop drafting. Identify the exact
-conflict and ask the author for corrected evidence or clarification. Never select the value,
-screenshot, or interpretation that makes the better story.
+Create an internal evidence map and use the [draft evidence procedure](references/production-workflow-v2.md#drafting-with-incomplete-evidence) to investigate gaps and conflicts. For `draft_only`, complete the article on the strongest supported angle, narrowing or excluding affected claims. Stop drafting only if no useful factual article is possible.
 
 ## 3. Reproduce demo cases through the backend
 
 For `demo_case_study`, follow `references/backend-evidence-policy.md`.
 
-Run the current shared KolliPack backend once with the supplied inputs.
+Run the current shared KolliPack backend once when the supplied inputs support a faithful reproduction.
 
 Use the backend run to:
 
@@ -229,7 +225,7 @@ For external-tool comparisons:
 - Distinguish matched outputs from claims about usability, coverage, or product capability.
 - State that KolliPack is independent of the named vendor and does not imply endorsement.
 - Avoid unsupported claims of superiority, equivalence, accuracy, savings, or universal optimality.
-- Include a compact comparison limitation block and flag the article for human/legal review when the reference requires it.
+- Include concise, natural reader-facing qualifications where a material claim needs them. Keep evidence follow-up and QA notes out of the article. Flag the article for human/legal review when the reference requires it.
 
 ## 8. Create or revise figures
 
@@ -311,7 +307,7 @@ For demo articles:
 - The tool landing page owns broad transactional keywords.
 - The article should target a specific informational question or case.
 - Link naturally to the relevant tool page.
-- Include the exact prepopulated case CTA.
+- Include the exact prepopulated case CTA when verified. Record a missing required case as a publication blocker in the research notes or final report.
 - Do not keyword-stuff.
 
 ## 11. Prepare integration
@@ -349,6 +345,7 @@ Report:
 - Backend entry points called.
 - Inputs reproduced.
 - Headline outputs and discrepancies.
+- Missing evidence, excluded or narrowed claims, missing presets, QA failures and publication blockers.
 - Business context chosen.
 - Fresh-Eyes persona used.
 - Images and figures revised.
