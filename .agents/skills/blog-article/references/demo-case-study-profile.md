@@ -19,7 +19,7 @@ A demo article should help a reader:
 - Current KolliPack backend access.
 - Real KolliPack screenshots or approved figures.
 - Relevant tool or workflow.
-- Exact prepopulated case URL for publication. An unpublished draft can proceed while that URL is missing.
+- Exact prepopulated case URL. Reuse or register one through the [named-case procedure](production-workflow-v2.md#register-and-verify-a-named-case).
 
 ## Editorial contract before drafting
 
@@ -64,12 +64,13 @@ Use this sequence as a story guide, not a rigid heading template:
 5. Main numerical or operational contrast.
 6. Business consequence.
 7. Remaining engineering, supplier, or operational decision.
-8. Prepopulated case CTA, when verified.
-9. Concise takeaway.
+8. [Key Takeaways and Explore KolliPack](editorial-style.md#ending-substantive-articles).
+
+Put the verified case link beside the relevant result and keep its article-specific footer CTA.
 
 ## Opening rule
 
-Put the reader, business decision, and most important verified result within the first 100 words.
+Establish the reader’s packaging decision and why it matters, then put the most important verified result within the first 100 words. In a benchmark, identify the source example and distinguish matched outcomes from additional alternatives.
 Translate the result into a stated consequence when the source provides one. A technical result
 without its business meaning is not a sufficient opening for a manager-focused case study.
 
@@ -79,7 +80,7 @@ Weak:
 
 Strong:
 
-> The same twelve products produced two very different logistics outcomes: 9,600 products per container in one design and 14,400 in another.
+> A buyer choosing among stock cartons needs a case that fits the order quantity. In our replay of a CapePack example, both tools fit 20 upright units in the reference case.
 
 ## Business consequence
 
@@ -107,7 +108,7 @@ Say this once clearly. Do not weaken every result with repeated disclaimers.
 
 ## Prepopulated case requirement
 
-Before publication, every demo article must include:
+Every demo article should deliver a verified case, including:
 
 - Exact case URL in front matter CTA.
 - Contextual body link or button.

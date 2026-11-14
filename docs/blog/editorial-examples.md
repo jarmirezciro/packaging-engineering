@@ -97,6 +97,27 @@ The owner explicitly approved Figures 2 and 3, the results table and the concise
 | ORI-04 | Negative | The three `figcaption` entries | Each caption explains its figure. Add sequential labels 1–3 and check them against article order and references. |
 | ORI-05 | Improvement needed | Opening before “A realistic export-box decision” | State the objective up front: maximize carton utilization by combining permitted product orientations. Keep the same-box 15-to-18 result and the concise demonstration structure. |
 
+## 007 Pilot A Stock Box Selection
+
+| Rule | Owner finding and corrected treatment | Future check |
+| --- | --- | --- |
+| EDR-01 | The opening gave capacity and fill before the reader knew the stock-box decision. Establish the existing catalogue and order quantity, attribute the CapePack example and separate the matched outcomes from the additional KolliPack alternative. | Read the opening on its own. Look for the decision, source, result and scope. |
+| EDR-02 | The draft attributed our run to an anonymous operator. Use “we” for KolliLabs’ experiment, “KolliPack” for the calculation and third person for the CapePack demonstration. | Identify who acted or calculated in each comparison sentence. |
+| EDR-03 | “Start with the order and the upright face” obscured what the section covered. “Case Setup” names the section directly. | Scan the headings without the body and identify what each section covers. |
+| EDR-05 | A polished product-to-box illustration omitted the catalogue decision. The revised Packaging Scenario Setup shows Product → Packaging Catalogue → Selected Case, using complete stock cases for the alternatives. | Judge the visual family and the engineering progression separately at article and mobile width. |
+| EDR-11 | A generic tool link opened an empty calculator. The named manual Single Container case preloads CAPECASE-005 and calculates 20 units. | Open the case and regression index, check the result, change an input and recalculate. |
+| EDR-12 | This refinement authorizes replacement of Figure 1. Figures 2–4 and the thumbnail retain their reviewed bytes. | Compare the article diff and protected asset hashes with the prior review version. |
+
+### Cross-scenario check for EDR-03 and EDR-05
+
+| Existing article | Visual decision and evidence | Ending and reader next step |
+| --- | --- | --- |
+| Pilot A stock-box selection | Use the illustrated setup flow for a decision: Packaged Product → Packaging Catalogue → Selected Case. Show the product outside size and upright restriction, an illustrative assortment, and the selected case’s inside size. Keep exact layouts in the result figures. | Summarize the quantity and orientation requirements, fill at the target quantity, and trial packing. Invite readers to compare their own stock boxes in [Container Selection](/container-selection/mode1/). The named case reproduces the 20-unit example separately. |
+| CapePack bottle/carton/pallet benchmark | Use the same illustrated family for a physical progression: Bottle → Shipping Carton → Palletized Load. Call out the fixture’s bottle dimensions, carton counts and pallet constraints. Match the look of the cards and connectors without borrowing stock-box inputs or adding transport. | Summarize the matched geometric results and the effects of allowance and overhang, with physical validation still required. Invite readers to explore connected carton and pallet decisions in [Packaging Flow](/full-packaging/). |
+| Box Selection engineering deep dive | A setup chain adds little to a fixed-box explanation of orientation and leftover space. Use the existing orientation and uniform-versus-mosaic diagrams and verified layouts to explain how geometry changes capacity. | Summarize orientation, usable leftover space, and the distinction between capacity and fit at a specified quantity. Invite readers to enter their own product and box dimensions in the [Box Size Calculator](/free-box-size-calculator/). |
+
+The published articles were assessed as references. This review does not change their copy or artwork.
+
 ## Original review locators
 
 The article figures and all six published thumbnail files were opened from the production checkout. The 17 embedded images in the four supplied DOCX files were opened separately and compared with the production assets or article sections. This review used the production source and owner page captures for page-level findings. The Box callouts, takeaways and table and the CapePack table are rendered components with no standalone repository snapshot identified. The RSC table-rendering finding comes from the owner's prose, alongside corroborating source markup. The CapePack proposal is a review-only image. Durable archive status for these owner files is pending.

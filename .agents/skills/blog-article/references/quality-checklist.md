@@ -37,6 +37,8 @@
 - [ ] Technical implementation detail was removed from business articles.
 - [ ] Important numbers are not repeated unnecessarily.
 - [ ] Limitations are clear but not repeated after every result.
+- [ ] For a substantive article, one Key Takeaways box follows the technical discussion and captures supported implications with material qualifications.
+- [ ] A single Explore KolliPack invitation immediately follows Key Takeaways and leads to a verified tool appropriate to the reader’s next task. Check that it serves a distinct purpose from any case link.
 
 ## Fresh-Eyes review
 
@@ -90,7 +92,7 @@
 <!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:quality-gate -->
 ## Packaging Scenario Setup & visual editorial quality — publication gate
 
-- [ ] Physical packaging stages follow the real article scope; absent or mixed stages are handled correctly.
+- [ ] A setup figure earns its place and shows only the physical stages or decision relationships readers need.
 - [ ] Where beneficial, the illustrated scenario figure follows `packaging-scenario-setup.md` and its approved *style* reference (not copied facts).
 - [ ] Conceptual graphics are distinguished from source-verified calculations and real result renders.
 - [ ] Every final figure was opened and inspected at native size and realistic article/mobile display widths.
@@ -99,7 +101,7 @@
 - [ ] Software comparisons use real screenshots, faithful values and like-for-like framing.
 - [ ] The visuals explain the result promptly; there are no giant empty screenshot cards, decorative cube-only explanations, or needless repeated figures.
 - [ ] In-article images match the approved light KolliPack visual language; thumbnails follow their separate canonical workflow.
-- [ ] `visual-editorial-critic.md` was applied, with a recorded decision for each figure and the complete page.
+- [ ] `visual-editorial-critic.md` was applied, with separate visual fidelity and engineering meaning decisions for each applicable figure and an overall page decision.
 - [ ] Overall Visual QA is PASS; FAIL, REVISE or NOT REVIEWED blocks publication.
 - [ ] If `publish_approved`, the text and supplied figures were preserved and byte-level differences were reported/approved.
 <!-- END KOLLILABS_BLOG_SKILL_UPDATE_V1:quality-gate -->

@@ -2,7 +2,7 @@
 
 ## Purpose and scope
 
-Introduce the **physical packaging scenario** before presenting input screens, calculations or software comparisons. This figure is a *conceptual editorial explanation*, not a substitute for measured geometry, backend output, real result renders or a screenshot.
+Introduce the **physical packaging progression or engineering decision** before presenting input screens, calculations or software comparisons. This figure is a *conceptual editorial explanation*, not a substitute for measured geometry, backend output, real result renders or a screenshot.
 
 The figure's **approved visual reference** is:
 
@@ -10,22 +10,21 @@ The figure's **approved visual reference** is:
 
 It establishes the editorial language (clean, recognizable packaging objects; light background; rounded panels; navy type; restrained KolliPack green accents; concise input strips; easy-to-follow arrows). **It is not a layout or data template to copy literally.** Do not reuse its three stages, dimensions, object counts or product type in unrelated articles.
 
-## Build the flow from the actual case
+## Select and specify the figure from the case
 
-1. Read the case inputs and article scope, not the list of KolliPack tools.
-2. Identify the **minimum two to five physically meaningful stages** that explain the problem. Fewer stages are acceptable if the requested article genuinely requires only one packaging unit; do not manufacture a second stage.
-3. Select names matching the case: product, bag, retail carton, inner pack, shipping case / RSC, crate, palletized load, transport container, trailer, or mixed load.
-4. Decide whether the flow is sequential, branching (multiple case alternatives), or convergent (mixed cargo loaded together). The shape of the diagram must match that relationship.
-5. Record just the **essential verified inputs** for each stage: dimensions, weight, quantity, orientation, material thickness, permitted overhang, stack height, payload, or other actually relevant constraint.
-6. Write one reader-facing sentence describing why the stages are connected. Use it as an optional small bottom takeaway banner—not as a repeating slogan.
-7. Choose the figure layout for readability; never squeeze five tiny cards into a three-card design.
+1. **Decide whether setup helps.** Identify what the reader needs to understand before seeing the results. Use a setup figure when it clarifies the case. If the article explains a mechanism in one fixed package, a concept or comparison figure may do more useful work. A tool mention alone does not call for a figure.
+2. **Name the relationship.** It may be physical containment or transfer, selection among alternatives, design evaluation, a branch, or convergence of mixed loads. Use connectors only where their direction conveys a real relationship.
+3. **Identify stages and inputs.** Derive each stage and its necessary constraints from the article scope and verified evidence. An assortment represents catalogue choices. A pallet represents a physical level only when the case evaluates it.
+4. **Choose the smallest clear composition.** Select the appropriate pattern in the editorial figure skill. Let the evidence determine the number of stages, and check the reading order on mobile. A compact navigation or workflow strip serves a separate purpose from a full setup illustration.
+5. **Separate facts from depiction.** Mark conceptual artwork and record the source of dimensions, units, counts and constraints. Use actual results or verified geometry for exact packing. Use a takeaway band only when it explains the decision.
 
 Illustrative scenarios (not mandatory or exhaustive):
 
 | Case scope | Suitable flow |
 |---|---|
 | Individual packaging | Product → Bag; Product → Box |
-| Case selection | Product → Shipping case |
+| Stock-case selection | Product → Packaging Catalogue → Selected Case |
+| Pallet arrangement selection | Case Alternatives → Palletization Evaluation → Selected Arrangement |
 | Palletization | Shipping case → Pallet |
 | Pallet transport | Pallet → Transport container |
 | Integrated design | Product → Shipping case → Pallet |
@@ -53,7 +52,7 @@ Include *only* the stages the actual article evaluates. A generic header widget 
 ## Required figure specification (fill before generation)
 
 - `purpose`: one sentence stating what the reader should grasp.
-- `stage_list`: actual packaging objects in order; include branching when appropriate.
+- `stage_list`: physical stages or decision steps in order, with branching where appropriate.
 - `stage_inputs`: exact verified values and units for each stage.
 - `illustration_role`: `conceptual` or `evidence_derived`.
 - `visual_reference`: approved asset above, used **for style**, not content.
@@ -63,9 +62,9 @@ Include *only* the stages the actual article evaluates. A generic header widget 
 
 ## Before integrating
 
-Render, **look at the actual image**, and test at full size and article width. Confirm:
+Render, **look at the actual image**, and test at native size, article width and mobile width. Record conceptual correctness and visual consistency separately. Confirm:
 
-1. A non-expert understands the physical progression in five seconds.
+1. A non-expert understands the progression in five seconds.
 2. Every stage belongs to this case and all labels/units are correct.
 3. The physical objects are complete and easy to recognize.
 4. The figure does not depict unverified geometry as factual evidence.
@@ -76,7 +75,7 @@ If any item fails, do not ship the figure; follow `visual-editorial-critic.md`.
 
 ## Distinguish two visual jobs
 
-**Packaging Scenario Setup** illustrates the physical chain. **Software Input Comparison** displays real application screenshots explaining how inputs are entered. Do not force both into a single dense image. In a named-tool comparison, show the conceptual setup first when it adds clarity, then separate input comparisons and real result render matrices.
+**Packaging Scenario Setup** illustrates the physical chain or engineering decision. **Software Input Comparison** displays real application screenshots explaining how inputs are entered. Do not force both into a single dense image. In a named-tool comparison, show the conceptual setup first when it adds clarity, then separate input comparisons and real result render matrices.
 
 ## Thumbnail distinction
 
@@ -85,5 +84,5 @@ This figure follows the **light in-article** KolliPack graphic style. It is *not
 <!-- BEGIN KOLLILABS-EDITORIAL-FIGURES-V1 -->
 ## Reproducible visual execution (KolliLabs Editorial Figures)
 
-Use `../../kollilabs-editorial-figures/SKILL.md` for the approved graphical identity, artwork direction, editable figure-spec contract and deterministic rendering of this setup pattern. This case-setup reference still determines **what physical stages and verified inputs** belong in a scenario. Its approved existing style example remains authoritative; the additional two owner-approved examples in the new skill provide complementary graphical references. Do not use the new skill to copy benchmark values into unrelated cases.
+For every selected setup figure, follow `../../kollilabs-editorial-figures/SKILL.md`. Inspect the approved artwork, produce subject illustrations and a figure specification, and compose them with the existing deterministic renderer and design tokens. This case-setup reference still determines **which physical stages or decision steps and verified inputs** belong in a scenario. Its approved existing style example remains authoritative; the additional two owner-approved examples in the new skill provide complementary graphical references. Do not use the new skill to copy benchmark values into unrelated cases.
 <!-- END KOLLILABS-EDITORIAL-FIGURES-V1 -->

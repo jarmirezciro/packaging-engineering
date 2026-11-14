@@ -1,9 +1,12 @@
 {% extends "marketing_base.html" %}
 {% load static %}
 
-{% block title %}{{ post.seo_title|default:post.title }}{% endblock %}
-{% block meta_description %}{{ post.meta_description|default:post.description|default:post.subtitle }}{% endblock %}
+{% block title %}{% if draft_preview %}DRAFT PREVIEW | {% endif %}{{ post.seo_title|default:post.title }}{% endblock %}
+{% block meta_description %}{% if draft_preview %}{{ post.description }}{% else %}{{ post.meta_description|default:post.description|default:post.subtitle }}{% endif %}{% endblock %}
 {% block extra_head %}
+{% if draft_preview %}
+<meta name="robots" content="noindex, nofollow, noarchive">
+{% else %}
 <link rel="canonical" href="{{ canonical_url }}">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta property="og:type" content="article">
@@ -14,6 +17,7 @@
 {% if post.featured_image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static post.featured_image %}">{% endif %}
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">{{ post.article_schema_json|safe }}</script>
+{% endif %}
 {% if post.math %}
 <script>
 window.MathJax = {
@@ -34,6 +38,9 @@ window.MathJax = {
 {% block content %}
 <article class="app-page marketing-page blog-article">
     <section class="app-hero blog-article-hero">
+        {% if draft_preview %}
+        <div class="alert alert-warning fw-bold">DRAFT PREVIEW</div>
+        {% endif %}
         <div class="blog-hero-badges">
             <div class="app-hero-badge"><i class="bi {{ post.hero_icon }}"></i> {{ post.category }}</div>
             <div class="blog-type-pill blog-type-pill--hero"><i class="bi {{ post.article_type_meta.icon }}"></i> {{ post.article_type_meta.short_label }}</div>
@@ -49,7 +56,7 @@ window.MathJax = {
                 <strong>{{ post.author.name }}</strong>
                 <p>{{ post.author.role }}</p>
                 <div class="blog-author-meta">
-                    <span><i class="bi bi-calendar3"></i> Published {{ post.published_at }}</span>
+                    {% if not draft_preview %}<span><i class="bi bi-calendar3"></i> Published {{ post.published_at }}</span>{% endif %}
                     <span><i class="bi bi-clock"></i> {{ post.read_time }}</span>
                 </div>
             </div>
@@ -96,14 +103,20 @@ window.MathJax = {
                 {{ post.content_html|safe }}
             </div>
 
+            {% if post.takeaways %}
             <div class="takeaway-box">
-                <h3><i class="bi bi-check2-circle me-2"></i>Key takeaways</h3>
+                <h3><i class="bi bi-check2-circle me-2"></i>Key Takeaways</h3>
                 <ul>
                     {% for item in post.takeaways %}
                     <li>{{ item }}</li>
                     {% endfor %}
                 </ul>
             </div>
+            {% endif %}
+            {% if post.explore.text and post.explore.label and post.explore.url %}
+            <p class="mt-3 mb-0">{{ post.explore.text }}
+                <a href="{{ post.explore.url }}">{{ post.explore.label }}</a>.</p>
+            {% endif %}
         </div>
     </section>
 
@@ -117,7 +130,11 @@ window.MathJax = {
     </section>
 
     <div class="d-flex flex-wrap gap-2">
+        {% if draft_preview %}
+        <a href="{% url 'blog_drafts' %}" class="btn btn-outline-success"><i class="bi bi-arrow-left me-2"></i>Back to drafts</a>
+        {% else %}
         <a href="{% url 'blog_list' %}" class="btn btn-outline-success"><i class="bi bi-arrow-left me-2"></i>Back to blog</a>
+        {% endif %}
         {% if post.cta and post.cta.url and post.cta.label %}
         <a href="{{ post.cta.url }}" class="btn btn-success"{% if post.cta.new_tab %} target="_blank" rel="noopener"{% endif %}><i class="bi bi-box-arrow-up-right me-2"></i>{{ post.cta.label }}</a>
         {% else %}

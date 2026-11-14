@@ -24,13 +24,15 @@ When polishing or rewriting Alejandro's draft:
 - Correct grammar, transitions, and cohesion without making the article sound generic.
 - Avoid replacing precise packaging language with vague marketing terms.
 
-## Lead with the decision or result
+Use **we** for investigations and runs performed by KolliLabs, **KolliPack** for what the application does, and third-person attribution for actions observed in external demonstrations. Keep each claim tied to its source.
 
-For demo and business articles, put the strongest verified result within the first 100 words.
+## Open with the engineering decision
+
+For demo and business articles, establish what the reader needs to decide and why it matters. Introduce the strongest verified result within the first 100 words, once the reader can interpret it. For benchmarks, attribute the example and distinguish a matched result from additional alternatives.
 
 Prefer:
 
-> The same box carried 15 products in one orientation strategy and 18 when all verified orientations were allowed.
+> When the shipping case is fixed, orientation can change how many units it holds. In this trial the case held 15 upright units and 18 when all permitted orientations were enabled.
 
 Avoid beginning with:
 
@@ -51,12 +53,18 @@ Prefer a coherent decision story:
 5. Main result.
 6. Business consequence.
 7. Remaining validation or trade-off.
-8. Relevant CTA.
-9. Concise takeaway.
+8. Key Takeaways.
+9. Explore KolliPack invitation.
 
 This is a story guide, not a mandatory heading template.
 
-Use descriptive headings and short-to-medium paragraphs. Use lists only when they improve scanning.
+Use familiar, descriptive engineering headings such as “Case Setup.” Name the subject clearly for engineers and business readers. Use short-to-medium paragraphs. Use lists only when they improve scanning.
+
+## Ending substantive articles
+
+Close the technical discussion of an engineering deep dive, benchmark, practical demo or substantive business article with **Key Takeaways**. Use the existing takeaway box, usually with two to four concise implications grounded in the article. Keep material qualifications. For a short announcement, omit a formal list when there are no useful takeaways.
+
+Immediately after the takeaways, add one short paragraph inviting readers to try a relevant KolliPack capability. Start from the engineering question, identify what the reader can actually do next, and verify the destination in the current application. Keep this separate from an article-specific case link that reproduces a verified run. Where both help, use a contextual case link and the existing case footer CTA, with one text invitation to the broader tool before the author and footer components. Store the invitation using the [article schema](article-schema.md).
 
 ## Business language
 

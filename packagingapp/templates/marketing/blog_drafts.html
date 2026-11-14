@@ -1,0 +1,30 @@
+{% extends "marketing_base.html" %}
+
+{% block title %}Blog drafts | KolliLabs{% endblock %}
+{% block extra_head %}
+<meta name="robots" content="noindex, nofollow, noarchive">
+{% endblock %}
+
+{% block content %}
+<div class="app-page marketing-page">
+    <section class="app-hero app-hero--compact">
+        <h1 class="app-title">Blog drafts</h1>
+    </section>
+    <section class="app-card">
+        <div class="app-card-body">
+            {% if posts %}
+            <ul class="list-group list-group-flush">
+                {% for post in posts %}
+                <li class="list-group-item">
+                    <a class="fw-semibold" href="{% url 'blog_draft_preview' post.slug %}">{{ post.title }}</a>
+                    <div class="text-muted">{{ post.article_type_meta.label }}</div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="mb-0">No draft articles.</p>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}

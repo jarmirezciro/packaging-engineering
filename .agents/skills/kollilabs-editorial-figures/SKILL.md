@@ -20,7 +20,7 @@ This skill covers *editorial explanations*, not numeric benchmark proofs:
 
 | Need | Pattern | Typical structure |
 |---|---|---|
-| Physical case setup | `setup_flow` | product → case → pallet; only in-scope physical stages |
+| Packaging Scenario Setup | `setup_flow` | product → case → pallet, or product → packaging catalogue → selected case |
 | Engineering mechanism | `concept_flow` | parameter → mechanism → consequence |
 | Decision trade-off | `tradeoff` | option/benefit → drawback/check; two or three cards |
 | Alternatives | `comparison` | two to four side-by-side alternatives, no invented metrics |
@@ -51,7 +51,7 @@ Choose **one central message** and the **smallest honest layout**. Three cards a
 - Runtime validation is **structural**, not proof of physical accuracy or visual approval.
 
 ## Integration with existing blog guidance
-- `../blog-article/references/packaging-scenario-setup.md` defines **which physical stages** to include.
+- `../blog-article/references/packaging-scenario-setup.md` defines **which physical stages or engineering decision steps** to include.
 - `../blog-article/references/comparative-figure-workflow.md` defines how to compose **real screenshots and actual results**.
 - `../blog-article/references/image-style-guide.md` and `../blog-article/references/visual-editorial-critic.md` remain authoritative for blog-wide branding/evidence/quality gates.
 - This skill adds a **reproducible visual system**, not a replacement for those editorial/evidence policies.

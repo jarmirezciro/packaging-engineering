@@ -351,6 +351,7 @@ class RegressionCompendiumTests(TestCase):
             "product-orientation-capacity": 18,
             "pinwheel-packing-benchmark": 16,
             "capepack-perimeter-core-10": 10,
+            "capepack-stock-box-20": 20,
         }
         design_results = {
             "bottle-packaging-24": (24, (6, 2, 2), "15.66 × 5.22 × 20 in"),
@@ -377,6 +378,14 @@ class RegressionCompendiumTests(TestCase):
                     quantity = single_capacities[slug]
                     self.assertEqual(result.max_quantity, quantity)
                     self.assertIn("container_selection_single_export", self.client.session)
+                    if slug == "capepack-stock-box-20":
+                        report = response.context["analysis_report"]
+                        self.assertEqual(report["volumetric_efficiency_max_display"], "78%")
+                        self.assertAlmostEqual(
+                            100 * report["max_product_volume"] / report["container_volume"],
+                            77.6,
+                            places=1,
+                        )
                 else:
                     quantity, arrangement, dimensions = design_results[slug]
                     self.assertEqual(result["design_quantity"], quantity)

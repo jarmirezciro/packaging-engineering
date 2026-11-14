@@ -15,7 +15,7 @@ Use when the owner has already approved the **actual article text and final figu
 1. Map approved copy to existing blog Markdown / TOML front matter, preserving paragraph content and order.
 2. Change asset references to valid `static://...` paths, using byte-identical approved image copies or explicit owner-approved compression.
 3. Populate required metadata using verified facts; preserve original slug if updating an existing article.
-4. Verify or create the prepopulated case **using existing routes/mechanisms**, only within the approved case scope. If missing/incorrect, stop publication and report rather than invent a URL or alter engines.
+4. Verify the prepopulated case using existing routes and mechanisms. Register a missing case only with explicit authorization for that functional change. A missing or incorrect case blocks publication.
 5. Connect existing CTA/footer to the verified case URL, without changing unrelated website behavior.
 6. Run repository validators and a narrow rendered-page visual inspection.
 

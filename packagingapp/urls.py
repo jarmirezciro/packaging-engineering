@@ -11,7 +11,7 @@ from .views import palletization
 from .views import container_tool
 from .views.home import home
 from .views.regressions import regressions
-from .views.marketing import about, blog_detail, blog_list, pricing
+from .views.marketing import about, blog_detail, blog_draft_preview, blog_drafts, blog_list, pricing
 from .views.corrugated_material_strength import (
     corrugated_material_strength,
     corrugated_material_strength_export_pdf,
@@ -121,6 +121,8 @@ urlpatterns = [
         corrugated_material_strength_export_pdf,
         name="corrugated_material_strength_export_pdf",
     ),
+    path("blog/drafts/", blog_drafts, name="blog_drafts"),
+    path("blog/preview/<slug:slug>/", blog_draft_preview, name="blog_draft_preview"),
     path("blog/<slug:slug>/", blog_detail, name="blog_detail"),
 
 

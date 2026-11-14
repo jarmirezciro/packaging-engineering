@@ -68,7 +68,7 @@ Do not ask unnecessary questions. Infer conservative defaults from the article l
 3. Store article Markdown in the configured article-content directory.
 4. Store production images under `static/img/blog/<slug>/`.
 5. Do not add article bodies to Python view files.
-6. Do not change routes, templates, loaders, schema, presets, UI, or engines during normal article creation.
+6. Use the [named-case procedure](references/production-workflow-v2.md#register-and-verify-a-named-case) for runnable articles. Keep normal article changes within the existing routes, templates, loaders, schema, UI and engines.
 7. Do not regenerate or redraw the official logo.
 8. Do not commit, push, merge, deploy, or publish unless explicitly requested.
 9. Preserve existing working prepopulated case routes.
@@ -211,7 +211,7 @@ Follow:
 
 For demo articles:
 
-- Put the strongest result within the first 100 words.
+- Establish the reader’s engineering decision and introduce the strongest verified result within the first 100 words.
 - Explain why it matters commercially.
 - Use one continuous decision story.
 - Explain technical terms once in plain language.
@@ -232,9 +232,9 @@ For external-tool comparisons:
 <!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:figure-contract -->
 ### Required figure-pattern selection and approved-content preservation
 
-Before drawing figures, determine whether the article needs a **Packaging Scenario Setup**: the physical chain appropriate to its actual scope, which can be Product → Bag, Product → Case, Case → Pallet, Pallet → Transport, Product → Case → Pallet → Transport, mixed loads, or branches. Follow `references/packaging-scenario-setup.md`. The approved reference at `assets/approved-packaging-scenario-setup-reference.webp` specifies *visual quality and style*, not fixed inputs, stages or geometry. Do not add unavailable or out-of-scope stages.
+Decide whether a **Packaging Scenario Setup** helps the reader understand the case using `references/packaging-scenario-setup.md`. Use the existing editorial figure skill when the setup is warranted.
 
-Keep **physical scenario illustrations** distinct from **software input comparisons** and **evidence-based result renders**. A conceptual illustration can be attractive but must not assert unverified geometry or quantities. In comparator articles, real results remain sourced from real screenshots/backend data; neither invented vendor UI nor decorative cubes count as result evidence.
+Keep **conceptual scenario illustrations** distinct from **software input comparisons** and **evidence-based result renders**. A conceptual illustration can be attractive but must not assert unverified geometry or quantities. In comparator articles, real results remain sourced from real screenshots/backend data; neither invented vendor UI nor decorative cubes count as result evidence.
 
 If the request is to integrate finished owner-approved copy and figures, use `publish_approved` and `references/publish-approved-artifact.md`. In other modes preserve each approved artifact outside the authorized change.
 
@@ -285,7 +285,7 @@ Temporarily ignore the source brief and backend notes. Review only:
 - Article body.
 - Figures.
 - Captions.
-- CTA.
+- Key Takeaways, Explore KolliPack invitation, and any case CTA.
 
 Choose the most relevant non-expert persona. Apply the recommended revisions before continuing.
 

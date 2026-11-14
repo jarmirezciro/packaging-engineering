@@ -86,6 +86,8 @@ Math-enabled articles may use `\(...\)` for something inline equations and `\[..
 - `og_image`
 - `cta.label`
 - `cta.url`
+- `takeaways`: list of supported findings rendered in the existing Key Takeaways box.
+- `explore.text`, `explore.label`, `explore.url`: one optional invitation paragraph rendered after the takeaways. The text precedes the linked label. Use a verified internal tool route. The footer case CTA still uses `cta`.
 
 ## Rules
 

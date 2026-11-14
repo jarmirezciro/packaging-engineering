@@ -31,12 +31,19 @@ Prefer an editorial review pass isolated from the brief and from the authoring a
 - **Scope:** Are all depicted packaging stages actually in the study?
 - **Family resemblance:** Do cards, palette and text treatment match the applicable approved in-article examples?
 
+Record two independent decisions for each applicable figure. Inspect the finished artwork beside the applicable approved reference at native resolution and in realistic desktop and mobile layouts.
+
+- **Visual fidelity.** Check materials, perspective, completeness, scale, composition, typography, stage cards, labels, input strips and connectors as applicable to the chosen figure family.
+- **Engineering meaning.** Check what the figure communicates, including its relationships, scope, terminology, verified constraints and whether it distinguishes conceptual depiction from evidence.
+
+Use `REVISE` when either criterion needs correction and the figure does not meet a hard-fail condition below. A faithful style cannot compensate for the wrong relationship, and technical accuracy cannot compensate for a weak illustration. Automated reports verify structure only.
+
 ## Automatic FAIL — must correct before publication
 
 - A core object or important result render is cropped, hidden or too small to inspect.
 - An apparent geometry, count, result, label or metric is incorrect or unsupported.
 - Figure recreates a comparator interface or invents a screenshot as if it were real evidence.
-- A figure includes stages not in the case, such as Transport when the study stops at Palletization.
+- A figure presents an unsupported stage as part of a verified calculation or result.
 - Poor visual hierarchy makes the main message impossible to recognize quickly.
 - Critical labels cannot be read at realistic display size.
 - Excessive irrelevant whitespace shrinks actual evidence or makes a render misleading.
