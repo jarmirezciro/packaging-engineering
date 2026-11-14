@@ -106,6 +106,24 @@
 
 ## Minimal validation
 
+- [ ] Run `python .agents/skills/blog-article/scripts/audit_editorial.py <article.md>` against the
+  [editorial regression register](../../../../docs/blog/editorial-regressions.md). Add `--json`
+  for machine-readable findings, `--comparative` for external comparisons that the title
+  does not signal, and `--require-case` for runnable benchmarks outside the demo metadata type.
+- [ ] Resolve automated failures and review warnings. The audit exits nonzero for automated failures
+  or unavailable production rendering. Its exit code does not determine publication readiness.
+- [ ] Record Fresh-Eyes decisions for EDR-01–03. Use Packaging Scenario Setup, Comparative Figure
+  Workflow and the Visual Editorial Critic for EDR-04–08. Record what was actually inspected,
+  including the rendered article, artwork labels, geometry and legibility at relevant display widths.
+- [ ] Use Thumbnail Workflow for EDR-09. Pass the workflow's validation JSON with
+  `--thumbnail-report` when available. Record the visual result and owner decision separately.
+- [ ] Review provenance and numerical accuracy for EDR-10 and confirm the live case inputs for EDR-11
+  under the applicable case policy. For EDR-12, use the tracked production thumbnail baseline or supply
+  a trusted JSON file with `--approval-record`. Its fields are `article_slug` and an `assets` mapping from
+  static-relative paths to approved SHA-256 values. Record preservation review for anything it does not cover.
+- [ ] Record automated validation, editorial and visual decisions, and publication readiness separately.
+  Mark publication ready only when applicable automated, editorial, visual and evidence gates are
+  satisfied and required approvals are documented.
 - [ ] Article schema validator passes.
 - [ ] Referenced images exist.
 - [ ] CTA URL strings match approved routes.
