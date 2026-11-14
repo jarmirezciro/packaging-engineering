@@ -88,7 +88,7 @@ def _load_article(path: Path) -> dict:
     return article
 
 
-def get_published_articles() -> list[dict]:
+def _get_articles_by_status(status: str) -> list[dict]:
     if not ARTICLE_DIRECTORY.exists():
         return []
 
@@ -96,9 +96,8 @@ def get_published_articles() -> list[dict]:
         _load_article(path)
         for path in ARTICLE_DIRECTORY.glob("*.md")
     ]
-    published = [article for article in articles if article.get("status", "published") == "published"]
     return sorted(
-        published,
+        (article for article in articles if article.get("status", "published") == status),
         key=lambda article: (
             int(article.get("display_order", 9999)),
             str(article.get("published_at", "")),
@@ -106,12 +105,28 @@ def get_published_articles() -> list[dict]:
     )
 
 
-def get_published_article(slug: str) -> dict | None:
+def _get_article_by_status(slug: str, status: str) -> dict | None:
     path = ARTICLE_DIRECTORY / f"{slug}.md"
     if not path.is_file():
         return None
 
     article = _load_article(path)
-    if article.get("status", "published") != "published":
+    if article.get("status", "published") != status:
         return None
     return article
+
+
+def get_published_articles() -> list[dict]:
+    return _get_articles_by_status("published")
+
+
+def get_published_article(slug: str) -> dict | None:
+    return _get_article_by_status(slug, "published")
+
+
+def get_draft_articles() -> list[dict]:
+    return _get_articles_by_status("draft")
+
+
+def get_draft_article(slug: str) -> dict | None:
+    return _get_article_by_status(slug, "draft")

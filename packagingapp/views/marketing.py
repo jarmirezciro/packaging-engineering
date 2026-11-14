@@ -5,14 +5,19 @@ import logging
 
 from django.conf import settings
 from django.contrib import messages
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, HttpResponseNotFound
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.templatetags.static import static
 from django.utils import timezone
 
 from packagingapp.forms import ContactForm
-from packagingapp.services.blog_repository import get_published_article, get_published_articles
+from packagingapp.services.blog_repository import (
+    get_draft_article,
+    get_draft_articles,
+    get_published_article,
+    get_published_articles,
+)
 from packagingapp.services.email_delivery import send_contact_email
 
 
@@ -196,6 +201,39 @@ def blog_list(request):
             "canonical_url": _absolute_url(request, "blog_list"),
         },
     )
+
+
+def _can_preview_blog_drafts(user) -> bool:
+    return user.is_authenticated and user.is_active and user.is_superuser
+
+
+def _private_blog_response(response):
+    response["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+def blog_drafts(request):
+    if not _can_preview_blog_drafts(request.user):
+        return _private_blog_response(HttpResponseNotFound())
+
+    posts = [_prepare_blog_post(post) for post in get_draft_articles()]
+    return _private_blog_response(render(request, "marketing/blog_drafts.html", {"posts": posts}))
+
+
+def blog_draft_preview(request, slug: str):
+    if not _can_preview_blog_drafts(request.user):
+        return _private_blog_response(HttpResponseNotFound())
+
+    post = get_draft_article(slug)
+    if post is None:
+        return _private_blog_response(HttpResponseNotFound())
+
+    return _private_blog_response(render(
+        request,
+        "marketing/blog_detail.html",
+        {"post": _prepare_blog_post(post), "draft_preview": True},
+    ))
 
 
 def _article_schema_json(request, post: dict) -> str:
