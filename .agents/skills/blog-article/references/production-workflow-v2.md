@@ -48,6 +48,12 @@ Open the URL in the application. Confirm that the intended inputs, units and res
 3. For `draft_only`, continue through writing, usable visuals and applicable QA whenever a complete, useful and factually defensible article is possible. In the backend and comparative references, a stop on conflicting evidence applies to the affected claim, comparison or figure and to release while a required gate remains open. If no factual article can be written, report the specific missing evidence and what it would establish.
 4. Record missing evidence, contradictions, excluded claims, QA failures, missing presets and publication blockers in research notes or the final report. Keep internal QA commentary, TODOs, evidence-processing explanations, unresolved-source lists and developer-facing caveats out of reader-facing copy. Keep any qualification a reader needs to interpret a material claim accurately.
 
+### Missing or newly supplied visual evidence
+
+- **Continue the draft.** Use verified numbers and available authentic panels. If needed, capture the result in the existing application or substitute a verified deterministic render. Where an exact result view is unavailable, use a table or explicitly conceptual illustration that makes no claim to show calculated geometry. An equivalent verified result can satisfy the evidence gate.
+- **Report the gap.** For each remaining visual, record the affected section or panel, what view would help and why, the exact inputs and expected result, the interim treatment, and the effect on publication readiness. Ask for a capture only when existing evidence or a reliable in-scope capture cannot supply it.
+- **Integrate the evidence at the affected panel.** Check the new capture against the recorded inputs, units and result. Replace only the affected material, preserve the prior source or version where useful, update attribution and provenance, and repeat the relevant visual and article checks. Equivalent evidence does not require reopening unrelated research.
+
 A required preset that is absent, broken or unverified blocks publication. Continue the draft without a named-case CTA until the destination is verified. Keep any alternative tool link clearly labeled as a general tool link.
 
 ## Run the editorial audit

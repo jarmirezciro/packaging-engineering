@@ -28,7 +28,7 @@ Use **we** for investigations and runs performed by KolliLabs, **KolliPack** for
 
 ## Open with the engineering decision
 
-For demo and business articles, establish what the reader needs to decide and why it matters. Introduce the strongest verified result within the first 100 words, once the reader can interpret it. For benchmarks, attribute the example and distinguish a matched result from additional alternatives.
+For demo and business articles, establish what the reader needs to decide and why it matters. Introduce the strongest verified result within the first 100 words, once the reader can interpret it. For benchmarks, open with the actual engineering problem and source where relevant. Explain what KolliLabs investigated, then distinguish verified matches from additional alternatives. Preserve the author’s reasoning. Use a hypothetical customer, order or requirement only when it explains something the evidence alone cannot, and label it as illustrative.
 
 Prefer:
 
@@ -57,6 +57,8 @@ Prefer a coherent decision story:
 9. Explore KolliPack invitation.
 
 This is a story guide, not a mandatory heading template.
+
+Before readers interpret detailed results, establish the relevant input set. Explain what the alternatives and their IDs represent, which verified dimensions or constraints distinguish them, and why they matter. Use a short table, authentic screenshot or prose according to the case. Label a subset as such and reuse input context already clear in the article.
 
 Use familiar, descriptive engineering headings such as “Case Setup.” Name the subject clearly for engineers and business readers. Use short-to-medium paragraphs. Use lists only when they improve scanning.
 

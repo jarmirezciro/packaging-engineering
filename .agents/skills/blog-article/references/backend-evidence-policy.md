@@ -72,7 +72,7 @@ Article treatment:
 Use only the intentionally approved interpretation and report the unresolved difference.
 ```
 
-When the conflict changes the article's central conclusion, stop and request author review.
+When a conflict changes the central conclusion, hold the affected claim and follow the [draft evidence procedure](production-workflow-v2.md#drafting-with-incomplete-evidence).
 
 ## Scope boundaries
 
@@ -88,11 +88,11 @@ Not allowed:
 - Engine changes.
 - Backend refactoring.
 - Optimization experiments unrelated to the case.
-- Browser automation.
-- Screenshot generation.
 - Full regression testing.
 - Performance testing.
 - Repeated debugging loops.
+
+Focused application captures and article preview checks belong to the [visual evidence workflow](production-workflow-v2.md#missing-or-newly-supplied-visual-evidence), outside the backend reproduction pass.
 
 ## Environment failure
 

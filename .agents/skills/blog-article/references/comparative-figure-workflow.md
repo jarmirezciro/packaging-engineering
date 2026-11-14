@@ -14,15 +14,14 @@ Before composing, state:
 - the values that must remain readable;
 - whether each panel is source output, independent reproduction, or a combined view.
 
-Choose the smallest layout that communicates the comparison.
+Check what earlier figures have already established. Keep a panel or figure when it helps the reader interpret a result or make an engineering decision. A reference replay, an alternative carton, a different pallet constraint or a material trade-off can serve distinct purposes. Choose the smallest comparison the evidence supports and avoid repeating similar layouts or forcing a contrast between tools.
 
 ## 2. Use real source material
 
-Use supplied screenshots, renders, result tables, or deterministic application outputs when the figure supports a factual claim.
+Use authentic source material for every calculated result: supplied application screenshots, actual application captures, verified deterministic backend renders or other verified technical outputs. Record the source file or timestamp and the calculation inputs or run reference for every result panel. Verify provenance from the source and composition record.
 
-- Preserve visible numbers, labels, and geometry.
-- Crop interface chrome, unused whitespace, and unrelated controls.
-- Do not redraw a vendor interface or create a synthetic source result.
+- Crop, resize and combine authentic panels while preserving visible numbers, counts and geometry. Place labels and presentation framing outside the technical result.
+- Keep generative imagery for conceptual illustrations. Do not generate, AI-restyle or redraw calculated packing, change its counts or geometry, or recreate a vendor interface.
 - Record source and reproduction status in the caption or surrounding text.
 
 ## 3. Compose deterministically
@@ -34,8 +33,6 @@ Build the figure with Pillow, SVG, Matplotlib, or an existing repository composi
 - Keep the visual hierarchy clear at mobile width.
 - Use brand styling for the article frame, not to alter source-tool output.
 - Export an optimized WebP with a semantic filename.
-
-Do not use image generation to recreate a technical interface or change a numerical result.
 
 ## 4. Reusable layouts
 
@@ -82,9 +79,7 @@ Before integrating a figure, verify:
 - the caption explains what the reader should notice;
 - the figure does not imply broader parity, superiority, or physical validation than the evidence supports.
 
-If the source panels, labels, tables, or independent reproduction are incoherent or contradictory,
-stop figure composition and ask for corrected evidence or clarification. Do not align conflicting
-values, hide a discrepancy, or choose the panel that produces the better comparison.
+If an input or result is unresolved, hold the affected panel or narrow what it shows. Continue the draft using the [visual evidence workflow](production-workflow-v2.md#missing-or-newly-supplied-visual-evidence).
 
 Prefer three to six purposeful figures per business article. Combine related screenshots rather than displaying a sequence of oversized raw captures.
 

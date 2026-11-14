@@ -4,9 +4,9 @@ A case becomes understandable when the reader can picture the product, company n
 
 Use the author's `discussion.txt` as the primary source.
 
-## Required context fields
+## Context to establish
 
-Define:
+Use the documented facts that help explain the decision:
 
 - Business type.
 - Representative product category.
@@ -16,11 +16,11 @@ Define:
 - Decision being evaluated.
 - Business consequence.
 
-Not every field requires a long paragraph. Use only what supports the story.
+Some fields may be unknown or irrelevant. An evidence-based comparison can be adequately grounded in the documented product, constraints and engineering decision.
 
 ## Representative product first
 
-Prefer a plausible product category rather than inventing a named commercial product.
+If the source does not identify a product category, use the observed product shape, dimensions and constraints first. Introduce a plausible category only when it improves understanding, and identify it as illustrative.
 
 Examples:
 
@@ -99,11 +99,9 @@ Do not choose a product whose known handling constraints conflict with the case 
 
 A non-expert should understand:
 
-1. What the company sells.
-2. Why it needs packaging.
-3. Who receives the goods.
-4. Which constraint matters.
-5. What decision is being compared.
-6. Why the numerical result matters.
+1. What is being packed or compared.
+2. Which verified constraints matter.
+3. What decision the investigation informs.
+4. Why the numerical result matters.
 
 Keep the context concise. The article remains about the packaging decision, not a fictional company biography.

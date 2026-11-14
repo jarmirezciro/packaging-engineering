@@ -69,6 +69,8 @@ After one read, answer:
 
 When an answer is unclear, revise the article.
 
+For comparisons, ask the reader to identify the alternatives, explain their IDs, name the dimensions or constraints that distinguish them, and explain why those differences matter to the decision. Check that the article supplies the answers before the detailed results.
+
 ## Jargon test
 
 Identify terms a non-expert may not understand.

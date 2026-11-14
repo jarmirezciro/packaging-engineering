@@ -152,9 +152,7 @@ When evidence conflicts, report the discrepancy. Never silently select a conveni
 
 Follow `references/business-context-and-product-selection.md`.
 
-Use the author's `discussion.txt` as the primary source of intent. Make the case concrete through a representative, plausible product and supply-chain setting.
-
-Prefer a representative product category over an invented real customer.
+Use the author's `discussion.txt` as the primary source of intent. Ground the case in the documented engineering decision. Add a labeled illustrative example only when it helps explain the decision.
 
 Never fabricate:
 
