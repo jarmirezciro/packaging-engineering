@@ -327,6 +327,43 @@ TRANSPORT_CONTAINER_CASE_PRESETS = {
             },
         ],
     },
+    "20ft-upright-mixed-cartons": {
+        "label": "20-ft Container — Upright Mixed Cartons",
+        "config": {
+            "container_source": "manual",
+            "container_l": 5758,
+            "container_w": 2352,
+            "container_h": 2385,
+            "max_weight": 28200,
+            "tare_weight": "",
+            "packing_mode": "front_to_back_infill",
+            "load_unit_dimension_unit": "mm",
+            "load_unit_mass_unit": "kg",
+            "transport_dimension_unit": "mm",
+            "transport_mass_unit": "kg",
+        },
+        # All cartons can turn on their bases and support other cartons.
+        "rows": [
+            {
+                "name": name,
+                "length": length, "width": width, "height": height,
+                "qty": quantity, "max_qty": False, "weight": 10,
+                "sequence": sequence, "stackable": True,
+                "r1": False, "r2": False, "r3": True,
+            }
+            for name, length, width, height, quantity, sequence in (
+                ("A", 500, 500, 600, 12, 1),
+                ("B", 500, 600, 500, 14, 1),
+                ("C", 500, 500, 500, 14, 1),
+                ("D", 600, 700, 600, 14, 2),
+                ("E", 700, 500, 500, 14, 2),
+                ("H", 700, 700, 700, 10, 2),
+                ("F", 600, 600, 600, 14, 3),
+                ("G", 500, 500, 500, 14, 3),
+                ("I", 600, 600, 600, 15, 3),
+            )
+        ],
+    },
 }
 
 

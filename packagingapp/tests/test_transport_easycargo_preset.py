@@ -14,6 +14,7 @@ from packagingapp.tests.transport_physical_validator import (
 from packagingapp.tools.transport.case_presets import (
     get_transport_container_case_preset,
 )
+from packagingapp.tools.transport.modes import FRONT_TO_BACK_INFILL_MODE
 from packagingapp.utils.container_tool import engine
 
 
@@ -84,6 +85,27 @@ class EasyCargoPublicPresetTests(TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_empty_space_article_opens_verified_upright_case(self):
+        url = reverse("transport_container_calculator")
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            response = self.client.get(url, {"case": "20ft-upright-mixed-cartons"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["is_case_example"])
+        rows = response.context["product_rows"]
+        self.assertEqual(len(rows), 9)
+        self.assertEqual([row["sequence"] for row in rows], [1, 1, 1, 2, 2, 2, 3, 3, 3])
+        self.assertTrue(all(not row["r1"] and not row["r2"] and row["r3"] for row in rows))
+        result = response.context["result"]
+        self.assertEqual(result["packing_mode"], FRONT_TO_BACK_INFILL_MODE)
+        summary = result["summary"]
+        self.assertEqual((summary["placed_units"], summary["unplaced_units"]), (119, 2))
+        self.assertEqual(
+            [(row["name"], row["qty_packed"], row["qty_requested"])
+             for row in summary["product_rows"] if row["qty_packed"] != row["qty_requested"]],
+            [("I", 13, 15)],
+        )
 
     def test_preset_inputs_and_reference_totals(self):
         preset = get_transport_container_case_preset(

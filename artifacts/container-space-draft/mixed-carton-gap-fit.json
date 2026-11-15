@@ -1,0 +1,32 @@
+{
+  "version": "1.0",
+  "role": "conceptual",
+  "layout": "comparison",
+  "arrows": false,
+  "purpose": "Show how overhead, side and rear cargo shape the openings available to the next carton.",
+  "headline": "Where could the next carton go?",
+  "subtitle": "The same mixed load leaves different openings when the front stacks move.",
+  "cards": [
+    {
+      "title": "Gaps around the cargo",
+      "illustration": "mixed-cartons-split-art.png",
+      "detail_lines": [
+        "Narrow at the sides",
+        "Low above the shorter stack",
+        "Rear cargo limits depth"
+      ]
+    },
+    {
+      "title": "Room beside the cargo",
+      "illustration": "mixed-cartons-clear-art.png",
+      "detail_lines": [
+        "Front stacks moved to one wall",
+        "The carton fits ahead of the rear row"
+      ]
+    }
+  ],
+  "takeaway": "Look for a clear path and enough width, height and depth in one place.",
+  "caption": "Figure 1. Conceptual cutaway of the same mixed cartons in two layouts. On the left, the dashed blue outline hits the front stack. The side gaps are too narrow and the opening above the shorter stack is too shallow in height. On the right, moving the front stacks beside one wall opens room in front of the rear cargo.",
+  "alt_text": "Two open container cutaways show cartons at the back and uneven front stacks. In the first, the blue outline overlaps a front stack. In the second, the front stacks sit against one wall and the blue carton fits beside them, ahead of the rear row.",
+  "source_notes": "Original conceptual geometry. Equal 1200 \u00d7 900 \u00d7 1200 mm bay in both panels. Rear row fills the back 600 mm and stays fixed. Front stacks share a 600 mm depth and have 300 mm widths and 900 mm and 600 mm heights. The blue test cube has 600 mm sides. Illustrative dimensions independent of verified KolliPack load geometry."
+}

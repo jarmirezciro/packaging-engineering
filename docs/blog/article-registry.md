@@ -4,6 +4,7 @@
 
 | Slug | Title | Status | Type | Primary keyword | Published | Updated | Related tools |
 |---|---|---|---|---|---|---|---|
+| why-empty-container-space-doesnt-fit-more-cargo | Why Empty Container Space Doesn’t Always Mean More Cargo Will Fit | published | engineering_deep_dive | container loading space utilization | 2026-11-16 | 2026-11-16 | transport-container |
 | mixed-cargo-loading-delivery-sequence | How Orientation, Stacking and Stop Order Shape a Mixed-Cargo Load | published | engineering_deep_dive | mixed-cargo loading and delivery sequence | 2026-11-15 | 2026-11-15 | transport-container |
 | easycargo-40hc-mixed-cargo-case-study | One Container, 878 Units: Recreating an EasyCargo Loading Example | published | demo_case_study | EasyCargo 40-ft high-cube loading case study | 2026-11-15 | 2026-11-15 | transport-container |
 | capepack-kollipack-stock-box-selection | CapePack and KolliPack: Choosing a Stock Box for 20 Units | published | demo_case_study | stock box selection | 2026-11-14 | 2026-11-14 | container-selection |
