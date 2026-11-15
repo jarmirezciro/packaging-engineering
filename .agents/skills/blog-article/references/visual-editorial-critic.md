@@ -23,6 +23,7 @@ Prefer an editorial review pass isolated from the brief and from the authoring a
 
 - **Five-second test:** What one idea does this figure explain? Is it immediately understandable?
 - **Fidelity:** Are units, counts and shown geometry consistent with evidence? Is conceptual art clearly distinguished from real calculation output?
+- **Result context:** For each relevant calculated view, can readers tell what the objects and product IDs represent, read the planned and loaded quantities or dimensions that matter, and interpret the result? Use an integrated legend or an immediately adjacent explanation. An authentic crop may omit unrelated interface controls.
 - **Cropping:** Is every important object complete, including cartons, case flaps, entire pallet base, stack top, and relevant straps/edges?
 - **Comparability:** Are like-for-like source/result views similarly scaled with consistent labels?
 - **Readability:** Is the image legible at actual article width and on a mobile screen, not just at 100% desktop zoom?
@@ -41,6 +42,7 @@ Use `REVISE` when either criterion needs correction and the figure does not meet
 ## Automatic FAIL — must correct before publication
 
 - A core object or important result render is cropped, hidden or too small to inspect.
+- Essential context is missing from a calculated result and its adjacent explanation, leaving marks, counts, units or the claim ambiguous.
 - An apparent geometry, count, result, label or metric is incorrect or unsupported.
 - Figure recreates a comparator interface or invents a screenshot as if it were real evidence.
 - A figure presents an unsupported stage as part of a verified calculation or result.

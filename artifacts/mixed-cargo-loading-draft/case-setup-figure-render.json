@@ -1,0 +1,41 @@
+{
+  "spec_path": "artifacts\\mixed-cargo-loading-draft\\case-setup-figure.json",
+  "spec_sha256": "8f17ecee194a88aa8f4276e60c441df94410b2a4d12a253f48394afe01cd1c84",
+  "design_tokens_sha256": "c7707a8924ae18a9e7ddd49d56043d74f8e45cbfc803eb1c18f2b642f45c9e5d",
+  "font_regular_resolved": "C:/Windows/Fonts/arial.ttf",
+  "font_bold_resolved": "C:/Windows/Fonts/arialbd.ttf",
+  "role": "conceptual",
+  "layout": "setup_flow",
+  "illustrations": [
+    {
+      "path": "C:\\PackagingEngineering\\artifacts\\mixed-cargo-loading-draft\\figure-art\\cargo.png",
+      "sha256": "19eca94057c48a2ea3e29821f088e9c2d8017dbaab47866a010d4b9cf1c84bb3"
+    },
+    {
+      "path": "C:\\PackagingEngineering\\artifacts\\mixed-cargo-loading-draft\\figure-art\\stops.png",
+      "sha256": "47133c796dd861efffedef11dd10b4fb455d6b98a4802a123f1d0e69a27c8213"
+    },
+    {
+      "path": "C:\\PackagingEngineering\\artifacts\\mixed-cargo-loading-draft\\figure-art\\rear-trailer.png",
+      "sha256": "2e344b8d4d6628b83ff611f6595efd8b113f1d06d50f1219512af4617d6e9d68"
+    }
+  ],
+  "render_path": "static\\img\\blog\\mixed-cargo-loading-delivery-sequence\\mixed-cargo-case-setup.webp",
+  "render_sha256": "40f9e661642ef317463c1e6e61416bbd0464b6a26877261c17e2465b6cb76ee3",
+  "mobile_preview_path": "static\\img\\blog\\mixed-cargo-loading-delivery-sequence\\mixed-cargo-case-setup-mobile.webp",
+  "mobile_preview_size_px": [
+    720,
+    2401
+  ],
+  "mobile_preview_sha256": "821acf73ec9b7cf88b06ca98397ee60b5052be83c852b2f55c7c7cb121427a9b",
+  "size_px": [
+    1680,
+    1100
+  ],
+  "render_status": "CREATED",
+  "visual_qa": "NOT REVIEWED",
+  "evidence_validation": "NOT PERFORMED",
+  "owner_approval": "REQUIRED",
+  "caption": "Figure 1. Conceptual setup for seven cargo types sharing one rear-unload trailer and two delivery stops.",
+  "alt_text": "Different cargo shapes share one 48-ft semitrailer, with two deliveries through its rear doors."
+}

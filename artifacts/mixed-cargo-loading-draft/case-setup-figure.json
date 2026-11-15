@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "role": "conceptual",
+  "layout": "setup_flow",
+  "purpose": "Show how cargo variety and two delivery stops define the trailer loading problem.",
+  "headline": "One trailer, two deliveries",
+  "subtitle": "Different load units share the same space and rear doors.",
+  "cards": [
+    {"title": "Seven cargo types", "illustration": "figure-art/cargo.png", "detail_lines": ["133 units on the manifest", "Different sizes and weights"]},
+    {"title": "Two delivery stops", "illustration": "figure-art/stops.png", "detail_lines": ["Split cargo by destination", "Unload each group in turn"]},
+    {"title": "48-ft semitrailer", "illustration": "figure-art/rear-trailer.png", "detail_lines": ["566.9 × 98.5 × 108 in inside", "Unloads through the rear doors"]}
+  ],
+  "takeaway": "The stop order determines which cargo needs to be at the doors.",
+  "caption": "Figure 1. Conceptual setup for seven cargo types sharing one rear-unload trailer and two delivery stops.",
+  "alt_text": "Different cargo shapes share one 48-ft semitrailer, with two deliveries through its rear doors.",
+  "source_notes": "Seven cargo rows, 133 fixed units and two active groups in the 48ft-semitrailer-two-stop-mixed-cargo preset. Nominal 48-ft case. Sample shapes illustrate variety without depicting exact quantities or the solved placement."
+}

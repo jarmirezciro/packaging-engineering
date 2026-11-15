@@ -4,6 +4,7 @@
 
 | Slug | Title | Status | Type | Primary keyword | Published | Updated | Related tools |
 |---|---|---|---|---|---|---|---|
+| mixed-cargo-loading-delivery-sequence | How Orientation, Stacking and Stop Order Shape a Mixed-Cargo Load | draft | engineering_deep_dive | mixed-cargo loading and delivery sequence | 2026-11-15 | 2026-11-15 | transport-container |
 | easycargo-40hc-mixed-cargo-case-study | One Container, 878 Units: Recreating an EasyCargo Loading Example | published | demo_case_study | EasyCargo 40-ft high-cube loading case study | 2026-11-15 | 2026-11-15 | transport-container |
 | capepack-kollipack-stock-box-selection | CapePack and KolliPack: Choosing a Stock Box for 20 Units | published | demo_case_study | stock box selection | 2026-11-14 | 2026-11-14 | container-selection |
 | capepack-kollipack-bottle-case-pallet-benchmark | Same Pallet Capacity, Different Design Thinking: KolliPack and CapePack in Three Bottle Cases | published | demo_case_study | CapePack KolliPack bottle pallet benchmark | 2026-11-04 | 2026-11-04 | packaging-flow, container-selection, palletization |

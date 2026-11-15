@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "mixed-cargo-loading-delivery-sequence",
+  "composition": "hero",
+  "hook_primary": "133 units",
+  "hook_secondary": "Two stops",
+  "support_line": "Mixed-cargo loading",
+  "scene_subject": "A full-length North American dry-van semitrailer on its own landing gear, seen from a foreshortened three-quarter rear angle, with open swing doors showing only the rear faces of a few different-sized kraft load units. Intact road trailer with painted side panels, underframe and rear tandem wheels. Entire silhouette within the frame and confined to the right-hand side.",
+  "image_mode": "editorial_illustration",
+  "reference_standard": "thumbnail-design-system-v1",
+  "screenshots_allowed": false,
+  "supported_claims": [
+    {
+      "text": "133 units and two stops",
+      "evidence": "The shared KolliPack engine placed all 133 requested units from the two active loading groups in the progressive infill case.",
+      "source": "docs/blog/research-notes-mixed-cargo-loading-delivery-sequence.md"
+    }
+  ]
+}

@@ -105,3 +105,9 @@ A non-expert should understand:
 4. Why the numerical result matters.
 
 Keep the context concise. The article remains about the packaging decision, not a fictional company biography.
+
+## When software evaluation serves the decision
+
+For cases where software adoption is relevant, tie the evaluation to the work: shipment or product variety, planning frequency, handling and sequence constraints, and time spent on manual planning. Identify a practical test on representative cases. Measures may include feasible capacity, overflow shipments, planning time or accessibility, with physical checks of calculated plans. Weigh demonstrated benefits against licensing, implementation and training costs. Occasional, straightforward work may be handled adequately by the current process.
+
+Keep this discussion proportionate to the article. State the conditions under which a result could matter commercially and keep unmeasured savings out of the findings.

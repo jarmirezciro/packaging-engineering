@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0",
+  "hard_status": "pass",
+  "visual_status": "review_required",
+  "approval_status": "review_required",
+  "hard_failures": [],
+  "warnings": [],
+  "visual_review_checklist": [
+    "Owner confirms family resemblance to the approved nine-tile board.",
+    "Subject is clear at 360 × 203 px and remains in the right-hand zone.",
+    "No stray text, fake labels, people, UI fragments, clutter, or misleading exact count appears.",
+    "Corrugated board, wood, plastic, and other relevant materials read as physically plausible at full size and card size.",
+    "Geometry, scale, perspective, depth, key light, rim light, and contact shadows feel physically convincing.",
+    "The scene has premium commercial 3D realism in the approved dark-teal studio language, without flat, cartoon, clip-art, or generic infographic treatment.",
+    "Composition is focused and uncluttered, with the subject fitting the right-hand zone and no unnecessary decoration."
+  ],
+  "file": {
+    "path": "artifacts/mixed-cargo-loading-draft/thumbnail-v1.webp",
+    "dimensions": [
+      1280,
+      720
+    ],
+    "format": "WEBP",
+    "mode": "RGB",
+    "bytes": 77248,
+    "sha256": "d9da6f5d45d6ebc956ce32403a628b5905bda0d129ed163eb63108ff9c93a061"
+  },
+  "layout": {
+    "canvas": [
+      1280,
+      720
+    ],
+    "text_zone": [
+      72,
+      48,
+      585,
+      592
+    ],
+    "illustration_zone": [
+      608,
+      42,
+      1260,
+      704
+    ],
+    "primary_box": [
+      72,
+      154,
+      585,
+      240
+    ],
+    "secondary_boxes": [
+      [
+        72,
+        263,
+        349,
+        314
+      ]
+    ],
+    "support_boxes": [
+      [
+        72,
+        337,
+        508,
+        382
+      ]
+    ],
+    "logo_box": [
+      72,
+      626,
+      298,
+      678
+    ],
+    "font_paths": {
+      "kicker": "C:/Windows/Fonts/arialbd.ttf",
+      "primary": "C:/Windows/Fonts/arialbd.ttf",
+      "secondary": "C:/Windows/Fonts/arialbd.ttf",
+      "support": "C:/Windows/Fonts/arial.ttf"
+    },
+    "font_sizes": {
+      "kicker": 21,
+      "primary": 118,
+      "secondary": 56,
+      "support": 48
+    },
+    "illustration": {
+      "source_format": "PNG",
+      "source_size": [
+        1000,
+        795
+      ],
+      "has_transparency": true,
+      "placed_box": [
+        608,
+        114,
+        1260,
+        632
+      ]
+    },
+    "layout_sha256": "b4656b7b4963fbaf3683946670a83cc738784d4b782889e6ab5741b07a52f511"
+  }
+}

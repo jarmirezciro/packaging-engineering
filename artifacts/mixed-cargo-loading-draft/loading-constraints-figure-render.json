@@ -1,0 +1,41 @@
+{
+  "spec_path": "artifacts\\mixed-cargo-loading-draft\\loading-constraints-figure.json",
+  "spec_sha256": "22afa3b244d66b6b119040f61ca56b6956421d065889479662c7b3c4cefa2fde",
+  "design_tokens_sha256": "c7707a8924ae18a9e7ddd49d56043d74f8e45cbfc803eb1c18f2b642f45c9e5d",
+  "font_regular_resolved": "C:/Windows/Fonts/arial.ttf",
+  "font_bold_resolved": "C:/Windows/Fonts/arialbd.ttf",
+  "role": "conceptual",
+  "layout": "concept_flow",
+  "illustrations": [
+    {
+      "path": "C:\\PackagingEngineering\\artifacts\\mixed-cargo-loading-draft\\figure-art\\orientations.png",
+      "sha256": "33dc8d3cbd8696eed89e4c992fe147885e7fa7e3e2ab323aaa78cb5ef2876a9f"
+    },
+    {
+      "path": "C:\\PackagingEngineering\\artifacts\\mixed-cargo-loading-draft\\figure-art\\stackability.png",
+      "sha256": "72f3934b26efbdb4cf690e50bbb9ca00dd83a3e44caaf3d59aea39d65dd35ed2"
+    },
+    {
+      "path": "C:\\PackagingEngineering\\artifacts\\mixed-cargo-loading-draft\\figure-art\\sequence.png",
+      "sha256": "306fa930e774499ed38c09990a3ba0dc705a48c15a12923de418703c22638e89"
+    }
+  ],
+  "render_path": "static\\img\\blog\\mixed-cargo-loading-delivery-sequence\\loading-constraints.webp",
+  "render_sha256": "0389dd76731ccecdb241bfeb575f3eef1121ca1d0ec19f1c6e5ba97178a7a44a",
+  "mobile_preview_path": "static\\img\\blog\\mixed-cargo-loading-delivery-sequence\\loading-constraints-mobile.webp",
+  "mobile_preview_size_px": [
+    720,
+    2401
+  ],
+  "mobile_preview_sha256": "775694afeb0f80e912d08efb6e2c5bae3f165e04ac23222ab83304fb0d8fc9cc",
+  "size_px": [
+    1680,
+    1100
+  ],
+  "render_status": "CREATED",
+  "visual_qa": "NOT REVIEWED",
+  "evidence_validation": "NOT PERFORMED",
+  "owner_approval": "REQUIRED",
+  "caption": "Figure 2. Three constraints shape the load. Allowed orientations set the base, stackability determines what can rest on it, and delivery order determines where each group belongs.",
+  "alt_text": "Orientation arrows show R1 length, R2 width and R3 height vertical. Two stacks show when a top can support other cargo. A trailer schematic shows A–C at the nose for stop 2, and D–G at the rear doors for stop 1."
+}

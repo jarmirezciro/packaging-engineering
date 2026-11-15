@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "article_slug": "mixed-cargo-loading-delivery-sequence",
+  "scene_family": "hero",
+  "camera": "Moderately elevated three-quarter rear studio view with strong foreshortening and the full trailer silhouette in frame",
+  "materials": "Dark teal painted dry-van panels with recessed hardware, steel rear frame and hinges, rubber tires and kraft board with visible seams",
+  "lighting": "Soft studio key, restrained teal rim light, grounded wheels and a softly lit interior",
+  "blending_strategy": "transparent_alpha",
+  "image_mode": "editorial_illustration",
+  "subjects": ["cargo_module", "corrugated_box"],
+  "reserved_blank_zones": ["left_text_zone"],
+  "exclusions": ["text", "logos", "people", "screenshots", "watermarks", "tractor cab", "cutaway walls", "implied exact counts"]
+}

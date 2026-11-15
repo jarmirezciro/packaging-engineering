@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "role": "conceptual",
+  "layout": "concept_flow",
+  "arrows": false,
+  "purpose": "Teach the orientation, support and stop-order rules behind a feasible mixed load.",
+  "headline": "Three constraints shape the load",
+  "subtitle": "Check the resting face, the supporting surface and the delivery order.",
+  "cards": [
+    {"title": "Allowed orientations", "illustration": "figure-art/orientations.png", "detail_lines": ["R1 · Length vertical", "R2 · Width vertical", "R3 · Height vertical"]},
+    {"title": "Stackability", "illustration": "figure-art/stackability.png", "detail_lines": ["Left · May support an upper unit", "Right · Top must stay clear", "Check actual package strength"]},
+    {"title": "Loading sequence", "illustration": "figure-art/sequence.png", "detail_lines": ["Nose, A–C · Load first, unload last", "Doors, D–G · Load last, unload first"]}
+  ],
+  "takeaway": "A gap is usable when the unit fits, has support and can be unloaded at the intended stop.",
+  "caption": "Figure 2. Three constraints shape the load. Allowed orientations set the base, stackability determines what can rest on it, and delivery order determines where each group belongs.",
+  "alt_text": "Orientation arrows show R1 length, R2 width and R3 height vertical. Two stacks show when a top can support other cargo. A trailer schematic shows A–C at the nose for stop 2, and D–G at the rear doors for stop 1.",
+  "source_notes": "Orientation and stackability definitions from the Transport service contract. A–C and D–G positions from verified case groups. Zones are schematic; no exact geometry, support rating or verified unloading path is shown."
+}

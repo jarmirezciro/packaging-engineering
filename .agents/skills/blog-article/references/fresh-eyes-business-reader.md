@@ -76,6 +76,12 @@ When an answer is unclear, revise the article.
 
 For comparisons, ask the reader to identify the alternatives, explain their IDs, name the dimensions or constraints that distinguish them, and explain why those differences matter to the decision. Check that the article supplies the answers before the detailed results.
 
+### Applied engineering articles
+
+Ask whether a packaging engineer can picture the physical problem and a logistics practitioner can identify the operating constraints and verification needed. If a mechanism is difficult to explain in words, check whether a compact illustration would improve comprehension. Use the legend and caption in the reader-only pass to identify what the calculated objects represent and which quantities or dimensions matter.
+
+Check that the conclusion gives the central verified result and its practical implication. Where the article informs a purchase or software decision, an operations or purchasing reader should be able to identify when the result matters and what they would measure before investing. Use case evidence and explicit conditions for that judgment.
+
 ## Jargon test
 
 Identify terms a non-expert may not understand.
@@ -85,7 +91,7 @@ Examples:
 | Term | Preferred treatment |
 |---|---|
 | Volumetric efficiency | Explain as percentage of internal box volume used |
-| R1, R2, R3 | Define once as permitted upright orientations |
+| R1, R2, R3 | Define which entered dimension can stand vertical for each allowed orientation |
 | FEFCO 0201 | Say standard slotted corrugated box first |
 | Payload usage | Explain as percentage of weight capacity used |
 | Residual space | Prefer unused space |

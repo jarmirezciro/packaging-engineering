@@ -1,0 +1,128 @@
+{
+  "article": "packagingapp\\content\\blog\\articles\\mixed-cargo-loading-delivery-sequence.md",
+  "automated_validation": "WARNING",
+  "editorial_and_visual_review": "REVIEW_REQUIRED",
+  "publication_readiness": "REVIEW_REQUIRED",
+  "findings": [
+    {
+      "rule": "SCHEMA",
+      "kind": "automated",
+      "status": "PASS",
+      "message": "Existing article validator passed."
+    },
+    {
+      "rule": "EDR-01",
+      "kind": "editorial",
+      "status": "REVIEW_REQUIRED",
+      "message": "Review the opening with the Fresh-Eyes Business Reader."
+    },
+    {
+      "rule": "EDR-02",
+      "kind": "editorial",
+      "status": "REVIEW_REQUIRED",
+      "message": "Review terminology, caveats and reader-facing language with the Fresh-Eyes Business Reader."
+    },
+    {
+      "rule": "EDR-03",
+      "kind": "editorial",
+      "status": "REVIEW_REQUIRED",
+      "message": "Review the progression from setup to results and engineering implications."
+    },
+    {
+      "rule": "EDR-04",
+      "kind": "visual",
+      "status": "REVIEW_REQUIRED",
+      "message": "Inspect actual geometry and labels against the verified source inputs and results."
+    },
+    {
+      "rule": "EDR-05",
+      "kind": "visual",
+      "status": "REVIEW_REQUIRED",
+      "message": "Review physical context and in-scope stages using Packaging Scenario Setup."
+    },
+    {
+      "rule": "EDR-06",
+      "kind": "visual",
+      "status": "REVIEW_REQUIRED",
+      "message": "Review screenshot fidelity and composition with the Visual Editorial Critic where applicable."
+    },
+    {
+      "rule": "ASSETS",
+      "kind": "automated",
+      "status": "PASS",
+      "message": "Local image paths and required alt attributes checked."
+    },
+    {
+      "rule": "EDR-07",
+      "kind": "automated",
+      "status": "PASS",
+      "message": "Rendered tables found: 2."
+    },
+    {
+      "rule": "EDR-07",
+      "kind": "visual",
+      "status": "REVIEW_REQUIRED",
+      "message": "Inspect rendered table styling, unit context and narrow-width readability."
+    },
+    {
+      "rule": "EDR-08",
+      "kind": "automated",
+      "status": "PASS",
+      "message": "Caption order and explicit prose references agree in rendered HTML."
+    },
+    {
+      "rule": "EDR-08",
+      "kind": "visual",
+      "status": "REVIEW_REQUIRED",
+      "message": "Compare caption numbers with labels printed in the artwork and check caption meaning."
+    },
+    {
+      "rule": "EDR-10",
+      "kind": "automated",
+      "status": "PASS",
+      "message": "Local evidence record available: docs/blog/research-notes-mixed-cargo-loading-delivery-sequence.md. Local record presence does not establish a source archive."
+    },
+    {
+      "rule": "EDR-10",
+      "kind": "automated",
+      "status": "WARNING",
+      "message": "1 external link(s) present. Source archival was not verified."
+    },
+    {
+      "rule": "EDR-10",
+      "kind": "review",
+      "status": "REVIEW_REQUIRED",
+      "message": "Verify claim-to-source mapping, archive and reuse status, reported versus reproduced values, numeric units and engineering scope."
+    },
+    {
+      "rule": "EDR-11",
+      "kind": "automated",
+      "status": "PASS",
+      "message": "Found transport preset '48ft-semitrailer-two-stop-mixed-cargo' in the repository."
+    },
+    {
+      "rule": "EDR-11",
+      "kind": "review",
+      "status": "REVIEW_REQUIRED",
+      "message": "Open the actual tool in future integration QA and verify prefilled values, case scope and CTA behavior."
+    },
+    {
+      "rule": "EDR-12",
+      "kind": "review",
+      "status": "REVIEW_REQUIRED",
+      "message": "No verified approval baseline available for hash preservation."
+    },
+    {
+      "rule": "EDR-09",
+      "kind": "automated",
+      "status": "PASS",
+      "message": "Existing thumbnail workflow checks passed for the supplied report."
+    },
+    {
+      "rule": "EDR-09",
+      "kind": "visual",
+      "status": "REVIEW_REQUIRED",
+      "message": "Use the thumbnail workflow and inspect the thumbnail at full and card size. Confirm owner approval separately."
+    }
+  ]
+}

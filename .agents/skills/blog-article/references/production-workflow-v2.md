@@ -58,6 +58,8 @@ A required preset that is absent, broken or unverified blocks publication. Conti
 
 ## Run the editorial audit
 
+Run this audit alongside schema validation on new or revised drafts, including during draft-only handoff. Record the EDR-08 disposition for substantive editorial figures and review their rendered caption sequence. Schema validation alone does not check figure numbering.
+
 From the repository root, in the project Python environment:
 
 ```bash

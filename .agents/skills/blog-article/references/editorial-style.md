@@ -14,6 +14,14 @@ The article should be:
 - Confident without exaggeration.
 - Understandable without specialist packaging knowledge when the article is business-oriented.
 
+## Applied engineering education
+
+For Engineering Deep Dives and engineering benchmark studies, start with the problem industry professionals need to solve. Explain the physical or operational constraints, show how practical methods address them, and use verified results to help readers evaluate their options. Use authentic calculations and purposeful illustrations. Include the mathematics needed to follow or verify the method.
+
+Use KolliPack to demonstrate engineering methods and give the reader a way to inspect the evidence. Keep the problem and the decisions facing packaging, logistics, operations and purchasing teams at the center of the story. Connect results to operating or commercial consequences when those consequences matter to the decision. Follow the author's explicit scope and outline.
+
+An engineering benchmark uses a reference problem to study constraints, methods and outcomes. A competitive software benchmark compares applications under defined, comparable conditions. An external example can inspire an independently configured case. Use the comparative structure when the author's question requires a comparison and the evidence supports it.
+
 ## Preserve the author's voice
 
 When polishing or rewriting Alejandro's draft:
@@ -113,9 +121,15 @@ RSC Material Optimization.
 8. Conclusion
 9. Key Takeaways
 
-Make the reasoning traceable through explicit assumptions, relevant formulas,
-diagrams, and a worked example. Include commercial context or external comparisons
-when they directly support the technical explanation.
+Make the reasoning traceable through explicit assumptions, relevant formulas and
+a worked example. Consider a physical setup illustration when readers would
+otherwise have to infer the arrangement. Use compact diagrams for mechanisms
+involving orientation, support, sequence or other spatial relationships when
+they can replace lengthy mechanical descriptions. Use the [editorial figure
+skill](../../kollilabs-editorial-figures/SKILL.md) for these conceptual figures and
+keep calculated result evidence visibly distinct. Close by reporting the central
+verified result and what it changes for the reader. Include commercial context or
+external comparisons when they directly support that decision.
 
 ### Practical Guide
 

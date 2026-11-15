@@ -363,6 +363,14 @@ for _index, _row in enumerate(_support_beds["rows"]):
 TRANSPORT_CONTAINER_CASE_PRESETS["48ft-semitrailer-expv2-2-support-beds"] = _support_beds
 
 
+# The two-stop editorial case uses the rotation permissions from its input capture.
+_two_stop_case = deepcopy(_support_beds)
+_two_stop_case["label"] = "48-ft Semitrailer — Two-Stop Mixed-Cargo Loading"
+for _index, _row in enumerate(_two_stop_case["rows"]):
+    _row.update(r1=_index not in (2, 3), r2=_index not in (0, 2, 3))
+TRANSPORT_CONTAINER_CASE_PRESETS["48ft-semitrailer-two-stop-mixed-cargo"] = _two_stop_case
+
+
 def get_transport_container_case_preset(slug):
     """Return an isolated preset payload for a Transport example or regression."""
     preset = TRANSPORT_CONTAINER_CASE_PRESETS.get(str(slug or "").strip())

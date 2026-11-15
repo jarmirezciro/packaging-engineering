@@ -121,6 +121,16 @@ The owner explicitly approved Figures 2 and 3, the results table and the concise
 
 The published articles were assessed as references. This review does not change their copy or artwork.
 
+## 008 Mixed-Cargo Loading Engineering Deep Dive
+
+[Article 3 draft](../../packagingapp/content/blog/articles/mixed-cargo-loading-delivery-sequence.md) uses a third-party illustration as the starting point for a separately configured loading problem. The result comparison is between four strategies applied to the same local manifest.
+
+| Rule | Finding and correction | Review method |
+|---|---|---|
+| EDR-03 | The draft contained enough geometry to explain the result, while the conclusion omitted the full-load outcome. A compact orientation, support and sequence diagram frees the prose to explain input sensitivity, operational validation and the software decision. State the verified result in the conclusion. | Can the reader connect an input change to the practical decision and identify what remains to validate? |
+| EDR-06 | The authentic 3D crop kept the P1–P7 marks and omitted their legend. The revised figure reflows the original legend tiles above the unchanged loading view. | At mobile and desktop widths, trace product identifiers, dimensions and loaded/planned counts to the original capture. |
+| EDR-08 | A single substantive `blog-figure` had an unnumbered caption. The local handoff ran the schema validator while this checkout lacked the editorial auditor from the upstream branch. The existing auditor failed the original markup and passed the corrected series. | Run the editorial audit during draft review and reconcile any printed figure numbers at display size. |
+
 ## Original review locators
 
 The article figures and all six published thumbnail files were opened from the production checkout. The 17 embedded images in the four supplied DOCX files were opened separately and compared with the production assets or article sections. This review used the production source and owner page captures for page-level findings. The Box callouts, takeaways and table and the CapePack table are rendered components with no standalone repository snapshot identified. The RSC table-rendering finding comes from the owner's prose, alongside corroborating source markup. The CapePack proposal is a review-only image. Durable archive status for these owner files is pending.

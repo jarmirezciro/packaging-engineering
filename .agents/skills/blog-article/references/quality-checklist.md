@@ -50,6 +50,7 @@ these checks independently of Visual QA.
 - [ ] Results, Discussion, Conclusion, and Key Takeaways serve distinct purposes where applicable, including when a heading combines functions.
 - [ ] Key Takeaways communicate transferable, evidence-grounded lessons where applicable.
 - [ ] Major author observations and the intended conclusion are traceable in the draft or any material departures are accounted for.
+- [ ] The conclusion states the central verified result and the applicable operational decision. When a diagram teaches a mechanism, nearby text adds interpretation or evidence.
 
 ## Fresh-Eyes review
 
@@ -108,6 +109,7 @@ these checks independently of Visual QA.
 - [ ] Every final figure was opened and inspected at native size and realistic article/mobile display widths.
 - [ ] Important case, carton, bag, pallet and transport geometry is complete and uncropped.
 - [ ] All critical labels, counts and rendered evidence are readable at display size.
+- [ ] Result crops retain the context needed to interpret them, either in the figure or immediately adjacent to it.
 - [ ] Software comparisons use real screenshots, faithful values and like-for-like framing.
 - [ ] The visuals explain the result promptly; there are no giant empty screenshot cards, decorative cube-only explanations, or needless repeated figures.
 - [ ] In-article images match the approved light KolliPack visual language; thumbnails follow their separate canonical workflow.
