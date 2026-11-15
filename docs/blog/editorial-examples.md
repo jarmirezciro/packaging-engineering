@@ -131,6 +131,31 @@ The published articles were assessed as references. This review does not change 
 | EDR-06 | The authentic 3D crop kept the P1–P7 marks and omitted their legend. The revised figure reflows the original legend tiles above the unchanged loading view. | At mobile and desktop widths, trace product identifiers, dimensions and loaded/planned counts to the original capture. |
 | EDR-08 | A single substantive `blog-figure` had an unnumbered caption. The local handoff ran the schema validator while this checkout lacked the editorial auditor from the upstream branch. The existing auditor failed the original markup and passed the corrected series. | Run the editorial audit during draft review and reconcile any printed figure numbers at display size. |
 
+## 009 Empty Container Space Fresh-Eyes Calibration
+
+Two independent Codex subagents started with no inherited chat turns. Each
+received one anonymous candidate and the same transport operations manager
+profile and review prompt. Each recorded opening and scan observations before
+receiving the full body. The coordinator kept the file mapping and owner
+feedback outside both reviewer contexts. The review used rendered PDF views.
+
+| Reader criterion | Candidate M (`firstdraft.pdf`) | Candidate K (`seconddraft.pdf`) |
+| --- | --- | --- |
+| Opening comprehension (EDR-01) | PASS. Both the booking choice and the need for a continuous opening were explicit across the two opening paragraphs. The reviewer could interpret 9.66 m³ and 0.432 m³ in context. | PASS. The first paragraph establishes volume and weight screening before the worked result. The final opening paragraph gives the booking choice and crew-access question. |
+| Standalone tables and figures (EDR-06, EDR-07) | REVISE. The manifest's color swatches display as empty outlines, and a fixed page bar hides the row between B/P2 and D/P4. Figure 1 clearly explains the 300 mm versus 600 mm width example. | REVISE. Figure 1 teaches width, height, depth and access through two layouts. Figure 2's blank swatches break the promised color match to Figure 3. Its P-label mapping still works. |
+| Technical terminology (EDR-03) | REVISE. The worked example leaves R1 and R2 unexplained, and the rerun instruction gives insufficient context for loading groups and the infill toggle. | PASS. The article explains turning cartons on their bases, support, sequence and the heuristic in operational terms. A short gloss for the exact mode name could aid reproduction. |
+| Practical reader value (EDR-03) | PASS. The trial table and warehouse section give measures and physical checks. The reviewer considered the heuristic link optional depth. | PASS. The conclusion ties verified item counts to the booking or overflow decision, and the trial section identifies what to compare with the current workflow. |
+| Overall | REVISE | REVISE |
+
+The independent review reproduced the first draft's terminology problem and
+found a rendering defect shared by both exports. It recognized the second
+draft's clearer setup and got one more passing criterion. It did not
+independently confirm that the first opening or its academic references blocked
+comprehension for the chosen reader. Keep the opening test tied to what the
+reader can explain from the actual opening. The supplied exports are the
+evidence for the table findings. Check the corresponding article render
+before attributing them to the web page.
+
 ## Original review locators
 
 The article figures and all six published thumbnail files were opened from the production checkout. The 17 embedded images in the four supplied DOCX files were opened separately and compared with the production assets or article sections. This review used the production source and owner page captures for page-level findings. The Box callouts, takeaways and table and the CapePack table are rendered components with no standalone repository snapshot identified. The RSC table-rendering finding comes from the owner's prose, alongside corroborating source markup. The CapePack proposal is a review-only image. Durable archive status for these owner files is pending.

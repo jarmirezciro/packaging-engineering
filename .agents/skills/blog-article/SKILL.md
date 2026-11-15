@@ -274,12 +274,16 @@ Do not:
 
 ## 9. Run the Fresh-Eyes Business Reader review
 
-Follow `references/fresh-eyes-business-reader.md`.
+Follow [Fresh-Eyes Business Reader](references/fresh-eyes-business-reader.md). Use one
+read-only reviewer with a fresh context and the staged reader packet. Run the author and
+evidence review in the authoring context. Apply focused corrections and request an
+independent recheck of materially affected content.
 
-Read as the intended reader using the title, body, figures, captions, takeaways, and applicable
-reader actions. Then reopen the brief and evidence to check the author’s intended structure and
-substantive observations. Apply the applicable revisions and check editorial structure independently
-of Visual QA.
+New articles and substantial editorial rewrites require an independent Fresh-Eyes
+`PASS` on the release candidate before reporting publication readiness. If an isolated
+review is unavailable or unfinished, keep the candidate in draft and record
+`INDEPENDENT_REVIEW_REQUIRED`. In `publish_approved`, return proposed changes to approved
+material to the owner.
 
 
 <!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:visual-gate -->
@@ -339,7 +343,8 @@ Report:
 - Headline outputs and discrepancies.
 - Missing evidence, excluded or narrowed claims, missing presets, QA failures and publication blockers.
 - Business context chosen.
-- Fresh-Eyes persona used.
+- Fresh-Eyes persona, actual review context, candidate version, findings, decision and
+  recheck status. Record author/evidence and Visual QA decisions separately.
 - Images and figures revised.
 - CTA and prepopulated URL.
 - Primary keyword and search intent.

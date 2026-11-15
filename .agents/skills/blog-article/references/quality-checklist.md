@@ -54,13 +54,10 @@ these checks independently of Visual QA.
 
 ## Fresh-Eyes review
 
-- [ ] A persona with the intended reader's background was selected.
-- [ ] The reader-only pass used only the title, article, figures, captions, takeaways, and applicable reader actions.
-- [ ] The author and evidence pass checked the outline, observations, and conclusions against the source materials.
-- [ ] The reader can state the objective and understands the result or method and its implications.
-- [ ] Jargon was explained or removed.
-- [ ] Documentation-like passages were revised.
-- [ ] The reader knows what KolliPack contributes and what to do next where applicable.
+- [ ] The [Fresh-Eyes handoff](fresh-eyes-business-reader.md) used a fresh context, an appropriate reader profile and staged reader-visible material.
+- [ ] The independent report records opening and scan observations, evidence for each criterion, the candidate version and the actual decision. Material corrections received an independent recheck.
+- [ ] The author and evidence pass checked the outline, observations and conclusions against the source materials. Its decision is recorded separately from Fresh-Eyes and Visual QA.
+- [ ] For a new article or substantial editorial rewrite, independent Fresh-Eyes is PASS before reporting publication readiness. An absent independent result leaves the gate `INDEPENDENT_REVIEW_REQUIRED`.
 
 ## Metadata and SEO
 
@@ -147,7 +144,7 @@ these checks independently of Visual QA.
 
 - [ ] Final titles are reported.
 - [ ] Backend entry points and headline outputs are reported.
-- [ ] Business context and Fresh-Eyes persona are reported.
+- [ ] Business context and Fresh-Eyes persona, actual context, version, decision and outstanding recheck are reported.
 - [ ] Exact files changed are listed.
 - [ ] Validation is listed.
 - [ ] Remaining warnings are explicit.

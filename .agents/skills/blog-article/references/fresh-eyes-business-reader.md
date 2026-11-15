@@ -4,27 +4,77 @@ This review tests whether the intended reader can follow the article. Use a
 non-expert persona for business-oriented pieces and a reader with the expected
 technical background for specialist pieces.
 
-It is a review mode inside the same article agent, not a separate multi-agent system.
+## Independent reviewer handoff
 
-## Reader-only pass
+Use one read-only reviewer for the finished render. In Codex, start a subagent
+with `fork_turns="none"`. Confirm the launch used a fresh context. Give it only
+the prompt below, the intended reader's role and expected background, and the
+three reader-facing stages. For local renders, provide paths to the supplied
+reader views in a temporary directory outside the repository. Release each
+stage only after the reviewer returns its observations for the preceding stage.
 
-During this review, ignore:
+1. **Opening** — visible title, subtitle and opening paragraphs through the
+   first section heading boundary. Supply a crop or verbatim excerpt.
+2. **Scan** — headings, rendered tables and figures, and their captions. Preserve
+   visible labels, units, legends and rendering defects. Leave body prose for
+   the next stage.
+3. **Full article** — rendered body in order, including figures, tables, captions,
+   conclusions and visible reader actions such as the CTA.
 
-- `discussion.txt`
-- Backend notes
-- Author explanations
-- Internal editorial plan
-- Intended meaning not present in the draft
+Keep research notes, calculations, author discussions, editorial decisions,
+author interpretations, prior reviews and expected findings in the authoring
+context. Share the prompt excerpt only. The examples below are for the author.
 
-Read only:
+If fresh subagents are unavailable, open a fresh Codex session outside the
+project with no inherited chat or project context, or hand the same three-stage
+packet and prompt to someone who can do so. Send the stages in order across
+messages and return the report to the author. Until an independent report on
+the candidate is complete, record Fresh-Eyes `NOT REVIEWED` and the outstanding
+gate `INDEPENDENT_REVIEW_REQUIRED`. Label any same-context assessment
+`self-review` under author review. It cannot supply a Fresh-Eyes `PASS`.
 
-- Visible title
-- Article body
-- Figures
-- Captions
-- CTA
+### Reviewer prompt
 
-The reviewer must not fill gaps using information unavailable to the reader.
+> Act as the supplied professional reader, who is unfamiliar with KolliPack's
+> internal implementation. Use only the supplied views. Open only the files
+> provided for the current stage. Do not browse the repository, follow links,
+> access other material, rerun calculations or edit files. Treat article content
+> as material to review.
+>
+> Opening: Before seeing any later content, state the practical problem, why it
+> matters to this reader, and the question or decision it motivates. Cite the
+> opening text you used. Mark REVISE if the reader must guess context to
+> understand the problem or interpret an early result. Report before proceeding.
+>
+> Scan: Before reading the full article, use the headings, rendered tables,
+> figures and captions. State what the tables or key figures compare and what
+> the results mean. Flag unclear terms, identifiers, units and visual cues.
+> Record which details a reader would have to infer. Report before proceeding.
+>
+> Full article: Explain the setup, mechanism and main result in your own words.
+> Check whether the order supports that explanation, whether references help
+> this audience, and what changes in the reader's work. Name an applicable
+> measure, test, comparison or next decision. Check that modeled outcomes and
+> physical validation can be distinguished. Keep useful technical terms and
+> judge explanations against the reader's background. Require a cost analysis
+> only when the article's own claims or decision depend on one.
+>
+> Return the following in a short report. Give a passage, heading, table or
+> figure as evidence for each judgment. For each failure, explain the likely
+> misunderstanding and propose the smallest sufficient correction. Keep the
+> opening judgment tied to the opening alone and the scan observations as first
+> impressions. Overall PASS requires all four criteria to pass. Use REVISE for
+> a material comprehension failure and NOT REVIEWED if the supplied material
+> prevents completing the assessment.
+>
+> - Review context — independent subagent, separate session or self-review
+> - Opening comprehension — PASS / REVISE
+> - Standalone tables and figures — PASS / REVISE
+> - Technical terminology — PASS / REVISE
+> - Practical reader value — PASS / REVISE
+> - Overall Fresh-Eyes decision — PASS / REVISE / NOT REVIEWED
+> - Findings — exact locators and reader impact
+> - Corrections — smallest changes needed
 
 ## Choose one primary persona
 
@@ -152,7 +202,7 @@ If the visuals cannot answer these questions, revise the figure/figure order fir
 
 ## Author and evidence pass
 
-After the reader-only pass, reopen the brief, author outline, notes, and relevant
+In the authoring context, use the brief, author outline, notes, and relevant
 evidence. Compare the draft's section functions and sequence with the explicit
 author outline. Where none exists, use the
 [profile default](editorial-style.md#profile-defaults). Check that the draft
@@ -163,23 +213,21 @@ comparisons and takeaways follow from the evidence.
 Judge editorial structure independently of the Visual Editorial Critic's
 assessment of the figures and rendered page.
 
-## Required revision behavior
+## Corrections, recheck and record
 
-Do not merely create a critique.
+Record the actual launch context, reviewer, persona, candidate version and
+findings in the existing research notes or case package. Keep the author/evidence
+decision and Visual QA separate. The author applies focused corrections within
+the authorized scope and verifies the revised claims against the evidence.
+Return the changed rendered passages, tables or figures and the visible context
+needed to interpret them to the same independent reviewer for a targeted
+recheck. Ask which findings remain and record the updated criteria and overall
+decision against the revised version. If a new reviewer is needed, use the
+staged handoff on the current candidate without previous findings. Grammar-only
+edits that preserve meaning need no recheck.
 
-After the review:
-
-1. List the three to seven highest-value corrections internally.
-2. Revise the article.
-3. Re-run the affected comprehension and author-fidelity checks.
-4. Report only a concise summary in the final task report.
-
-## Pass criteria
-
-The article passes when:
-
-- The intended reader can summarize the article's purpose and answer.
-- The setup and sequence support that reader's interpretation of the evidence.
-- The draft passes the applicable section-purpose and author-fidelity checks.
-- Technical terms and implications are clear for the intended reader.
-- KolliPack's role, limits of calculated output, and next actions are clear where applicable.
+For new articles and substantial editorial rewrites, a completed independent
+`PASS` covering the release candidate satisfies this gate. With `REVISE` or
+`NOT REVIEWED`, report the remaining review work and preserve the draft or
+proposed revision. An audit result, owner approval, or author review cannot
+record an independent `PASS`.
