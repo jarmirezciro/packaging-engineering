@@ -1,6 +1,6 @@
 +++
 schema_version = 1
-status = "draft"
+status = "published"
 title = "How Orientation, Stacking and Stop Order Shape a Mixed-Cargo Load"
 slug = "mixed-cargo-loading-delivery-sequence"
 subtitle = "Seven cargo types, two delivery stops and one 48-ft semitrailer."

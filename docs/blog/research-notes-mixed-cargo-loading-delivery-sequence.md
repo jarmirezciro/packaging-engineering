@@ -83,3 +83,7 @@ Scores run from 1 to 5 for clarity, specificity, reader relevance, and evidence 
 | Geometry | How a Fraction of an Inch Changed a Trailer Load | 5/5/4/5 |
 
 The problem-led title carries the requested engineering scope. The search-led wording supplies the SEO title.
+
+## Publication approval
+
+The owner authorized publication on 15 November 2026. The approved article changes only its publication status. The eight approved asset hashes match the retained checksum manifest. The external-link archival warning is recorded for the attributed EasyCargo illustration, which is cited as inspiration. The published article uses the independently reproduced KolliPack results and original KolliPack visuals.
