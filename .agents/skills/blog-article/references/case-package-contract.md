@@ -38,6 +38,7 @@ Treat `discussion.txt` as the author's editorial intent.
 
 Extract:
 
+- Any explicit `Article flow` or other outline, including the order and purpose of its sections.
 - What the author expected.
 - What looked attractive.
 - What was surprising.
@@ -46,7 +47,9 @@ Extract:
 - Which claims should be investigated.
 - Any preferred audience, tone, or context.
 
-Develop the thoughts. Do not merely correct grammar.
+Develop the author's reasoning and consolidate repeated notes. Apply the
+[structure priority](editorial-style.md#structure-priority) to explicit outlines
+in the discussion, brief, or supplied instructions.
 
 ## `brief.yaml`
 

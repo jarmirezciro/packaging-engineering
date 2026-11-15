@@ -31,25 +31,35 @@
 
 - [ ] At least six title candidates were considered.
 - [ ] Visible title, SEO title, and thumbnail headline serve different purposes.
-- [ ] Demo and business articles present the main result within the first 100 words. Other profiles orient readers to the engineering decision early.
-- [ ] The article has one continuous decision thread.
-- [ ] Every section advances the problem, result, consequence, decision, or CTA.
+- [ ] The opening establishes the specific reader objective in the chosen sequence.
 - [ ] Technical implementation detail was removed from business articles.
 - [ ] Important numbers are not repeated unnecessarily.
 - [ ] Limitations are clear but not repeated after every result.
-- [ ] For a substantive article, one Key Takeaways box follows the technical discussion and captures supported implications with material qualifications.
-- [ ] A single Explore KolliPack invitation immediately follows Key Takeaways and leads to a verified tool appropriate to the reader’s next task. Check that it serves a distinct purpose from any case link.
+- [ ] Applicable Key Takeaways use the existing box and retain material qualifications.
+- [ ] When the structure calls for Explore KolliPack, the invitation leads to a verified tool that serves the reader’s next task. Its purpose is distinct from any case link.
+
+## Editorial structure
+
+Apply [the structure priority](editorial-style.md#structure-priority) and assess
+these checks independently of Visual QA.
+
+- [ ] Explicit author section purposes and sequence are preserved, with reasons recorded for any material evidence-driven changes.
+- [ ] The structure serves the article's actual purpose and each section fulfills an applicable editorial function.
+- [ ] The reader understands the setup, inputs, or assumptions before interpreting detailed results.
+- [ ] Where comparison is central, like-for-like findings are presented and discussed, with differences and limitations explained.
+- [ ] Results, Discussion, Conclusion, and Key Takeaways serve distinct purposes where applicable, including when a heading combines functions.
+- [ ] Key Takeaways communicate transferable, evidence-grounded lessons where applicable.
+- [ ] Major author observations and the intended conclusion are traceable in the draft or any material departures are accounted for.
 
 ## Fresh-Eyes review
 
-- [ ] A relevant non-expert persona was selected.
-- [ ] The reviewer used only the article, figures, captions, and CTA.
-- [ ] The reader can state the problem in one sentence.
-- [ ] The reader understands the result and commercial meaning.
+- [ ] A persona with the intended reader's background was selected.
+- [ ] The reader-only pass used only the title, article, figures, captions, takeaways, and applicable reader actions.
+- [ ] The author and evidence pass checked the outline, observations, and conclusions against the source materials.
+- [ ] The reader can state the objective and understands the result or method and its implications.
 - [ ] Jargon was explained or removed.
 - [ ] Documentation-like passages were revised.
-- [ ] The reader knows what KolliPack contributes.
-- [ ] The reader knows what to do next.
+- [ ] The reader knows what KolliPack contributes and what to do next where applicable.
 
 ## Metadata and SEO
 

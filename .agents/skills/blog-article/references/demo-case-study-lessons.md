@@ -33,7 +33,8 @@ Use them as quality guidance. Do not copy their exact structure into every artic
 
 ## Editorial rule
 
-Lead with the 9,600-versus-14,400 result. Keep the engine invisible. Discuss the container outcome, not the rendering architecture.
+Make the 9,600-versus-14,400 contrast easy to find once the reader understands the packaging decision.
+Keep the focus on the container outcome and its engineering consequence.
 
 # Container Selection orientation case
 
@@ -65,7 +66,7 @@ Lead with the 9,600-versus-14,400 result. Keep the engine invisible. Discuss the
 
 ## Editorial rule
 
-Lead with 15 to 18 products. Explain orientation once. Move directly from result to business consequence.
+Make the 15-to-18-products contrast easy to find. Explain orientation once and connect the result to its practical consequence.
 
 # Shared lessons
 
@@ -110,7 +111,8 @@ stage only when it is part of the approved business question.
 
 ## Recommended editorial standard
 
-Every demo article should answer:
+For a demo built around a packaging decision, use these questions to check clarity
+within the [chosen editorial structure](editorial-style.md#structure-priority):
 
 1. What looked reasonable?
 2. What did KolliPack reveal?

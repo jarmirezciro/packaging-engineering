@@ -4,18 +4,18 @@ The article must not begin drafting with the first acceptable title or a generic
 
 ## Editorial angle
 
-Before drafting, define:
+Identify the reader's problem or objective and the article's one-sentence
+promise. For a decision story, consider:
 
 ```text
-Reader problem:
 Apparent answer:
 Surprising result:
 Business consequence:
 Remaining decision:
-Article promise:
 ```
 
-The story should be driven by one verified tension.
+Use a verified tension when it serves the chosen structure. Follow the
+[structure priority](editorial-style.md#structure-priority) when shaping the story.
 
 ## Useful narrative patterns
 
@@ -105,32 +105,13 @@ For the visible title, prefer an accessible business question or meaningful find
 
 ## Opening hook
 
-The strongest result should appear in the first 100 words.
-
-Avoid:
-
-- Generic packaging trends.
-- Definitions.
-- Tool feature lists.
-- “In today's fast-paced world.”
-- Long setup before the result.
-
-Prefer:
-
-> A product appeared to fit 15 times in the box. KolliPack found room for 18 without changing the product or box dimensions.
+Make the reader's specific question, case, or change clear early. Follow the
+[profile guidance for openings](editorial-style.md#openings-and-endings).
 
 ## Story continuity
 
-Every section must advance one of these:
-
-- Problem.
-- Comparison.
-- Result.
-- Business consequence.
-- Decision.
-- Reader action.
-
-Remove or shorten sections that only demonstrate technical sophistication.
+Check that each section serves its intended function in the chosen outline.
+Trim detail that does not advance that function.
 
 ## Repetition control
 
@@ -144,11 +125,6 @@ Do not repeat the same number or disclaimer after every image.
 
 ## Ending
 
-The conclusion should:
-
-- Resolve the article promise.
-- State what the result changes.
-- Clarify what remains to be tested.
-- Invite the reader to open the prepopulated case.
-
-Do not merely summarize every heading.
+When the structure calls for a conclusion, resolve the article promise using the
+evidence. Keep transferable takeaways and the applicable reader action distinct
+from the case-specific conclusion. Use the exact verified case link for runnable demos.

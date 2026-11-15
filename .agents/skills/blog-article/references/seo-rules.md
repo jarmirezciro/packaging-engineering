@@ -51,8 +51,9 @@ The visible title may prioritize interest. The SEO title may be more descriptive
 
 ## Content
 
-- Answer the main question early.
-- Put the verified result in the first 100 words for demo articles.
+- Make the main question clear early. Place the answer where the
+  [chosen editorial structure](editorial-style.md#structure-priority) gives readers
+  enough context to interpret it.
 - Use related terminology naturally.
 - Avoid visible keyword repetition.
 - Link to the relevant KolliPack tool page.

@@ -5,7 +5,7 @@ description: Research, reproduce engineering cases, write, illustrate, audit, re
 
 # KolliLabs Blog Article Skill
 
-Use this skill to create a new KolliLabs article, rewrite or polish a draft, refresh an existing article, or turn a KolliPack calculation case into a business-oriented demo article.
+Use this skill to create a new KolliLabs article, rewrite or polish a draft, refresh an existing article, or turn a KolliPack calculation into a reproducible demo article.
 
 ## Supported modes
 
@@ -30,17 +30,21 @@ The existing modes remain available:
 
 ## Article profiles
 
-Choose the editorial profile before drafting and map it to existing metadata using the production workflow and `references/article-schema.md`.
+Choose the editorial profile by the reader’s main objective and set metadata using the
+[article schema](references/article-schema.md#approved-article-types). Apply the
+[structure priority and profile defaults](references/editorial-style.md#structure-priority).
 
+- **Comparative Benchmark** — compare KolliPack with an external application, study, or reference benchmark using the applicable existing metadata type.
 - `demo_case_study`: a reproducible KolliPack case using real inputs, outputs, figures, and a prepopulated tool link.
 - `engineering_deep_dive`: formulas, geometry, algorithms, standards, or detailed packaging principles.
 - `practical_guide`: step-by-step packaging guidance.
-- `business_insight`: a business decision, trade-off, or operational lesson.
+- `business_insight`: a business decision, trade-off, or operational lesson. Choose valid `article_type` metadata separately.
 - `kollipack_update`: a product capability or release explanation.
 - `sustainability`: material, transport, waste, or environmental analysis.
 
-Read `references/demo-case-study-profile.md` whenever the selected profile is `demo_case_study`.
-When a demo case names or compares another tool or vendor, also read
+Read `references/demo-case-study-profile.md` for Practical Demos and for benchmarks
+that demonstrate a reproducible KolliPack case or use `demo_case_study` metadata.
+For a Comparative Benchmark or a demo that names another tool or vendor, read
 `references/comparative-benchmarking.md` and `docs/research/benchmarks.md`.
 
 ## Inputs to resolve
@@ -54,7 +58,7 @@ Resolve from the task, source package, or current repository:
 - Exact case inputs when the article is a demo.
 - Existing screenshots and figures.
 - Figure source groups and intended comparison layout.
-- CTA and verified prepopulated case URL, when available. A missing required case blocks publication.
+- Applicable CTA and verified prepopulated case URL for a runnable demo. A missing required case blocks publication.
 - Requested image method.
 - Latest project version when backend reproduction is required.
 - Source link, capture date, version, and comparison assumptions when another tool or vendor is named.
@@ -96,10 +100,10 @@ Determine:
 - Figure plan.
 - CTA and prepopulated URL.
 
-Before drafting, create a short editorial contract containing the primary audience, business
-decision, business consequence, approved workflow scope, first-block result, comparison claim,
-figure plan, and CTA action. Treat explicit author scope as binding. Do not infer downstream
-workflow stages from a tool URL, application name, or available implementation.
+Keep the brief internal. For a demo or benchmark, identify the approved workflow scope,
+case-bounded claims, figure plan, and reader action where applicable. Treat explicit author
+scope as binding. Do not infer downstream workflow stages from a tool URL, application name,
+or available implementation.
 
 Check for topic overlap and keyword cannibalization.
 
@@ -122,7 +126,10 @@ Read:
 - Current prepopulated case link.
 - Public comparator source, screenshots, recording date, product/version details, and any supplied comparison notes.
 
-Create an internal evidence map and use the [draft evidence procedure](references/production-workflow-v2.md#drafting-with-incomplete-evidence) to investigate gaps and conflicts. For `draft_only`, complete the article on the strongest supported angle, narrowing or excluding affected claims. Stop drafting only if no useful factual article is possible.
+Create an internal evidence map and identify any explicit author outline and its section
+purposes. Use the [draft evidence procedure](references/production-workflow-v2.md#drafting-with-incomplete-evidence)
+to investigate gaps and conflicts. For `draft_only`, complete the article on the strongest supported
+angle, narrowing or excluding affected claims. Stop drafting only if no useful factual article is possible.
 
 ## 3. Reproduce demo cases through the backend
 
@@ -150,6 +157,7 @@ When evidence conflicts, report the discrepancy. Never silently select a conveni
 
 ## 4. Develop the business context
 
+Apply this step when the reader's decision needs business or operational context.
 Follow `references/business-context-and-product-selection.md`.
 
 Use the author's `discussion.txt` as the primary source of intent. Ground the case in the documented engineering decision. Add a labeled illustrative example only when it helps explain the decision.
@@ -167,18 +175,10 @@ Never fabricate:
 
 ## 5. Find the editorial angle
 
-Before writing, define:
-
-- Reader problem.
-- Apparent or initially attractive answer.
-- Surprising result.
-- Business consequence.
-- Remaining decision or uncertainty.
-- One-sentence article promise.
-
-Use `references/title-and-story-rubric.md`.
-
-The strongest verified numerical or operational contrast should usually guide the article.
+Before writing, complete the lightweight structural check in
+[editorial style](references/editorial-style.md#structure-priority). Use
+[the title and story rubric](references/title-and-story-rubric.md#editorial-angle)
+to refine the angle within that structure.
 
 ## 6. Run the title laboratory
 
@@ -205,13 +205,12 @@ Follow:
 - `references/editorial-style.md`
 - `references/article-schema.md`
 - `references/seo-rules.md`
-- The selected article profile
+- The selected author outline or profile default
 
 For demo articles:
 
-- Establish the reader’s engineering decision and introduce the strongest verified result within the first 100 words.
-- Explain why it matters commercially.
-- Use one continuous decision story.
+- Establish the engineering objective and make the result reproducible.
+- Explain the practical consequence in terms relevant to the intended reader.
 - Explain technical terms once in plain language.
 - Distinguish calculated output from physical validation.
 - Avoid interface documentation unless an interaction is central to the lesson.
@@ -277,15 +276,10 @@ Do not:
 
 Follow `references/fresh-eyes-business-reader.md`.
 
-Temporarily ignore the source brief and backend notes. Review only:
-
-- Title.
-- Article body.
-- Figures.
-- Captions.
-- Key Takeaways, Explore KolliPack invitation, and any case CTA.
-
-Choose the most relevant non-expert persona. Apply the recommended revisions before continuing.
+Read as the intended reader using the title, body, figures, captions, takeaways, and applicable
+reader actions. Then reopen the brief and evidence to check the author’s intended structure and
+substantive observations. Apply the applicable revisions and check editorial structure independently
+of Visual QA.
 
 
 <!-- BEGIN KOLLILABS_BLOG_SKILL_UPDATE_V1:visual-gate -->

@@ -23,13 +23,13 @@ A demo article should help a reader:
 
 ## Editorial contract before drafting
 
-Record these fields before writing:
+Identify these points before writing:
 
 - Primary audience and the decision they need to make.
-- Business consequence that belongs in the opening block.
+- Practical consequence relevant to the reader.
 - Approved calculation chain, for example `product → box → pallet`.
 - Explicitly excluded stages or claims.
-- One-sentence comparison message bounded to the tested case.
+- One-sentence finding or comparison claim bounded to the tested case.
 - Figure plan, including source panels, comparison rows and columns, and required labels.
 - Reader action for the prepopulated case, when verified.
 
@@ -53,34 +53,12 @@ Investigate conflicting results before choosing the story. If the conflict remai
 the affected claim and complete the draft on a supported comparison or a narrower KolliPack result
 when possible. Record the unresolved issue and excluded claims in the research notes or final report.
 
-## Recommended narrative
+## Editorial structure
 
-Use this sequence as a story guide, not a rigid heading template:
-
-1. Verified result-led opening.
-2. Concrete business situation.
-3. Initially attractive or obvious answer.
-4. What KolliPack compared.
-5. Main numerical or operational contrast.
-6. Business consequence.
-7. Remaining engineering, supplier, or operational decision.
-8. [Key Takeaways and Explore KolliPack](editorial-style.md#ending-substantive-articles).
-
+Follow the author’s explicit outline when supplied. Otherwise use the
+[Practical Demo or Comparative Benchmark structure](editorial-style.md#profile-defaults)
+according to the reader’s objective. Explain what the verified result changes in practice.
 Put the verified case link beside the relevant result and keep its article-specific footer CTA.
-
-## Opening rule
-
-Establish the reader’s packaging decision and why it matters, then put the most important verified result within the first 100 words. In a benchmark, identify the source example and distinguish matched outcomes from additional alternatives.
-Translate the result into a stated consequence when the source provides one. A technical result
-without its business meaning is not a sufficient opening for a manager-focused case study.
-
-Weak:
-
-> Packaging optimization involves several parameters.
-
-Strong:
-
-> A buyer choosing among stock cartons needs a case that fits the order quantity. In our replay of a CapePack example, both tools fit 20 upright units in the reference case.
 
 ## Business consequence
 
