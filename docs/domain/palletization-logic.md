@@ -67,6 +67,8 @@ The project has discussed and implemented/refined these engineered pattern famil
 - Split Row
 - Hybrid Pinwheel
 - Perimeter-Core Mosaic
+- Nested Simple Lattice — 1D
+- Nested Simple Lattice — 2D
 - Mosaic patterns with main, secondary, and filler blocks
 
 Perimeter-Core Mosaic is the shared ten-carton mixed-orientation topology. It

@@ -145,6 +145,7 @@ def search_mosaic_placements(
     *,
     candidate_budget: int = MOSAIC_CANDIDATE_BUDGET,
     legacy_quantity: int = 0,
+    include_lattice: bool = True,
 ) -> MosaicSearchResult:
     """Return the strongest independently valid mosaic within fixed resources."""
     started = time.perf_counter()
@@ -200,26 +201,23 @@ def search_mosaic_placements(
     valid_count = 0
     resource_limited = False
 
-    for orientation_index, footprint_l, footprint_w, vertical in families:
-        if candidate_count >= candidate_budget:
-            resource_limited = True
-            break
-        layers = count_fitting_units(container[2], vertical)
-        if layers <= 0:
-            continue
-        area_upper_bound = count_fitting_units(
-            container[0] * container[1], footprint_l * footprint_w
+    def consider(orientation_index, footprint_l, footprint_w, vertical, layers, *, candidate_scope):
+        nonlocal best_layer, best_vertical, best_layers, best_quantity
+        nonlocal best_family, best_variant, best_axis, candidate_count, valid_count, resource_limited
+
+        lattice_min_quantity = (
+            max(legacy_quantity, best_quantity) // layers + 1
+            if candidate_scope == "lattice"
+            else 1
         )
-        if area_upper_bound > MOSAIC_MAX_LAYER_PLACEMENTS:
-            resource_limited = True
-            continue
-        remaining_budget = candidate_budget - candidate_count
         candidates = enumerate_pattern_candidates(
             container[0],
             container[1],
             footprint_l,
             footprint_w,
-            candidate_budget=remaining_budget,
+            candidate_budget=candidate_budget - candidate_count,
+            candidate_scope=candidate_scope,
+            lattice_min_quantity=lattice_min_quantity,
         )
         for candidate in candidates:
             candidate_count += 1
@@ -237,6 +235,39 @@ def search_mosaic_placements(
             best_family = candidate.family
             best_variant = candidate.variant
             best_axis = orientation_index
+
+    # Complete the historical search across the permitted axes before allocating
+    # its unused candidate slots to lattice layouts.
+    eligible_footprints = []
+    for orientation_index, footprint_l, footprint_w, vertical in families:
+        if candidate_count >= candidate_budget:
+            resource_limited = True
+            break
+        layers = count_fitting_units(container[2], vertical)
+        if layers <= 0:
+            continue
+        area_upper_bound = count_fitting_units(
+            container[0] * container[1], footprint_l * footprint_w
+        )
+        if area_upper_bound > MOSAIC_MAX_LAYER_PLACEMENTS:
+            resource_limited = True
+            continue
+        eligible_footprints.append(
+            (orientation_index, footprint_l, footprint_w, vertical, layers)
+        )
+        consider(
+            orientation_index, footprint_l, footprint_w, vertical, layers,
+            candidate_scope="historical",
+        )
+
+    if include_lattice:
+        for orientation_index, footprint_l, footprint_w, vertical, layers in eligible_footprints:
+            if candidate_count >= candidate_budget:
+                break
+            consider(
+                orientation_index, footprint_l, footprint_w, vertical, layers,
+                candidate_scope="lattice",
+            )
 
     validation_error = ""
     if best_layer:

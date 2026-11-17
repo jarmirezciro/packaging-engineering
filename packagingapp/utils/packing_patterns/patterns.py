@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Sequence, Tuple
+from typing import Literal, Sequence, Tuple
 
 from . import core as _core
 from .core import (
@@ -42,6 +42,8 @@ PATTERN_FAMILIES = (
     "centre_filled_pinwheel",
     "perimeter_core_mosaic",
     "regional_mosaic",
+    "nested_simple_lattice_1d",
+    "nested_simple_lattice_2d",
 )
 
 
@@ -177,6 +179,52 @@ def pattern_perimeter_core_mosaic(
     )
 
 
+def pattern_nested_simple_lattice_1d(
+    area_l,
+    area_w,
+    box_l,
+    box_w,
+    i=1,
+    j=2,
+    rotated=False,
+    *,
+    policy: PatternSearchPolicy = CONTAINER_SEARCH_POLICY,
+):
+    return _core.pattern_nested_simple_lattice_1d(
+        area_l,
+        area_w,
+        box_l,
+        box_w,
+        i=i,
+        j=j,
+        rotated=rotated,
+        policy=policy,
+    )
+
+
+def pattern_nested_simple_lattice_2d(
+    area_l,
+    area_w,
+    box_l,
+    box_w,
+    i=2,
+    j=2,
+    rotated=False,
+    *,
+    policy: PatternSearchPolicy = CONTAINER_SEARCH_POLICY,
+):
+    return _core.pattern_nested_simple_lattice_2d(
+        area_l,
+        area_w,
+        box_l,
+        box_w,
+        i=i,
+        j=j,
+        rotated=rotated,
+        policy=policy,
+    )
+
+
 def _valid(
     placements: Sequence[Placement2D],
     area_l: float,
@@ -238,6 +286,31 @@ def _regional_candidates(area_l, area_w, box_l, box_w):
     return candidates
 
 
+def _lattice_footprint_fits(area_l, area_w, box_l, box_w, i, j, rotated=False):
+    long_side = max(float(box_l), float(box_w))
+    short_side = min(float(box_l), float(box_w))
+    footprint_l = i * long_side + j * short_side
+    footprint_w = i * short_side + j * long_side
+    if rotated:
+        footprint_l, footprint_w = footprint_w, footprint_l
+    return footprint_l <= area_l + 1e-9 and footprint_w <= area_w + 1e-9
+
+
+def iter_nested_lattice_parameters(
+    area_l, area_w, box_l, box_w, *, parameter_limit, two_dimensional
+):
+    """Yield fitting parameters in deterministic family order."""
+    pairs = (
+        ((i, j) for i in range(2, parameter_limit + 1) for j in range(2, parameter_limit + 1))
+        if two_dimensional
+        else ((1, j) for j in range(2, parameter_limit + 1))
+    )
+    for i, j in pairs:
+        for rotated in (False, True):
+            if _lattice_footprint_fits(area_l, area_w, box_l, box_w, i, j, rotated):
+                yield i, j, rotated
+
+
 @lru_cache(maxsize=256)
 def enumerate_pattern_candidates(
     area_l: float,
@@ -247,6 +320,8 @@ def enumerate_pattern_candidates(
     *,
     candidate_budget: int = DEFAULT_CANDIDATE_BUDGET,
     search_policy: PatternSearchPolicy = CONTAINER_SEARCH_POLICY,
+    candidate_scope: Literal["all", "historical", "lattice"] = "all",
+    lattice_min_quantity: int = 1,
 ) -> Tuple[PatternCandidate, ...]:
     """Enumerate valid, distinct candidates in stable family/variant order."""
     values = (float(area_l), float(area_w), float(box_l), float(box_w))
@@ -267,7 +342,7 @@ def enumerate_pattern_candidates(
         seen.add(signature)
         candidates.append(PatternCandidate(family, variant, tuple(layer)))
 
-    try:
+    def add_historical():
         add("block", "best", pattern_block(*values, policy=search_policy))
         add("row", "best", pattern_row(*values, policy=search_policy))
         add(
@@ -332,6 +407,30 @@ def enumerate_pattern_candidates(
             "best",
             pattern_perimeter_core_mosaic(*values, policy=search_policy),
         )
+
+    try:
+        if candidate_scope != "lattice":
+            add_historical()
+        if candidate_scope != "historical":
+            for two_dimensional, family, constructor in (
+                (False, "nested_simple_lattice_1d", pattern_nested_simple_lattice_1d),
+                (True, "nested_simple_lattice_2d", pattern_nested_simple_lattice_2d),
+            ):
+                for i, j, rotated in iter_nested_lattice_parameters(
+                    *values,
+                    parameter_limit=search_policy.max_pinwheel_parameter,
+                    two_dimensional=two_dimensional,
+                ):
+                    if len(candidates) >= candidate_budget:
+                        break
+                    if (i + j) ** 2 < lattice_min_quantity:
+                        continue
+                    variant = f"i{i}-j{j}" + ("-rotated" if rotated else "")
+                    add(
+                        family,
+                        variant,
+                        constructor(*values, i=i, j=j, rotated=rotated, policy=search_policy),
+                    )
     except PlacementBudgetExceeded:
         # Return only a fully valid bounded prefix; Container Selection will
         # retain its legacy solution if this prefix cannot improve it.

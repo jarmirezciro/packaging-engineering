@@ -58,6 +58,8 @@ class SharedPatternParityTests(SimpleTestCase):
                 "centre_filled_pinwheel",
                 "perimeter_core_mosaic",
                 "regional_mosaic",
+                "nested_simple_lattice_1d",
+                "nested_simple_lattice_2d",
             ),
         )
 

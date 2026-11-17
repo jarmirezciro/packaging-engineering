@@ -19,7 +19,13 @@ from packagingapp.tools.palletization.state import default_palletization_config
 from packagingapp.utils.palletization import engine
 
 
-ADDITIVE_PATTERN_NAMES = frozenset({"Perimeter-Core Mosaic"})
+ADDITIVE_PATTERN_NAMES = frozenset(
+    {
+        "Perimeter-Core Mosaic",
+        "Nested Simple Lattice — 1D",
+        "Nested Simple Lattice — 2D",
+    }
+)
 
 
 BASELINE_COMMIT = "5754ef9e82b409b93984ac4ffa0672ce55324950"
@@ -280,6 +286,14 @@ def _analysis_row(row):
         for key, value in row.items()
         if key not in excluded
     }
+    metrics["debug_equivalent_results"] = [
+        item
+        for item in metrics.get("debug_equivalent_results", [])
+        if not any(
+            str(item).startswith(f"{pattern} /")
+            for pattern in ADDITIVE_PATTERN_NAMES
+        )
+    ]
     return {
         "metrics": metrics,
         "layer_A": _layer(row.get("layer_A_2d") or []),
@@ -340,6 +354,15 @@ def _analysis_fixtures():
             for row in historical_serialized_result.get("results_table", [])
             if row.get("pattern") not in ADDITIVE_PATTERN_NAMES
         ]
+        for row in historical_serialized_result["results_table"]:
+            row["debug_equivalent_results"] = [
+                item
+                for item in row.get("debug_equivalent_results", [])
+                if not any(
+                    str(item).startswith(f"{pattern} /")
+                    for pattern in ADDITIVE_PATTERN_NAMES
+                )
+            ]
         fixtures.append(
             {
                 "name": name,

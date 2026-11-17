@@ -79,6 +79,12 @@ Available families are:
 - Centre-filled Pinwheel;
 - Perimeter-Core Mosaic: a validated ten-carton mixed-orientation topology for
   `L >= 2*S`, with footprint `(2*L + S) x (2*L)` and no arbitrary upper ratio;
+- Nested Simple Lattice — 1D: the independent `[1,j]-1 x 1-1 x 1`
+  construction for `j >= 2`, with `(1+j)^2` cartons, `j` square holes, and
+  contour `(L + j*S) x (S + j*L)`;
+- Nested Simple Lattice — 2D: the independent `[i,j]-1 x 1-1 x 1`
+  construction for `i,j >= 2`, with `(i+j)^2` cartons, `i*j` square holes,
+  and contour `(i*L + j*S) x (i*S + j*L)`;
 - bounded two-region mosaics whose cut positions come from carton multiples.
 
 Patterns do not know about pallets, overhang, load height, interlock display,
@@ -129,6 +135,17 @@ These policies configure one implementation; they are not separate copies of
 the pattern algorithms. Container defaults remain 12/8 and are not widened by
 Palletization calls. Context-local policy selection prevents concurrent tool
 requests from leaking one consumer's policy into another.
+
+Nested Simple Lattice variants use the existing pinwheel parameter caps.
+Placements come directly from the diagonal hole lattice and its boundary
+completion triangles. Both contour orientations are eligible. Container
+Selection completes its existing search across all permitted vertical axes
+first, then spends the remaining slots of the same 192-candidate budget on
+lattices. It uses the exact lattice carton count to skip layouts that cannot
+beat the best quantity already found. Palletization shortlists up to four
+distinct fitting layouts from each lattice family by layer count before
+building stacks and checking interlock. Equal counts retain parameter order
+within the shortlist. The usual Palletization ranking applies to those rows.
 
 The Stage 2 paired benchmark loads the pre-migration engine from the recorded
 commit and alternates original/migrated calls in one Python process. A timing

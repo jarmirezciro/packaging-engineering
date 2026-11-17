@@ -1265,6 +1265,52 @@ def pattern_perimeter_core_mosaic(area_l, area_w, box_l, box_w):
     )
 
 
+def pattern_nested_simple_lattice_1d(
+    area_l,
+    area_w,
+    box_l,
+    box_w,
+    i=1,
+    j=2,
+    rotated=False,
+):
+    return _adapt_shared_layer(
+        shared_patterns.pattern_nested_simple_lattice_1d(
+            area_l,
+            area_w,
+            box_l,
+            box_w,
+            i=i,
+            j=j,
+            rotated=rotated,
+            policy=PALLETIZATION_SEARCH_POLICY,
+        )
+    )
+
+
+def pattern_nested_simple_lattice_2d(
+    area_l,
+    area_w,
+    box_l,
+    box_w,
+    i=2,
+    j=2,
+    rotated=False,
+):
+    return _adapt_shared_layer(
+        shared_patterns.pattern_nested_simple_lattice_2d(
+            area_l,
+            area_w,
+            box_l,
+            box_w,
+            i=i,
+            j=j,
+            rotated=rotated,
+            policy=PALLETIZATION_SEARCH_POLICY,
+        )
+    )
+
+
 
 
 def pattern_nested_pinwheel(area_l, area_w, box_l, box_w, rotated=False):
@@ -1278,6 +1324,60 @@ def pattern_nested_pinwheel(area_l, area_w, box_l, box_w, rotated=False):
             policy=PALLETIZATION_SEARCH_POLICY,
         )
     )
+
+
+# Evaluate a small set of the strongest geometrically distinct variants per
+# new family before the much more expensive stack and interlock analysis.
+PALLET_LATTICE_VARIANTS_PER_FAMILY = 4
+
+
+def _nested_simple_lattice_entries(pattern_name, area_l, area_w, box_l, box_w):
+    """Shortlist fitting lattice variants by their exact carton count."""
+    two_dimensional = pattern_name == "Nested Simple Lattice — 2D"
+    constructor = (
+        pattern_nested_simple_lattice_2d if two_dimensional else pattern_nested_simple_lattice_1d
+    )
+    parameters = shared_patterns.iter_nested_lattice_parameters(
+        area_l,
+        area_w,
+        box_l,
+        box_w,
+        parameter_limit=PALLETIZATION_SEARCH_POLICY.max_pinwheel_parameter,
+        two_dimensional=two_dimensional,
+    )
+    # Python's stable sort retains the original parameter order for equal counts.
+    ranked = sorted(parameters, key=lambda variant: -(variant[0] + variant[1]))
+    seen = set()
+    for i, j, rotated in ranked[:PALLETIZATION_SEARCH_POLICY.max_pinwheel_candidates]:
+        layer = constructor(
+            area_l, area_w, box_l, box_w, i=i, j=j, rotated=rotated
+        )
+        if not layer:
+            continue
+        signature = layer_geometry_signature(layer)
+        if signature in seen:
+            continue
+        seen.add(signature)
+        yield pattern_name, layer, [], {"i": i, "j": j, "rotated": rotated}
+        if len(seen) >= PALLET_LATTICE_VARIANTS_PER_FAMILY:
+            break
+
+
+def _iter_pattern_entries(pattern_name, area_l, area_w, box_l, box_w):
+    if pattern_name in {
+        "Nested Simple Lattice — 1D",
+        "Nested Simple Lattice — 2D",
+    }:
+        yield from _nested_simple_lattice_entries(
+            pattern_name, area_l, area_w, box_l, box_w
+        )
+        return
+
+    base, interlock = get_base_and_interlock_layers(
+        pattern_name, area_l, area_w, box_l, box_w
+    )
+    if base:
+        yield pattern_name, base, interlock, None
 
 
 
@@ -1691,6 +1791,12 @@ def get_base_and_interlock_layers(pattern_name, area_l, area_w, box_l, box_w):
         # The customer-safe interlock builder derives a validated mirror or
         # rotation from the distinct base topology.
         interlock = []
+    elif pattern_name == "Nested Simple Lattice — 1D":
+        base = pattern_nested_simple_lattice_1d(area_l, area_w, box_l, box_w)
+        interlock = []
+    elif pattern_name == "Nested Simple Lattice — 2D":
+        base = pattern_nested_simple_lattice_2d(area_l, area_w, box_l, box_w)
+        interlock = []
     elif pattern_name == "Splitrow":
         base = pattern_splitrow(area_l, area_w, box_l, box_w, swapped=False)
         interlock = pattern_splitrow(area_l, area_w, box_l, box_w, swapped=True)
@@ -1731,6 +1837,8 @@ PATTERNS = [
     "Nested pinwheel",
     "Centre-filled pinwheel",
     "Perimeter-Core Mosaic",
+    "Nested Simple Lattice — 1D",
+    "Nested Simple Lattice — 2D",
 ]
 
 STACKINGS = [
@@ -2011,12 +2119,18 @@ def run_palletization_analysis(
 
     results: List[Dict] = []
 
-    for pattern_name in PATTERNS:
-        base_layer, generated_interlock_layer = get_base_and_interlock_layers(
-            pattern_name, area_l, area_w, box_l, box_w
+    for (
+        pattern_name,
+        base_layer,
+        generated_interlock_layer,
+        lattice_parameters,
+    ) in (
+        entry
+        for family in PATTERNS
+        for entry in _iter_pattern_entries(
+            family, area_l, area_w, box_l, box_w
         )
-        if not base_layer:
-            continue
+    ):
 
         interlock_layer, interlock_relation_name = build_customer_safe_interlock_layer(
             base_layer, generated_interlock_layer, area_l, area_w
@@ -2068,6 +2182,8 @@ def run_palletization_analysis(
                 geometric_capacity_boxes,
                 interlock_relation_name if stacking_mode == "interlock" else "same",
             )
+            if lattice_parameters is not None:
+                row["lattice_parameters"] = dict(lattice_parameters)
             row["interlock_possible"] = bool(interlock_possible)
             row["interlock_possible_relation"] = interlock_possible_relation
             row["interlock_possible_layer"] = interlock_possible_layer if interlock_possible else []

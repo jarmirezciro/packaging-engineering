@@ -219,6 +219,8 @@ class RegressionCompendiumTests(TestCase):
             "think-beyond-the-box-compact": (5, 4, 20),
             "think-beyond-the-box-alternative-7": (6, 4, 24),
             "capepack-perimeter-core-10": (10, 2, 20),
+            "nested-simple-lattice-1d-16": (16, 2, 32),
+            "nested-simple-lattice-2d-16": (16, 2, 32),
         }
         page = self.client.get(reverse("regressions"))
         route = reverse("palletization_mode1")
@@ -352,6 +354,8 @@ class RegressionCompendiumTests(TestCase):
             "pinwheel-packing-benchmark": 16,
             "capepack-perimeter-core-10": 10,
             "capepack-stock-box-20": 20,
+            "nested-simple-lattice-1d-16": 16,
+            "nested-simple-lattice-2d-16": 16,
         }
         design_results = {
             "bottle-packaging-24": (24, (6, 2, 2), "15.66 × 5.22 × 20 in"),
@@ -453,6 +457,30 @@ class RegressionCompendiumTests(TestCase):
             {"LxW", "WxL"},
         )
         json.dumps(dict(self.client.session), allow_nan=False)
+
+    def test_lattice_pallet_candidates_render_selectable_threejs_scenes(self):
+        for dimension in ("1d", "2d"):
+            with self.subTest(dimension=dimension):
+                slug = f"nested-simple-lattice-{dimension}-16"
+                pattern = f"Nested Simple Lattice — {dimension.upper()}"
+                preset = PALLETIZATION_CASE_PRESETS[slug]
+                url = f"{reverse('palletization_mode1')}?{urlencode({'case': slug})}"
+                initial = self.client.get(url)
+                self.assertEqual(initial.status_code, 200)
+                row = next(row for row in initial.context["results_table"] if row["pattern"] == pattern)
+                selected = self.client.post(url, {
+                    **default_palletization_config(),
+                    **preset["config"],
+                    "action": "select_result",
+                    "selected_result_key": row["result_key"],
+                })
+                self.assertEqual(selected.status_code, 200)
+                self.assertEqual(selected.context["selected_result"]["pattern"], pattern)
+                scene = selected.context["threejs_scene"]
+                self.assertEqual(scene["metadata"]["pattern_name"], pattern)
+                self.assertEqual(len(scene["placements"]), 32)
+                self.assertEqual(scene["layers"], 2)
+                json.dumps(dict(self.client.session), allow_nan=False)
 
     def test_post_to_case_url_calculates_edited_inputs(self):
         slug = "easycargo-40hc-mixed-cargo-benchmark"

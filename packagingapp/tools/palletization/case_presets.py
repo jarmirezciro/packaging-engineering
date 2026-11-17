@@ -132,6 +132,34 @@ PALLETIZATION_CASE_PRESETS = {
         "label": "Pinwheel & Mosaic",
         "config": {**_STANDARD_MOSAIC},
     },
+    "nested-simple-lattice-1d-16": {
+        "label": "Nested Simple Lattice — 1D: 16 Cartons",
+        "config": {
+            "box_l": 82,
+            "box_w": 70,
+            "box_h": 50,
+            "pallet_l": 292,
+            "pallet_w": 316,
+            "pallet_height": 15,
+            "max_stack_height": 115,
+            "max_width_stickout": 0,
+            "max_length_stickout": 0,
+        },
+    },
+    "nested-simple-lattice-2d-16": {
+        "label": "Nested Simple Lattice — 2D: 16 Cartons",
+        "config": {
+            "box_l": 82,
+            "box_w": 70,
+            "box_h": 50,
+            "pallet_l": 304,
+            "pallet_w": 304,
+            "pallet_height": 15,
+            "max_stack_height": 115,
+            "max_width_stickout": 0,
+            "max_length_stickout": 0,
+        },
+    },
     "capepack-perimeter-core-10": {
         "label": "Cape Pack Perimeter-Core Mosaic: 10 Cartons",
         "config": {
