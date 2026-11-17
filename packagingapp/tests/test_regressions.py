@@ -27,6 +27,7 @@ from packagingapp.tools.transport.case_presets import (
 from packagingapp.tools.transport.service import _prepare_transport_analysis
 from packagingapp.units import convert_length, convert_mass
 from packagingapp.utils.package_design_arrangements import build_canonical_design_arrangements
+from packagingapp.views.full_packaging import SESSION_KEY
 
 
 NEW_REGRESSION_CASE_SLUGS = (
@@ -193,6 +194,17 @@ class RegressionCompendiumTests(TestCase):
                     for axis in ("x", "y")
                 ), f"Overlapping cartons: {first} and {second}")
 
+    def assert_pallet_pattern_family(self, response, pattern):
+        self.assertTemplateUsed(response, "palletization/partials/_palletization_result_section.html")
+        self.assertContains(
+            response,
+            '<tr><th scope="row" class="fw-normal text-muted">Pattern family</th>'
+            f'<td class="text-end">{escape(pattern)}</td></tr>',
+            count=1,
+            html=True,
+        )
+
+    @override_settings(DEBUG=False)
     def test_palletization_links_load_calculate_select_and_recalculate(self):
         user = get_user_model().objects.create_user(username="pallet-case-units")
         UserPreferences.objects.create(user=user, default_length_unit="ft", default_small_mass_unit="oz")
@@ -221,14 +233,44 @@ class RegressionCompendiumTests(TestCase):
             "capepack-perimeter-core-10": (10, 2, 20),
             "nested-simple-lattice-1d-16": (16, 2, 32),
             "nested-simple-lattice-2d-16": (16, 2, 32),
+            "calibration-case-1": (36, 6, 216),
+            "calibration-case-2": (16, 5, 80),
+            "calibration-case-3": (10, 2, 20),
+            "calibration-case-4": (15, 2, 30),
+            "calibration-case-5": (8, 7, 56),
+            "calibration-case-6": (24, 2, 48),
+            "calibration-case-7": (96, 10, 960),
+            "calibration-case-8": (76, 10, 760),
+            "calibration-case-9": (33, 6, 198),
         }
+        # Source captures in case order. Case 1 uses the default mass unit.
+        calibration_cases = {
+            f"calibration-case-{number}": (f"Calibration — Case {number} — {topic}", inputs)
+            for number, (topic, inputs) in enumerate((
+                ("Pattern topology review", (292, 316, 150, 2000, 2000, 150, 1150, "mm", "mm", "g")),
+                ("Lattice visibility", (82, 70, 50, 304, 316, 15, 300, "mm", "mm", "g")),
+                ("Pattern reference", (18.32, 8.64, 20.32, 48, 40, 5.5, 50, "in", "in", "lb")),
+                ("Symmetry and pattern relevance", (16, 8, 20.32, 48, 40, 5.5, 50, "in", "in", "lb")),
+                ("Pattern relevance", (292, 312, 150, 1200, 800, 139.7, 1270, "mm", "mm", "kg")),
+                ("Stability and symmetry", (12, 6, 20.32, 48, 40, 5.5, 50, "in", "in", "kg")),
+                ("Irrelevant patterns", (200, 50, 100, 1200, 800, 150, 1150, "mm", "mm", "kg")),
+                ("Centering and pattern preservation", (250, 50, 100, 1200, 800, 150, 1150, "mm", "mm", "kg")),
+                ("Hybrid pinwheel", (300, 400, 150, 2000, 2000, 150, 1150, "mm", "mm", "g")),
+            ), start=1)
+        }
+        calibration_fields = (
+            "box_l", "box_w", "box_h", "pallet_l", "pallet_w", "pallet_height",
+            "max_stack_height", "box_dimension_unit", "pallet_dimension_unit", "mass_unit",
+        )
         page = self.client.get(reverse("regressions"))
         route = reverse("palletization_mode1")
         links = self.case_links(page, "palletization_mode1")
         self.assertEqual(len(links), len(PALLETIZATION_CASE_PRESETS))
         self.assertEqual(set(capacities), set(PALLETIZATION_CASE_PRESETS))
 
-        for link, (slug, preset) in zip(links, PALLETIZATION_CASE_PRESETS.items()):
+        for index, (link, (slug, preset)) in enumerate(
+            zip(links, PALLETIZATION_CASE_PRESETS.items()), start=1
+        ):
             with self.subTest(case=slug):
                 self.assertEqual(link, f"{route}?{urlencode({'case': slug})}")
                 self.assertContains(page, escape(preset["label"]))
@@ -240,10 +282,24 @@ class RegressionCompendiumTests(TestCase):
                 form = response.context["form"]
                 for key in form.fields.keys() & config.keys():
                     self.assertEqual(form[key].value(), config[key], key)
+                if slug in calibration_cases:
+                    expected_label, expected_inputs = calibration_cases[slug]
+                    self.assertEqual(preset["label"], expected_label)
+                    self.assertContains(
+                        page,
+                        f'Case {index:02d} &mdash; <a href="{link}">{escape(expected_label)}</a>',
+                        count=1,
+                    )
+                    self.assertEqual(
+                        tuple(form[key].value() for key in calibration_fields), expected_inputs,
+                    )
                 advanced = int(config["show_advanced"])
                 self.assertContains(response, f'name="show_advanced" id="show_advanced" value="{advanced}"')
                 self.assert_pallet_case_geometry(response)
                 selected = response.context["selected_result"]
+                if slug == "calibration-case-9":
+                    self.assertEqual(selected["pattern"], "Hybrid pinwheel")
+                self.assert_pallet_pattern_family(response, selected["pattern"])
                 self.assertEqual(
                     (selected["boxes_layer_A"], selected["layers"], selected["total_boxes"]),
                     capacities[slug],
@@ -254,12 +310,22 @@ class RegressionCompendiumTests(TestCase):
                 self.assertEqual(export["analysis_report"], selected)
                 json.dumps(export, allow_nan=False)
 
+                if slug in calibration_cases:
+                    self.assertGreater(len(rows), 1)
                 if len(rows) > 1:
-                    alternative = rows[1]["result_key"]
+                    alternative = rows[1]
+                    if slug in calibration_cases:
+                        alternative = next(
+                            (row for row in rows if row["pattern"] != selected["pattern"]), None,
+                        )
+                        self.assertIsNotNone(alternative, "Expected a different pattern family")
                     switched = self.client.post(link, {
-                        **config, "action": "select_result", "selected_result_key": alternative,
+                        **config, "action": "select_result", "selected_result_key": alternative["result_key"],
                     })
-                    self.assertEqual(switched.context["selected_result"]["result_key"], alternative)
+                    self.assertEqual(
+                        switched.context["selected_result"]["result_key"], alternative["result_key"],
+                    )
+                    self.assert_pallet_pattern_family(switched, alternative["pattern"])
                     self.assert_pallet_case_geometry(switched)
 
                 # The standalone form posts back to the case URL. Allow room
@@ -282,6 +348,7 @@ class RegressionCompendiumTests(TestCase):
         route = reverse("palletization_mode1")
         seo_route = reverse("palletization_calculator")
         self.client.get(route, {"case": "capepack-72in-16-pack"})
+        self.client.get(route, {"case": "calibration-case-3"})
 
         standalone = self.client.get(route)
         self.assertTemplateUsed(standalone, "palletization/palletization_mode1.html")
@@ -311,6 +378,48 @@ class RegressionCompendiumTests(TestCase):
             "mass_unit": "oz",
         })
         self.assertIsNone(standalone.context["selected_result"])
+
+    @override_settings(DEBUG=False)
+    def test_palletization_pattern_family_follows_selection_in_seo_and_workflow(self):
+        seo_route = reverse("palletization_calculator")
+        seo = self.client.get(seo_route, {"case": "calibration-case-4"})
+        config = seo.context["pallet_config"]
+        selected = seo.context["selected_result"]
+        self.assert_pallet_pattern_family(seo, selected["pattern"])
+        alternative = next(
+            row for row in seo.context["results_table"] if row["pattern"] != selected["pattern"]
+        )
+        switched_seo = self.client.post(seo_route, {
+            **config, "action": "select_result", "selected_result_key": alternative["result_key"],
+        })
+        self.assertEqual(switched_seo.context["selected_result"]["result_key"], alternative["result_key"])
+        self.assert_pallet_pattern_family(switched_seo, alternative["pattern"])
+
+        workflow_route = reverse("full_packaging_mode")
+        self.client.post(
+            workflow_route, {"action": "add_step", "after_index": "start", "step_type": "pallet"},
+        )
+        workflow_post = {
+            **{f"{key}_0": value for key, value in config.items()},
+            "action": "run_step",
+            "index": "0",
+        }
+        workflow = self.client.post(
+            workflow_route, {**workflow_post, "step_action_0": "run_analysis"}, follow=True,
+        )
+        step = workflow.context["steps"][0]
+        selected = step["selected_result"]
+        self.assert_pallet_pattern_family(workflow, selected["pattern"])
+        alternative = next(row for row in step["results_table"] if row["pattern"] != selected["pattern"])
+        switched_workflow = self.client.post(workflow_route, {
+            **workflow_post,
+            "step_action_0": "select_result",
+            "selected_result_key_0": alternative["result_key"],
+        }, follow=True)
+        step = switched_workflow.context["steps"][0]
+        self.assertEqual(step["selected_result"]["result_key"], alternative["result_key"])
+        self.assert_pallet_pattern_family(switched_workflow, alternative["pattern"])
+        json.dumps(self.client.session[SESSION_KEY], allow_nan=False)
 
     def test_case_links_preserve_inputs_results_and_exports_across_session(self):
         page = self.client.get(reverse("regressions"))
