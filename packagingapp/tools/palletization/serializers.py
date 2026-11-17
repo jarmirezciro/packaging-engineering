@@ -1,6 +1,19 @@
 from .height import pallet_render_components
 
 
+INTERLOCK_RENDER_SUFFIX = "__interlock_preview"
+
+
+def pallet_result_key(row, *, include_variant=True):
+    """Identify a selectable layout while preserving existing topology keys."""
+    key = f'{row["pattern"]}__{row["stacking"]}'
+    lattice = row.get("lattice_parameters")
+    if include_variant and lattice is not None:
+        rotation = "r90" if lattice["rotated"] else "r0"
+        key += f'__i{lattice["i"]}-j{lattice["j"]}-{rotation}'
+    return key
+
+
 def _json_safe_scalar(value):
     if isinstance(value, bool) or value is None:
         return value
@@ -44,7 +57,7 @@ def sanitize_palletization_config_for_session(cfg):
 def serialize_pallet_row(row, pallet_height_mm=0.0):
     pattern = str(row["pattern"])
     stacking = str(row["stacking"])
-    base_result_key = f"{pattern}__{stacking}"
+    base_result_key = pallet_result_key(row)
     arrangement_height_mm = float(row["used_height_mm"])
     pallet_height_mm = float(pallet_height_mm or 0.0)
     max_bottom_load_g = row.get("max_bottom_load_g", row.get("max_bottom_load_kg"))
@@ -61,7 +74,7 @@ def serialize_pallet_row(row, pallet_height_mm=0.0):
         "pattern": pattern,
         "stacking": stacking,
         "result_key": base_result_key,
-        "interlock_result_key": f"{base_result_key}__interlock_preview",
+        "interlock_result_key": f"{base_result_key}{INTERLOCK_RENDER_SUFFIX}",
         "debug_label": f"{pattern} / {stacking}",
         "boxes_layer_A": int(row["boxes_layer_A"]),
         "boxes_layer_B": int(row["boxes_layer_B"]),
@@ -202,9 +215,7 @@ def serialize_pallet_analysis_result(
         else None
     )
     if selected_result_key is None:
-        selected_result_key = ""
-        if selected_row:
-            selected_result_key = f'{selected_row["pattern"]}__{selected_row["stacking"]}'
+        selected_result_key = safe_selected["result_key"] if safe_selected else ""
 
     return {
         "results_table": safe_results,

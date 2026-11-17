@@ -482,6 +482,67 @@ class RegressionCompendiumTests(TestCase):
                 self.assertEqual(scene["layers"], 2)
                 json.dumps(dict(self.client.session), allow_nan=False)
 
+    def test_lattice_variant_selection_keeps_table_scene_and_export_in_sync(self):
+        cases = (
+            ("palletization_mode1", 2000, 2000, 150, 216),
+            ("palletization_calculator", 1250, 1200, 54, 96),
+        )
+        for route, pallet_l, pallet_w, requested_count, first_lattice_count in cases:
+            with self.subTest(route=route):
+                url = reverse(route)
+                config = {
+                    **default_palletization_config(),
+                    "box_l": 292, "box_w": 316, "box_h": 150,
+                    "pallet_l": pallet_l, "pallet_w": pallet_w,
+                    "pallet_height": 150, "max_stack_height": 1150,
+                }
+                initial = self.client.post(url, {**config, "action": "run_analysis"})
+                self.assertEqual(initial.status_code, 200)
+                rows = initial.context["results_table"]
+                lattice_rows = [
+                    row for row in rows if row["pattern"] == "Nested Simple Lattice — 1D"
+                ]
+                self.assertEqual(lattice_rows[0]["total_boxes"], first_lattice_count)
+                target = next(
+                    row for row in lattice_rows if row["total_boxes"] == requested_count
+                )
+                for key_field, preview in (
+                    ("result_key", False), ("interlock_result_key", True)
+                ):
+                    with self.subTest(preview=preview):
+                        selected = self.client.post(url, {
+                            **config,
+                            "action": "select_result",
+                            "selected_result_key": target[key_field],
+                        })
+                        self.assertEqual(selected.status_code, 200)
+                        result = selected.context["selected_result"]
+                        self.assertEqual(result["total_boxes"], requested_count)
+                        self.assertEqual(result["result_key"], target["result_key"])
+                        self.assertEqual(result["interlock_render_active"], preview)
+                        self.assertEqual(
+                            selected.context["pallet_values"]["selected_result_key"],
+                            target[key_field],
+                        )
+                        self.assert_pallet_case_geometry(selected)
+                        saved = self.client.session["palletization_last_export"]
+                        self.assertEqual(saved["analysis_report"], result)
+                        json.dumps(saved, allow_nan=False)
+                keys = [row["result_key"] for row in rows]
+                self.assertEqual(len(keys), len(set(keys)))
+                # An older saved family-only key resolves to the same first
+                # variant it selected before, then upgrades to the exact key.
+                first = lattice_rows[0]
+                restored = self.client.post(url, {
+                    **config,
+                    "action": "select_result",
+                    "selected_result_key": f'{first["pattern"]}__{first["stacking"]}',
+                })
+                self.assertEqual(
+                    restored.context["selected_result"]["result_key"],
+                    first["result_key"],
+                )
+
     def test_post_to_case_url_calculates_edited_inputs(self):
         slug = "easycargo-40hc-mixed-cargo-benchmark"
         preset = get_transport_container_case_preset(slug)

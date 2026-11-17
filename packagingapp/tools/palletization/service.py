@@ -15,6 +15,8 @@ from ...utils.palletization.engine import (
     selected_result_for_render,
 )
 from .serializers import (
+    INTERLOCK_RENDER_SUFFIX,
+    pallet_result_key,
     sanitize_palletization_config_for_session,
     serialize_pallet_analysis_result,
     serialize_pallet_threejs_scene,
@@ -22,9 +24,6 @@ from .serializers import (
 from .state import default_palletization_config
 from .height import resolve_pallet_height
 from .presenter import attach_pallet_result_presentation
-
-
-INTERLOCK_RENDER_SUFFIX = "__interlock_preview"
 
 
 def split_pallet_result_key(selected_result_key):
@@ -399,11 +398,21 @@ def _analyze_palletization_core(
 
     selected_row = None
     if selected_base_result_key:
-        for row in raw_results:
-            row_key = f'{row["pattern"]}__{row["stacking"]}'
-            if row_key == selected_base_result_key:
-                selected_row = row
-                break
+        selected_row = next(
+            (row for row in raw_results if pallet_result_key(row) == selected_base_result_key),
+            None,
+        )
+        if selected_row is None:
+            # Older saved lattice selections identified only the family and
+            # stacking. Preserve their prior first-match behavior on reload.
+            selected_row = next(
+                (
+                    row for row in raw_results
+                    if row.get("lattice_parameters") is not None
+                    and pallet_result_key(row, include_variant=False) == selected_base_result_key
+                ),
+                None,
+            )
 
     if selected_row is None and raw_results:
         selected_row = raw_results[0]
@@ -463,7 +472,7 @@ def analyze_palletization_config(config, selected_result_key="", selected_box_ma
         render_interlock_preview = bool(render_interlock_preview and can_render_interlock)
         selected_row["interlock_render_active"] = render_interlock_preview
 
-        base_row_key = f'{selected_row["pattern"]}__{selected_row["stacking"]}'
+        base_row_key = pallet_result_key(selected_row)
         active_selected_result_key = (
             f"{base_row_key}{INTERLOCK_RENDER_SUFFIX}" if render_interlock_preview else base_row_key
         )

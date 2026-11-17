@@ -134,6 +134,12 @@ silently relabel a historical expectation to approve a new outcome.
 | CS-REG-004 | The shared pattern library had no independent nested-simple lattice constructors for the published 1D and 2D hole-lattice families. | For `m=n=p=q=1`, 1D uses `i=1,j>=2` (or the reversed equivalent) and 2D uses `i,j>=2`; generated geometry has `(i+j)^2` cartons, `i*j` square `(L-S)` holes, contour `(iL+jS) x (iS+jL)`, both orientations, deterministic coordinates, valid bounds/no overlap, unit/reversal parity, and bounded additive enumeration. `packagingapp.tests.test_nested_simple_lattice_patterns`; existing shared/pallet baselines filter only these explicitly additive families and retain all historical fixtures. | Yi, Chen & Zhou (2009), Eq. (4) and nested-simple classification; 82 x 70 mm `(1,3)` and `(2,2)` 16-carton Palletization cases; published `(5,3)` representative. Protected |
 | CS-REG-005 | Adding lattice candidates within each vertical-axis pass could exhaust the global candidate budget before reaching a better historical layout on a later axis, dropping a reproduced result from 740 to 728 cartons. | Complete the historical search on all eligible axes first. Evaluate improvement-capable lattices with the remaining slots. `packagingapp.tests.test_nested_simple_lattice_patterns.NestedSimpleLatticeConsumerTests.test_lattice_cannot_spend_the_budget_of_later_vertical_axes`. | 83 × 91 × 99 mm cartons in a 1302 × 1297 × 347 mm container with all rotations permitted. Protected |
 
+### Active Palletization result regressions
+
+| ID | Defect and root cause | Protected behavior and test reference | Status |
+| --- | --- | --- | --- |
+| PAL-REG-001 | Distinct lattice rows shared a pattern-and-stacking key, causing selection to open the first matching layout. For 292 × 316 × 150 mm cartons, 150 selected as 216 on a 2000 × 2000 mm pallet and 54 selected as 96 on a 1250 × 1200 mm pallet. | Variant-aware keys preserve exact table, summary, Three.js, alternate-preview and export selection on standalone and public Palletization. Existing one-layout topology keys and old saved lattice selection behavior are preserved. `packagingapp.tests.test_regressions.RegressionCompendiumTests.test_lattice_variant_selection_keeps_table_scene_and_export_in_sync` | Protected |
+
 ### Active Transport index
 
 Test paths below are relative to `packagingapp.tests.`. A module entry protects

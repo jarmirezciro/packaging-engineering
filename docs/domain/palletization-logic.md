@@ -269,6 +269,10 @@ All three must reuse the shared engine/service/UI contract. Changes to inputs, c
 
 ## Visualization and report
 
+- Lattice options include their parameters and quarter-turn orientation in
+  the selection key. The table, alternate preview, workflow state, and report
+  use that same option identity. Existing topology keys keep their format.
+  Older family-only lattice selections resolve to the first matching variant.
 - the selected engine placements are serialized once into a JSON-safe Three.js scene shared by standalone, Packaging Flow, and the SEO calculator;
 - the interactive Three.js pallet stack is the primary clean 3D result;
 - no axes/mesh in final user-facing output;
