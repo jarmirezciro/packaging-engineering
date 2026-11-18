@@ -392,3 +392,61 @@ orientation has none. Cases 1, 6, 7, and 9 no longer offer Nested pinwheel.
 Cases 4 and 8 retain their ordered base placements, with 12 and 64 cartons
 per layer and 24 and 640 per pallet. Case 9 retains Hybrid pinwheel at
 33 cartons per layer and 198 per pallet.
+
+#### Hybrid pinwheel calibration
+
+Hybrid starts with the existing block-pinwheel candidates and tiled simple
+motif. It retains each bare core and also considers margin filling: a
+staggered Brick on the right and a best-orientation uniform grid above the
+core. Sparse top filler lines are spread to opposite strip edges in the
+primary orientation. Previously carton-count ranking could prefer fragmented
+filler geometry without an eligibility check.
+
+| Case | Core and filler geometry | Floor utilization | Outcome |
+| --- | --- | ---: | --- |
+| 4 | 12-carton, 1219.2 × 812.8 mm core; attached 3-carton rectangular top band | 100% | Preserve the ordered 15-carton Hybrid and its 14-carton alternate orientation |
+| 5 | 4-carton, 604 × 604 mm core; detached 2 + 1 staggered filler at X=610/902/756 mm | 66.43% | Reject the fragmented 7-carton candidate |
+| 9 | 28-carton, 2000 × 1700 mm core; attached 5-carton rectangular top band | 99% | Preserve the ordered 33-carton winner, 6 layers and 198 total; its 28-carton alternate is also unchanged |
+
+In Case 5 the right strip is 596 mm wide. Two 292 mm cartons occupy 584 mm,
+so centered Brick rows start 6 mm beyond the core. The next row contains
+only one carton and is offset by another half carton length. The whole filler
+group is detached, has a stepped contour, and gives an asymmetric protrusion.
+It is not a sparse-line-balancing defect: each X-aligned filler line contains
+only one carton, so that pass leaves the staggered arrangement unchanged.
+A 60% threshold alone would retain this poor arrangement.
+
+The Palletization Hybrid policy requires each nonempty margin to be an
+attached, unbroken rectangular group. It uses the existing arithmetic:
+
+- A right-margin Brick is nonempty only with at least two rows and two full-row
+  columns. Its alternating column counts are `c` and `c-1`; that union cannot
+  be a rectangle. Reject the filled candidate, retaining the bare core as a
+  separately ranked alternative.
+- For the top grid, use the same orientation and integer counts as the existing
+  two-orientation filler. If balancing is enabled, a row with `c >= 2` and
+  `c * carton_pitch < core_length` has positive gaps after edge spreading and
+  is excluded. Full-span rows, single-column groups, and contiguous unbalanced
+  grids remain eligible. The last two may be asymmetric but are still regular,
+  attached rectangles.
+
+These checks run in constant time after the already materialized core's
+existing bounding-box calculation, before allocating or validating fillers.
+No pinwheel enumeration, search bounds, core construction or ranking changes.
+The core's existing central-hole constraints remain in force; no carton graph,
+new candidate search or mechanical model is introduced.
+
+As a separate relevance rule, eligible cores and filled candidates must cover
+at least 60% of the effective footprint, including permitted overhang. This
+removes Case 5's remaining 4- and 6-carton cores (37.96% and 56.94%). Both
+orientations therefore produce no Hybrid option; its best existing Block
+result remains 8 per layer and 56 total. These are geometric quality and
+relevance checks, not proof of physical load stability. The rule deliberately
+excludes staggered Hybrid margins; the independent Brick family is unchanged.
+
+The policy is off for Container Selection. Standalone Palletization, Packaging
+Flow, the public calculator, scene serialization and reports consume the same
+filtered engine results. No form or session schema changes are needed.
+Historical fixtures remain immutable, with explicitly enumerated Hybrid deltas
+and a compatibility run that disables both calibrated policies. See
+[verification and benchmark evidence](../engineering/hybrid-pinwheel-calibration.md).

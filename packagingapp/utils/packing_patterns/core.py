@@ -32,6 +32,7 @@ class PatternSearchPolicy:
     max_pinwheel_candidates: int
     max_materialized_placements: Optional[int] = None
     require_compact_nested_pinwheel: bool = False
+    require_coherent_hybrid_pinwheel: bool = False
 
 
 CONTAINER_SEARCH_POLICY = PatternSearchPolicy(
@@ -49,6 +50,7 @@ PALLETIZATION_SEARCH_POLICY = PatternSearchPolicy(
     max_pinwheel_candidates=80,
     max_materialized_placements=None,
     require_compact_nested_pinwheel=True,
+    require_coherent_hybrid_pinwheel=True,
 )
 
 _ACTIVE_POLICY: ContextVar[Optional[PatternSearchPolicy]] = ContextVar(
@@ -1484,6 +1486,41 @@ def _balance_margin_fill_lines(
 
     return balanced if changed else fillers
 
+def _coherent_hybrid_margin_count(
+    area_l, area_w, used_l, used_w, box_l, box_w, balance_fillers,
+) -> Optional[int]:
+    """Preflight the existing fillers; return None for a fragmented margin.
+
+    The right margin uses staggered Brick rows. Any nonempty result has
+    alternating row widths, so it cannot be one attached rectangular group.
+    The top margin uses a uniform grid. Balancing a sparse multi-carton row
+    splits it across the strip ends; reject that gap before building cartons.
+    Unbalanced grids and single-column grids remain contiguous and attached.
+    This is a geometric candidate rule, not a physical stability assessment.
+    """
+    right_cols = _fit_count(area_l - used_l, box_l)
+    right_rows = _fit_count(area_w, box_w)
+    if right_cols >= 2 and right_rows >= 2:
+        return None
+
+    top_w = area_w - used_w
+    cols, rows = _fit_count(used_l, box_l), _fit_count(top_w, box_w)
+    other_cols, other_rows = _fit_count(used_l, box_w), _fit_count(top_w, box_l)
+    unit_l = box_l
+    if other_cols * other_rows > cols * rows:
+        cols, rows, unit_l = other_cols, other_rows, box_w
+    if rows and cols >= 2 and balance_fillers and cols * unit_l < used_l - 1e-9:
+        return None
+    return cols * rows
+
+
+def _hybrid_floor_is_relevant(count, area_l, area_w, box_l, box_w):
+    # Secondary relevance filter, independent of filler coherence.
+    occupied = count * box_l * box_w
+    minimum = 0.60 * area_l * area_w
+    return occupied >= minimum - representation_tolerance(occupied, minimum)
+
+
 def _add_rectangular_margin_fill(
     base: List[Placement2D],
     area_l: float,
@@ -1498,6 +1535,14 @@ def _add_rectangular_margin_fill(
         return []
 
     _, _, used_l, used_w = placements_bbox(base)
+    if _policy().require_coherent_hybrid_pinwheel:
+        filler_count = _coherent_hybrid_margin_count(
+            area_l, area_w, used_l, used_w, box_l, box_w, balance_fillers,
+        )
+        if filler_count is None or not _hybrid_floor_is_relevant(
+            len(base) + filler_count, area_l, area_w, box_l, box_w,
+        ):
+            return []
     placements = list(base)
 
     if area_l - used_l > 1e-9:
@@ -1565,6 +1610,11 @@ def pattern_hybrid_pinwheel(area_l, area_w, box_l, box_w, rotated=False):
         0,
     ))
 
+    if _policy().require_coherent_hybrid_pinwheel:
+        raw_candidates = [
+            (layer, rank) for layer, rank in raw_candidates
+            if _hybrid_floor_is_relevant(len(layer), area_l, area_w, box_l, box_w)
+        ]
     candidates = _dedupe_valid_candidates(raw_candidates, area_l, area_w)
     if not candidates:
         return []

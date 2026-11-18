@@ -1,0 +1,196 @@
+{
+  "baseline_commit": "4d511fe3fd05ff9a813af6385d19386e424ea0f6",
+  "repetitions": 3,
+  "search_limits": {
+    "before": [
+      30,
+      80
+    ],
+    "after": [
+      30,
+      80
+    ]
+  },
+  "results": [
+    {
+      "case": "case_4",
+      "surface": "hybrid_layer",
+      "rotated": false,
+      "before_count": 15,
+      "after_count": 15,
+      "before_ms": 1.688,
+      "after_ms": 1.847,
+      "change_pct": 9.39,
+      "material_regression": false
+    },
+    {
+      "case": "case_4",
+      "surface": "hybrid_layer",
+      "rotated": true,
+      "before_count": 14,
+      "after_count": 14,
+      "before_ms": 1.075,
+      "after_ms": 1.081,
+      "change_pct": 0.5,
+      "material_regression": false
+    },
+    {
+      "case": "case_4",
+      "surface": "full_analysis",
+      "before_ms": 21.934,
+      "after_ms": 48.13,
+      "change_pct": 119.43,
+      "material_regression": true
+    },
+    {
+      "case": "case_5",
+      "surface": "hybrid_layer",
+      "rotated": false,
+      "before_count": 7,
+      "after_count": 7,
+      "before_ms": 0.118,
+      "after_ms": 0.126,
+      "change_pct": 7.15,
+      "material_regression": false
+    },
+    {
+      "case": "case_5",
+      "surface": "hybrid_layer",
+      "rotated": true,
+      "before_count": 6,
+      "after_count": 6,
+      "before_ms": 0.238,
+      "after_ms": 0.239,
+      "change_pct": 0.67,
+      "material_regression": false
+    },
+    {
+      "case": "case_5",
+      "surface": "full_analysis",
+      "before_ms": 10.132,
+      "after_ms": 10.382,
+      "change_pct": 2.46,
+      "material_regression": false
+    },
+    {
+      "case": "case_9",
+      "surface": "hybrid_layer",
+      "rotated": false,
+      "before_count": 33,
+      "after_count": 33,
+      "before_ms": 10.061,
+      "after_ms": 9.402,
+      "change_pct": -6.55,
+      "material_regression": false
+    },
+    {
+      "case": "case_9",
+      "surface": "hybrid_layer",
+      "rotated": true,
+      "before_count": 28,
+      "after_count": 28,
+      "before_ms": 6.572,
+      "after_ms": 6.224,
+      "change_pct": -5.3,
+      "material_regression": false
+    },
+    {
+      "case": "case_9",
+      "surface": "full_analysis",
+      "before_ms": 178.772,
+      "after_ms": 173.487,
+      "change_pct": -2.96,
+      "material_regression": false
+    },
+    {
+      "case": "standard",
+      "surface": "hybrid_layer",
+      "rotated": false,
+      "before_count": 24,
+      "after_count": 24,
+      "before_ms": 9.315,
+      "after_ms": 7.723,
+      "change_pct": -17.09,
+      "material_regression": false
+    },
+    {
+      "case": "standard",
+      "surface": "hybrid_layer",
+      "rotated": true,
+      "before_count": 24,
+      "after_count": 24,
+      "before_ms": 4.054,
+      "after_ms": 4.657,
+      "change_pct": 14.89,
+      "material_regression": false
+    },
+    {
+      "case": "standard",
+      "surface": "full_analysis",
+      "before_ms": 76.987,
+      "after_ms": 73.96,
+      "change_pct": -3.93,
+      "material_regression": false
+    },
+    {
+      "case": "fractional",
+      "surface": "hybrid_layer",
+      "rotated": false,
+      "before_count": 34,
+      "after_count": 34,
+      "before_ms": 18.811,
+      "after_ms": 17.962,
+      "change_pct": -4.51,
+      "material_regression": false
+    },
+    {
+      "case": "fractional",
+      "surface": "hybrid_layer",
+      "rotated": true,
+      "before_count": 35,
+      "after_count": 35,
+      "before_ms": 18.428,
+      "after_ms": 19.188,
+      "change_pct": 4.13,
+      "material_regression": false
+    },
+    {
+      "case": "fractional",
+      "surface": "full_analysis",
+      "before_ms": 148.36,
+      "after_ms": 142.337,
+      "change_pct": -4.06,
+      "material_regression": false
+    },
+    {
+      "case": "small_carton",
+      "surface": "hybrid_layer",
+      "rotated": false,
+      "before_count": 342,
+      "after_count": 342,
+      "before_ms": 2672.408,
+      "after_ms": 3319.662,
+      "change_pct": 24.22,
+      "material_regression": true
+    },
+    {
+      "case": "small_carton",
+      "surface": "hybrid_layer",
+      "rotated": true,
+      "before_count": 342,
+      "after_count": 342,
+      "before_ms": 2747.763,
+      "after_ms": 2898.24,
+      "change_pct": 5.48,
+      "material_regression": false
+    },
+    {
+      "case": "small_carton",
+      "surface": "full_analysis",
+      "before_ms": 12026.968,
+      "after_ms": 12421.075,
+      "change_pct": 3.28,
+      "material_regression": false
+    }
+  ]
+}

@@ -306,6 +306,12 @@ class RegressionCompendiumTests(TestCase):
                 )
                 rows = response.context["results_table"]
                 self.assertIn(selected["result_key"], [row["result_key"] for row in rows])
+                hybrid_rows = [row for row in rows if row["pattern"] == "Hybrid pinwheel"]
+                if slug == "calibration-case-5":
+                    self.assertEqual(hybrid_rows, [])
+                hybrid_per_layer = {"calibration-case-4": 15, "calibration-case-9": 33}.get(slug)
+                if hybrid_per_layer is not None:
+                    self.assertEqual([row["boxes_layer_A"] for row in hybrid_rows], [hybrid_per_layer])
                 nested_rows = [row for row in rows if row["pattern"] == "Nested pinwheel"]
                 if slug in {
                     "calibration-case-1", "calibration-case-6",
@@ -431,6 +437,50 @@ class RegressionCompendiumTests(TestCase):
         self.assertEqual(step["selected_result"]["result_key"], alternative["result_key"])
         self.assert_pallet_pattern_family(switched_workflow, alternative["pattern"])
         json.dumps(self.client.session[SESSION_KEY], allow_nan=False)
+
+    @override_settings(DEBUG=False)
+    def test_hybrid_calibration_policy_reaches_seo_workflow_and_exports(self):
+        seo_route = reverse("palletization_calculator")
+        workflow_route = reverse("full_packaging_mode")
+        self.client.post(
+            workflow_route, {"action": "add_step", "after_index": "start", "step_type": "pallet"},
+        )
+        for case, expected in ((4, 15), (5, None), (9, 33)):
+            with self.subTest(case=case):
+                seo = self.client.get(seo_route, {"case": f"calibration-case-{case}"})
+                config = seo.context["pallet_config"]
+                seo_rows = seo.context["results_table"]
+                hybrids = [row for row in seo_rows if row["pattern"] == "Hybrid pinwheel"]
+                self.assertEqual([row["boxes_layer_A"] for row in hybrids], [] if expected is None else [expected])
+                if hybrids:
+                    seo = self.client.post(seo_route, {
+                        **config, "action": "select_result", "selected_result_key": hybrids[0]["result_key"],
+                    })
+                self.assert_pallet_case_geometry(seo)
+                selected = seo.context["selected_result"]
+                self.assertEqual(self.client.session["palletization_last_export"]["analysis_report"], selected)
+
+                workflow_post = {
+                    **{f"{key}_0": value for key, value in config.items()},
+                    "action": "run_step", "index": "0", "step_action_0": "run_analysis",
+                }
+                workflow = self.client.post(workflow_route, workflow_post, follow=True)
+                step = workflow.context["steps"][0]
+                self.assertEqual(
+                    [{key: row[key] for key in expected_row} for row, expected_row in zip(
+                        step["results_table"], seo_rows, strict=True,
+                    )], seo_rows,
+                )
+                if hybrids:
+                    workflow = self.client.post(workflow_route, {
+                        **workflow_post, "step_action_0": "select_result",
+                        "selected_result_key_0": hybrids[0]["result_key"],
+                    }, follow=True)
+                    step = workflow.context["steps"][0]
+                self.assertEqual(
+                    {key: step["selected_result"][key] for key in selected}, selected,
+                )
+                json.dumps(dict(self.client.session), allow_nan=False)
 
     def test_case_links_preserve_inputs_results_and_exports_across_session(self):
         page = self.client.get(reverse("regressions"))

@@ -28,6 +28,7 @@ from packagingapp.utils.packing_patterns import (
     enumerate_pattern_candidates,
 )
 from packagingapp.utils.packing_patterns import patterns as shared_patterns
+from packagingapp.utils.packing_patterns import core as shared_core
 from packagingapp.utils.packing_patterns.validation import validate_placements
 from packagingapp.utils.palletization import engine as pallet_engine
 
@@ -89,9 +90,15 @@ class SharedPatternParityTests(SimpleTestCase):
         for fixture in fixtures:
             for original, shared, kwargs in functions:
                 with self.subTest(fixture=fixture, function=original.__name__, kwargs=kwargs):
+                    shared_kwargs = dict(kwargs)
+                    if original is pallet_engine.pattern_hybrid_pinwheel:
+                        # Hybrid eligibility is deliberately consumer-specific;
+                        # compare constructors under the same policy. Container
+                        # defaults have their independent frozen Stage 1 test.
+                        shared_kwargs["policy"] = shared_patterns.PALLETIZATION_SEARCH_POLICY
                     self.assertEqual(
                         _signature(original(*fixture, **kwargs)),
-                        _signature(shared(*fixture, **kwargs)),
+                        _signature(shared(*fixture, **shared_kwargs)),
                     )
 
     def test_enumeration_is_deterministic_valid_and_bounded(self):
@@ -226,6 +233,119 @@ class NestedPinwheelEligibilityTests(SimpleTestCase):
         for rotated in (False, True):
             self.assertEqual(pallet_engine.pattern_nested_pinwheel(*args, rotated=rotated), [])
         self.assertEqual(container, shared_patterns.pattern_nested_pinwheel(*args))
+
+
+class HybridPinwheelEligibilityTests(SimpleTestCase):
+    def test_positive_calibrations_preserve_ordered_core_and_rectangular_band(self):
+        historical_policy = replace(
+            shared_patterns.PALLETIZATION_SEARCH_POLICY, require_coherent_hybrid_pinwheel=False,
+        )
+        for args, count, core_count, band_y in (
+            ((48 * 25.4, 40 * 25.4, 16 * 25.4, 8 * 25.4), 15, 12, 812.8),
+            ((2000.0, 2000.0, 300.0, 400.0), 33, 28, 1700.0),
+        ):
+            for rotated in (False, True):
+                with self.subTest(args=args, rotated=rotated):
+                    layer = pallet_engine.pattern_hybrid_pinwheel(*args, rotated=rotated)
+                    historical = shared_patterns.pattern_hybrid_pinwheel(
+                        *args, rotated=rotated, policy=historical_policy,
+                    )
+                    self.assertEqual(
+                        [(p.x, p.y, p.l, p.w, p.orientation) for p in layer],
+                        [(p.x, p.y, p.l, p.w, p.orientation) for p in historical],
+                    )
+                    self.assertTrue(validate_placements(layer, *args[:2]).valid)
+                    if rotated:
+                        continue
+                    self.assertEqual(len(layer), count)
+                    fillers = layer[core_count:]
+                    self.assertTrue(all(abs(p.y - band_y) < 1e-9 for p in fillers))
+                    self.assertAlmostEqual(fillers[0].x, 0)
+                    for left, right in zip(fillers, fillers[1:]):
+                        self.assertAlmostEqual(left.x + left.l, right.x)
+                    self.assertAlmostEqual(fillers[-1].x + fillers[-1].l, args[0])
+
+    def test_case_five_is_rejected_by_coherence_before_secondary_relevance(self):
+        args = (1200.0, 800.0, 292.0, 312.0)
+        historical_policy = replace(
+            shared_core.PALLETIZATION_SEARCH_POLICY, require_coherent_hybrid_pinwheel=False,
+        )
+        historical = shared_core.pattern_hybrid_pinwheel(*args, policy=historical_policy)
+        self.assertEqual(len(historical), 7)
+        self.assertGreater(len(historical) * args[2] * args[3] / (args[0] * args[1]), 0.60)
+        self.assertEqual(
+            [(p.x, p.y, p.l, p.w) for p in historical[4:]],
+            [(610.0, 88.0, 292.0, 312.0), (902.0, 88.0, 292.0, 312.0),
+             (756.0, 400.0, 292.0, 312.0)],
+        )
+        # Removing only the relevance filter still cannot admit the detached
+        # seven-carton arrangement. Only the four-carton primary core or the
+        # six-carton alternate core remains, both below the relevance floor.
+        with patch.object(shared_core, "_hybrid_floor_is_relevant", return_value=True):
+            self.assertEqual(len(pallet_engine.pattern_hybrid_pinwheel(*args)), 4)
+            self.assertEqual(len(pallet_engine.pattern_hybrid_pinwheel(*args, rotated=True)), 6)
+        for rotated in (False, True):
+            self.assertEqual(pallet_engine.pattern_hybrid_pinwheel(*args, rotated=rotated), [])
+
+    def test_fragmented_margins_are_rejected_before_filler_construction(self):
+        cases = (
+            # Detached, staggered right-margin brick (Case 5).
+            ((1200, 800, 292, 312), (292, 312)),
+            # A sparse top grid would split its two cartons to opposite ends.
+            ((500, 800, 300, 200), (300, 200)),
+        )
+        for args, box in cases:
+            base, _, _ = shared_core.pinwheel_motif(0, 0, *box, *box)
+            with self.subTest(args=args), patch.object(shared_core, "pattern_brick") as brick, patch.object(
+                shared_core, "try_two_orientations_grid",
+            ) as grid:
+                layer = shared_core.call_with_policy(
+                    shared_core._add_rectangular_margin_fill, base, *args, *box,
+                    policy=shared_core.PALLETIZATION_SEARCH_POLICY,
+                )
+                self.assertEqual(layer, [])
+                brick.assert_not_called()
+                grid.assert_not_called()
+
+    def test_margin_arithmetic_preserves_attached_rectangles_and_rejects_split_rows(self):
+        for balance, span, expected in (
+            (True, 1200.0, 3), (True, 1210.0, None), (False, 1210.0, 3),
+            (True, 500.0, 1),
+        ):
+            self.assertEqual(
+                shared_core.call_with_policy(
+                    shared_core._coherent_hybrid_margin_count,
+                    span, 1000.0, span, 800.0, 400.0, 200.0, balance,
+                    policy=shared_core.PALLETIZATION_SEARCH_POLICY,
+                ), expected,
+            )
+
+    def test_relevance_boundary_and_unit_scaling(self):
+        for scale in (1.0, 25.4, 1 / 25.4):
+            self.assertTrue(shared_core._hybrid_floor_is_relevant(
+                6, 10 * scale, 10 * scale, 5 * scale, 2 * scale,
+            ))
+            self.assertFalse(shared_core._hybrid_floor_is_relevant(
+                6, 10.001 * scale, 10 * scale, 5 * scale, 2 * scale,
+            ))
+            self.assertEqual(pallet_engine.pattern_hybrid_pinwheel(
+                *(value * scale for value in (1200, 800, 292, 312)),
+            ), [])
+
+    def test_pallet_policy_preserves_container_hybrid_and_search_limits(self):
+        args = (1200.0, 800.0, 292.0, 312.0)
+        container_before = shared_patterns.pattern_hybrid_pinwheel(*args)
+        self.assertEqual(len(container_before), 7)
+        self.assertEqual(pallet_engine.pattern_hybrid_pinwheel(*args), [])
+        self.assertEqual(shared_patterns.pattern_hybrid_pinwheel(*args), container_before)
+        self.assertEqual(
+            (shared_core.PALLETIZATION_SEARCH_POLICY.max_pinwheel_parameter,
+             shared_core.PALLETIZATION_SEARCH_POLICY.max_pinwheel_candidates), (30, 80),
+        )
+        self.assertEqual(
+            (shared_core.CONTAINER_SEARCH_POLICY.max_pinwheel_parameter,
+             shared_core.CONTAINER_SEARCH_POLICY.max_pinwheel_candidates), (12, 8),
+        )
 
 
 class PerimeterCoreMosaicTests(SimpleTestCase):

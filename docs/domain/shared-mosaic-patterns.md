@@ -143,6 +143,16 @@ span on at least one axis. Both checks run on the existing dimensions before
 ranking and placement construction. Container Selection retains its original
 opening allowance. See [Nested pinwheel calibration](palletization-logic.md#nested-pinwheel-calibration).
 
+Hybrid Pinwheel has a separate Palletization-only eligibility policy. Existing
+margin parameters must describe one attached, contiguous rectangular filler
+group: nonempty staggered right-margin Brick fillers and split balanced top
+rows are excluded before filler construction. An eligible core or filled
+candidate must then cover at least 60% of the effective footprint. The
+constructors, candidate counts, ranking, search bounds, other pattern families,
+and Container Selection defaults are unchanged. See
+[Hybrid pinwheel calibration](palletization-logic.md#hybrid-pinwheel-calibration)
+for the geometry and the secondary relevance filter.
+
 Nested Simple Lattice variants use the existing pinwheel parameter caps.
 Placements come directly from the diagonal hole lattice and its boundary
 completion triangles. Both contour orientations are eligible. Container
