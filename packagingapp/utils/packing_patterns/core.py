@@ -1,8 +1,9 @@
 """Authoritative, policy-driven rectangular mosaic pattern geometry.
 
 The construction logic is shared by Container Selection and Palletization.
-Policies vary only numerical fit behavior and bounded search coverage; pallet
-stacking, interlock display, load checks, and ranking remain outside this module.
+Policies control numerical fit, bounded search coverage and candidate
+eligibility. Stacking, interlock display, load checks, and result ranking
+remain outside this module.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ class PatternSearchPolicy:
     max_pinwheel_parameter: int
     max_pinwheel_candidates: int
     max_materialized_placements: Optional[int] = None
+    require_compact_nested_pinwheel: bool = False
 
 
 CONTAINER_SEARCH_POLICY = PatternSearchPolicy(
@@ -46,6 +48,7 @@ PALLETIZATION_SEARCH_POLICY = PatternSearchPolicy(
     max_pinwheel_parameter=30,
     max_pinwheel_candidates=80,
     max_materialized_placements=None,
+    require_compact_nested_pinwheel=True,
 )
 
 _ACTIVE_POLICY: ContextVar[Optional[PatternSearchPolicy]] = ContextVar(
@@ -1013,8 +1016,16 @@ def _enumerate_nested_pinwheel_candidates(
 
     inner_span = box_l + box_w
     box_area = box_l * box_w
-    max_param = _policy().max_pinwheel_parameter
-    max_generated_candidates = _policy().max_pinwheel_candidates
+    policy = _policy()
+    max_param = policy.max_pinwheel_parameter
+    max_generated_candidates = policy.max_pinwheel_candidates
+    require_compact = policy.require_compact_nested_pinwheel
+    # A centered motif touches both pairs of opening walls only when their
+    # spans match. Keep the wider opening allowance for Container Selection.
+    max_opening_span = (inner_span if require_compact else 2.0 * inner_span) + 1e-9
+    short_side = min(box_l, box_w)
+    min_contour_l = area_l - short_side - 1e-9
+    min_contour_w = area_w - short_side - 1e-9
 
     horizontal_pairs = []
     vertical_pairs = []
@@ -1048,11 +1059,12 @@ def _enumerate_nested_pinwheel_candidates(
             if hole_l + 1e-9 < inner_span or hole_w + 1e-9 < inner_span:
                 continue
 
-            # Keep the inner pinwheel visually connected to the outer topology.
-            # Large unused central regions are better handled by generic packing.
-            if hole_l > 2.0 * inner_span + 1e-9:
+            if hole_l > max_opening_span or hole_w > max_opening_span:
                 continue
-            if hole_w > 2.0 * inner_span + 1e-9:
+
+            # An exact nest still needs to span the pallet to within one
+            # carton width on at least one axis.
+            if require_compact and contour_l < min_contour_l and contour_w < min_contour_w:
                 continue
 
             outer_count = 2 * (m * n + p * q)

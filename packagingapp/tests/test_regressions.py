@@ -306,6 +306,15 @@ class RegressionCompendiumTests(TestCase):
                 )
                 rows = response.context["results_table"]
                 self.assertIn(selected["result_key"], [row["result_key"] for row in rows])
+                nested_rows = [row for row in rows if row["pattern"] == "Nested pinwheel"]
+                if slug in {
+                    "calibration-case-1", "calibration-case-6",
+                    "calibration-case-7", "calibration-case-9",
+                }:
+                    self.assertEqual(nested_rows, [])
+                nested_per_layer = {"calibration-case-4": 12, "calibration-case-8": 64}.get(slug)
+                if nested_per_layer is not None:
+                    self.assertEqual([row["boxes_layer_A"] for row in nested_rows], [nested_per_layer])
                 export = self.client.session["palletization_last_export"]
                 self.assertEqual(export["analysis_report"], selected)
                 json.dumps(export, allow_nan=False)
@@ -314,7 +323,9 @@ class RegressionCompendiumTests(TestCase):
                     self.assertGreater(len(rows), 1)
                 if len(rows) > 1:
                     alternative = rows[1]
-                    if slug in calibration_cases:
+                    if nested_per_layer is not None:
+                        alternative = nested_rows[0]
+                    elif slug in calibration_cases:
                         alternative = next(
                             (row for row in rows if row["pattern"] != selected["pattern"]), None,
                         )

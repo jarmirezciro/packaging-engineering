@@ -1,11 +1,15 @@
 import itertools
 import os
 import tempfile
+from dataclasses import replace
 from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
 from packagingapp.tests.benchmark_shared_mosaic_patterns import BENCHMARK_CASES
+from packagingapp.tools.palletization.case_presets import PALLETIZATION_CASE_PRESETS
+from packagingapp.tools.palletization.service import analyze_palletization_capacity
+from packagingapp.tools.palletization.state import default_palletization_config
 from packagingapp.utils.box_selection.engine import (
     calculate_legacy_placements,
     calculate_placements,
@@ -79,8 +83,6 @@ class SharedPatternParityTests(SimpleTestCase):
             (pallet_engine.pattern_pinwheel, shared_patterns.pattern_pinwheel, {"rotated": True}),
             (pallet_engine.pattern_hybrid_pinwheel, shared_patterns.pattern_hybrid_pinwheel, {}),
             (pallet_engine.pattern_hybrid_pinwheel, shared_patterns.pattern_hybrid_pinwheel, {"rotated": True}),
-            (pallet_engine.pattern_nested_pinwheel, shared_patterns.pattern_nested_pinwheel, {}),
-            (pallet_engine.pattern_nested_pinwheel, shared_patterns.pattern_nested_pinwheel, {"rotated": True}),
             (pallet_engine.pattern_center_filled_pinwheel, shared_patterns.pattern_center_filled_pinwheel, {}),
             (pallet_engine.pattern_perimeter_core_mosaic, shared_patterns.pattern_perimeter_core_mosaic, {}),
         )
@@ -154,6 +156,76 @@ class PalletSharedPatternDelegationTests(SimpleTestCase):
         self.assertEqual(_signature(container_before), _signature(container_after))
         self.assertEqual(len(container_before), 280)
         self.assertEqual(len(pallet_layer), 320)
+
+
+class NestedPinwheelEligibilityTests(SimpleTestCase):
+    def assert_single_center_void(self, layer, contour_l, contour_w, long_side, short_side):
+        self.assertTrue(validate_placements(layer, contour_l, contour_w).valid)
+        void_side = long_side - short_side
+        self.assertAlmostEqual(
+            contour_l * contour_w - sum(item.l * item.w for item in layer),
+            void_side ** 2,
+            delta=1e-6,
+        )
+        left, right = (contour_l - void_side) / 2, (contour_l + void_side) / 2
+        bottom, top = (contour_w - void_side) / 2, (contour_w + void_side) / 2
+        for item in layer:
+            self.assertTrue(
+                item.x + item.l <= left + 1e-9 or item.x >= right - 1e-9
+                or item.y + item.w <= bottom + 1e-9 or item.y >= top - 1e-9
+            )
+
+    def test_positive_cases_keep_ordered_geometry_and_one_center_void(self):
+        historical_policy = replace(
+            shared_patterns.PALLETIZATION_SEARCH_POLICY, require_compact_nested_pinwheel=False
+        )
+        for case, count, contour_mm in ((4, 12, (1016, 1016)), (8, 64, (1200, 700))):
+            with self.subTest(case=case):
+                preset = PALLETIZATION_CASE_PRESETS[f"calibration-case-{case}"]
+                config = {**default_palletization_config(), **preset["config"]}
+                result = analyze_palletization_capacity(config)
+                effective = result["effective_config"]
+                args = tuple(effective[name] for name in ("pallet_l", "pallet_w", "box_l", "box_w"))
+                layer = pallet_engine.pattern_nested_pinwheel(*args)
+                historical_layer = shared_patterns.pattern_nested_pinwheel(*args, policy=historical_policy)
+                self.assertEqual(len(layer), count)
+                self.assertEqual(
+                    [(item.x, item.y, item.l, item.w, item.orientation) for item in layer],
+                    [(item.x, item.y, item.l, item.w, item.orientation) for item in historical_layer],
+                )
+                self.assert_single_center_void(layer, *contour_mm, *args[2:])
+
+    def test_generated_contact_fits_at_the_carton_width_boundary(self):
+        # Exact openings for (n, q) = (3, 2), (2, 2), and (2, 4), respectively.
+        for ratio, contour, count in ((1.5, 6.5, 28), (3, 8, 20), (5, 14, 36)):
+            for short in (11.0, 25.4):
+                box = (ratio * short, short)
+                for slack, expected_count in (((1, 1), count), ((1.01, 1.01), 0), ((1.01, 0), count)):
+                    with self.subTest(ratio=ratio, short=short, slack=slack):
+                        area = tuple((contour + margin) * short for margin in slack)
+                        layer = pallet_engine.pattern_nested_pinwheel(*area, *box)
+                        self.assertEqual(len(layer), expected_count)
+                        if layer:
+                            self.assert_single_center_void(layer, contour * short, contour * short, *box)
+
+    def test_lower_count_valid_rotation_replaces_ineligible_candidates(self):
+        args = (800.0, 800.0, 200.0, 100.0)
+        self.assertEqual(pallet_engine.pattern_nested_pinwheel(*args), [])
+        layer = pallet_engine.pattern_nested_pinwheel(*args, rotated=True)
+        self.assertEqual(len(layer), 24)
+        self.assert_single_center_void(layer, 700.0, 700.0, *args[2:])
+
+        base, interlock = pallet_engine.get_base_and_interlock_layers("Nested pinwheel", *args)
+        self.assertEqual(base, pallet_engine.center_placements_on_area(layer, *args[:2]))
+        self.assertEqual(interlock, [])
+
+    def test_pallet_eligibility_preserves_container_nested_geometry(self):
+        args = (2000.0, 2000.0, 292.0, 316.0)
+        container = shared_patterns.pattern_nested_pinwheel(*args)
+        self.assertEqual(len(container), 24)
+        for rotated in (False, True):
+            self.assertEqual(pallet_engine.pattern_nested_pinwheel(*args, rotated=rotated), [])
+        self.assertEqual(container, shared_patterns.pattern_nested_pinwheel(*args))
 
 
 class PerimeterCoreMosaicTests(SimpleTestCase):

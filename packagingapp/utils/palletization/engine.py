@@ -1781,6 +1781,8 @@ def get_base_and_interlock_layers(pattern_name, area_l, area_w, box_l, box_w):
     elif pattern_name == "Nested pinwheel":
         base = pattern_nested_pinwheel(area_l, area_w, box_l, box_w, rotated=False)
         interlock = pattern_nested_pinwheel(area_l, area_w, box_l, box_w, rotated=True)
+        if not base:
+            base, interlock = interlock, []
     elif pattern_name == "Centre-filled pinwheel":
         base = pattern_center_filled_pinwheel(area_l, area_w, box_l, box_w)
         # A compatible mirror/180-degree layer is derived conservatively by the

@@ -136,6 +136,13 @@ the pattern algorithms. Container defaults remain 12/8 and are not widened by
 Palletization calls. Context-local policy selection prevents concurrent tool
 requests from leaking one consumer's policy into another.
 
+The Palletization policy also requires a compact Nested Pinwheel. The
+centered inner motif must contact all four opening walls, and the outer
+contour must reach within one short carton side of the effective footprint
+span on at least one axis. Both checks run on the existing dimensions before
+ranking and placement construction. Container Selection retains its original
+opening allowance. See [Nested pinwheel calibration](palletization-logic.md#nested-pinwheel-calibration).
+
 Nested Simple Lattice variants use the existing pinwheel parameter caps.
 Placements come directly from the diagonal hole lattice and its boundary
 completion triangles. Both contour orientations are eligible. Container
