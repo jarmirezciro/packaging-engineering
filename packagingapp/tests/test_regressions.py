@@ -321,6 +321,15 @@ class RegressionCompendiumTests(TestCase):
                 nested_per_layer = {"calibration-case-4": 12, "calibration-case-8": 64}.get(slug)
                 if nested_per_layer is not None:
                     self.assertEqual([row["boxes_layer_A"] for row in nested_rows], [nested_per_layer])
+                lattice_rows = [row for row in rows if row["pattern"].startswith("Nested Simple Lattice")]
+                if slug in {"calibration-case-7", "calibration-case-8"}:
+                    self.assertEqual(lattice_rows, [])
+                if slug == "calibration-case-2":
+                    for dimension in ("1D", "2D"):
+                        self.assertTrue(any(
+                            row["pattern"] == f"Nested Simple Lattice — {dimension}"
+                            and row["boxes_layer_A"] == 16 for row in lattice_rows
+                        ))
                 export = self.client.session["palletization_last_export"]
                 self.assertEqual(export["analysis_report"], selected)
                 json.dumps(export, allow_nan=False)
@@ -481,6 +490,57 @@ class RegressionCompendiumTests(TestCase):
                     {key: step["selected_result"][key] for key in selected}, selected,
                 )
                 json.dumps(dict(self.client.session), allow_nan=False)
+
+    @override_settings(DEBUG=False)
+    def test_lattice_hole_policy_reaches_seo_workflow_and_exports(self):
+        seo_route = reverse("palletization_calculator")
+        workflow_route = reverse("full_packaging_mode")
+        self.client.post(
+            workflow_route, {"action": "add_step", "after_index": "start", "step_type": "pallet"},
+        )
+        for case, winner_count in ((2, 80), (7, 960), (8, 760)):
+            with self.subTest(case=case):
+                seo = self.client.get(seo_route, {"case": f"calibration-case-{case}"})
+                config = seo.context["pallet_config"]
+                rows = seo.context["results_table"]
+                lattices = [row for row in rows if row["pattern"].startswith("Nested Simple Lattice")]
+                self.assertEqual(seo.context["selected_result"]["total_boxes"], winner_count)
+                if case == 2:
+                    alternatives = [next(
+                        row for row in lattices
+                        if row["pattern"] == f"Nested Simple Lattice — {dimension}"
+                        and row["boxes_layer_A"] == 16
+                    ) for dimension in ("1D", "2D")]
+                else:
+                    self.assertEqual(lattices, [])
+                    alternatives = [seo.context["selected_result"]]
+                workflow_post = {
+                    **{f"{key}_0": value for key, value in config.items()},
+                    "action": "run_step", "index": "0", "step_action_0": "run_analysis",
+                }
+                workflow = self.client.post(workflow_route, workflow_post, follow=True)
+                step = workflow.context["steps"][0]
+                self.assertEqual(
+                    [{key: row[key] for key in expected} for row, expected in zip(
+                        step["results_table"], rows, strict=True,
+                    )], rows,
+                )
+                for alternative in alternatives:
+                    seo = self.client.post(seo_route, {
+                        **config, "action": "select_result",
+                        "selected_result_key": alternative["result_key"],
+                    })
+                    selected = seo.context["selected_result"]
+                    self.assertEqual(selected["result_key"], alternative["result_key"])
+                    self.assert_pallet_case_geometry(seo)
+                    self.assertEqual(self.client.session["palletization_last_export"]["analysis_report"], selected)
+                    workflow = self.client.post(workflow_route, {
+                        **workflow_post, "step_action_0": "select_result",
+                        "selected_result_key_0": alternative["result_key"],
+                    }, follow=True)
+                    step = workflow.context["steps"][0]
+                    self.assertEqual({key: step["selected_result"][key] for key in selected}, selected)
+                    json.dumps(dict(self.client.session), allow_nan=False)
 
     def test_case_links_preserve_inputs_results_and_exports_across_session(self):
         page = self.client.get(reverse("regressions"))

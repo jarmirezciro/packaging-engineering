@@ -164,6 +164,13 @@ distinct fitting layouts from each lattice family by layer count before
 building stacks and checking interlock. Equal counts retain parameter order
 within the shortlist. The usual Palletization ranking applies to those rows.
 
+Before its lattice shortlist, Palletization alone rejects motifs whose
+`i*j*(L-S)**2 / ((i*L+j*S)*(i*S+j*L))` exceeds the initial 20% calibration
+threshold. The O(1) check lives in the Palletization engine, before sorting,
+placement construction and either shortlist cap. Shared lattice geometry and
+Container Selection enumeration remain unrestricted by this relevance rule.
+See [hole-area calibration](palletization-logic.md#nested-simple-lattice-hole-area-calibration).
+
 The Stage 2 paired benchmark loads the pre-migration engine from the recorded
 commit and alternates original/migrated calls in one Python process. A timing
 change is treated as material only when both the median relative increase is

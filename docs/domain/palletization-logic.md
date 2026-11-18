@@ -339,6 +339,39 @@ numbers. Current option order and availability can differ.
 9. Hybrid pinwheel reference with 33 cartons per layer and six layers for
    198 cartons on the pallet.
 
+#### Nested Simple Lattice hole-area calibration
+
+Palletization applies an initial 20% internal-hole-area eligibility threshold
+to both Nested Simple Lattice families. For each already-enumerated `(i,j)`
+motif, normalize the carton sides as `L=max(box_l,box_w)` and
+`S=min(box_l,box_w)`. There are `i*j` square holes of side `H=L-S`:
+
+```text
+hole_area = i*j*H**2
+contour_area = (i*L+j*S)*(i*S+j*L)
+hole_fraction = hole_area/contour_area
+eligible when hole_fraction <= 0.20
+```
+
+The denominator is the motif contour, not the pallet area; exterior pallet
+slack cannot conceal internal holes. Rotation and exchanging carton sides do
+not change the fraction. Square cartons have zero hole area. The engine uses
+the equivalent area comparison without division, before sorting, candidate
+caps, deduplication, or placement construction. Each parameter check is O(1).
+The existing parameter/candidate limits, four distinct variants per family,
+family names, ordered geometry of retained motifs, and result keys are unchanged.
+
+Calibration Case 2 retains both useful 16-carton motifs: `(1,3)` has 0.4682%
+hole area and `(2,2)` has 0.6233%. Cases 7 and 8 have no eligible fitting
+motifs from either family. Their overall winners remain 96 and 76 cartons
+per layer, respectively. Nested pinwheel is a separate family: its Case 4/8
+geometry and the Case 9 Hybrid winner remain unchanged. Shared constructors
+and Container Selection apply no new hole-area rule.
+
+The threshold is a relevance calibration, not a structural-stability model.
+See [lattice calibration evidence](../engineering/lattice-hole-calibration.md)
+for the complete preset impact scan, paired runtimes, and cumulative tests.
+
 #### Nested pinwheel calibration
 
 The existing search ranks feasible candidates primarily by carton count. It

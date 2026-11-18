@@ -1,0 +1,355 @@
+[
+  {
+    "case": "calibration-case-2",
+    "pre_edit_ms": 23.087,
+    "winner": {
+      "pattern": "Pinwheel",
+      "stacking": "column",
+      "boxes_layer_A": 16,
+      "layers": 5,
+      "total_boxes": 80
+    },
+    "rows": [
+      {
+        "pattern": "Pinwheel",
+        "stacking": "column",
+        "boxes_layer_A": 16,
+        "layers": 5,
+        "total_boxes": 80
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 1D",
+        "stacking": "column",
+        "boxes_layer_A": 16,
+        "layers": 5,
+        "total_boxes": 80,
+        "lattice_parameters": {
+          "i": 1,
+          "j": 3,
+          "rotated": false
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 2D",
+        "stacking": "column",
+        "boxes_layer_A": 16,
+        "layers": 5,
+        "total_boxes": 80,
+        "lattice_parameters": {
+          "i": 2,
+          "j": 2,
+          "rotated": false
+        }
+      },
+      {
+        "pattern": "Splitrow",
+        "stacking": "column",
+        "boxes_layer_A": 15,
+        "layers": 5,
+        "total_boxes": 75
+      },
+      {
+        "pattern": "Block",
+        "stacking": "column",
+        "boxes_layer_A": 12,
+        "layers": 5,
+        "total_boxes": 60
+      },
+      {
+        "pattern": "Centre-filled pinwheel",
+        "stacking": "column",
+        "boxes_layer_A": 9,
+        "layers": 5,
+        "total_boxes": 45
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 1D",
+        "stacking": "column",
+        "boxes_layer_A": 9,
+        "layers": 5,
+        "total_boxes": 45,
+        "lattice_parameters": {
+          "i": 1,
+          "j": 2,
+          "rotated": true
+        }
+      }
+    ]
+  },
+  {
+    "case": "calibration-case-7",
+    "pre_edit_ms": 623.385,
+    "winner": {
+      "pattern": "Block",
+      "stacking": "column",
+      "boxes_layer_A": 96,
+      "layers": 10,
+      "total_boxes": 960
+    },
+    "rows": [
+      {
+        "pattern": "Block",
+        "stacking": "column",
+        "boxes_layer_A": 96,
+        "layers": 10,
+        "total_boxes": 960
+      },
+      {
+        "pattern": "Pinwheel",
+        "stacking": "column",
+        "boxes_layer_A": 96,
+        "layers": 10,
+        "total_boxes": 960
+      },
+      {
+        "pattern": "Splitrow",
+        "stacking": "column",
+        "boxes_layer_A": 96,
+        "layers": 10,
+        "total_boxes": 960
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 2D",
+        "stacking": "column",
+        "boxes_layer_A": 49,
+        "layers": 10,
+        "total_boxes": 490,
+        "lattice_parameters": {
+          "i": 2,
+          "j": 5,
+          "rotated": true
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 2D",
+        "stacking": "column",
+        "boxes_layer_A": 49,
+        "layers": 10,
+        "total_boxes": 490,
+        "lattice_parameters": {
+          "i": 3,
+          "j": 4,
+          "rotated": true
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 1D",
+        "stacking": "column",
+        "boxes_layer_A": 36,
+        "layers": 10,
+        "total_boxes": 360,
+        "lattice_parameters": {
+          "i": 1,
+          "j": 5,
+          "rotated": true
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 2D",
+        "stacking": "column",
+        "boxes_layer_A": 36,
+        "layers": 10,
+        "total_boxes": 360,
+        "lattice_parameters": {
+          "i": 2,
+          "j": 4,
+          "rotated": true
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 2D",
+        "stacking": "column",
+        "boxes_layer_A": 36,
+        "layers": 10,
+        "total_boxes": 360,
+        "lattice_parameters": {
+          "i": 3,
+          "j": 3,
+          "rotated": false
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 1D",
+        "stacking": "column",
+        "boxes_layer_A": 25,
+        "layers": 10,
+        "total_boxes": 250,
+        "lattice_parameters": {
+          "i": 1,
+          "j": 4,
+          "rotated": true
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 1D",
+        "stacking": "column",
+        "boxes_layer_A": 16,
+        "layers": 10,
+        "total_boxes": 160,
+        "lattice_parameters": {
+          "i": 1,
+          "j": 3,
+          "rotated": false
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 1D",
+        "stacking": "column",
+        "boxes_layer_A": 16,
+        "layers": 10,
+        "total_boxes": 160,
+        "lattice_parameters": {
+          "i": 1,
+          "j": 3,
+          "rotated": true
+        }
+      },
+      {
+        "pattern": "Perimeter-Core Mosaic",
+        "stacking": "column",
+        "boxes_layer_A": 10,
+        "layers": 10,
+        "total_boxes": 100
+      }
+    ]
+  },
+  {
+    "case": "calibration-case-8",
+    "pre_edit_ms": 273.632,
+    "winner": {
+      "pattern": "Splitrow",
+      "stacking": "column",
+      "boxes_layer_A": 76,
+      "layers": 10,
+      "total_boxes": 760
+    },
+    "rows": [
+      {
+        "pattern": "Splitrow",
+        "stacking": "column",
+        "boxes_layer_A": 76,
+        "layers": 10,
+        "total_boxes": 760
+      },
+      {
+        "pattern": "Block",
+        "stacking": "column",
+        "boxes_layer_A": 72,
+        "layers": 10,
+        "total_boxes": 720
+      },
+      {
+        "pattern": "Row",
+        "stacking": "column",
+        "boxes_layer_A": 64,
+        "layers": 10,
+        "total_boxes": 640
+      },
+      {
+        "pattern": "Pinwheel",
+        "stacking": "column",
+        "boxes_layer_A": 64,
+        "layers": 10,
+        "total_boxes": 640
+      },
+      {
+        "pattern": "Nested pinwheel",
+        "stacking": "column",
+        "boxes_layer_A": 64,
+        "layers": 10,
+        "total_boxes": 640
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 2D",
+        "stacking": "column",
+        "boxes_layer_A": 36,
+        "layers": 10,
+        "total_boxes": 360,
+        "lattice_parameters": {
+          "i": 2,
+          "j": 4,
+          "rotated": true
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 1D",
+        "stacking": "column",
+        "boxes_layer_A": 25,
+        "layers": 10,
+        "total_boxes": 250,
+        "lattice_parameters": {
+          "i": 1,
+          "j": 4,
+          "rotated": true
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 2D",
+        "stacking": "column",
+        "boxes_layer_A": 25,
+        "layers": 10,
+        "total_boxes": 250,
+        "lattice_parameters": {
+          "i": 2,
+          "j": 3,
+          "rotated": true
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 1D",
+        "stacking": "column",
+        "boxes_layer_A": 16,
+        "layers": 10,
+        "total_boxes": 160,
+        "lattice_parameters": {
+          "i": 1,
+          "j": 3,
+          "rotated": false
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 1D",
+        "stacking": "column",
+        "boxes_layer_A": 16,
+        "layers": 10,
+        "total_boxes": 160,
+        "lattice_parameters": {
+          "i": 1,
+          "j": 3,
+          "rotated": true
+        }
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 2D",
+        "stacking": "column",
+        "boxes_layer_A": 16,
+        "layers": 10,
+        "total_boxes": 160,
+        "lattice_parameters": {
+          "i": 2,
+          "j": 2,
+          "rotated": false
+        }
+      },
+      {
+        "pattern": "Perimeter-Core Mosaic",
+        "stacking": "column",
+        "boxes_layer_A": 10,
+        "layers": 10,
+        "total_boxes": 100
+      },
+      {
+        "pattern": "Nested Simple Lattice \u2014 1D",
+        "stacking": "column",
+        "boxes_layer_A": 9,
+        "layers": 10,
+        "total_boxes": 90,
+        "lattice_parameters": {
+          "i": 1,
+          "j": 2,
+          "rotated": false
+        }
+      }
+    ]
+  }
+]

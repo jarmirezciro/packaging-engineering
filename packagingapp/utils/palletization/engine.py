@@ -1329,10 +1329,12 @@ def pattern_nested_pinwheel(area_l, area_w, box_l, box_w, rotated=False):
 # Evaluate a small set of the strongest geometrically distinct variants per
 # new family before the much more expensive stack and interlock analysis.
 PALLET_LATTICE_VARIANTS_PER_FAMILY = 4
+# Initial Palletization calibration; shared Container Selection geometry is unchanged.
+PALLET_LATTICE_MAX_HOLE_FRACTION = 0.20
 
 
 def _nested_simple_lattice_entries(pattern_name, area_l, area_w, box_l, box_w):
-    """Shortlist fitting lattice variants by their exact carton count."""
+    """Shortlist fitting, hole-area-eligible lattices by exact carton count."""
     two_dimensional = pattern_name == "Nested Simple Lattice — 2D"
     constructor = (
         pattern_nested_simple_lattice_2d if two_dimensional else pattern_nested_simple_lattice_1d
@@ -1345,8 +1347,18 @@ def _nested_simple_lattice_entries(pattern_name, area_l, area_w, box_l, box_w):
         parameter_limit=PALLETIZATION_SEARCH_POLICY.max_pinwheel_parameter,
         two_dimensional=two_dimensional,
     )
+    long_side, short_side = max(box_l, box_w), min(box_l, box_w)
+    hole_side_squared = (long_side - short_side) ** 2
+    # The motif has i*j square holes inside its exact rectangular contour.
+    # Compare areas without division, before sorting, caps, or placements.
+    eligible = (
+        (i, j, rotated)
+        for i, j, rotated in parameters
+        if i * j * hole_side_squared <= PALLET_LATTICE_MAX_HOLE_FRACTION
+        * (i * long_side + j * short_side) * (i * short_side + j * long_side)
+    )
     # Python's stable sort retains the original parameter order for equal counts.
-    ranked = sorted(parameters, key=lambda variant: -(variant[0] + variant[1]))
+    ranked = sorted(eligible, key=lambda variant: -(variant[0] + variant[1]))
     seen = set()
     for i, j, rotated in ranked[:PALLETIZATION_SEARCH_POLICY.max_pinwheel_candidates]:
         layer = constructor(

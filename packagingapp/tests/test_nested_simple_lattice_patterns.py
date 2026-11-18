@@ -1,5 +1,14 @@
+from dataclasses import replace
+from unittest.mock import patch
+
 from django.test import SimpleTestCase
 
+from packagingapp.tests.benchmark_lattice_hole_filter import (
+    LATTICE_FAMILIES,
+    case_arguments,
+    load_baseline_entries,
+)
+from packagingapp.tools.palletization.case_presets import PALLETIZATION_CASE_PRESETS
 from packagingapp.utils.box_selection.engine import compare_packing_candidates
 from packagingapp.utils.box_selection.mosaic import search_mosaic_placements
 from packagingapp.utils.packing_patterns import enumerate_pattern_candidates
@@ -273,3 +282,108 @@ class NestedSimpleLatticeConsumerTests(SimpleTestCase):
         candidates = enumerate_pattern_candidates(304.0, 304.0, 82.0, 70.0)
         two_d = [item for item in candidates if item.family == "nested_simple_lattice_2d"]
         self.assertTrue(any(item.quantity == 16 for item in two_d))
+
+
+class NestedSimpleLatticeHoleEligibilityTests(SimpleTestCase):
+    """PAL-REG-004: relevance is a Palletization enumeration policy only."""
+
+    def test_negative_calibrations_reject_both_families_before_materialization(self):
+        for box_l in (200, 250):
+            for family, constructor in zip(LATTICE_FAMILIES, (
+                "pattern_nested_simple_lattice_1d", "pattern_nested_simple_lattice_2d",
+            )):
+                with self.subTest(box_l=box_l, family=family), patch.object(
+                    pallet_engine, constructor, side_effect=AssertionError("Rejected lattice materialized"),
+                ):
+                    self.assertEqual(list(pallet_engine._nested_simple_lattice_entries(
+                        family, 1200, 800, box_l, 50,
+                    )), [])
+
+    def test_twenty_percent_boundary_is_inclusive_in_both_orientations(self):
+        # A 3:1 carton and i:j=1:3 (or 2:6) has exactly 20% hole area.
+        for family, (i, j) in zip(LATTICE_FAMILIES, ((1, 3), (2, 6))):
+            for rotated in (False, True):
+                for long_side, expected in ((2.999, True), (3.0, True), (3.001, False)):
+                    with self.subTest(family=family, rotated=rotated, long_side=long_side), patch.object(
+                        shared_patterns, "iter_nested_lattice_parameters", return_value=iter([(i, j, rotated)]),
+                    ):
+                        entries = list(pallet_engine._nested_simple_lattice_entries(
+                            family, 40, 40, long_side, 1,
+                        ))
+                        self.assertEqual(bool(entries), expected)
+                        if entries:
+                            self.assertEqual(len(entries[0][1]), (i + j) ** 2)
+
+    def test_rejection_happens_before_candidate_cap_and_keeps_eligible_tie(self):
+        policy = replace(pallet_engine.PALLETIZATION_SEARCH_POLICY, max_pinwheel_candidates=1)
+        for family, rejected, accepted, constructor in (
+            (LATTICE_FAMILIES[0], (1, 2, False), (1, 3, False), "pattern_nested_simple_lattice_1d"),
+            (LATTICE_FAMILIES[1], (4, 4, False), (2, 6, False), "pattern_nested_simple_lattice_2d"),
+        ):
+            # The 2D motifs tie on count: filtering after the cap loses the
+            # eligible variant. Both families must construct only eligible motifs.
+            with self.subTest(family=family), patch.object(
+                shared_patterns, "iter_nested_lattice_parameters", return_value=iter([rejected, accepted]),
+            ), patch.object(pallet_engine, "PALLETIZATION_SEARCH_POLICY", policy), patch.object(
+                pallet_engine, constructor, wraps=getattr(pallet_engine, constructor),
+            ) as build:
+                entries = list(pallet_engine._nested_simple_lattice_entries(family, 40, 40, 3, 1))
+                self.assertEqual(len(entries), 1)
+                self.assertEqual(entries[0][3], dict(zip(("i", "j", "rotated"), accepted)))
+                build.assert_called_once()
+
+    def test_filter_is_unit_axis_and_rotation_invariant(self):
+        # Isolate eligibility from pre-existing shared placement rounding at
+        # large scales. Real construction is covered by geometry/preset tests.
+        marker = [pallet_engine.Placement2D(0, 0, 1, 1, "LxW")]
+        for family, constructor, (i, j) in (
+            (LATTICE_FAMILIES[0], "pattern_nested_simple_lattice_1d", (1, 3)),
+            (LATTICE_FAMILIES[1], "pattern_nested_simple_lattice_2d", (2, 2)),
+        ):
+            for box, eligible in (((82, 70), True), ((200, 50), False), ((250, 50), False), ((200, 200), True)):
+                for scale in (1.0, 1 / 25.4, 25.4, 0.125):
+                    for sides in (box, tuple(reversed(box))):
+                        for rotated in (False, True):
+                            with self.subTest(family=family, box=sides, scale=scale, rotated=rotated), patch.object(
+                                shared_patterns, "iter_nested_lattice_parameters", return_value=iter([(i, j, rotated)]),
+                            ), patch.object(pallet_engine, constructor, return_value=marker) as build:
+                                entries = list(pallet_engine._nested_simple_lattice_entries(
+                                    family, 1200 * scale, 800 * scale, *(side * scale for side in sides),
+                                ))
+                                self.assertEqual(bool(entries), eligible)
+                                self.assertEqual(build.call_count, int(eligible))
+
+    def test_all_public_presets_preserve_non_lattice_outputs_and_positive_lattices(self):
+        baseline = load_baseline_entries()
+        for slug in PALLETIZATION_CASE_PRESETS:
+            with self.subTest(case=slug):
+                arguments = case_arguments(slug)
+                with patch.object(pallet_engine, "_nested_simple_lattice_entries", baseline):
+                    before = pallet_engine.run_palletization_analysis(**arguments)
+                after = pallet_engine.run_palletization_analysis(**arguments)
+                self.assertEqual(
+                    [row for row in before if row["pattern"] not in LATTICE_FAMILIES],
+                    [row for row in after if row["pattern"] not in LATTICE_FAMILIES],
+                )
+                self.assertEqual(after[0], before[0], "Overall winner changed")
+                if slug in {"calibration-case-2", "nested-simple-lattice-1d-16", "nested-simple-lattice-2d-16"}:
+                    self.assertEqual(after, before, "Positive lattice geometry changed")
+                    expected = {
+                        "calibration-case-2": set(LATTICE_FAMILIES),
+                        "nested-simple-lattice-1d-16": {LATTICE_FAMILIES[0]},
+                        "nested-simple-lattice-2d-16": {LATTICE_FAMILIES[1]},
+                    }[slug]
+                    self.assertTrue(expected <= {row["pattern"] for row in after})
+                if slug in {"calibration-case-7", "calibration-case-8"}:
+                    self.assertFalse(any(row["pattern"] in LATTICE_FAMILIES for row in after))
+
+    def test_shared_container_geometry_still_materializes_high_hole_lattices(self):
+        for box_l in (200, 250):
+            for constructor, i, j in (
+                (shared_patterns.pattern_nested_simple_lattice_1d, 1, 3),
+                (shared_patterns.pattern_nested_simple_lattice_2d, 2, 2),
+            ):
+                with self.subTest(box_l=box_l, constructor=constructor.__name__):
+                    layer = constructor(1200, 800, box_l, 50, i=i, j=j)
+                    self.assertEqual(len(layer), (i + j) ** 2)
+                    self.assertTrue(validate_placements(layer, 1200, 800).valid)
