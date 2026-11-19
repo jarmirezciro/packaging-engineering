@@ -91,8 +91,9 @@ class SharedPatternParityTests(SimpleTestCase):
             for original, shared, kwargs in functions:
                 with self.subTest(fixture=fixture, function=original.__name__, kwargs=kwargs):
                     shared_kwargs = dict(kwargs)
-                    if original is pallet_engine.pattern_hybrid_pinwheel:
-                        # Hybrid eligibility is deliberately consumer-specific;
+                    if original in (pallet_engine.pattern_hybrid_pinwheel,
+                                    pallet_engine.pattern_perimeter_core_mosaic):
+                        # Eligibility is deliberately consumer-specific;
                         # compare constructors under the same policy. Container
                         # defaults have their independent frozen Stage 1 test.
                         shared_kwargs["policy"] = shared_patterns.PALLETIZATION_SEARCH_POLICY
@@ -142,7 +143,13 @@ class PalletSharedPatternDelegationTests(SimpleTestCase):
                 function_name,
                 wraps=shared_function,
             ) as delegated:
-                layer = pallet_function(*fixture, **kwargs)
+                # Perimeter-Core's former square-area fixture covers only
+                # 55.6%; use a relevant footprint for its delegation check.
+                pattern_fixture = (
+                    (1200.0, 800.0, 400.0, 200.0)
+                    if function_name == "pattern_perimeter_core_mosaic" else fixture
+                )
+                layer = pallet_function(*pattern_fixture, **kwargs)
 
                 delegated.assert_called_once()
                 self.assertIs(
@@ -509,6 +516,106 @@ class PerimeterCoreMosaicTests(SimpleTestCase):
         )
         brick = next(row for row in brick_rows if row["pattern"] == "Brick")
         self.assertEqual(brick["boxes_layer_A"], 12)
+
+
+class PerimeterCoreEligibilityTests(SimpleTestCase):
+    def test_inclusive_density_and_floor_boundaries_are_independent(self):
+        # 10*41*18 / (100*82) == 90%; the complete motif fits exactly.
+        # 10*6*3 / (25*12) == 60%, with a completely dense 15*12 motif.
+        for args, expected in (
+            ((100, 82, 41, 18), 10),
+            ((101, 83, 41.00001, 18), 0),
+            ((25, 12, 6, 3), 10),
+            ((25.00001, 12, 6, 3), 0),
+        ):
+            with self.subTest(args=args):
+                self.assertEqual(len(pallet_engine.pattern_perimeter_core_mosaic(*args)), expected)
+
+    def test_each_failed_criterion_rejects_before_motif_construction(self):
+        # The first is 100% dense but only 37.5% floor coverage. The second
+        # has 83.3% floor coverage but only 83.3% internal density.
+        for args in ((48, 40, 12, 6), (60, 50, 25, 10),
+                     (1200, 800, 200, 50), (1200, 800, 250, 50)):
+            with self.subTest(args=args), patch.object(
+                shared_core, "_perimeter_core_mosaic_motif",
+                side_effect=AssertionError("Ineligible motif was constructed"),
+            ):
+                self.assertEqual(pallet_engine.pattern_perimeter_core_mosaic(*args), [])
+
+    def test_positive_geometry_units_axes_and_fit_tolerances_are_preserved(self):
+        historical_policy = replace(
+            shared_core.PALLETIZATION_SEARCH_POLICY, require_relevant_perimeter_core=False,
+        )
+        cases = ((48, 40, 18.32, 8.64), (48, 40, 16, 8))
+        for area_l, area_w, box_l, box_w in cases:
+            for scale, reverse_box, rotate_area in itertools.product(
+                (1, 25.4, 1 / 25.4), (False, True), (False, True),
+            ):
+                args = (area_w, area_l) if rotate_area else (area_l, area_w)
+                args += (box_w, box_l) if reverse_box else (box_l, box_w)
+                args = tuple(value * scale for value in args)
+                with self.subTest(args=args):
+                    historical = shared_patterns.pattern_perimeter_core_mosaic(*args, policy=historical_policy)
+                    actual = shared_patterns.pattern_perimeter_core_mosaic(
+                        *args, policy=shared_core.PALLETIZATION_SEARCH_POLICY,
+                    )
+                    self.assertEqual(len(actual), 10)
+                    self.assertEqual(actual, historical)
+        # Keep the existing absolute fit allowance; do not scale the tolerance.
+        args = (50 - 5e-10, 40 - 5e-10, 20, 10)
+        actual = shared_patterns.pattern_perimeter_core_mosaic(
+            *args, policy=shared_core.PALLETIZATION_SEARCH_POLICY,
+        )
+        self.assertEqual(len(actual), 10)
+        self.assertEqual(actual, shared_patterns.pattern_perimeter_core_mosaic(*args, policy=historical_policy))
+
+    def test_container_defaults_keep_low_coverage_and_high_ratio_geometry(self):
+        for args in ((48, 40, 12, 6), (1200, 800, 200, 50), (1200, 800, 250, 50)):
+            with self.subTest(args=args):
+                before = shared_patterns.pattern_perimeter_core_mosaic(*args)
+                self.assertEqual(len(before), 10)
+                self.assertEqual(pallet_engine.pattern_perimeter_core_mosaic(*args), [])
+                self.assertEqual(shared_patterns.pattern_perimeter_core_mosaic(*args), before)
+                self.assertTrue(validate_placements(before, *args[:2]).valid)
+
+    def test_floor_coverage_uses_effective_area_including_overhang(self):
+        args = dict(box_l=6, box_w=3, box_h=5, pallet_l=25, pallet_w=12,
+                    pallet_height=1, max_stack_height=11)
+        boundary = pallet_engine.run_palletization_analysis(**args)
+        self.assertTrue(any(row["pattern"] == "Perimeter-Core Mosaic" for row in boundary))
+        with_overhang = pallet_engine.run_palletization_analysis(**args, max_length_stickout=1)
+        self.assertTrue(with_overhang)
+        self.assertFalse(any(row["pattern"] == "Perimeter-Core Mosaic" for row in with_overhang))
+
+    def test_all_registered_presets_preserve_other_families_winners_and_retained_geometry(self):
+        from packagingapp.tests.benchmark_perimeter_core_filter import (
+            FAMILY, case_arguments, load_baseline_pattern,
+        )
+
+        baseline = load_baseline_pattern()
+        changed = set()
+        for slug in PALLETIZATION_CASE_PRESETS:
+            with self.subTest(case=slug):
+                args = case_arguments(slug)
+                with patch.object(shared_core, "pattern_perimeter_core_mosaic", baseline):
+                    before = pallet_engine.run_palletization_analysis(**args)
+                after = pallet_engine.run_palletization_analysis(**args)
+                self.assertTrue(after)
+                self.assertEqual(before[0], after[0])
+                self.assertEqual(
+                    [row for row in before if row["pattern"] != FAMILY],
+                    [row for row in after if row["pattern"] != FAMILY],
+                )
+                retained = [row for row in after if row["pattern"] == FAMILY]
+                if retained:
+                    self.assertEqual(retained, [row for row in before if row["pattern"] == FAMILY])
+                    self.assertEqual(retained[0]["boxes_layer_A"], 10)
+                if before != after:
+                    changed.add(slug)
+        self.assertEqual(changed, {
+            "calibration-case-6", "calibration-case-7", "calibration-case-8",
+            "tops-case-pack-8", "north-american-splitrow", "brick-centre-filled",
+        })
 
 
 class ContainerMosaicIntegrationTests(SimpleTestCase):

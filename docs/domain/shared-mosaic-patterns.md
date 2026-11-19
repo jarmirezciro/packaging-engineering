@@ -153,6 +153,15 @@ and Container Selection defaults are unchanged. See
 [Hybrid pinwheel calibration](palletization-logic.md#hybrid-pinwheel-calibration)
 for the geometry and the secondary relevance filter.
 
+Perimeter-Core Mosaic has its own Palletization-only relevance policy:
+`10*L*S` must cover at least 90% of the `(2*L+S)*(2*L)` motif contour and
+60% of the supplied effective area. Both area comparisons run before the
+ten-carton motif is constructed. Container defaults do not enable the policy.
+The shared geometric fit, absolute tolerances, rotation/mirror order and all
+other family policies are unchanged. The caller continues to supply the
+effective dimensions including permitted overhang; the shared core does not
+resolve pallet inputs. See [calibration evidence](../engineering/perimeter-core-calibration.md).
+
 Nested Simple Lattice variants use the existing pinwheel parameter caps.
 Placements come directly from the diagonal hole lattice and its boundary
 completion triangles. Both contour orientations are eligible. Container

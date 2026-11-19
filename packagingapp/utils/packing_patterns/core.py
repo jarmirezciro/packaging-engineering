@@ -33,6 +33,7 @@ class PatternSearchPolicy:
     max_materialized_placements: Optional[int] = None
     require_compact_nested_pinwheel: bool = False
     require_coherent_hybrid_pinwheel: bool = False
+    require_relevant_perimeter_core: bool = False
 
 
 CONTAINER_SEARCH_POLICY = PatternSearchPolicy(
@@ -51,6 +52,7 @@ PALLETIZATION_SEARCH_POLICY = PatternSearchPolicy(
     max_materialized_placements=None,
     require_compact_nested_pinwheel=True,
     require_coherent_hybrid_pinwheel=True,
+    require_relevant_perimeter_core=True,
 )
 
 _ACTIVE_POLICY: ContextVar[Optional[PatternSearchPolicy]] = ContextVar(
@@ -960,12 +962,23 @@ def pattern_perimeter_core_mosaic(area_l, area_w, box_l, box_w):
 
     The family is feasible only when ``max(box_l, box_w) >=
     2 * min(box_l, box_w)`` and the complete ``(2L + S) x (2L)`` footprint,
-    or its whole-pattern rotation, fits the available area.  No upper aspect
-    ratio is imposed.  Mirror and rotation equivalents are independently
+    or its whole-pattern rotation, fits the available area. Palletization also
+    requires 90% motif density and 60% effective-area coverage; Container
+    geometry has no upper aspect-ratio restriction. Mirror and rotation equivalents are independently
     validated before the first deterministic fitting candidate is returned.
     """
     if min(area_l, area_w, box_l, box_w) <= 0:
         return []
+
+    if _policy().require_relevant_perimeter_core:
+        long_side = max(box_l, box_w)
+        short_side = min(box_l, box_w)
+        carton_area = 10.0 * long_side * short_side
+        motif_area = (2.0 * long_side + short_side) * (2.0 * long_side)
+        # Independent customer-relevance criteria, before constructing cartons.
+        # area_l/area_w already include the caller's permitted overhang.
+        if carton_area < 0.90 * motif_area or carton_area < 0.60 * area_l * area_w:
+            return []
 
     motif, contour_l, contour_w = _perimeter_core_mosaic_motif(box_l, box_w)
     if not motif:

@@ -78,6 +78,29 @@ the effective pallet area. The palletization catalogue preserves it as a
 distinct candidate when its placement geometry differs from Block, even when
 the carton count is tied.
 
+Palletization additionally applies two independent Perimeter-Core relevance
+criteria before constructing the motif. With normalized carton sides `L>=S`,
+require both:
+
+```text
+motif_density = 10*L*S / ((2*L+S)*(2*L)) >= 0.90
+floor_utilization = 10*L*S / (effective_pallet_l*effective_pallet_w) >= 0.60
+```
+
+The effective footprint includes the existing permitted overhang. Equality is
+eligible. The implementation compares areas in O(1), without additional
+enumeration. The shared Palletization policy enables the check; Container
+Selection retains its original geometric eligibility. Coordinates, ordering,
+rotations, mirroring, numerical fit tolerances, ranking and interlock remain
+unchanged for retained candidates. These thresholds measure customer relevance,
+not mechanical stability, and do not require an exact 2:1 carton ratio.
+
+Calibration Cases 3 and 4 and `capepack-perimeter-core-10` retain their original
+ten-carton layers; Case 4's 66.7% floor coverage is deliberately eligible.
+Cases 6–8 lose only this family. See
+[Perimeter-Core calibration evidence](../engineering/perimeter-core-calibration.md)
+for the complete preset scan, runtime comparison and regression commands.
+
 Pattern definitions are deterministic constructive heuristics. They are not generic unrestricted 2D nesting.
 
 ### Block pattern

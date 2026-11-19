@@ -5,6 +5,7 @@ from html.parser import HTMLParser
 from itertools import combinations
 from math import prod
 from urllib.parse import urlencode
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -687,6 +688,75 @@ class RegressionCompendiumTests(TestCase):
             {"LxW", "WxL"},
         )
         json.dumps(dict(self.client.session), allow_nan=False)
+
+    @override_settings(DEBUG=False)
+    def test_perimeter_core_relevance_reaches_all_surfaces_scenes_and_exports(self):
+        from packagingapp.tests.benchmark_perimeter_core_filter import FAMILY, load_baseline_pattern
+        from packagingapp.tools.palletization.service import analyze_palletization_config
+        from packagingapp.utils.packing_patterns import core
+
+        baseline = load_baseline_pattern()
+        workflow_route = reverse("full_packaging_mode")
+        self.client.post(workflow_route, {
+            "action": "add_step", "after_index": "start", "step_type": "pallet",
+        })
+        for slug, eligible in (
+            ("calibration-case-3", True), ("calibration-case-4", True),
+            ("capepack-perimeter-core-10", True), ("calibration-case-6", False),
+            ("calibration-case-7", False), ("calibration-case-8", False),
+        ):
+            with self.subTest(case=slug):
+                standalone = self.client.get(reverse("palletization_mode1"), {"case": slug})
+                seo_route = reverse("palletization_calculator")
+                seo = self.client.get(seo_route, {"case": slug})
+                rows = seo.context["results_table"]
+                self.assertEqual(standalone.context["results_table"], rows)
+                family = [row for row in rows if row["pattern"] == FAMILY]
+                self.assertEqual([row["boxes_layer_A"] for row in family], [10] if eligible else [])
+                self.assertTrue(any(row["pattern"] != FAMILY for row in rows))
+                config = seo.context["pallet_config"]
+                workflow_post = {
+                    **{f"{key}_0": value for key, value in config.items()},
+                    "action": "run_step", "index": "0", "step_action_0": "run_analysis",
+                    "selected_result_key_0": "",
+                }
+                workflow = self.client.post(workflow_route, workflow_post, follow=True)
+                step = workflow.context["steps"][0]
+                self.assertEqual([
+                    {key: row[key] for key in expected} for row, expected in zip(
+                        step["results_table"], rows, strict=True,
+                    )
+                ], rows)
+                if eligible:
+                    row = family[0]
+                    self.assertTrue(row["interlock_possible"])
+                    for key in (row["result_key"], row["interlock_result_key"]):
+                        with self.subTest(selection=key):
+                            seo = self.client.post(seo_route, {
+                                **config, "action": "select_result", "selected_result_key": key,
+                            })
+                            selected = seo.context["selected_result"]
+                            self.assertEqual(selected["pattern"], FAMILY)
+                            self.assertEqual(selected["boxes_layer_A"], 10)
+                            self.assert_pallet_case_geometry(seo)
+                            # The pre-filter constructor drives exactly the same
+                            # ordered Three.js coordinates/orientations and metrics.
+                            with patch.object(core, "pattern_perimeter_core_mosaic", baseline):
+                                historical = analyze_palletization_config(config, selected_result_key=key)
+                            self.assertEqual(seo.context["threejs_scene"], historical["threejs_scene"])
+                            self.assertEqual(selected, historical["serialized_result"]["selected_result"])
+                            self.assertEqual(
+                                self.client.session["palletization_last_export"]["analysis_report"], selected,
+                            )
+                            workflow = self.client.post(workflow_route, {
+                                **workflow_post, "step_action_0": "select_result", "selected_result_key_0": key,
+                            }, follow=True)
+                            step = workflow.context["steps"][0]
+                            self.assertEqual({field: step["selected_result"][field] for field in selected}, selected)
+                else:
+                    self.assert_pallet_case_geometry(standalone)
+                    self.assert_pallet_case_geometry(seo)
+                json.dumps(dict(self.client.session), allow_nan=False)
 
     def test_lattice_pallet_candidates_render_selectable_threejs_scenes(self):
         for dimension in ("1d", "2d"):
