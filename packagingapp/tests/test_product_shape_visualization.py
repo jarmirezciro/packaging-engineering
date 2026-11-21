@@ -984,7 +984,7 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
             )
             self.assertIn(
                 "container_threejs_viewer.js' %}"
-                "?v=20260731-product-shapes",
+                "?v=20261121-bag-film",
                 template,
             )
 

@@ -143,8 +143,18 @@ model. Other Transport consumers and inputs continue to render generic cuboids.
 
 Bag Design, Single bag analysis, and the selected Optimal Bag result serialize
 the authoritative engine arrangement into one JSON-safe `packageType=bag`
-scene. The shared viewer draws the usable bag body, width-side opening, reserved
-length sealing strip, and exactly the selected calculated product placements.
+scene. The shared viewer uses a bag-specific film builder driven by
+`bag.film.depthAxis` and `bag.film.bundleDimensions` in scene coordinates.
+It draws a rectangular open mouth normal to the insertion axis, an arrow
+pointing inward, a tinted sealing collar at the mouth, and a taper to the
+closed rear seam. The Show bag switch hides that group and preserves products.
+The viewer retains the selected product coordinates and dimensions.
+
+The mouth follows the two opening spans plus the fit allowance, within the
+available perimeter of twice the lay-flat width. The axial allowance goes
+into the mouth collar once. The tapered rear and loose stock on oversized
+bags are approximations. The preview omits wrinkles, stretch, and material
+deformation. Flat dimensions remain in the engine and report data.
 Standalone Bag Selection, Packaging Flow, the public calculator, and
 Multi-product Bag Selection consume the shared placement contract; the
 multi-product surface uses its intentional cuboid-only fallback.

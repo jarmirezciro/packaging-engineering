@@ -151,9 +151,12 @@ Design evaluates insertion along `L`, `W`, and `H` in each canonical
 arrangement. Each arrangement produces up to three distinct flat sizes
 with a width-side opening and 100% flat-area utilization. The canonical
 arrangement IDs, cubicity ordering and representative product placements
-match Container Design with all Container orientations enabled. Existing
-candidate IDs still select their original length-axis proposal. Additional
-IDs identify the parent arrangement and insertion axis.
+come from the shared Container Design generator. Bag Design keeps the first
+proposal for each matching flat size and insertion-relative grid. Packed
+bundles with more than one product also retain distinct upright spans and
+layer counts because these distinguish downstream packing. For a single
+90 × 60 × 25 mm product, nine proposals consolidate to three. Older IDs for
+removed rotations resolve to the retained proposal with the same flat size.
 Squareness is not a Bag Design metric. Design Mode accepts only product weight
 for optional net-content weight. Packaging weight, total package weight, and
 payload metrics belong to later package evaluation and are not read or
@@ -169,9 +172,9 @@ PDFs embed the validated current Three.js snapshot.
 The scene's `bag.insertion` carries the selected depth and opening-plane
 axes and spans in millimetres. Design axes refer to the canonical bundle.
 Selection axes refer to the original product grid before it is placed in
-the bag. Design retains the canonical placement coordinates for every
-proposal, so the existing viewer may show the opening on a different axis
-from the selected insertion. Its rigid visual envelope is approximate.
+the bag. `bag.film` identifies the depth axis and dimensions in the actual
+placement coordinates, so the viewer can form the film around the bundle
+without moving the products.
 
 ## Case compendium
 

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { buildBagFilmGeometry } from "./bag_film_geometry.js?v=20261121";
 import {
     createApprovedProductMaterials,
     createApprovedProductVisual,
@@ -185,6 +186,49 @@ function addContainerBody(target, dims) {
     });
 }
 
+function addBagFilm(target, dims, sceneData) {
+    const film = buildBagFilmGeometry(sceneData);
+    if (!film) return;
+
+    function mapped(point) {
+        return mapPosition(...point, dims);
+    }
+
+    function addFilmPanels(rings, color, opacity) {
+        const positions = rings.flatMap((ring) => ring.flatMap((point) => mapped(point).toArray()));
+        const indices = [];
+        for (let row = 1; row < rings.length; row += 1) {
+            for (let i = 0; i < 4; i += 1) {
+                const a = (row - 1) * 4 + i;
+                const b = (row - 1) * 4 + (i + 1) % 4;
+                indices.push(a, b, b + 4, a, b + 4, a + 4);
+            }
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+        target.add(new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+            color, transparent: true, opacity, side: THREE.DoubleSide,
+            depthWrite: false, roughness: 0.55, flatShading: true,
+        })));
+    }
+
+    addFilmPanels([film.rearSeam, film.shoulder, film.collar], 0x56c6d2, 0.23);
+    addFilmPanels([film.collar, film.mouth], 0x0b8ba1, 0.38);
+    const seamMaterial = new THREE.LineBasicMaterial({ color: 0x14748a });
+    const seam = new THREE.BufferGeometry().setFromPoints(film.rearSeam.slice(0, 2).map(mapped));
+    target.add(new THREE.Line(seam, seamMaterial));
+    for (const ring of [film.collar, film.mouth]) {
+        target.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ring.map(mapped)), seamMaterial));
+    }
+    const [x, y, z] = film.insertionDirection;
+    target.add(new THREE.ArrowHelper(
+        new THREE.Vector3(x, z, y), mapped(film.arrowTail), film.arrowLength, 0x126f83,
+        film.arrowLength * 0.38, film.arrowLength * 0.32,
+    ));
+}
+
 function addQuad(target, points, dims, material, edgeColor = 0x111827) {
     const vertices = [];
     points.forEach((p) => {
@@ -254,7 +298,7 @@ function addRscFlaps(target, dims, sceneData) {
 
 function setCameraView(camera, controls, dims, viewName) {
     const maxDim = Math.max(dims.length, dims.width, dims.height);
-    const target = new THREE.Vector3(0, dims.height * 0.45, 0);
+    const target = dims.target || new THREE.Vector3(0, dims.height * 0.45, 0);
     const distance = maxDim * 2.0;
 
     const views = {
@@ -265,6 +309,7 @@ function setCameraView(camera, controls, dims, viewName) {
     };
 
     camera.position.copy(views[viewName] || views.reset);
+    if (dims.target) camera.position.add(target);
     camera.up.set(0, 1, 0);
     camera.lookAt(target);
     controls.target.copy(target);
@@ -338,12 +383,6 @@ function initViewer(el) {
     renderer.domElement.style.display = "block";
     el.replaceChildren(renderer.domElement);
 
-    const { camera, viewSize } = setupCamera(width, height, dims);
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.screenSpacePanning = true;
-
     scene.add(new THREE.HemisphereLight(0xffffff, 0xe2e8f0, 1.7));
     const dir = new THREE.DirectionalLight(0xffffff, 1.25);
     dir.position.set(1, 2, 1.5);
@@ -357,8 +396,13 @@ function initViewer(el) {
     const productGroup = new THREE.Group();
     root.add(containerGroup, subboxGroup, productGroup);
 
-    addContainerBody(containerGroup, dims);
-    addRscFlaps(containerGroup, dims, sceneData);
+    const isBag = sceneData.packageType === "bag";
+    if (isBag) {
+        addBagFilm(containerGroup, dims, sceneData);
+    } else {
+        addContainerBody(containerGroup, dims);
+        addRscFlaps(containerGroup, dims, sceneData);
+    }
 
     (sceneData.subboxes || []).forEach((box) => {
         addCuboid(subboxGroup, box, dims, {
@@ -402,16 +446,40 @@ function initViewer(el) {
         }
     });
 
+    let viewDims = dims;
+    if (isBag) {
+        const bounds = new THREE.Box3().setFromObject(root);
+        const size = bounds.getSize(new THREE.Vector3());
+        viewDims = {
+            length: size.x, width: size.z, height: size.y,
+            target: bounds.getCenter(new THREE.Vector3()),
+        };
+    }
+    const { camera, viewSize } = setupCamera(width, height, viewDims);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.screenSpacePanning = true;
+
     let currentViewName = "reset";
-    setCameraView(camera, controls, dims, currentViewName);
+    setCameraView(camera, controls, viewDims, currentViewName);
 
     const panel = el.closest(".container-threejs-panel") || document;
     panel.querySelectorAll("[data-container-threejs-view]").forEach((button) => {
         button.addEventListener("click", () => {
             currentViewName = button.dataset.containerThreejsView || "reset";
-            setCameraView(camera, controls, dims, currentViewName);
+            setCameraView(camera, controls, viewDims, currentViewName);
         });
     });
+
+    const bagToggle = isBag && panel.querySelector('[data-container-threejs-toggle="container"]');
+    if (bagToggle) {
+        function syncBagVisibility() {
+            containerGroup.visible = bagToggle.checked;
+        }
+        bagToggle.addEventListener("change", syncBagVisibility);
+        syncBagVisibility();
+    }
 
     const toggle = panel.querySelector('[data-container-threejs-toggle="subboxes"]');
     if (toggle) {

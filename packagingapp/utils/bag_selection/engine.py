@@ -193,6 +193,8 @@ def _build_bag_threejs_scene(
     body_height: float,
     products: List[Dict[str, Any]],
     mode: str,
+    bundle: Tuple[float, float, float],
+    scene_insertion_axis: str,
     insertion: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     return {
@@ -214,6 +216,10 @@ def _build_bag_threejs_scene(
             "usableBodyWidth": round(body_width, 6),
             "sealingAllowance": round(SEALING_AREA, 6),
             "fitTolerance": round(TOLERANCE, 6),
+            "film": {
+                "bundleDimensions": [round(span, 6) for span in bundle],
+                "depthAxis": scene_insertion_axis,
+            },
             **({"insertion": insertion} if insertion else {}),
         },
         "rsc": {"enabled": False},
@@ -243,11 +249,18 @@ def build_bag_design_candidates(
     product = (float(product_l), float(product_w), float(product_h))
     design = build_canonical_design_arrangements(product, desired_quantity, 1, 1, 1)
     candidates = []
+    representatives = {}
+    candidate_aliases = {}
     for arrangement in design["arrangements"]:
         bundle_l = arrangement["bundle_length"]
         bundle_w = arrangement["bundle_width"]
         bundle_h = arrangement["bundle_height"]
         axes = (("length", bundle_l), ("width", bundle_w), ("height", bundle_h))
+        grid = (
+            (bundle_l, arrangement["rows"]),
+            (bundle_w, arrangement["columns"]),
+            (bundle_h, arrangement["layers"]),
+        )
         products = [
             {**item, "orientationIndex": arrangement["orientation_index"]}
             for item in arrangement["products"]
@@ -289,9 +302,23 @@ def build_bag_design_candidates(
                     "arrangement_id": parent["arrangement_id"],
                     "insertion_axis": insertion["axis"],
                 }
+            candidate_id = _stable_design_candidate_id("bag-design", identity)
+            # A rotation carries the grid count and span together. Keep the
+            # depth fixed and allow the two opening axes to be exchanged.
+            key = (
+                parent["design_quantity"], bag_width, bag_length,
+                grid[order[0]], tuple(sorted((grid[order[1]], grid[order[2]]))),
+                # A multi-item bundle's upright height and layers describe
+                # how it is packed and the height inherited by Packaging Flow.
+                grid[2] if parent["design_quantity"] > 1 else None,
+            )
+            if key in representatives:
+                candidate_aliases[candidate_id] = representatives[key]
+                continue
+            representatives[key] = candidate_id
             candidates.append({
                 **parent,
-                "candidate_id": _stable_design_candidate_id("bag-design", identity),
+                "candidate_id": candidate_id,
                 "rank": len(candidates) + 1,
                 "bag_width": round(bag_width, 2),
                 "bag_length": round(bag_length, 2),
@@ -305,6 +332,8 @@ def build_bag_design_candidates(
                     body_height=bundle_h,
                     products=products,
                     mode="design",
+                    bundle=(bundle_l, bundle_w, bundle_h),
+                    scene_insertion_axis=insertion["axis"],
                     insertion=insertion,
                 ),
             })
@@ -315,6 +344,7 @@ def build_bag_design_candidates(
         "additional_capacity": design["additional_capacity"],
         "generated_candidate_count": design["generated_candidate_count"],
         "candidates": candidates,
+        "candidate_aliases": candidate_aliases,
     }
 
 
@@ -692,6 +722,8 @@ def run_bag_mode1_and_render(
         body_height=bag_box_height,
         products=products,
         mode=str(render_mode or "single"),
+        bundle=(body_length, body_width, body_height),
+        scene_insertion_axis="length",
         insertion=best_option.get("insertion"),
     )
     scene["selectedRequiredBag"] = {

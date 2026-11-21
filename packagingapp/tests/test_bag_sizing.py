@@ -45,6 +45,12 @@ HEIGHT_INSERTION = {
     "opening_axes": ["length", "width"],
     "opening_dimensions": [90, 60],
 }
+DESIGN_SHORT_INSERTION = {
+    "axis": "width",
+    "depth": 25,
+    "opening_axes": ["length", "height"],
+    "opening_dimensions": [60, 90],
+}
 
 
 class BagSizingEngineTests(SimpleTestCase):
@@ -78,19 +84,29 @@ class BagSizingEngineTests(SimpleTestCase):
                     compute_max_quantity_for_bag(*PRODUCT, length, width)["max_quantity"], expected
                 )
 
-    def test_each_canonical_reference_bundle_has_three_distinct_sizes(self):
-        candidates = build_bag_design_candidates(*PRODUCT, 1)["candidates"]
-        expected = {(127, 87, 11049), (97, 117, 11349), (97, 152, 14744)}
-        arrangement_ids = {row["arrangement_id"] for row in candidates}
-        self.assertEqual(len(arrangement_ids), 3)
-        self.assertEqual(len({row["candidate_id"] for row in candidates}), 9)
-        for arrangement_id in arrangement_ids:
-            rows = [row for row in candidates if row["arrangement_id"] == arrangement_id]
-            self.assertEqual([row["insertion"]["axis"] for row in rows], ["length", "width", "height"])
-            self.assertEqual({(row["bag_length"], row["bag_width"], row["bag_area"]) for row in rows}, expected)
-            for row in rows:
-                self.assertEqual(row["render_data"]["products"], rows[0]["render_data"]["products"])
-                self.assertEqual(row["render_data"]["bag"]["insertion"], row["insertion"])
+    def test_reference_rotations_consolidate_to_three_sizes_and_keep_opening_planes(self):
+        design = build_bag_design_candidates(*PRODUCT, 1)
+        candidates = design["candidates"]
+        expected = [
+            ("length", 60, [25, 90], 117, 97, 11349),
+            ("width", 25, [60, 90], 152, 97, 14744),
+            ("height", 90, [60, 25], 87, 127, 11049),
+        ]
+        self.assertEqual(len(candidates), 3)
+        self.assertEqual(len(design["candidate_aliases"]), 6)
+        self.assertEqual(len({row["candidate_id"] for row in candidates}), 3)
+        self.assertEqual(len({row["arrangement_id"] for row in candidates}), 1)
+        self.assertEqual([row["rank"] for row in candidates], [1, 2, 3])
+        self.assertEqual(build_bag_design_candidates(*PRODUCT, 1), design)
+        for row, (axis, depth, opening, width, length, area) in zip(candidates, expected):
+            self.assertEqual(row["insertion"]["axis"], axis)
+            self.assertEqual(row["insertion"]["depth"], depth)
+            self.assertEqual(row["insertion"]["opening_dimensions"], opening)
+            self.assertEqual((row["bag_width"], row["bag_length"], row["bag_area"]), (width, length, area))
+            scene = row["render_data"]
+            self.assertEqual(scene["products"], candidates[0]["render_data"]["products"])
+            self.assertEqual(scene["bag"]["insertion"], row["insertion"])
+            self.assertEqual(scene["bag"]["film"], {"depthAxis": axis, "bundleDimensions": [60, 25, 90]})
 
     def test_design_sizes_every_arrangement_in_existing_cubicity_order(self):
         candidates = build_bag_design_candidates(*PRODUCT, 2)["candidates"]
@@ -122,6 +138,14 @@ class BagSizingEngineTests(SimpleTestCase):
             [(row["insertion"]["depth"], row["bag_length"], row["bag_width"]) for row in regular_grid],
             [(90, 152, 112), (60, 122, 142), (50, 122, 152)],
         )
+        same_size = [row for row in candidates if (row["bag_width"], row["bag_length"]) == (112, 152)]
+        self.assertEqual({row["bundle_height"] for row in same_size}, {50, 60, 90})
+        self.assertEqual(len({row["arrangement_id"] for row in same_size}), 3)
+        for row in same_size:
+            self.assertEqual(len(row["render_data"]["products"]), 2)
+            self.assertEqual(row["render_data"]["bag"]["film"]["bundleDimensions"], [
+                row["bundle_length"], row["bundle_width"], row["bundle_height"],
+            ])
 
     def test_equal_spans_keep_only_the_first_equivalent_insertion_axis(self):
         equal_sides = [
@@ -135,6 +159,10 @@ class BagSizingEngineTests(SimpleTestCase):
         cube = build_bag_design_candidates(25, 25, 25, 1)["candidates"]
         self.assertEqual([(row["insertion"]["axis"], row["bag_length"], row["bag_width"]) for row in cube], [
             ("length", 62, 52),
+        ])
+        rectangular = build_bag_design_candidates(90, 25, 25, 1)["candidates"]
+        self.assertCountEqual([(row["bag_length"], row["bag_width"]) for row in rectangular], [
+            (127, 52), (62, 117),
         ])
         for product, required in [((90, 25, 25), [(127, 52), (62, 117)]), ((25, 25, 25), [(62, 52)])]:
             with self.subTest(product=product):
@@ -206,6 +234,9 @@ class BagSizingSurfaceTests(TestCase):
                 result = response.context["result"]
                 self.assertEqual((result["max_quantity"], result["best_required"], result["usage"]), (1, (97, 152), 1.0))
                 self.assertEqual(response.context["threejs_scene"]["bag"]["insertion"], HEIGHT_INSERTION)
+                self.assertEqual(response.context["threejs_scene"]["bag"]["film"], {
+                    "depthAxis": "length", "bundleDimensions": [25, 90, 60],
+                })
                 capacity = analyze_bag_capacity(response.context["bag_config"], selected_material=bag)["pending_result"]
                 self.assertEqual(capacity["insertion"], HEIGHT_INSERTION)
                 self.assertEqual(tuple(capacity[axis] for axis in ("length", "width", "height")), (25, 90, 60))
@@ -240,25 +271,30 @@ class BagSizingSurfaceTests(TestCase):
         self.assertContains(response, "117 × 97 mm")
         self.assertContains(response, "87 × 127 mm")
         row = response.context["result"]
-        self.assertEqual(row["candidate_id"], SAVED_DESIGN_ID)
-        self.assertEqual((row["bundle_length"], row["bundle_width"], row["bundle_height"]), (90, 25, 60))
+        design = build_bag_design_candidates(*PRODUCT, 1)
+        self.assertEqual(row["candidate_id"], design["candidate_aliases"][SAVED_DESIGN_ID])
+        self.assertEqual((row["bundle_length"], row["bundle_width"], row["bundle_height"]), (60, 25, 90))
+        self.assertEqual(row["insertion"]["depth"], 90)
+        capacity = analyze_bag_capacity({
+            **response.context["bag_config"], "selected_design_candidate_id": SAVED_DESIGN_ID,
+        })
+        self.assertEqual(capacity["selected_design_candidate_id"], row["candidate_id"])
         self.assertEqual((row["bag_width"], row["bag_length"], row["bag_area"], row["bag_usage"]), (87, 127, 11049, 1))
         scene = response.context["threejs_scene"]["bag"]
         self.assertEqual((scene["flatWidth"], scene["flatLength"]), (87, 127))
         saved = self.client.session["bag_selection_design_export"]
         json.dumps(saved, allow_nan=False)
-        self.assertEqual(saved["selected_candidate"]["candidate_id"], SAVED_DESIGN_ID)
+        self.assertEqual(saved["selected_candidate"]["candidate_id"], row["candidate_id"])
         self.assertEqual(saved["bag"]["dimensions"], "87 × 127 mm")
         self.assertEqual(saved["analysis_report"]["bag_area"], 11049)
 
         third = next(
             row for row in response.context["design_candidates"]
-            if (row["bundle_length"], row["bundle_width"], row["bundle_height"]) == PRODUCT
-            and row["insertion"]["axis"] == "height"
+            if row["insertion"]["depth"] == 25
         )
         selected = self.post_bag(mode="design", action="select_design_candidate", selected_design_candidate_id=third["candidate_id"])
         self.assertEqual(selected.context["result"]["candidate_id"], third["candidate_id"])
-        self.assertEqual(selected.context["threejs_scene"]["bag"]["insertion"], HEIGHT_INSERTION)
+        self.assertEqual(selected.context["threejs_scene"]["bag"]["insertion"], DESIGN_SHORT_INSERTION)
         json.dumps(self.client.session["bag_selection_design_export"], allow_nan=False)
 
         image = BytesIO()
@@ -277,7 +313,7 @@ class BagSizingSurfaceTests(TestCase):
             self.assertTrue((Path(media_root) / payload["threejs_snapshot_rel_path"]).is_file())
             self.assertEqual(payload["bag"]["dimensions"], "152 × 97 mm")
             self.assertEqual(payload["analysis_report"]["bag_area"], 14744)
-            self.assertEqual(payload["selected_candidate"]["insertion"], HEIGHT_INSERTION)
+            self.assertEqual(payload["selected_candidate"]["insertion"], DESIGN_SHORT_INSERTION)
 
     def test_multi_product_catalogue_applies_the_same_fit_to_each_product(self):
         products = ProductCatalogue.objects.create(name="Lay-flat products")
@@ -302,6 +338,9 @@ class BagSizingSurfaceTests(TestCase):
             "product_id": reference.pk, "bag_id": self.bags[97, 152].pk,
         }).json()
         self.assertEqual(draw["threejs_scene"]["bag"]["insertion"], HEIGHT_INSERTION)
+        self.assertEqual(draw["threejs_scene"]["bag"]["film"], {
+            "depthAxis": "length", "bundleDimensions": [25, 90, 60],
+        })
         self.assertEqual(len(results[doubled.pk]), 1)
         self.assertEqual(results[doubled.pk][0]["best_required"], [152, 112])
         self.assertAlmostEqual(results[doubled.pk][0]["usage"], 17024 / 17556)

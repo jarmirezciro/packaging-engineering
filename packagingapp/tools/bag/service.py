@@ -677,6 +677,7 @@ def _analyze_bag_design(
         }
 
     requested_id = str(config.get("selected_design_candidate_id") or "")
+    requested_id = design["candidate_aliases"].get(requested_id, requested_id)
     selected = next((row for row in candidates if row["candidate_id"] == requested_id), candidates[0])
     decorate_product_scene(
         selected["render_data"],
@@ -1034,6 +1035,7 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
                 "pending_result": None,
             }
         requested_id = str(cfg.get("selected_design_candidate_id") or "")
+        requested_id = design["candidate_aliases"].get(requested_id, requested_id)
         selected = next(
             (row for row in candidates if row["candidate_id"] == requested_id),
             candidates[0],
