@@ -4,14 +4,40 @@ import { buildBagFilmGeometry } from "../../../static/js/bag_film_geometry.js";
 
 const bundle = [90, 60, 25];
 const cases = [
-    { axis: "length", index: 0, width: 87, length: 127, depth: 90, mouthSpans: [0, 61, 26] },
-    { axis: "width", index: 1, width: 117, length: 97, depth: 60, mouthSpans: [91, 0, 26] },
-    { axis: "height", index: 2, width: 152, length: 97, depth: 25, mouthSpans: [91, 61, 0] },
+    { axis: "length", index: 0, width: 87, length: 127, depth: 90, mouthSpans: [0, 61, 26], run: 13.5, axialSpan: 117.140054945 },
+    { axis: "width", index: 1, width: 117, length: 97, depth: 60, mouthSpans: [91, 0, 26], run: 13.5, axialSpan: 87.140054945 },
+    { axis: "height", index: 2, width: 152, length: 97, depth: 25, mouthSpans: [91, 61, 0], run: 31, axialSpan: 71.545268253 },
 ];
 
 function span(points, axis) {
     const coordinates = points.map((point) => point[axis]);
     return Math.max(...coordinates) - Math.min(...coordinates);
+}
+
+function distance(start, end) {
+    return Math.hypot(...start.map((coordinate, axis) => end[axis] - coordinate));
+}
+
+function perimeter(ring) {
+    return ring.reduce((length, point, index) => length + distance(point, ring[(index + 1) % ring.length]), 0);
+}
+
+function assertNear(actual, expected) {
+    assert.ok(Math.abs(actual - expected) < 1e-8, `Expected ${actual} to be near ${expected}`);
+}
+
+function assertEndBudget(film, depthAxis, depth, developedLength) {
+    const crossAxes = [0, 1, 2].filter((axis) => axis !== depthAxis);
+    const halfShort = Math.min(...crossAxes.map((axis) => span(film.mouth, axis))) / 2;
+    const rearRun = distance(film.rearSeam[0], film.shoulder[0]);
+    const openingRun = film.collar[0][depthAxis] - depth;
+    const sealingStrip = distance(film.collar[0], film.mouth[0]);
+    const developedBody = distance(film.shoulder[0], film.collar[0]);
+    assertNear(sealingStrip, 10);
+    assertNear(rearRun + developedBody + sealingStrip, developedLength);
+    assert.ok(openingRun + 1e-8 >= halfShort, "Both faces can reach the center plane before sealing");
+    assert.ok(rearRun <= openingRun + 1e-8);
+    assert.ok(film.mouth[0][depthAxis] - film.rearSeam[0][depthAxis] < developedLength);
 }
 
 for (const example of cases) {
@@ -28,10 +54,12 @@ for (const example of cases) {
         });
         assert.deepEqual([0, 1, 2].map((axis) => span(film.mouth, axis)), example.mouthSpans);
         assert.equal(film.openingPerimeter, 2 * example.width);
+        assertNear(perimeter(film.mouth), 2 * example.width);
         const d = example.index;
         assert.equal(film.insertionDirection[d], -1);
-        assert.equal(film.collar[0][d], example.depth + 2);
-        assert.equal(film.mouth[0][d] - film.collar[0][d], 10);
+        assertNear(film.collar[0][d] - example.depth, example.run);
+        assertNear(film.mouth[0][d] - film.rearSeam[0][d], example.axialSpan);
+        assertEndBudget(film, d, example.depth, example.length);
         assert.ok(film.rearSeam.every((point) => point[d] < 0));
         assert.equal(new Set(film.rearSeam.map((point) => point.join(","))).size, 2);
         assert.ok(film.arrowTail[d] - film.arrowLength > film.mouth[0][d]);
@@ -52,7 +80,8 @@ test("oversized catalogue stock does not stretch into a rigid envelope", () => {
     });
     assert.equal(film.openingPerimeter, 304);
     assert.deepEqual(film.insertionDirection, [-1, 0, 0]);
-    assert.ok(film.mouth.every((point) => point[0] === 37));
+    assert.ok(film.mouth.every((point) => point[0] === 66));
+    assertEndBudget(film, 0, 25, 97);
 });
 
 test("saved Design scenes can recover the mouth from insertion and product placement", () => {
@@ -63,5 +92,83 @@ test("saved Design scenes can recover the mouth from insertion and product place
     });
     assert.deepEqual(film.insertionDirection, [0, 0, -1]);
     assert.equal(film.openingPerimeter, 304);
-    assert.ok(film.mouth.every((point) => point[2] === 37));
+    assert.ok(film.mouth.every((point) => point[2] === 66));
+    assertEndBudget(film, 2, 25, 97);
+});
+
+const fitCases = [
+    { name: "equal opening spans", bundle: [70, 40, 40], axis: "length", index: 0, width: 82, length: 122, tolerance: 2 },
+    { name: "cube", bundle: [30, 30, 30], axis: "width", index: 1, width: 62, length: 72, tolerance: 2 },
+    { name: "thin product with large opening", bundle: [180, 120, 4], axis: "height", index: 2, width: 302, length: 136, tolerance: 2 },
+    { name: "long product with small opening", bundle: [420, 12, 8], axis: "length", index: 0, width: 22, length: 440, tolerance: 2 },
+    { name: "larger fit tolerance", bundle: [55, 35, 15], axis: "length", index: 0, width: 54, length: 84, tolerance: 4 },
+    { name: "zero fit tolerance", bundle: [90, 60, 25], axis: "length", index: 0, width: 85, length: 125, tolerance: 0 },
+    { name: "submillimetre opening span", bundle: [80, 11, 0.5], axis: "length", index: 0, width: 13.5, length: 92.5, tolerance: 2 },
+];
+
+for (const example of fitCases) {
+    test(`closure and seal stay within flat stock for ${example.name}`, () => {
+        const film = buildBagFilmGeometry({
+            mode: "design",
+            bag: {
+                film: { depthAxis: example.axis, bundleDimensions: example.bundle },
+                flatWidth: example.width,
+                flatLength: example.length,
+                fitTolerance: example.tolerance,
+                sealingAllowance: 10,
+            },
+        });
+        assertNear(perimeter(film.mouth), 2 * example.width);
+        assertEndBudget(film, example.index, example.bundle[example.index], example.length);
+    });
+}
+
+test("the 90 mm cube leaves 46 mm of closure film before the 10 mm seal", () => {
+    const film = buildBagFilmGeometry({
+        mode: "design",
+        bag: {
+            film: { depthAxis: "length", bundleDimensions: [90, 90, 90] },
+            flatWidth: 182, flatLength: 192, fitTolerance: 2, sealingAllowance: 10,
+        },
+    });
+    assertNear(perimeter(film.mouth), 364);
+    assertNear(film.collar[0][0], 136);
+    assertNear(film.mouth[0][0], 146);
+    assertNear(film.rearSeam[0][0], -6.763874629);
+    assertEndBudget(film, 0, 90, 192);
+});
+
+test("a four-product grid uses the bundle opening and contains every placement", () => {
+    const products = [
+        { x: 0, y: 0, z: 0, dx: 60, dy: 20, dz: 30 },
+        { x: 60, y: 0, z: 0, dx: 60, dy: 20, dz: 30 },
+        { x: 0, y: 20, z: 0, dx: 60, dy: 20, dz: 30 },
+        { x: 60, y: 20, z: 0, dx: 60, dy: 20, dz: 30 },
+    ];
+    const film = buildBagFilmGeometry({
+        mode: "design",
+        products,
+        bag: {
+            film: { depthAxis: "width", bundleDimensions: [120, 40, 30] },
+            flatWidth: 152, flatLength: 82, fitTolerance: 2, sealingAllowance: 10,
+        },
+    });
+    assertNear(perimeter(film.mouth), 304);
+    assertEndBudget(film, 1, 40, 82);
+    for (const { x, y, z, dx, dy, dz } of products) {
+        assert.ok(x >= film.shoulder[0][0] && x + dx <= film.shoulder[1][0]);
+        assert.ok(z >= film.shoulder[0][2] && z + dz <= film.shoulder[2][2]);
+        assert.ok(y >= film.shoulder[0][1] && y + dy <= film.collar[0][1]);
+    }
+});
+
+test("the preview does not invent closure stock for an inconsistent saved bag length", () => {
+    const scene = {
+        mode: "design",
+        bag: {
+            film: { depthAxis: "length", bundleDimensions: bundle },
+            flatWidth: 87, flatLength: 125.5, fitTolerance: 2, sealingAllowance: 10,
+        },
+    };
+    assert.equal(buildBagFilmGeometry(scene), null);
 });

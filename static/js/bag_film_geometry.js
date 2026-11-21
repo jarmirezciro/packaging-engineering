@@ -37,14 +37,20 @@ export function buildBagFilmGeometry(scene) {
     const widthSlack = Math.max(0, bag.flatWidth - longSpan - shortSpan);
     const pad = Math.min(tolerance, widthSlack) / 4;
 
-    // Use only the fit allowance at the mouth. Extra stock on oversized bags
-    // can fold or wrinkle, so the preview leaves it unmodelled.
-    const lengthSlack = Math.max(0, bag.flatLength - depth - seal - tolerance);
-    const rearFold = Math.min(shortSpan / 2, lengthSlack);
-    const collarStart = depth + tolerance;
-    const mouthDepth = collarStart + seal;
     const a = longSpan / 2 + pad;
     const b = shortSpan / 2 + pad;
+
+    // Budget the film on a longitudinal panel centerline. A rear taper of
+    // axial reach r develops to hypot(r, b). Keep at least the same budget
+    // at the open end so each face can travel b inward before sealing.
+    // Loose stock beyond the fitted envelope remains unmodelled.
+    const endFilm = Math.min(bag.flatLength - depth - seal, shortSpan + tolerance);
+    if (!(endFilm >= 2 * b)) return null;
+    const rearBudget = endFilm / 2;
+    const rearFold = Math.min(shortSpan / 2, Math.sqrt((rearBudget - b) * (rearBudget + b)));
+    const openingRun = endFilm - Math.hypot(rearFold, b);
+    const collarStart = depth + openingRun;
+    const mouthDepth = collarStart + seal;
 
     function point(d, across, rise) {
         const position = [0, 0, 0];

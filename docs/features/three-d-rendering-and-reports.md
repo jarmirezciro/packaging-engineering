@@ -151,10 +151,18 @@ closed rear seam. The Show bag switch hides that group and preserves products.
 The viewer retains the selected product coordinates and dimensions.
 
 The mouth follows the two opening spans plus the fit allowance, within the
-available perimeter of twice the lay-flat width. The axial allowance goes
-into the mouth collar once. The tapered rear and loose stock on oversized
-bags are approximations. The preview omits wrinkles, stretch, and material
-deformation. Flat dimensions remain in the engine and report data.
+available perimeter of twice the lay-flat width. The film budget along a
+longitudinal face centerline reserves product depth and the sealing collar
+first. The smaller opening span plus longitudinal tolerance supplies both
+end transitions, capped by the remaining flat stock. With padded half-span
+`b` and projected rear reach `r`, the rear taper consumes `hypot(r, b)`.
+The taper uses at most half the end budget. The material left at the open
+end is shown straight beyond the bundle and before the separate collar.
+Each face can travel at least `b` inward in this model while retaining the
+sealing strip. Projected axial span may be shorter than developed length.
+This model estimates longitudinal closure stock. It omits corner and side
+folds, excess catalogue stock, wrinkles, and deformation. Flat dimensions
+remain in the engine and report data.
 Standalone Bag Selection, Packaging Flow, the public calculator, and
 Multi-product Bag Selection consume the shared placement contract; the
 multi-product surface uses its intentional cuboid-only fallback.
