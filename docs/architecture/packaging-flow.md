@@ -313,7 +313,7 @@ expressed per unit of the next packaging stage.
 | PF-03 216 or 240 Cartons per Pallet? | [CapePack comparison](../../packagingapp/content/blog/articles/cartons-per-pallet-case-design-exploration.md) uses 12 primary cartons per shipping case. | The 20 × 18 × 8 in internal design opens at 20 cases and 240 primary cartons per pallet. The 15 × 12 × 16 in internal design gives 18 cases and 216 primary cartons. Palletization inherits the external size in both runs. |
 | PF-04 CapePack Parameter Fine-Tuning | [CapePack continuation](../../packagingapp/content/blog/articles/capepack-parameter-fine-tuning.md) uses a 72 in total height limit. | The starting 12-pack gives 30 cases and 360 primary cartons per pallet. Set the quantity to 16 and select the 16 × 12 × 20 in internal design to reproduce 24 cases and 384 primary cartons. |
 | PF-05 Full Chain with Bag | New demonstration based on the [public Bag Selection fixture](../../packagingapp/tools/bag/case_presets.py). | 6 products/bag × 4 bags/carton × 12 cartons/pallet × 30 pallets = 8,640 products. |
-| PF-06 Bag Design Final Capacity | New demonstration using the existing Bag Design and final-capacity services. | Starts at 4 products/bag × 24 bags/carton × 8 cartons/pallet = 768 products. Optimize final capacity ranks the 272 × 112 × 20 mm bag first. Accept and recalculate it to get 4 × 126 × 8 = 4,032. |
+| PF-06 Bag Design Final Capacity | New demonstration using the existing Bag Design and final-capacity services. | Starts with a 152 × 152 × 90 mm bag at 4 products/bag × 24 bags/carton × 8 cartons/pallet = 768 products. Optimize final capacity ranks the 272 × 112 × 20 mm bag first. Accept and recalculate it to get 4 × 126 × 8 = 4,032. |
 | PF-07 Mixed Units Across the Chain | New demonstration based on [the metric-equivalence test](../../packagingapp/tests/test_task6_unit_presentation.py). | 60 products/carton × 18 cartons/pallet × 30 pallets = 32,400 products. The inherited pallet mass is 497.979756 kg before conversion for display in pounds. |
 | PF-08 Nested Packaging Chain | New demonstration using two ordinary Container Selection steps. | 55 products/inner carton × 2 inner cartons/outer carton × 6 outer cartons/pallet × 30 pallets = 19,800 products. |
 | PF-09 CapePack Bottle — 24 Units | [Bottle benchmark case A](../research/benchmarks.md#palletization-cases) | 24 bottles/carton × 21 cartons/layer × 2 layers = 1,008 bottles. Zero overhang reproduces the captured layout. |
@@ -367,6 +367,10 @@ settings to the article. The current preset leaves product mass unspecified.
   specified. The carton uses a 375 mm internal height so every generated
   bag design fits. Its 30 kg payload limit accommodates the top-ranked
   design's 25.2 kg of contents per carton.
+  Flow carries each Design proposal's flat length, opening width, canonical
+  bundle height, and selected insertion metadata. For example, the
+  240 × 90 × 20 mm bundle inserted along its 20 mm axis yields a
+  122 × 332 × 20 mm Flow payload and 4 × 90 × 8 = 2,880 products.
 - PF-07 uses a 100 × 80 × 60 mm product entered in inches at 1 lb, a
   40 × 30 × 25 cm internal carton with 450 g tare and a 35 kg payload limit,
   and a pallet that reads carton dimensions in inches and mass in kilograms.

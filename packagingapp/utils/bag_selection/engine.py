@@ -32,23 +32,40 @@ USAGE_ORIENTATION_TOLERANCE = 0.005
 # Your bag math helpers
 # ---------------------------
 
+def required_bag_dimensions(
+    insertion_depth: float, opening_a: float, opening_b: float
+) -> Tuple[float, float]:
+    """Return the required lay-flat (length, opening width) in millimetres."""
+    bag_length = insertion_depth + min(opening_a, opening_b) + TOLERANCE + SEALING_AREA
+    bag_width = opening_a + opening_b + TOLERANCE
+    return bag_length, bag_width
+
+
+def _bag_insertion_options(axes: Tuple[Tuple[str, float], ...]):
+    """Yield one option per distinct flat size in parent-axis order."""
+    seen = set()
+    for order in ((0, 1, 2), (1, 0, 2), (2, 0, 1)):
+        depth_axis, opening_a, opening_b = (axes[index] for index in order)
+        required = required_bag_dimensions(depth_axis[1], opening_a[1], opening_b[1])
+        if required in seen:
+            continue
+        seen.add(required)
+        yield order, {
+            "req_len": required[0],
+            "req_w": required[1],
+            "insertion": {
+                "axis": depth_axis[0],
+                "depth": depth_axis[1],
+                "opening_axes": [opening_a[0], opening_b[0]],
+                "opening_dimensions": [opening_a[1], opening_b[1]],
+            },
+        }
+
+
 def bag_formula(bl: float, bw: float, bh: float) -> Set[Tuple[float, float]]:
-    """
-    Calculates the two possible flat-bag sizes for a given arrangement box.
-
-    Rule:
-      bag_length = arrangement_length + arrangement_height + tolerance + sealing_area
-      bag_width  = arrangement_width  + arrangement_height + tolerance
-
-    Sealing area is applied to LENGTH, not WIDTH. The opening/mouth is the
-    width side, and that width side is perpendicular to the bag length.
-    The two options below already represent rotating the product arrangement inside
-    the flat bag. Therefore bag L/W matching must stay strict later; otherwise we
-    double-rotate the bag and the graphic can contradict the selected bag.
-    """
-    option_1 = (float(bl + bh + TOLERANCE + SEALING_AREA), float(bw + bh + TOLERANCE))
-    option_2 = (float(bw + bh + TOLERANCE + SEALING_AREA), float(bl + bh + TOLERANCE))
-    return {option_1, option_2}
+    """Return the unique flat-bag requirements for the three insertion axes."""
+    axes = (("length", bl), ("width", bw), ("height", bh))
+    return {(option["req_len"], option["req_w"]) for _, option in _bag_insertion_options(axes)}
 
 
 def _axis_record(axis_name: str, count: int, unit_size: float) -> Dict[str, Any]:
@@ -61,40 +78,21 @@ def _axis_record(axis_name: str, count: int, unit_size: float) -> Dict[str, Any]
 
 
 def _solution_bag_options(visual_axes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Build bag options while preserving the product arrangement orientation.
-
-    visual_axes are sorted by arrangement size:
-      [largest footprint side, second footprint side, smallest height side]
-
-    Option 1 places the largest footprint side along bag length.
-    Option 2 rotates the arrangement 90 degrees in the bag footprint, placing the
-    largest footprint side along bag width/opening.
-    """
-    length_axis = visual_axes[0]
-    width_axis = visual_axes[1]
-    height_axis = visual_axes[2]
-
-    bl = float(length_axis["total"])
-    bw = float(width_axis["total"])
-    bh = float(height_axis["total"])
-
-    return [
-        {
-            "orientation": "length_to_bag_length",
-            "req_len": float(bl + bh + TOLERANCE + SEALING_AREA),
-            "req_w": float(bw + bh + TOLERANCE),
-            "body_box": (bl, bw, bh),
-            "axes": [length_axis, width_axis, height_axis],
-        },
-        {
-            "orientation": "length_to_bag_width",
-            "req_len": float(bw + bh + TOLERANCE + SEALING_AREA),
-            "req_w": float(bl + bh + TOLERANCE),
-            "body_box": (bw, bl, bh),
-            "axes": [width_axis, length_axis, height_axis],
-        },
-    ]
+    """Map the depth and opening axes back to the selected product grid."""
+    axes = tuple((axis["axis"].removeprefix("product_"), axis["total"]) for axis in visual_axes)
+    orientations = ("length_to_bag_length", "length_to_bag_width", "height_to_bag_length")
+    options = []
+    for order, option in _bag_insertion_options(axes):
+        body_axes = [visual_axes[index] for index in order]
+        # The spans are sorted, so the shorter opening axis is last. The
+        # existing body-envelope calculation uses that span as its height.
+        options.append({
+            **option,
+            "orientation": orientations[order[0]],
+            "axes": body_axes,
+            "body_box": tuple(axis["total"] for axis in body_axes),
+        })
+    return options
 
 
 # ---------------------------
@@ -122,9 +120,7 @@ def get_final_packing_solution(target_qty: int, p_l: float, p_w: float, p_h: flo
     seen_signatures = set()
 
     for (nx, ny, nz) in sorted(layouts):
-        # Fixed product orientation before the arrangement is placed in the bag.
-        # The entire arrangement may then be rotated in the bag footprint through
-        # the two bag options created below.
+        # Keep the original product axes and counts for each bundle insertion.
         axis_data = [
             _axis_record("product_length", nx, p_l),
             _axis_record("product_width", ny, p_w),
@@ -197,6 +193,7 @@ def _build_bag_threejs_scene(
     body_height: float,
     products: List[Dict[str, Any]],
     mode: str,
+    insertion: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     return {
         "version": 1,
@@ -217,6 +214,7 @@ def _build_bag_threejs_scene(
             "usableBodyWidth": round(body_width, 6),
             "sealingAllowance": round(SEALING_AREA, 6),
             "fitTolerance": round(TOLERANCE, 6),
+            **({"insertion": insertion} if insertion else {}),
         },
         "rsc": {"enabled": False},
         "products": products,
@@ -233,7 +231,7 @@ def build_bag_design_candidates(
     r2: int = 1,
     r3: int = 1,
 ) -> Dict[str, Any]:
-    """Map every canonical 3D arrangement to one required flat-bag design.
+    """Map each canonical 3D arrangement to its distinct flat-bag designs.
 
     ``r1``, ``r2`` and ``r3`` remain in the signature for backwards
     compatibility with older callers, but Bag Design deliberately ignores
@@ -249,24 +247,12 @@ def build_bag_design_candidates(
         bundle_l = arrangement["bundle_length"]
         bundle_w = arrangement["bundle_width"]
         bundle_h = arrangement["bundle_height"]
-        bag_length = bundle_l + bundle_h + TOLERANCE + SEALING_AREA
-        bag_width = bundle_w + bundle_h + TOLERANCE
-        scene = _build_bag_threejs_scene(
-            bag_width=bag_width,
-            bag_length=bag_length,
-            body_length=bundle_l,
-            body_width=bundle_w,
-            body_height=bundle_h,
-            products=[
-                {
-                    **product_item,
-                    "orientationIndex": int(arrangement["orientation_index"]),
-                }
-                for product_item in arrangement["products"]
-            ],
-            mode="design",
-        )
-        candidates.append({
+        axes = (("length", bundle_l), ("width", bundle_w), ("height", bundle_h))
+        products = [
+            {**item, "orientationIndex": arrangement["orientation_index"]}
+            for item in arrangement["products"]
+        ]
+        parent = {
             "desired_quantity": arrangement["desired_quantity"],
             "design_quantity": arrangement["design_quantity"],
             "additional_capacity": arrangement["additional_capacity"],
@@ -281,24 +267,47 @@ def build_bag_design_candidates(
             "bundle_width": bundle_w,
             "bundle_height": bundle_h,
             "bundle_cubicity_score": arrangement["bundle_cubicity_score"],
-            "bag_width": round(bag_width, 2),
-            "bag_length": round(bag_length, 2),
-            "bag_area": round(bag_width * bag_length, 2),
             "bag_usage": 1.0,
             "opening_dimension": "width",
-            "render_data": scene,
-        })
-    for rank, candidate in enumerate(candidates, start=1):
-        identity = {
-            "mode": "design",
-            "design_quantity": design["design_quantity"],
-            "arrangement_id": candidate["arrangement_id"],
-            "bag_dimensions": (round(candidate["bag_width"], 6), round(candidate["bag_length"], 6)),
-            "arrangement": (candidate["rows"], candidate["columns"], candidate["layers"]),
-            "orientation_index": candidate["orientation_index"],
         }
-        candidate["candidate_id"] = _stable_design_candidate_id("bag-design", identity)
-        candidate["rank"] = rank
+        for order, option in _bag_insertion_options(axes):
+            bag_length, bag_width = option["req_len"], option["req_w"]
+            insertion = option["insertion"]
+            if order[0] == 0:
+                # Keep saved IDs for the original length-axis proposal.
+                legacy_length = round(bundle_l + bundle_h + TOLERANCE + SEALING_AREA, 2)
+                identity = {
+                    "mode": "design",
+                    "design_quantity": design["design_quantity"],
+                    "arrangement_id": parent["arrangement_id"],
+                    "bag_dimensions": (round(bag_width, 2), legacy_length),
+                    "arrangement": (parent["rows"], parent["columns"], parent["layers"]),
+                    "orientation_index": parent["orientation_index"],
+                }
+            else:
+                identity = {
+                    "arrangement_id": parent["arrangement_id"],
+                    "insertion_axis": insertion["axis"],
+                }
+            candidates.append({
+                **parent,
+                "candidate_id": _stable_design_candidate_id("bag-design", identity),
+                "rank": len(candidates) + 1,
+                "bag_width": round(bag_width, 2),
+                "bag_length": round(bag_length, 2),
+                "bag_area": round(bag_width * bag_length, 2),
+                "insertion": insertion,
+                "render_data": _build_bag_threejs_scene(
+                    bag_width=bag_width,
+                    bag_length=bag_length,
+                    body_length=bundle_l,
+                    body_width=bundle_w,
+                    body_height=bundle_h,
+                    products=products,
+                    mode="design",
+                    insertion=insertion,
+                ),
+            })
 
     return {
         "desired_quantity": design["desired_quantity"],
@@ -319,7 +328,7 @@ def _fits(bag_len: float, bag_w: float, req_len: float, req_w: float) -> bool:
 
     Bag L and W are not interchangeable here because the sealing allowance is
     applied to bag LENGTH. The product arrangement rotation is already handled
-    by bag_formula/_solution_bag_options through two required-bag options.
+    by the insertion options.
     """
     return bag_len + EPSILON >= req_len and bag_w + EPSILON >= req_w
 
@@ -683,6 +692,7 @@ def run_bag_mode1_and_render(
         body_height=bag_box_height,
         products=products,
         mode=str(render_mode or "single"),
+        insertion=best_option.get("insertion"),
     )
     scene["selectedRequiredBag"] = {
         "length": round(float(best["req_len"]), 6),

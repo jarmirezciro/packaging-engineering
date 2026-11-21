@@ -305,6 +305,21 @@ class FullPackagingCaseTests(TestCase):
     def test_bag_design_ranks_and_recalculates_a_real_alternative(self):
         slug = "bag-design-final-capacity"
         self.open_case(slug)
+        steps = self.case_steps(slug)
+        initial_bag, initial_carton, _initial_pallet = steps
+        selected = initial_bag["selected"]
+        # 80 × 60 × 90 mm bundle inserted along 80 mm.
+        self.assertEqual((selected["length"], selected["width"], selected["height"]), (152, 152, 90))
+        self.assertEqual(selected["metrics"]["bag_area"], 23104)
+        self.assert_inherited_output(selected, initial_carton)
+        report = build_workflow_report_payload({"steps": steps})
+        bag_report, carton_report = report["steps"][:2]
+        self.assertEqual(bag_report["output"]["dimensions_display"], "152 × 152 × 90 mm")
+        self.assertEqual(carton_report["input"]["dimensions_display"], "152 × 152 × 90 mm")
+        self.assertEqual(dict(bag_report["metrics"])["Bag usage"], "100%")
+        self.assertEqual(dict(bag_report["metrics"])["Max quantity"], "4")
+        json.dumps(steps, allow_nan=False)
+
         self.post_case(slug, "optimize_design_final_capacity", 0)
         bag, carton, pallet = self.case_steps(slug)
         ranking = bag["design_chain_optimization"]
@@ -333,6 +348,43 @@ class FullPackagingCaseTests(TestCase):
             float(carton["config"]["box_max_payload"]),
         )
         self.assertEqual(pallet["pending_result"]["total_base_units"], 4032)
+
+    def test_bag_design_height_insertion_recalculates_carton_and_pallet(self):
+        slug = "bag-design-final-capacity"
+        self.open_case(slug)
+        self.post_case(slug, "optimize_design_final_capacity", 0)
+        bag = self.case_steps(slug)[0]
+        candidate = next(
+            row for row in bag["design_candidates"]
+            if (row["bundle_length"], row["bundle_width"], row["bundle_height"]) == (240, 90, 20)
+            and row["insertion"]["axis"] == "height"
+        )
+        candidate_id = candidate["candidate_id"]
+        self.assertEqual((candidate["bag_length"], candidate["bag_width"], candidate["bag_area"]), (122, 332, 40504))
+        self.assertEqual(bag["design_chain_optimization"]["candidate_results"][candidate_id]["final_base_units"], 2880)
+
+        self.post_case(
+            slug, "run_step", 0, action_0="select_design_candidate",
+            selected_design_candidate_id_0=candidate_id,
+        )
+        self.post_case(slug, "use_step_result", 0)
+        self.post_case(slug, "run_step", 1, action_1="run_single")
+        self.post_case(slug, "run_step", 2, step_action_2="run_analysis")
+        steps = self.case_steps(slug)
+        bag, carton, pallet = steps
+        selected = bag["selected"]
+        self.assertEqual(selected["selected_candidate_id"], candidate_id)
+        self.assertEqual(selected["insertion"], {
+            "axis": "height", "depth": 20, "opening_axes": ["length", "width"], "opening_dimensions": [240, 90],
+        })
+        self.assertEqual((selected["length"], selected["width"], selected["height"]), (122, 332, 20))
+        self.assert_inherited_output(selected, carton)
+        self.assert_inherited_output(carton["pending_result"], pallet)
+        self.assertEqual(carton["pending_result"]["units_per_parent"], 90)
+        self.assertEqual(pallet["pending_result"]["total_base_units"], 2880)
+        report = build_workflow_report_payload({"steps": steps})
+        self.assertEqual(report["steps"][1]["input"]["dimensions_display"], "122 × 332 × 20 mm")
+        json.dumps(steps, allow_nan=False)
 
     def test_mixed_units_survive_transport_rerun_and_match_the_report(self):
         slug = "mixed-units-across-the-chain"

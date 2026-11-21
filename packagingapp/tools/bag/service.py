@@ -537,7 +537,7 @@ def build_bag_analysis_report(
     }
 
 
-def _build_pending_result_from_inner_box(label, selected_bag, inner_box, quantity):
+def _build_pending_result_from_inner_box(label, selected_bag, inner_box, quantity, insertion=None):
     bag_box = _resolve_visual_bag_box(selected_bag, inner_box)
     if bag_box:
         length, width, height = bag_box
@@ -554,6 +554,7 @@ def _build_pending_result_from_inner_box(label, selected_bag, inner_box, quantit
         "height": height,
         "units_per_parent": int(quantity or 1),
         "total_base_units": int(quantity or 1),
+        **({"insertion": insertion} if insertion else {}),
     }
 
 
@@ -563,6 +564,7 @@ def _build_pending_result(label, selected_bag, render_res, quantity):
         selected_bag,
         render_res.inner_box,
         quantity,
+        insertion=render_res.threejs_scene["bag"].get("insertion"),
     )
 
 
@@ -687,10 +689,16 @@ def _analyze_bag_design(
             f"{design['design_quantity']} units to create a practical arrangement "
             f"({design['additional_capacity']} additional capacity)."
         )
+    bag_usage_display = _format_percent(selected["bag_usage"] * 100)
     analysis_report = {
         **selected,
         "shape_score_display": _format_percent(selected["bundle_cubicity_score"] * 100),
-        "bag_usage_display": _format_percent(selected["bag_usage"] * 100),
+        "bag_usage_display": bag_usage_display,
+        "bag_usage_current_display": bag_usage_display,
+        "bag_usage_max_display": bag_usage_display,
+        "current_quantity": selected["desired_quantity"],
+        "max_quantity": selected["design_quantity"],
+        "remaining_capacity": selected["additional_capacity"],
         "has_net_content_weight": selected["net_content_weight"] is not None,
         "design_mode": True,
         "nominal_product_dimensions_display": format_dimensions(
@@ -727,6 +735,7 @@ def _analyze_bag_design(
         "selected_arrangement_id": selected["arrangement_id"],
         "selected_arrangement": selected["arrangement"],
         "selected_orientation": selected["product_orientation"],
+        "insertion": selected["insertion"],
         "metrics": {
             "cubicity": selected["bundle_cubicity_score"],
             "bag_area": selected["bag_area"],
@@ -1044,6 +1053,7 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
             "selected_arrangement_id": selected["arrangement_id"],
             "selected_arrangement": selected["arrangement"],
             "selected_orientation": selected["product_orientation"],
+            "insertion": selected["insertion"],
             "metrics": {
                 "cubicity": selected["bundle_cubicity_score"],
                 "bag_area": selected["bag_area"],
@@ -1139,5 +1149,6 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
             selected_bag,
             option["body_box"],
             quantity,
+            insertion=option.get("insertion"),
         ),
     }

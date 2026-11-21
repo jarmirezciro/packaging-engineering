@@ -996,9 +996,15 @@ class BagCompendiumTests(TestCase):
                         tuple(expected[f"product_{axis}"] for axis in "lwh"), expected["desired_qty"], 1, 1, 1
                     )
                     candidates = response.context["design_candidates"]
-                    self.assertEqual([row["arrangement_id"] for row in candidates], [
+                    self.assertEqual([row["arrangement_id"] for row in candidates if row["insertion"]["axis"] == "length"], [
                         row["arrangement_id"] for row in canonical["arrangements"]
                     ])
+                    for arrangement in canonical["arrangements"]:
+                        siblings = [row for row in candidates if row["arrangement_id"] == arrangement["arrangement_id"]]
+                        sizes = {(row["bag_width"], row["bag_length"]) for row in siblings}
+                        distinct_spans = len({arrangement[f"bundle_{axis}"] for axis in ("length", "width", "height")})
+                        self.assertEqual(len(siblings), distinct_spans)
+                        self.assertEqual(len(sizes), distinct_spans)
                     self.assertEqual(len({row["candidate_id"] for row in candidates}), len(candidates))
                     self.assertEqual(self.client.session["bag_selection_design_export"]["selected_candidate"]["candidate_id"], result["candidate_id"])
                 self.assertEqual(len(scene["products"]), quantity)

@@ -365,16 +365,10 @@ def _build_design_export_payload(*, form, analysis, selected_product):
     report = analysis.get("analysis_report") or {}
     if not selected or not report:
         return None
-    analysis_payload = dict(report)
-    analysis_payload.update({
-        "current_quantity": selected["desired_quantity"],
-        "max_quantity": selected["design_quantity"],
-        "remaining_capacity": selected["additional_capacity"],
-        "bag_usage_current_display": f"{selected['bag_usage'] * 100:.0f}%",
-        "bag_usage_max_display": f"{selected['bag_usage'] * 100:.0f}%",
+    analysis_payload = {
+        **report,
         "calculation_note": "Design Mode dimensions use the shared smooth-quantity and bag formula contracts.",
-        "design_mode": True,
-    })
+    }
     return {
         "report_type": "design",
         "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M"),

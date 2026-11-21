@@ -34,8 +34,8 @@ These responsibilities do not justify a fork of the underlying bag equations or 
 ## Conceptual calculation flow
 
 1. Normalize original product dimensions, quantity, weight, tolerance, and sealing space.
-2. Generate the allowed planar product orientations used by the current bag engine.
-3. For each orientation, compute the minimum required lay-flat bag width and length using the existing bag-fit equations.
+2. Generate supported regular-grid arrangements and retain the identity of each bundle axis.
+3. For each bundle, use each of its three spans as the insertion depth. The other two spans define the opening plane.
 4. Add tolerance only to the dimensions defined by the engine.
 5. Add sealing space only to the bag-length closure direction.
 6. Evaluate candidate bag dimensions against required width and length.
@@ -44,21 +44,28 @@ These responsibilities do not justify a fork of the underlying bag equations or 
 9. In Single mode, return maximum feasible quantity and the governing constraint.
 10. In Optimal mode, rank feasible candidates, normally preferring the smallest suitable bag/material area and least excess space.
 
-## Exact formula policy
+## Lay-flat sizing formula
 
-**Repository verification required:** the precise lay-flat equations and supported multi-unit arrangements must be read from the current bag engine before editing. Do not replace them with a generic web formula.
-
-When documenting or refactoring exact equations, record them explicitly in this file using named variables. At minimum distinguish:
+For a rectangular bundle in a conventional non-gusseted bag, the opening
+plane is perpendicular to the insertion depth. The shared Bag engine applies
+both allowances in millimetres.
 
 ```text
-product_length
-product_width
-product_height
-fit_tolerance
-sealing_space
-required_bag_width
-required_bag_length
+fit_tolerance = 2 mm
+sealing_allowance = 10 mm
+required_bag_width  = opening_a + opening_b + fit_tolerance
+required_bag_length = insertion_depth + min(opening_a, opening_b) + fit_tolerance + sealing_allowance
 ```
+
+Single and Optimal evaluate the three insertion depths for each supported
+regular grid in descending span order, carrying the original product axes
+with their grid counts. Within each grid, equal flat sizes retain the first
+equivalent direction. Manual and catalogue fitting compare physical length
+to required length and opening width to required width. Utilization is
+required flat area divided by the physical flat bag area at the evaluated
+quantity. The shortest and middle insertion depths have the same required
+length. The shortest depth can require a wider opening, so it can improve
+utilization and change selection without raising the geometric quantity limit.
 
 ## Product dimensional allowance
 
@@ -140,31 +147,31 @@ complete flexible-bag arrangement may be rotated freely during handling to meet
 product-orientation needs. The shared generator then normalizes horizontal axes
 so bundle length is not shorter than bundle width, keeps height distinct, and
 retains one deterministic representative for each canonical bundle `(L, W, H)`.
-For an arrangement body
-`(L, W, H)`, the existing equations remain:
-
-```text
-required_length = L + H + fit_tolerance + sealing_allowance
-required_width  = W + H + fit_tolerance
-```
-
-The horizontal bundle normalization makes the first formula result the bag
-length and the second the bag width; no second 90-degree bag option is created.
-The opening is on bag width. There is exactly one Bag proposal per shared
-canonical arrangement, and Bag rows use the same arrangement IDs, cubicity
-ranking, representative orientation, and ordering as Container Design when all
-Container orientations are enabled.
+Design evaluates insertion along `L`, `W`, and `H` in each canonical
+arrangement. Each arrangement produces up to three distinct flat sizes
+with a width-side opening and 100% flat-area utilization. The canonical
+arrangement IDs, cubicity ordering and representative product placements
+match Container Design with all Container orientations enabled. Existing
+candidate IDs still select their original length-axis proposal. Additional
+IDs identify the parent arrangement and insertion axis.
 Squareness is not a Bag Design metric. Design Mode accepts only product weight
 for optional net-content weight. Packaging weight, total package weight, and
 payload metrics belong to later package evaluation and are not read or
-serialized by Design Mode. Selection Mode's calculations, length/opening
-convention, weight/payload handling, and Top 5 ranking are unchanged.
+serialized by Design Mode. Selection Mode keeps its length/opening convention,
+weight and payload handling, and Top 5 scoring.
 
 Single, Optimal, and Design results serialize the selected authoritative bag
 arrangement into the shared `packageType=bag` Three.js scene. The standalone,
 Packaging Flow, public calculator, and Multi-product Bag consumer all render
 that contract. No active Bag result path writes a Matplotlib PNG. Standalone
 PDFs embed the validated current Three.js snapshot.
+
+The scene's `bag.insertion` carries the selected depth and opening-plane
+axes and spans in millimetres. Design axes refer to the canonical bundle.
+Selection axes refer to the original product grid before it is placed in
+the bag. Design retains the canonical placement coordinates for every
+proposal, so the existing viewer may show the opening on a different axis
+from the selected insertion. Its rigid visual envelope is approximate.
 
 ## Case compendium
 
