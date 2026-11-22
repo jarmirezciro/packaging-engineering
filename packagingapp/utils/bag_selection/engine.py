@@ -262,6 +262,23 @@ def _build_bag_threejs_scene(
     }
 
 
+def rank_bag_design_candidates(candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Rank by unrounded flat area, retaining input order for equal areas."""
+    def flat_area(candidate):
+        length = candidate.get("flat_bag_length_mm")
+        width = candidate.get("flat_bag_width_mm")
+        if length is not None and width is not None:
+            return length * width
+        # Older workflow sessions carry the area in mm² without raw dimensions.
+        area = candidate.get("bag_area")
+        return area if area is not None else float("inf")
+
+    return [
+        {**candidate, "rank": rank}
+        for rank, candidate in enumerate(sorted(candidates, key=flat_area), start=1)
+    ]
+
+
 def build_bag_design_candidates(
     product_l: float,
     product_w: float,
@@ -361,7 +378,6 @@ def build_bag_design_candidates(
             candidates.append({
                 **parent,
                 "candidate_id": candidate_id,
-                "rank": len(candidates) + 1,
                 "bag_width": round(bag_width, 2),
                 "bag_length": round(bag_length, 2),
                 "flat_bag_length_mm": bag_length,
@@ -389,7 +405,7 @@ def build_bag_design_candidates(
         "design_quantity": design["design_quantity"],
         "additional_capacity": design["additional_capacity"],
         "generated_candidate_count": design["generated_candidate_count"],
-        "candidates": candidates,
+        "candidates": rank_bag_design_candidates(candidates),
         "candidate_aliases": candidate_aliases,
     }
 

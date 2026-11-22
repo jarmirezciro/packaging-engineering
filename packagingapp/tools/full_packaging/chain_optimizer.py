@@ -4,6 +4,7 @@ from copy import deepcopy
 import json
 import logging
 
+from ...utils.bag_selection.engine import rank_bag_design_candidates
 from ..bag.workflow import build_bag_design_pending_result
 from ..container.dimensions import (
     EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
@@ -153,6 +154,26 @@ def _unavailable_result(step_index, step_type, message=None):
     }
 
 
+def _design_candidates_for_step(step):
+    candidates = step.get("design_candidates") or []
+    if step.get("type") == "bag":
+        return rank_bag_design_candidates(candidates)
+    return candidates
+
+
+def _rank_design_trials(candidate_ids, candidate_results, rank_by_id):
+    successful = [
+        candidate_id for candidate_id in candidate_ids
+        if candidate_results.get(candidate_id, {}).get("status") == "ok"
+    ]
+    unavailable = [candidate_id for candidate_id in candidate_ids if candidate_id not in successful]
+    successful.sort(key=lambda candidate_id: (
+        -candidate_results[candidate_id]["final_base_units"],
+        rank_by_id[candidate_id],
+    ))
+    return successful, unavailable
+
+
 def optimize_design_chain(workflow, source_step_index, evaluate_step):
     """Evaluate every source candidate through the actual ordered downstream chain.
 
@@ -166,7 +187,7 @@ def optimize_design_chain(workflow, source_step_index, evaluate_step):
 
     source = steps[source_step_index]
     source_type = source.get("type")
-    candidates = source.get("design_candidates") or []
+    candidates = _design_candidates_for_step(source)
     if source_type not in SOURCE_TYPES or (source.get("config") or {}).get("mode") != "design":
         raise ValueError("Final-capacity optimization is available only for Container or Bag Design Mode.")
     if not candidates:
@@ -182,7 +203,7 @@ def optimize_design_chain(workflow, source_step_index, evaluate_step):
     candidate_results = {}
     original_ids = []
 
-    for fallback_rank, candidate in enumerate(candidates, start=1):
+    for candidate in candidates:
         candidate_id = str(candidate.get("candidate_id") or "")
         if not candidate_id:
             continue
@@ -244,16 +265,7 @@ def optimize_design_chain(workflow, source_step_index, evaluate_step):
         str(candidate.get("candidate_id") or ""): _positive_int(candidate.get("rank"), fallback_rank)
         for fallback_rank, candidate in enumerate(candidates, start=1)
     }
-    successful_ids = [
-        candidate_id for candidate_id in original_ids
-        if candidate_results.get(candidate_id, {}).get("status") == "ok"
-    ]
-    unavailable_ids = [candidate_id for candidate_id in original_ids if candidate_id not in successful_ids]
-    successful_ids.sort(key=lambda candidate_id: (
-        -candidate_results[candidate_id]["final_base_units"],
-        rank_by_id[candidate_id],
-    ))
-    sorted_ids = successful_ids + unavailable_ids if successful_ids else list(original_ids)
+    successful_ids, unavailable_ids = _rank_design_trials(original_ids, candidate_results, rank_by_id)
 
     message = ""
     if not successful_ids:
@@ -269,7 +281,7 @@ def optimize_design_chain(workflow, source_step_index, evaluate_step):
         "terminal_label": terminal_label,
         "column_label": column_label,
         "candidate_results": candidate_results,
-        "sorted_candidate_ids": sorted_ids,
+        "sorted_candidate_ids": successful_ids + unavailable_ids,
         "message": message,
     }
 
@@ -298,7 +310,7 @@ def invalidate_design_chain_optimizations(
 
 def build_design_chain_ui(step, steps, source_step_index):
     """Build transient workflow-only table/button context and display ordering."""
-    candidates = step.get("design_candidates") or []
+    candidates = _design_candidates_for_step(step)
     is_design_source = (
         step.get("type") in SOURCE_TYPES
         and (step.get("config") or {}).get("mode") == "design"
@@ -328,9 +340,15 @@ def build_design_chain_ui(step, steps, source_step_index):
         row["design_chain_final_base_units_display"] = f"{final_base_units:,}" if final_base_units is not None else "—"
         display_by_id[candidate_id] = row
 
-    ordered_ids = state.get("sorted_candidate_ids") or [] if state_is_current else []
-    ordered_ids = [candidate_id for candidate_id in ordered_ids if candidate_id in display_by_id]
-    ordered_ids.extend(candidate_id for candidate_id in original_ids if candidate_id not in ordered_ids)
+    if state_is_current and step.get("type") == "bag":
+        # Reapply the current area ranks to saved trials without recalculating capacity.
+        rank_by_id = {candidate_id: row["rank"] for candidate_id, row in display_by_id.items()}
+        successful, unavailable = _rank_design_trials(original_ids, results, rank_by_id)
+        ordered_ids = successful + unavailable
+    else:
+        ordered_ids = state.get("sorted_candidate_ids") or [] if state_is_current else []
+        ordered_ids = [candidate_id for candidate_id in ordered_ids if candidate_id in display_by_id]
+        ordered_ids.extend(candidate_id for candidate_id in original_ids if candidate_id not in ordered_ids)
 
     return {
         "show": show,

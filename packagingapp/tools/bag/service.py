@@ -40,6 +40,7 @@ from ..product_dimensions import (
 
 from .dimensions import resolve_bag_outer_dimensions
 from .film import catalogue_bag_mode, resolve_bag_film
+from .presenter import format_design_bag_dimensions
 from .workflow import bag_design_outer_dimensions, build_bag_design_pending_result
 from .serializers import sanitize_bag_config_for_session
 from .state import BAG_ALLOWANCE_DEFAULTS_MM, BAG_FILM_DEFAULTS
@@ -683,11 +684,7 @@ def _add_bag_design_metrics(candidate, config, selected_product=None):
             row["bundle_height"],
             display_unit=(config or {}).get("product_dimension_unit") or "mm",
         ),
-        "bag_dimensions_display": format_dimensions(
-            row["bag_width"],
-            row["bag_length"],
-            display_unit=bag_dimension_unit,
-        ),
+        "bag_dimensions_display": format_design_bag_dimensions(row, bag_dimension_unit),
         "bag_width_display": format_dimensions(
             row["bag_width"],
             canonical_unit="mm",

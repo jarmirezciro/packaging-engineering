@@ -7,6 +7,12 @@ from .film import (
 )
 
 
+def format_design_bag_dimensions(candidate, display_unit):
+    return format_dimensions(
+        candidate["bag_length"], candidate["bag_width"], display_unit=display_unit,
+    )
+
+
 def bag_film_result_rows(report, *, separate_weight_source=False):
     if not report or "bag_tare_source" not in report:
         return []

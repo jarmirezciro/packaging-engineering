@@ -277,6 +277,8 @@ _CASE_PRESETS = {
             "product_weight": 50,
             "desired_qty": 4,
             "film_preset": "legacy",
+            # Preserve the published starting design for the capacity comparison.
+            "selected_design_candidate_id": "bag-design-eb7ac8b62b252cec",
         },
         "carton": {**_BAG_DEMO_CARTON, "box_h": 375, "box_max_payload": 30000},
         "pallet": _DEMO_PALLET,

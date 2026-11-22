@@ -69,7 +69,7 @@ class BagSizingEngineTests(SimpleTestCase):
                 self.assertEqual([row["insertion"]["axis"] for row in grid["bag_options"]], ["length", "width", "height"])
                 design = build_bag_design_candidates(*PRODUCT, 1, parameters=assumptions)
                 self.assertCountEqual([(row["bag_width"], row["bag_length"]) for row in design["candidates"]], sizes)
-                self.assertEqual(
+                self.assertCountEqual(
                     [row["candidate_id"] for row in design["candidates"]],
                     [row["candidate_id"] for row in baseline["candidates"]],
                 )
@@ -113,15 +113,21 @@ class BagSizingEngineTests(SimpleTestCase):
         design = build_bag_design_candidates(*PRODUCT, 1)
         candidates = design["candidates"]
         expected = [
+            ("height", 90, [60, 25], 87, 127, 11049),
             ("length", 60, [25, 90], 117, 97, 11349),
             ("width", 25, [60, 90], 152, 97, 14744),
-            ("height", 90, [60, 25], 87, 127, 11049),
         ]
         self.assertEqual(len(candidates), 3)
         self.assertEqual(len(design["candidate_aliases"]), 6)
         self.assertEqual(len({row["candidate_id"] for row in candidates}), 3)
         self.assertEqual(len({row["arrangement_id"] for row in candidates}), 1)
         self.assertEqual([row["rank"] for row in candidates], [1, 2, 3])
+        self.assertEqual([row["candidate_id"] for row in candidates], [
+            "bag-design-c328db964beb08d7",
+            "bag-design-e364c1344ff80664",
+            "bag-design-2758c8f88273fef5",
+        ])
+        self.assertEqual(design["candidate_aliases"][SAVED_DESIGN_ID], candidates[0]["candidate_id"])
         self.assertEqual(build_bag_design_candidates(*PRODUCT, 1), design)
         for row, (axis, depth, opening, width, length, area) in zip(candidates, expected):
             self.assertEqual(row["insertion"]["axis"], axis)
@@ -133,9 +139,13 @@ class BagSizingEngineTests(SimpleTestCase):
             self.assertEqual(scene["bag"]["insertion"], row["insertion"])
             self.assertEqual(scene["bag"]["film"], {"depthAxis": axis, "bundleDimensions": [60, 25, 90]})
 
-    def test_design_sizes_every_arrangement_in_existing_cubicity_order(self):
+    def test_design_ranks_all_arrangements_by_area_and_keeps_generation_order_on_ties(self):
         candidates = build_bag_design_candidates(*PRODUCT, 2)["candidates"]
-        self.assertEqual(
+        areas = [row["bag_area"] for row in candidates]
+        self.assertEqual(areas, sorted(areas))
+        self.assertEqual([row["rank"] for row in candidates], list(range(1, len(candidates) + 1)))
+        self.assertEqual(len({row["candidate_id"] for row in candidates}), len(candidates))
+        self.assertCountEqual(
             [
                 (
                     (row["bundle_length"], row["bundle_width"], row["bundle_height"]),
@@ -164,6 +174,11 @@ class BagSizingEngineTests(SimpleTestCase):
             [(90, 152, 112), (60, 122, 142), (50, 122, 152)],
         )
         same_size = [row for row in candidates if (row["bag_width"], row["bag_length"]) == (112, 152)]
+        self.assertEqual([row["candidate_id"] for row in same_size], [
+            "bag-design-dc6e32da90ce442a",
+            "bag-design-131487eb353836f5",
+            "bag-design-99c338ed8f3974e7",
+        ])
         self.assertEqual({row["bundle_height"] for row in same_size}, {50, 60, 90})
         self.assertEqual(len({row["arrangement_id"] for row in same_size}), 3)
         for row in same_size:
@@ -171,6 +186,19 @@ class BagSizingEngineTests(SimpleTestCase):
             self.assertEqual(row["render_data"]["bag"]["film"]["bundleDimensions"], [
                 row["bundle_length"], row["bundle_width"], row["bundle_height"],
             ])
+
+    def test_design_ranks_by_unrounded_area_when_reported_areas_match(self):
+        rows = build_bag_design_candidates(
+            60.000001, 60, 25, 1, parameters=BagSizingParameters(fit_tolerance_mm=2.000002),
+        )["candidates"]
+        self.assertEqual([row["bag_area"] for row in rows[:2]], [8439, 8439])
+        self.assertEqual([row["candidate_id"] for row in rows[:2]], [
+            "bag-design-1731c64bfad5433a", "bag-design-49c0f1ac00db4f32",
+        ])
+        self.assertLess(
+            rows[0]["flat_bag_length_mm"] * rows[0]["flat_bag_width_mm"],
+            rows[1]["flat_bag_length_mm"] * rows[1]["flat_bag_width_mm"],
+        )
 
     def test_equal_spans_keep_only_the_first_equivalent_insertion_axis(self):
         equal_sides = [
@@ -244,7 +272,7 @@ class BagSizingSurfaceTests(TestCase):
             with self.subTest(length_unit=length_unit):
                 response = self.post_bag(mode="design", action="run_design", bag_dimension_unit=length_unit)
                 self.assertContains(
-                    response, f'<th>Bag W × L</th><th class="text-end text-nowrap">Bag area ({area_unit})</th>',
+                    response, f'<th>Bag L × W</th><th class="text-end text-nowrap">Bag area ({area_unit})</th>',
                 )
                 rows = response.context["design_candidates"]
                 self.assertEqual([row["candidate_id"] for row in rows], [row["candidate_id"] for row in engine])
@@ -255,6 +283,47 @@ class BagSizingSurfaceTests(TestCase):
                     display = expected_display[area_unit][row["bag_area"]]
                     self.assertEqual((row["bag_area_display"], row["bag_area_unit"]), (display, area_unit))
                     self.assertContains(response, f'<td class="text-end">{display}</td>', count=1, html=True)
+
+    def test_design_flat_stock_is_length_first_for_each_selected_alternative(self):
+        reference = {
+            (127, 87): ("127 × 87 mm", "5 × 3.425 in", 11049, 0.6196632768),
+            (97, 117): ("97 × 117 mm", "3.819 × 4.606 in", 11349, 0.6364882368),
+            (97, 152): ("97 × 152 mm", "3.819 × 5.984 in", 14744, 0.8268907008),
+        }
+        self.client.force_login(self.user)
+        for unit, display_index in (("mm", 0), ("in", 1)):
+            initial = self.post_bag(mode="design", action="run_design", bag_dimension_unit=unit)
+            candidates = initial.context["design_candidates"]
+            self.assertEqual(len(candidates), len(reference))
+            self.assertEqual([row["bag_area"] for row in candidates], [11049, 11349, 14744])
+            self.assertEqual([row["rank"] for row in candidates], [1, 2, 3])
+            self.assertEqual(initial.context["result"]["candidate_id"], candidates[0]["candidate_id"])
+            invalid = self.post_bag(
+                mode="design", action="select_design_candidate", bag_dimension_unit=unit,
+                selected_design_candidate_id="missing-design-id",
+            )
+            self.assertEqual(invalid.context["result"]["candidate_id"], candidates[0]["candidate_id"])
+            capacity = analyze_bag_capacity(invalid.context["bag_config"])
+            self.assertEqual(capacity["selected_design_candidate_id"], candidates[0]["candidate_id"])
+            self.assertEqual([row["candidate_id"] for row in capacity["design_candidates"]],
+                             [row["candidate_id"] for row in candidates])
+            for row in candidates:
+                with self.subTest(unit=unit, candidate=row["candidate_id"]):
+                    expected = reference[row["bag_length"], row["bag_width"]]
+                    self.assertEqual(row["bag_dimensions_display"], expected[display_index])
+                    self.assertEqual(row["bag_area"], expected[2])
+                    self.assertEqual(row["bag_tare_g"], expected[3])
+                    selected = self.post_bag(
+                        mode="design", action="select_design_candidate", bag_dimension_unit=unit,
+                        selected_design_candidate_id=row["candidate_id"],
+                    )
+                    self.assertContains(selected, f'<strong>{expected[display_index]}</strong>', html=True)
+                    self.assertEqual(selected.context["result"]["candidate_id"], row["candidate_id"])
+                    self.assertEqual(selected.context["analysis_report"]["bag_tare_g"], expected[3])
+                    self.assertEqual(selected.context["threejs_scene"]["bag"]["flatLength"], row["bag_length"])
+                    self.assertEqual(selected.context["threejs_scene"]["bag"]["flatWidth"], row["bag_width"])
+                    saved = self.client.session["bag_selection_design_export"]
+                    self.assertEqual(saved["bag"]["dimensions"], expected[display_index])
 
     def test_design_weight_column_uses_each_candidates_tare_and_active_mass_unit(self):
         for mass_unit, header_unit, weights in (
@@ -396,6 +465,21 @@ class BagSizingSurfaceTests(TestCase):
                     self.assertEqual(pdf["Content-Type"], "application/pdf")
                     for text in (b"Sealing allowance", b"1.5 cm", b"Fit tolerance", b"0.4 cm", b"/Subtype /Image"):
                         self.assertIn(text, pdf.content)
+                    dimensions = b"13.4 \\327 8.9 cm" if mode == "design" else b"15.4 \\327 11.4 cm"
+                    self.assertIn(dimensions, pdf.content)
+
+                    if mode == "design":
+                        session = self.client.session
+                        bag = session["bag_selection_design_export"]["bag"]
+                        bag.pop("dimension_unit")
+                        bag["dimensions"] = "8.9 × 13.4 cm"
+                        session.save()
+                        restored_pdf = self.client.post(reverse(route), {
+                            "design_export": "1", "threejs_snapshot": snapshot,
+                        })
+                        self.assertEqual(restored_pdf.status_code, 200)
+                        self.assertIn(dimensions, restored_pdf.content)
+                        self.assertNotIn(b"8.9 \\327 13.4 cm", restored_pdf.content)
 
     def test_single_manual_catalogue_and_capacity_agree_on_required_area(self):
         bag = self.bags[154, 114]
@@ -438,6 +522,12 @@ class BagSizingSurfaceTests(TestCase):
                 response = self.post_bag(mode="single", **inputs)
                 result = response.context["result"]
                 self.assertEqual((result["max_quantity"], result["best_required"], result["usage"]), (1, (97, 152), 1.0))
+                displayed = "9.7 × 15.2 cm" if inputs.get("bag_dimension_unit") == "cm" else "97 × 152 mm"
+                self.assertEqual(response.context["analysis_report"]["bag_dimensions_display"], displayed)
+                self.assertEqual(response.context["analysis_report"]["required_dimensions_display"], displayed)
+                self.assertContains(response, f'<td class="text-end">{displayed}</td>', html=True)
+                if inputs.get("bag_id"):
+                    self.assertEqual(response.context["selected_bag_summary"]["dims"], displayed)
                 self.assertEqual(response.context["threejs_scene"]["bag"]["insertion"], HEIGHT_INSERTION)
                 self.assertEqual(response.context["threejs_scene"]["bag"]["film"], {
                     "depthAxis": "length", "bundleDimensions": [25, 90, 60],
@@ -468,6 +558,11 @@ class BagSizingSurfaceTests(TestCase):
                     rf'<th>Bag dimensions</th>\s*<th class="text-end text-nowrap">Bag area \({header}\)</th>',
                 )
                 rows = response.context["top5"]
+                self.assertEqual(
+                    [row["bag_dimensions_display"] for row in rows[:3]],
+                    ["127 × 87 mm", "97 × 117 mm", "97 × 152 mm"] if unit == "mm"
+                    else ["5 × 3.425 in", "3.819 × 4.606 in", "3.819 × 5.984 in"],
+                )
                 self.assertEqual([row["bag_area"] for row in rows], [11049, 11349, 14744, 11136, 11466])
                 self.assertEqual([row["bag_area_display"] for row in rows], displays)
                 for key in ("id", "usage", "best_required"):
@@ -479,11 +574,14 @@ class BagSizingSurfaceTests(TestCase):
             route="bag_selection_calculator", action="select_candidate", bag_id=bag.pk, **config
         )
         self.assertEqual(selected.context["result"]["best_required"], (97, 117))
+        self.assertEqual(selected.context["selected_bag_summary"]["dims"], "98 × 117 mm")
+        self.assertEqual(selected.context["analysis_report"]["required_dimensions_display"], "97 × 117 mm")
         self.assertAlmostEqual(selected.context["result"]["usage"], 11349 / 11466)
         self.assertEqual(selected.context["analysis_report"]["required_area"], 11349)
         self.assertEqual(selected.context["threejs_scene"]["selectedRequiredBag"], {"length": 97, "width": 117})
         export = self.client.session["bag_selection_optimal_export"]
         self.assertEqual(export["selected_candidate"]["part_number"], "98x117")
+        self.assertEqual(export["selected_candidate"]["dimensions"], "98 × 117 mm")
         self.assertEqual(export["analysis_report"]["required_area"], 11349)
         third = self.post_bag(action="select_candidate", bag_id=self.bags[97, 152].pk, **config)
         self.assertEqual(third.context["result"]["best_required"], (97, 152))
@@ -494,8 +592,8 @@ class BagSizingSurfaceTests(TestCase):
     def test_saved_design_selection_preserves_corrected_dimensions_in_pdf_payload(self):
         self.client.force_login(self.user)
         response = self.post_bag(mode="design", action="select_design_candidate", selected_design_candidate_id=SAVED_DESIGN_ID)
-        self.assertContains(response, "117 × 97 mm")
-        self.assertContains(response, "87 × 127 mm")
+        self.assertContains(response, "97 × 117 mm")
+        self.assertContains(response, "127 × 87 mm")
         row = response.context["result"]
         design = build_bag_design_candidates(*PRODUCT, 1)
         self.assertEqual(row["candidate_id"], design["candidate_aliases"][SAVED_DESIGN_ID])
@@ -511,7 +609,7 @@ class BagSizingSurfaceTests(TestCase):
         saved = self.client.session["bag_selection_design_export"]
         json.dumps(saved, allow_nan=False)
         self.assertEqual(saved["selected_candidate"]["candidate_id"], row["candidate_id"])
-        self.assertEqual(saved["bag"]["dimensions"], "87 × 127 mm")
+        self.assertEqual(saved["bag"]["dimensions"], "127 × 87 mm")
         self.assertEqual(saved["analysis_report"]["bag_area"], 11049)
 
         third = next(
@@ -537,7 +635,7 @@ class BagSizingSurfaceTests(TestCase):
             self.assertTrue(pdf.content.startswith(b"%PDF-"))
             payload = build_pdf.call_args.args[0]
             self.assertTrue((Path(media_root) / payload["threejs_snapshot_rel_path"]).is_file())
-            self.assertEqual(payload["bag"]["dimensions"], "152 × 97 mm")
+            self.assertEqual(payload["bag"]["dimensions"], "97 × 152 mm")
             self.assertEqual(payload["analysis_report"]["bag_area"], 14744)
             self.assertEqual(payload["selected_candidate"]["insertion"], DESIGN_SHORT_INSERTION)
 

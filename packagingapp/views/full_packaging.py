@@ -48,6 +48,7 @@ from ..tools.bag.presenter import (
     bag_film_result_rows,
     bag_workflow_dimension_rows,
     build_bag_film_context,
+    format_design_bag_dimensions,
     selected_bag_summary as selected_bag_summary_bag,
     selected_product_summary as selected_product_summary_bag,
 )
@@ -1902,6 +1903,12 @@ def _prepare_bag_step_view_model(step, idx):
 
     step["config"] = cfg
     step["bag_values"] = {k: cfg.get(k) for k in default_bag_config().keys()}
+    if cfg["mode"] == "design" and step.get("result"):
+        selected = step["result"]
+        step["result"] = {
+            **selected,
+            "bag_dimensions_display": format_design_bag_dimensions(selected, cfg["bag_dimension_unit"]),
+        }
     for key in ("design_candidates", "top5"):
         # Older sessions can lack table formatting or resolved tare.
         step[key] = [
@@ -1912,6 +1919,10 @@ def _prepare_bag_step_view_model(step, idx):
                     if "bag_area_display" not in row else {}
                 ),
                 **format_bag_weight(row.get("bag_tare_g"), cfg["bag_mass_unit"]),
+                **(
+                    {"bag_dimensions_display": format_design_bag_dimensions(row, cfg["bag_dimension_unit"])}
+                    if key == "design_candidates" else {}
+                ),
             }
             for row in (step.get(key) or [])
         ]

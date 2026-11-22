@@ -18,8 +18,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from ...units import format_dimensions
-from .presenter import bag_allowance_rows, bag_film_result_rows
+from ...units import LENGTH_UNITS, format_dimensions
+from .presenter import bag_allowance_rows, bag_film_result_rows, format_design_bag_dimensions
 
 
 def _clean(value, default="-"):
@@ -259,6 +259,11 @@ def build_bag_selection_single_pdf(export_payload):
     analysis = export_payload.get("analysis_report") or {}
 
     is_design = bool(analysis.get("design_mode"))
+    flat_dimensions = bag.get("dimensions")
+    if is_design and analysis.get("bag_length") is not None and analysis.get("bag_width") is not None:
+        # Older exports saved the unit only in the formatted dimensions.
+        unit = bag.get("dimension_unit") or str(flat_dimensions or "").rpartition(" ")[2]
+        flat_dimensions = format_design_bag_dimensions(analysis, unit if unit in LENGTH_UNITS else "mm")
     story.append(Paragraph("Bag Design Report" if is_design else "Bag Selection Report", _STYLES["BagReportTitle"]))
     story.append(Paragraph(f"{'Design Mode' if is_design else 'Single bag analysis'} - Generated {generated_at}", _STYLES["BagReportSubtitle"]))
 
@@ -298,7 +303,7 @@ def build_bag_selection_single_pdf(export_payload):
         ("Part no.", bag.get("part_number")),
         ("Description", bag.get("description")),
         ("Brand", bag.get("brand")),
-        ("Flat dimensions", bag.get("dimensions")),
+        ("Flat dimensions", flat_dimensions),
         *bag_allowance_rows(analysis.get("bag_assumptions")),
         *bag_film_result_rows(analysis),
     ]

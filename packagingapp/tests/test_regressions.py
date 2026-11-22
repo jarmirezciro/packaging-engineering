@@ -1010,8 +1010,11 @@ class BagCompendiumTests(TestCase):
                         tuple(expected[f"product_{axis}"] for axis in "lwh"), expected["desired_qty"], 1, 1, 1
                     )
                     candidates = response.context["design_candidates"]
+                    self.assertEqual([row["bag_area"] for row in candidates], sorted(row["bag_area"] for row in candidates))
+                    self.assertEqual([row["rank"] for row in candidates], list(range(1, len(candidates) + 1)))
+                    self.assertEqual(result["candidate_id"], candidates[0]["candidate_id"])
                     if quantity > 1:
-                        self.assertEqual([row["arrangement_id"] for row in candidates if row["insertion"]["axis"] == "length"], [
+                        self.assertCountEqual([row["arrangement_id"] for row in candidates if row["insertion"]["axis"] == "length"], [
                             row["arrangement_id"] for row in canonical["arrangements"]
                         ])
                     else:

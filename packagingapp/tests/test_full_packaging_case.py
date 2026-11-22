@@ -451,10 +451,16 @@ class FullPackagingCaseTests(TestCase):
             url, {**config, "action_0": "select_candidate", "bag_id_0": bag.pk}, follow=True,
         )
         self.assertContains(selected, "Bag area (in²)")
+        self.assertContains(
+            selected, '<th scope="row" class="fw-normal text-muted">Flat bag dimensions</th>'
+            '<td class="text-end">3.819 × 4.606 in</td>', html=True,
+        )
         step = self.client.session["full_packaging_mode_session"]["steps"][0]
         self.assertEqual(step["result"]["usage"], 1.0)
         self.assertEqual(step["pending_result"]["units_per_parent"], 1)
         self.assertEqual(step["pending_result"]["bag_tare_g"], 0.729)
+        metrics = build_workflow_report_payload({"steps": [step]})["steps"][0]["metrics"]
+        self.assertEqual(dict(metrics)["Flat bag dimensions"], "3.819 × 4.606 in")
 
     def test_bag_design_height_insertion_recalculates_carton_and_pallet(self):
         slug = "bag-design-final-capacity"

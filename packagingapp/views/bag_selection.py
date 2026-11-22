@@ -385,6 +385,7 @@ def _build_design_export_payload(*, form, analysis, selected_product):
             "brand": "KolliPack Design Mode",
             "material": report.get("film_material_family") or "Unavailable",
             "dimensions": selected.get("bag_dimensions_display"),
+            "dimension_unit": form.cleaned_data.get("bag_dimension_unit") or "mm",
         },
         "analysis_report": analysis_payload,
         "selected_candidate": selected,

@@ -175,6 +175,37 @@ class ChainOptimizerTests(SimpleTestCase):
         self.assertEqual(workflow, original)
         self.assertEqual(workflow["steps"][0]["selected_design_candidate_id"], "b")
 
+    def test_bag_capacity_ties_use_area_ranks_in_new_and_saved_trials(self):
+        candidates = [
+            bag_candidate("wide", 1, 4, 120),
+            bag_candidate("small-a", 2, 4, 70),
+            bag_candidate("large", 3, 4, 150),
+            bag_candidate("small-b", 4, 4, 70),
+        ]
+        source = source_step("bag", candidates, selected_id="wide")
+        steps = [source, downstream_step("pallet", 1)]
+        original = deepcopy(steps)
+
+        def evaluate(trial_steps, index):
+            incoming = trial_steps[index - 1]["pending_result"]
+            return {"total_base_units": 30 if incoming["selected_candidate_id"] == "large" else 20}
+
+        normal = build_design_chain_ui(source, steps, 0)
+        self.assertEqual([row["candidate_id"] for row in normal["display_candidates"]],
+                         ["small-a", "small-b", "wide", "large"])
+        ranking = optimize_design_chain({"steps": steps}, 0, evaluate)
+        expected = ["large", "small-a", "small-b", "wide"]
+        self.assertEqual(ranking["sorted_candidate_ids"], expected)
+        self.assertEqual(steps, original)
+        source["design_chain_optimization"] = {
+            **ranking, "sorted_candidate_ids": ["large", "wide", "small-a", "small-b"],
+        }
+        restored = build_design_chain_ui(source, steps, 0)
+        self.assertTrue(restored["active"])
+        self.assertEqual([row["candidate_id"] for row in restored["display_candidates"]], expected)
+        self.assertEqual([row["rank"] for row in restored["display_candidates"]], [4, 1, 2, 3])
+        self.assertEqual(source["selected_design_candidate_id"], "wide")
+
     def test_equivalent_source_payloads_are_evaluated_once(self):
         candidates = [
             container_candidate("a", 1, 8, 100),

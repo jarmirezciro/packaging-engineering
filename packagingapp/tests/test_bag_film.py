@@ -16,7 +16,7 @@ from packagingapp.tools.bag.dimensions import resolve_bag_outer_dimensions
 from packagingapp.tools.bag.film import FILM_PRESETS, resolve_bag_film
 from packagingapp.tools.bag.service import analyze_bag_capacity, analyze_bag_config, format_bag_weight
 from packagingapp.tools.bag.workflow import attach_bag_workflow_weight
-from packagingapp.units import convert_film_thickness
+from packagingapp.units import convert_film_thickness, format_dimensions
 
 
 class BagFilmTests(SimpleTestCase):
@@ -329,18 +329,39 @@ class BagFilmSurfaceTests(TestCase):
         self.assertAlmostEqual(optimal["weight_kg"] * 1000, optimal["weight_g"])
         self.assertEqual(optimal["total_base_units"], 2)
         self.assertEqual([step["config"]["film_preset"] for step in steps], ["ldpe_1_2", "pp_40", "ldpe_1_2"])
+
+        session = self.client.session
+        saved_design = session["full_packaging_mode_session"]["steps"][1]
+        self.assertEqual(design["selected_candidate_id"], saved_design["design_candidates"][0]["candidate_id"])
+        saved_design["design_candidates"].sort(key=lambda row: row["bag_area"], reverse=True)
+        for rank, row in enumerate(saved_design["design_candidates"], start=1):
+            row["rank"] = rank
+        for row in [saved_design["result"], *saved_design["design_candidates"]]:
+            row["bag_dimensions_display"] = format_dimensions(row["bag_width"], row["bag_length"])
+        session.save()
+
         html = self.client.get(url)
+        restored = html.context["steps"][1]["result"]
+        self.assertContains(html, f'<strong>{format_dimensions(restored["bag_length"], restored["bag_width"])}</strong>', html=True)
         self.assertContains(html, "Bag weight (oz)", count=1)
         self.assertContains(html, "Bag weight (g)", count=1)
         design_rows = html.context["steps"][1]["design_candidates_for_display"]
+        self.assertEqual([row["bag_area"] for row in design_rows], sorted(row["bag_area"] for row in design_rows))
+        self.assertEqual([row["rank"] for row in design_rows], list(range(1, len(design_rows) + 1)))
+        self.assertEqual(restored["candidate_id"], design["selected_candidate_id"])
         self.assertGreater(len({row["bag_weight_display"] for row in design_rows}), 1)
         self.assertTrue(all(row["bag_weight_unit"] == "oz" for row in design_rows))
+        for row in design_rows:
+            self.assertEqual(row["bag_dimensions_display"], format_dimensions(row["bag_length"], row["bag_width"]))
         for index in range(3):
             self.assertContains(html, f'name="film_caliper_unit_{index}"', count=1)
         sections = self.bag_result_details(html)
         self.assertEqual(len(sections), 3)
         for (_summary, rows), output in zip(sections, (inner, design, optimal)):
-            self.assertIn("Flat bag dimensions", rows)
+            self.assertEqual(
+                rows["Flat bag dimensions"],
+                format_dimensions(output["flat_bag_length_mm"], output["flat_bag_width_mm"]),
+            )
             self.assertIn("Packed bundle dimensions", rows)
             self.assertIn("Outer dimensions", rows)
             self.assertNotIn("Bag dimensions", rows)

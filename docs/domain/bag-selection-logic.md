@@ -42,7 +42,7 @@ These responsibilities do not justify a fork of the underlying bag equations or 
 7. If multiple units can be arranged in one bag, evaluate only the packing arrangements supported by the engine; do not assume arbitrary 3D bin packing.
 8. Apply payload/weight constraints separately from geometry.
 9. In Single mode, return maximum feasible quantity and the governing constraint.
-10. In Optimal mode, rank feasible candidates, normally preferring the smallest suitable bag/material area and least excess space.
+10. In Optimal mode, rank feasible catalogue candidates by highest bag usage and then smallest flat-bag area.
 
 ## Lay-flat sizing formula
 
@@ -120,15 +120,16 @@ Unless current code says otherwise:
 
 ## Ranking and tie-breaking
 
-Document the current implementation after inspection. Intended transparent tie-breakers are:
+Bag Design ranks deduplicated alternatives by ascending unrounded flat-bag
+area in canonical mm². Rank 1 is the smallest-area alternative and is the
+default when no valid candidate ID is supplied. Equal areas retain generation
+order. Ranking preserves geometry, insertion direction and stable candidate
+IDs, so saved selections remain valid at their new ranks.
 
-1. feasible for desired quantity;
-2. smallest bag area/material proxy;
-3. smallest excess width/length;
-4. lower packaging weight or other explicit business preference;
-5. stable catalogue order/part number.
-
-Do not silently change ranking while making a UI-only edit.
+Optimal Mode ranks feasible catalogue bags by highest bag usage and then by
+smallest area. Packaging Flow's optional final-capacity optimization ranks
+Design trials by highest downstream base-unit count, using the underlying
+area-based Bag Design rank to break ties.
 
 ## Test cases to retain
 
@@ -163,8 +164,8 @@ so bundle length is not shorter than bundle width, keeps height distinct, and
 retains one deterministic representative for each canonical bundle `(L, W, H)`.
 Design evaluates insertion along `L`, `W`, and `H` in each canonical
 arrangement. Each arrangement produces up to three distinct flat sizes
-with a width-side opening and 100% flat-area utilization. The canonical
-arrangement IDs, cubicity ordering and representative product placements
+with a width-side opening and 100% flat-area utilization. Canonical
+arrangement IDs, generation order and representative product placements
 come from the shared Container Design generator. Bag Design keeps the first
 proposal for each matching flat size and insertion-relative grid. Packed
 bundles with more than one product also retain distinct upright spans and
@@ -191,6 +192,12 @@ without moving the products.
 
 ## Bag area and weight in result tables
 
+All user-facing flat-bag dimensions follow Length × Width (L × W). Length
+is the insertion-direction dimension and includes the sealing allowance.
+Width is the bag-opening dimension. Results keep that order regardless of
+which dimension is larger. Design candidate identities retain their legacy
+width-first tuples internally.
+
 Design alternatives and Optimal Top 5 rows display the flat-bag area to two
 decimal places. The bag-dimension selector determines the display unit. Use
 cm² for mm, cm, and m, and in² for in and ft. Calculation and ranking use the
@@ -211,7 +218,7 @@ Custom film may supply independent single-ply caliper and grammage.
 
 Caliper converts to millimetres at the service boundary (1 µm = 0.001 mm,
 1 mil = 0.0254 mm). Preset grammage in g/m² equals caliper in µm times the
-density in g/cm³, so LDPE 1.2 mil yields 28.0416 g/m². An 87 × 127 mm
+density in g/cm³, so LDPE 1.2 mil yields 28.0416 g/m². A 127 × 87 mm
 lay-flat bag has 0.022098 m² of two-wall film and an estimated tare of
 0.6196632768 g. The full flat length includes the existing sealing allowance.
 
