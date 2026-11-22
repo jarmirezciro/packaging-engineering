@@ -940,7 +940,9 @@ class BagCompendiumTests(TestCase):
         design_quantities = {
             "three-dimensional-bag-design": 12, "non-smooth-quantity-design": 8,
             "custom-sealing": 1, "zero-bag-allowances": 1,
+            "blog-soap-bar-single": 1, "blog-soap-bar-multipack-12": 12,
         }
+        self.assertEqual(set(BAG_SELECTION_CASE_PRESETS), set(single_capacities) | set(design_quantities))
         custom_assumptions_mm = {
             "custom-sealing": (20, 2),
             "custom-fit-tolerance": (10, 5),
@@ -1032,6 +1034,69 @@ class BagCompendiumTests(TestCase):
         self.assertEqual(plain.context["form"]["product_l"].value(), "")
         self.assertEqual(plain.context["form"]["product_dimension_unit"].value(), "ft")
         self.assertEqual(plain.context["form"]["bag_mass_unit"].value(), "oz")
+
+    def test_soap_bar_cases_open_in_design_mode_with_net_content_weight(self):
+        page = self.client.get(reverse("regressions"))
+        bag_cases = dict(page.context["bag_cases"])
+        for slug, label, quantity in (
+            ("blog-soap-bar-single", "Blog — Soap Bar Bag Design (1 Unit)", 1),
+            ("blog-soap-bar-multipack-12", "Blog — Soap Bar Multipack Design (12 Units)", 12),
+        ):
+            with self.subTest(case=slug):
+                self.assertEqual(bag_cases[slug]["label"], label)
+                url = f"{reverse('bag_selection_mode1')}?case={slug}"
+                self.assertContains(page, f'<a href="{url}">{label}</a>', count=1, html=True)
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["current_mode"], "design")
+                self.assertFalse(response.context["form"].errors)
+                for field, value in {
+                    "product_source": "manual", "product_shape": "cuboid",
+                    "product_l": "90", "product_w": "60", "product_h": "25",
+                    "product_dimension_unit": "mm", "product_weight": "100",
+                    "product_mass_unit": "g", "desired_qty": str(quantity),
+                    "product_allowance_l": "0", "product_allowance_w": "0", "product_allowance_h": "0",
+                }.items():
+                    self.assertEqual(response.context["form"][field].value(), value, field)
+                result = response.context["result"]
+                self.assertGreater(result["bag_area"], 0)
+                self.assertEqual(result["design_quantity"], quantity)
+                self.assertEqual(result["net_content_weight"], 100 * quantity)
+                self.assertContains(response, result["net_content_weight_display"])
+                self.assertEqual(len(response.context["threejs_scene"]["products"]), quantity)
+
+    def test_soap_bar_multipack_switches_arrangements_and_recalculates(self):
+        url = f"{reverse('bag_selection_mode1')}?case=blog-soap-bar-multipack-12"
+        initial = self.client.get(url)
+        config = initial.context["bag_config"]
+        original = initial.context["result"]
+        candidates = initial.context["design_candidates"]
+        self.assertGreaterEqual(len({row["arrangement_id"] for row in candidates}), 4)
+        alternative = next(
+            row for row in candidates
+            if row["arrangement_id"] != original["arrangement_id"]
+            and row["bag_dimensions_display"] != original["bag_dimensions_display"]
+        )
+        self.assertContains(initial, f"bagSelectionSelectDesignCandidate('', '{alternative['candidate_id']}')")
+        selected = self.client.post(url, {
+            **config, "action": "select_design_candidate",
+            "selected_design_candidate_id": alternative["candidate_id"],
+        })
+        result = selected.context["result"]
+        self.assertEqual(result["candidate_id"], alternative["candidate_id"])
+        self.assertEqual(result["net_content_weight"], 1200)
+        scene = selected.context["threejs_scene"]
+        self.assertEqual(scene, result["render_data"])
+        self.assertNotEqual(scene, initial.context["threejs_scene"])
+        self.assertEqual(len(scene["products"]), 12)
+        self.assertEqual(
+            (scene["bag"]["flatLength"], scene["bag"]["flatWidth"]),
+            (alternative["bag_length"], alternative["bag_width"]),
+        )
+        edited = self.client.post(url, {**config, "desired_qty": 6})
+        self.assertFalse(edited.context["form"].errors)
+        self.assertEqual(edited.context["result"]["net_content_weight"], 600)
+        self.assertEqual(len(edited.context["threejs_scene"]["products"]), 6)
 
     def test_sealing_case_accepts_swapped_bag_and_reports_no_fit(self):
         url = f"{reverse('bag_selection_mode1')}?case=sealing-and-bag-orientation"

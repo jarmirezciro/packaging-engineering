@@ -20,6 +20,23 @@ SEO_BAG_SELECTION_EXAMPLE_CONFIG = {
 }
 
 
+SOAP_BAR_DESIGN_CONFIG = {
+    "mode": "design",
+    "action": "run_design",
+    "product_source": "manual",
+    "product_shape": "cuboid",
+    "product_dimension_unit": "mm",
+    "product_mass_unit": "g",
+    "product_l": 90,
+    "product_w": 60,
+    "product_h": 25,
+    "product_weight": 100,
+    "product_allowance_l": 0,
+    "product_allowance_w": 0,
+    "product_allowance_h": 0,
+}
+
+
 BAG_SELECTION_CASE_PRESETS = {
     "maximum-bag-capacity": {
         "label": "Maximum Bag Capacity",
@@ -139,6 +156,14 @@ BAG_SELECTION_CASE_PRESETS = {
             "bag_length": 6, "bag_width": 4,
             "sealing_allowance": 0.625, "fit_tolerance": 0.125,
         },
+    },
+    "blog-soap-bar-single": {
+        "label": "Blog — Soap Bar Bag Design (1 Unit)",
+        "config": {**SOAP_BAR_DESIGN_CONFIG, "desired_qty": 1},
+    },
+    "blog-soap-bar-multipack-12": {
+        "label": "Blog — Soap Bar Multipack Design (12 Units)",
+        "config": {**SOAP_BAR_DESIGN_CONFIG, "desired_qty": 12},
     },
 }
 
