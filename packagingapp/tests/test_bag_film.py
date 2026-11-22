@@ -14,12 +14,26 @@ from packagingapp.forms import PackagingMaterialForm
 from packagingapp.models import PackagingCatalogue, PackagingMaterial
 from packagingapp.tools.bag.dimensions import resolve_bag_outer_dimensions
 from packagingapp.tools.bag.film import FILM_PRESETS, resolve_bag_film
-from packagingapp.tools.bag.service import analyze_bag_capacity, analyze_bag_config
+from packagingapp.tools.bag.service import analyze_bag_capacity, analyze_bag_config, format_bag_weight
 from packagingapp.tools.bag.workflow import attach_bag_workflow_weight
 from packagingapp.units import convert_film_thickness
 
 
 class BagFilmTests(SimpleTestCase):
+    def test_candidate_weight_formatting_keeps_precision_and_handles_unavailable_tare(self):
+        for selected_unit, unit, value in (
+            ("g", "g", "0.620"), ("kg", "g", "0.620"), ("t", "g", "0.620"),
+            ("oz", "oz", "0.0219"), ("lb", "oz", "0.0219"),
+        ):
+            with self.subTest(selected_unit=selected_unit):
+                self.assertEqual(format_bag_weight(0.6196632768, selected_unit), {
+                    "bag_weight_display": value, "bag_weight_unit": unit,
+                })
+        for weight in (None, "", "NaN", "Infinity", "invalid", -1, 0):
+            self.assertEqual(format_bag_weight(weight, "g")["bag_weight_display"], "—")
+        self.assertEqual(format_bag_weight(0.000001, "g")["bag_weight_display"], "<0.001")
+        self.assertEqual(format_bag_weight(0.000001, "lb")["bag_weight_display"], "<0.0001")
+
     def test_presets_and_film_units(self):
         expected = {
             "ldpe_1": (25.4, 23.368), "ldpe_1_2": (30.48, 28.0416),
@@ -202,6 +216,11 @@ class BagFilmSurfaceTests(TestCase):
             catalogue=self.catalogue, packaging_type="BAG", part_number="UNKNOWN",
             part_length=128, part_width=87, part_height=0,
         )
+        estimated = PackagingMaterial.objects.create(
+            catalogue=self.catalogue, packaging_type="BAG", part_number="ESTIMATE",
+            part_length=97, part_width=117, part_height=0, bag_film_family="ldpe",
+            bag_film_caliper_mm=Decimal("0.03048"), bag_construction="two_wall",
+        )
         url = reverse("bag_selection_mode1")
         inputs = {
             "mode": "optimal", "action": "select_candidate", "bag_source": "catalogue",
@@ -211,7 +230,15 @@ class BagFilmSurfaceTests(TestCase):
         }
         selected = self.client.post(url, {**inputs, "bag_id": actual.pk})
         self.assertFalse(selected.context["form"].errors)
-        self.assertEqual([row["id"] for row in selected.context["top5"]], [str(actual.pk), str(unknown.pk)])
+        ranking = [str(bag.pk) for bag in (actual, estimated, unknown)]
+        self.assertEqual([row["id"] for row in selected.context["top5"]], ranking)
+        self.assertEqual([row["bag_weight_display"] for row in selected.context["top5"]], ["0.729", "0.636", "—"])
+        self.assertContains(
+            selected,
+            '<th class="text-end text-nowrap">Bag area (cm²)</th>'
+            '<th class="text-end text-nowrap">Bag weight (g)</th><th>Usage</th>',
+            html=True,
+        )
         (summary, rows), = self.bag_result_details(selected)
         self.assertIn("100.729 g", summary)
         self.assertEqual(rows["Film material"], "PP")
@@ -224,6 +251,16 @@ class BagFilmSurfaceTests(TestCase):
         self.assertEqual(missing_rows["Packaging weight source"], "Unavailable")
         self.assertNotIn("Caliper", missing_rows)
         self.assertNotIn("Grammage", missing_rows)
+
+        overridden = self.client.post(url, {
+            **inputs, "action": "find_top5", "bag_mass_unit": "lb",
+            "bag_weight_override": "1", "bag_weight": "0.002",
+        })
+        override_rows = overridden.context["top5"]
+        self.assertEqual([row["id"] for row in override_rows], ranking)
+        self.assertEqual([row["bag_weight_display"] for row in override_rows], ["0.0320"] * 3)
+        self.assertTrue(all(row["bag_tare_source"] == "manual_override" for row in override_rows))
+        self.assertContains(overridden, "Bag weight (oz)")
 
     def test_preview_and_catalogue_high_precision_form(self):
         form = PackagingMaterialForm(data={
@@ -273,7 +310,7 @@ class BagFilmSurfaceTests(TestCase):
              "product_weight_0": 50, "bag_length_0": 127, "bag_width_0": 87,
              "bag_advanced_open_0": "1", "bag_weight_override_0": "0", "bag_weight_0": "0.620"},
             {"action_1": "run_design", "mode_1": "design", "desired_qty_1": 2,
-             "film_preset_1": "pp_40", "film_caliper_unit_1": "um"},
+             "film_preset_1": "pp_40", "film_caliper_unit_1": "um", "bag_mass_unit_1": "lb"},
             {"action_2": "select_candidate", "mode_2": "optimal", "desired_qty_2": 1,
              "bag_source_2": "catalogue", "catalogue_id_2": self.catalogue.pk, "bag_id_2": bag.pk},
         )
@@ -293,6 +330,11 @@ class BagFilmSurfaceTests(TestCase):
         self.assertEqual(optimal["total_base_units"], 2)
         self.assertEqual([step["config"]["film_preset"] for step in steps], ["ldpe_1_2", "pp_40", "ldpe_1_2"])
         html = self.client.get(url)
+        self.assertContains(html, "Bag weight (oz)", count=1)
+        self.assertContains(html, "Bag weight (g)", count=1)
+        design_rows = html.context["steps"][1]["design_candidates_for_display"]
+        self.assertGreater(len({row["bag_weight_display"] for row in design_rows}), 1)
+        self.assertTrue(all(row["bag_weight_unit"] == "oz" for row in design_rows))
         for index in range(3):
             self.assertContains(html, f'name="film_caliper_unit_{index}"', count=1)
         sections = self.bag_result_details(html)

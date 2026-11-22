@@ -256,6 +256,26 @@ class BagSizingSurfaceTests(TestCase):
                     self.assertEqual((row["bag_area_display"], row["bag_area_unit"]), (display, area_unit))
                     self.assertContains(response, f'<td class="text-end">{display}</td>', count=1, html=True)
 
+    def test_design_weight_column_uses_each_candidates_tare_and_active_mass_unit(self):
+        for mass_unit, header_unit, weights in (
+            ("g", "g", ("0.620", "0.636", "0.827")),
+            ("lb", "oz", ("0.0219", "0.0225", "0.0292")),
+        ):
+            with self.subTest(mass_unit=mass_unit):
+                response = self.post_bag(mode="design", action="run_design", bag_mass_unit=mass_unit)
+                self.assertContains(
+                    response,
+                    '<th class="text-end text-nowrap">Bag area (cm²)</th>'
+                    f'<th class="text-end text-nowrap">Bag weight ({header_unit})</th><th>Cubicity</th>',
+                    html=True,
+                )
+                for area, weight in zip(("110.49", "113.49", "147.44"), weights):
+                    self.assertContains(
+                        response,
+                        f'<td class="text-end">{area}</td><td class="text-end">{weight}</td>',
+                        html=True,
+                    )
+
     def test_custom_single_fit_capacity_utilization_and_report_use_the_same_values(self):
         custom = {"fit_tolerance": 4, "sealing_allowance": 15}
         original = self.post_bag(action="run_single", bag_length=154, bag_width=114)

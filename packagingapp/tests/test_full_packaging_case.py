@@ -405,7 +405,7 @@ class FullPackagingCaseTests(TestCase):
         catalogue = PackagingCatalogue.objects.create(name="Area display test bags")
         bag = PackagingMaterial.objects.create(
             catalogue=catalogue, packaging_type="BAG", part_number="97x117",
-            part_length=97, part_width=117, part_height=0,
+            part_length=97, part_width=117, part_height=0, bag_actual_weight_g="0.729",
         )
         url = reverse("full_packaging_mode")
         self.assertRedirects(
@@ -417,10 +417,13 @@ class FullPackagingCaseTests(TestCase):
             "product_l_0": 90, "product_w_0": 60, "product_h_0": 25,
             "bag_source_0": "catalogue", "catalogue_id_0": catalogue.pk,
             "bag_dimension_unit_0": "in",
+            "bag_mass_unit_0": "lb",
         }
         response = self.client.post(url, {**config, "action_0": "find_top5"}, follow=True)
         self.assertContains(response, "Bag area (in²)")
         self.assertContains(response, '<td class="text-end">17.59</td>', html=True)
+        self.assertContains(response, "Bag weight (oz)")
+        self.assertContains(response, '<td class="text-end">0.0257</td>', html=True)
         self.assertContains(response, f"bagSelectionSelectCandidate('0', '{bag.pk}')")
 
         session = self.client.session
@@ -429,10 +432,20 @@ class FullPackagingCaseTests(TestCase):
         self.assertEqual(row["bag_area"], 11349)
         row.pop("bag_area_display")
         row.pop("bag_area_unit")
+        row.pop("bag_weight_display")
+        row.pop("bag_weight_unit")
         session.save()
         restored = self.client.get(url)
         self.assertContains(restored, "Bag area (in²)")
         self.assertContains(restored, '<td class="text-end">17.59</td>', html=True)
+        self.assertContains(restored, '<td class="text-end">0.0257</td>', html=True)
+
+        session = self.client.session
+        row, = session["full_packaging_mode_session"]["steps"][0]["top5"]
+        row.pop("bag_tare_g")
+        session.save()
+        missing = self.client.get(url)
+        self.assertContains(missing, '<td class="text-end">17.59</td><td class="text-end">—</td>', html=True)
 
         selected = self.client.post(
             url, {**config, "action_0": "select_candidate", "bag_id_0": bag.pk}, follow=True,
@@ -441,6 +454,7 @@ class FullPackagingCaseTests(TestCase):
         step = self.client.session["full_packaging_mode_session"]["steps"][0]
         self.assertEqual(step["result"]["usage"], 1.0)
         self.assertEqual(step["pending_result"]["units_per_parent"], 1)
+        self.assertEqual(step["pending_result"]["bag_tare_g"], 0.729)
 
     def test_bag_design_height_insertion_recalculates_carton_and_pallet(self):
         slug = "bag-design-final-capacity"

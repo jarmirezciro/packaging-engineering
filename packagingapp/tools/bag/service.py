@@ -61,6 +61,23 @@ def format_bag_area(area_mm2, dimension_unit):
     return {"bag_area_display": display, "bag_area_unit": f"{length_unit}²"}
 
 
+def format_bag_weight(weight_g, mass_unit):
+    """Format an empty candidate bag's canonical tare for result tables."""
+    unit = "oz" if str(mass_unit).strip().lower() in ("oz", "lb") else "g"
+    places = 4 if unit == "oz" else 3
+    display = "—"
+    try:
+        weight = Decimal(str(weight_g))
+        if weight.is_finite() and weight > 0:
+            converted = convert_mass(weight, "g", unit)
+            display = f"{converted:.{places}f}"
+            if Decimal(display) == 0:
+                display = f"<{Decimal(1).scaleb(-places):f}"
+    except DecimalException:
+        pass
+    return {"bag_weight_display": display, "bag_weight_unit": unit}
+
+
 def _to_float(value):
     if value in (None, "", "None"):
         return None
@@ -652,6 +669,7 @@ def _add_bag_design_metrics(candidate, config, selected_product=None):
     row.update({
         **film,
         **format_bag_area(row.get("bag_area"), bag_dimension_unit),
+        **format_bag_weight(tare, config["bag_mass_unit"]),
         "net_content_weight": _round_or_none(net_weight, 3),
         "net_content_weight_g": net_weight,
         "gross_bag_weight_g": gross,
@@ -1002,6 +1020,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
             top5 = scored[:5]
             for row in top5:
                 row.update(format_bag_area(row["bag_area"], normalized_inputs["bag_dimension_unit"]))
+                row.update(format_bag_weight(row["bag_tare_g"], cfg["bag_mass_unit"]))
 
             if action == "select_candidate":
                 if not selected_material:

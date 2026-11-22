@@ -189,12 +189,17 @@ the bag. `bag.film` identifies the depth axis and dimensions in the actual
 placement coordinates, so the viewer can form the film around the bundle
 without moving the products.
 
-## Bag area in result tables
+## Bag area and weight in result tables
 
 Design alternatives and Optimal Top 5 rows display the flat-bag area to two
 decimal places. The bag-dimension selector determines the display unit. Use
 cm² for mm, cm, and m, and in² for in and ft. Calculation and ranking use the
 canonical area in mm².
+
+The Bag weight column shows resolved empty-bag tare. Metric mass selections
+use three decimal places in grams. Ounce and pound selections use four
+decimal places in ounces. A dash indicates unavailable tare. Positive values
+that would round to zero display as less than the smallest displayed unit.
 
 ## Flexible film properties and tare
 
