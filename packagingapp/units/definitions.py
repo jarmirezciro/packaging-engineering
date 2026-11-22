@@ -31,6 +31,17 @@ MASS_UNITS = MappingProxyType({
     "lb": G_PER_LB,
 })
 
+FILM_THICKNESS_UNITS = MappingProxyType({
+    "mm": Decimal("1"),
+    "um": Decimal("0.001"),
+    "mil": Decimal("0.0254"),
+})
+
+FILM_THICKNESS_UNIT_OPTIONS = (
+    {"value": "um", "label": "Micrometres", "symbol": "µm"},
+    {"value": "mil", "label": "Mils (thousandths of an inch)", "symbol": "mil"},
+)
+
 
 # Presentation metadata for reusable manual-input selectors.  Conversion
 # factors remain exclusively in LENGTH_UNITS and MASS_UNITS above.

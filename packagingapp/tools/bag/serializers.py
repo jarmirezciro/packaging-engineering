@@ -1,5 +1,5 @@
 from ...units import LENGTH_UNITS
-from .state import default_bag_config
+from .state import BAG_FILM_DEFAULTS, default_bag_config
 from ..selection_mode import normalize_selection_mode
 from ..product_shape import normalize_product_shape
 
@@ -44,4 +44,5 @@ def sanitize_bag_config_for_session(config):
         "bag_max_payload": _safe_str(base.get("bag_max_payload") or ""),
         "bag_mass_unit": _safe_str(base.get("bag_mass_unit") or "g"),
         "selected_design_candidate_id": _safe_str(base.get("selected_design_candidate_id") or ""),
+        **{key: _safe_str(base[key]) for key in BAG_FILM_DEFAULTS},
     }

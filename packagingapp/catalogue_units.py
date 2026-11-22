@@ -5,6 +5,8 @@ presentation/input boundary: it converts display values to and from the
 model units without changing any catalogue or tool contracts.
 """
 
+from .tools.bag.film import catalogue_bag_weight_g
+
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.http import HttpResponseBadRequest
@@ -268,11 +270,16 @@ def annotate_packaging_picker_rows(
                         display_unit=length_unit,
                     ),
                 )
+        weight = getattr(material, "part_weight", None)
+        if getattr(material, "packaging_type", None) == "BAG":
+            actual = catalogue_bag_weight_g(material)
+            weight = convert_mass(actual, "g", "kg") if actual is not None else None
+        material.picker_weight_kg = weight
         setattr(
             material,
             "picker_display_weight",
             format_catalogue_value(
-                getattr(material, "part_weight", None),
+                weight,
                 quantity="mass",
                 display_unit=mass_unit,
             ),

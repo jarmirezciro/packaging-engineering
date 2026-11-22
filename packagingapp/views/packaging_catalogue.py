@@ -7,6 +7,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
+from django.db.models import Q
 from openpyxl import Workbook
 
 from packagingapp.access import (
@@ -25,11 +26,12 @@ from packagingapp.forms import (
     PackagingMaterialImagesZipUploadForm,
     PackagingMaterialFilterForm,
 )
-from packagingapp.services.excel_import import import_packaging_excel
+from packagingapp.services.excel_import import BAG_FILM_COLUMNS, import_packaging_excel
 from packagingapp.services.drawing_import import import_drawings_zip
 from packagingapp.services.material_image_import import import_material_images_zip
 from packagingapp.services.catalogue_media import CatalogueMediaError, catalogue_storage_summary
 from packagingapp.models import PackagingMaterial
+from packagingapp.units import convert_film_thickness, format_number, kg_to_g
 from packagingapp.catalogue_units import (
     catalogue_display_selectors,
     catalogue_units_from_request,
@@ -144,11 +146,14 @@ def catalogue_detail(request, pk):
 
         for field_name, lookup in (("min_weight", "gte"), ("max_weight", "lte")):
             if form.cleaned_data.get(field_name) is not None:
-                materials = materials.filter(**{
-                    f"part_weight__{lookup}": convert_catalogue_filter(
-                        form.cleaned_data[field_name], quantity="mass", display_unit=mass_unit
-                    )
-                })
+                weight_kg = convert_catalogue_filter(
+                    form.cleaned_data[field_name], quantity="mass", display_unit=mass_unit
+                )
+                bag_actual = Q(packaging_type="BAG", bag_actual_weight_g__isnull=False)
+                materials = materials.filter(
+                    (bag_actual & Q(**{f"bag_actual_weight_g__{lookup}": kg_to_g(weight_kg)}))
+                    | (~bag_actual & Q(**{f"part_weight__{lookup}": weight_kg}))
+                )
 
         if form.cleaned_data.get("min_volume"):
             materials = materials.filter(part_volume__gte=form.cleaned_data["min_volume"])
@@ -176,6 +181,10 @@ def catalogue_detail(request, pk):
         material.catalogue_display_part_weight = format_catalogue_value(
             material.part_weight, quantity="mass", display_unit=catalogue_units["mass"]
         )
+        if material.packaging_type == "BAG" and material.bag_film_caliper_mm is not None:
+            material.catalogue_film_caliper_um = format_number(
+                convert_film_thickness(material.bag_film_caliper_mm, "mm", "um"), max_decimal_places=4
+            )
     can_manage = can_manage_packaging_catalogue(request.user, catalogue)
 
     return render(
@@ -466,6 +475,7 @@ def download_excel_template(request, pk):
         "corrugated_construction_code",
         "combined_grammage_g_m2",
         "carton_style",
+        *BAG_FILM_COLUMNS,
     ])
     ws.append([
         "100001",
@@ -504,6 +514,12 @@ def download_excel_template(request, pk):
     info["B8"] = catalogue.name
     info["A9"] = "Optional board data"
     info["B9"] = "corrugated_construction_code: stable construction code; combined_grammage_g_m2: SKU override in g/m²; carton_style: 0201 only when confirmed RSC"
+    info["A10"] = "Optional BAG data"
+    info["B10"] = (
+        "Use ldpe, pp or custom for bag_film_family and two_wall or other for bag_construction. "
+        "Enter single-ply millimetres in bag_film_caliper_mm, finished bag grams in bag_actual_weight_g, "
+        "and single-ply g/m² in combined_grammage_g_m2."
+    )
 
     output = BytesIO()
     wb.save(output)
@@ -592,6 +608,7 @@ def export_catalogue_excel(request, pk):
         "corrugated_construction_code",
         "combined_grammage_g_m2",
         "carton_style",
+        *BAG_FILM_COLUMNS,
     ])
 
     for m in materials:
@@ -615,6 +632,7 @@ def export_catalogue_excel(request, pk):
             m.corrugated_construction.code if m.corrugated_construction else "",
             float(m.combined_grammage_g_m2) if m.combined_grammage_g_m2 is not None else None,
             m.carton_style or "",
+            *(getattr(m, key) if m.packaging_type == "BAG" else None for key in BAG_FILM_COLUMNS),
         ])
 
     output = BytesIO()

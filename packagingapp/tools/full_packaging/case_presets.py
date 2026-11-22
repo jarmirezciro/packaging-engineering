@@ -253,7 +253,9 @@ _CASE_PRESETS = {
             "Engineering demonstration using the public Bag Selection example, "
             "a manual shipping carton, a pallet, and a short transport unit."
         ),
-        "bag": {**SEO_BAG_SELECTION_EXAMPLE_CONFIG},
+        # These published cases predate film specifications. Keep their
+        # documented package dimensions until a film is explicitly selected.
+        "bag": {**SEO_BAG_SELECTION_EXAMPLE_CONFIG, "film_preset": "legacy"},
         "carton": _BAG_DEMO_CARTON,
         "pallet": _DEMO_PALLET,
         "transport": _DEMO_TRANSPORT,
@@ -274,6 +276,7 @@ _CASE_PRESETS = {
             "product_h": 20,
             "product_weight": 50,
             "desired_qty": 4,
+            "film_preset": "legacy",
         },
         "carton": {**_BAG_DEMO_CARTON, "box_h": 375, "box_max_payload": 30000},
         "pallet": _DEMO_PALLET,

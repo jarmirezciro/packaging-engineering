@@ -22,6 +22,10 @@
             oz: 28.349523125,
             lb: 453.59237,
         }),
+        film: Object.freeze({
+            um: 0.001,
+            mil: 0.0254,
+        }),
     });
     const numericInputs = window.KolliPackNumericInputs;
     const inputOrigins = new WeakMap();
@@ -30,7 +34,7 @@
         const key = String(value || "").trim().toLowerCase();
         return FACTORS_TO_BASE[quantity] && FACTORS_TO_BASE[quantity][key]
             ? key
-            : (quantity === "mass" ? "g" : "mm");
+            : ({mass: "g", film: "mil"}[quantity] || "mm");
     }
 
     function numericValue(value) {
@@ -109,13 +113,14 @@
     }
 
     function setVisibleUnit(group, selectedUnit) {
+        const symbolText = selectedUnit === "um" ? "µm" : selectedUnit;
         groupSelectors(group).forEach((selector) => {
             const symbol = selector.querySelector("[data-unit-symbol]");
-            if (symbol) symbol.textContent = selectedUnit;
+            if (symbol) symbol.textContent = symbolText;
             updateOptionState(selector, selectedUnit);
         });
         groupNodes(group).filter((node) => node.matches("[data-unit-label]"))
-            .forEach((label) => { label.textContent = selectedUnit; });
+            .forEach((label) => { label.textContent = symbolText; });
         const hidden = groupHiddenInput(group);
         if (hidden) hidden.value = selectedUnit;
     }

@@ -17,7 +17,7 @@ REQUIRED_COLUMNS = [
     "part_weight",
 ]
 
-OPTIONAL_COLUMNS = ["box_thickness_mm", "corrugated_construction_code", "combined_grammage_g_m2", "carton_style"]
+BAG_FILM_COLUMNS = ("bag_film_family", "bag_construction", "bag_film_caliper_mm", "bag_actual_weight_g")
 
 PACKAGING_TYPE_MAP = {
     "box": "BOX",
@@ -79,6 +79,11 @@ def import_packaging_excel(excel_file, catalogue):
                 if column == "carton_style" and value is not None:
                     value = str(value).strip().removesuffix(".0").zfill(4)
                 material_properties[column] = PackagingMaterial._meta.get_field(column).clean(value, None)
+        if packaging_type == "BAG":
+            for column in BAG_FILM_COLUMNS:
+                if column in df.columns:
+                    value = _optional_number(row, column)
+                    material_properties[column] = PackagingMaterial._meta.get_field(column).clean(value, None)
         if "corrugated_construction_code" in df.columns:
             code = _optional_number(row, "corrugated_construction_code")
             construction = None

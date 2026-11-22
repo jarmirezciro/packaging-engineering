@@ -50,7 +50,6 @@
         const manualDesiredQtyWrap = document.getElementById(prefix ? ('manualDesiredQtyWrap_' + prefix) : 'manualDesiredQtyWrap');
         const singleBagControls = document.getElementById(prefix ? ('singleBagControls_' + prefix) : 'singleBagControls');
         const optimalBagControls = document.getElementById(prefix ? ('optimalBagControls_' + prefix) : 'optimalBagControls');
-        const manualBagFields = document.getElementById(prefix ? ('manualBagFields_' + prefix) : 'manualBagFields');
         const manualBagDimensions = root?.querySelector('[data-bag-manual-dimensions]');
         const globalCatalogueChooser = document.getElementById(prefix ? ('globalCatalogueChooser_' + prefix) : 'globalCatalogueChooser');
         const selectionPackageControls = document.getElementById(prefix ? ('selectionPackageControls_' + prefix) : 'selectionPackageControls');
@@ -90,10 +89,8 @@
             if (optimalBagControls) optimalBagControls.style.display = 'none';
             if (bagSource === 'catalogue') {
                 if (globalCatalogueChooser) globalCatalogueChooser.style.display = 'block';
-                if (manualBagFields) manualBagFields.style.display = 'none';
             } else {
                 if (globalCatalogueChooser) globalCatalogueChooser.style.display = 'none';
-                if (manualBagFields) manualBagFields.style.display = 'block';
             }
         } else {
             if (singleBagControls) singleBagControls.style.display = 'none';
@@ -236,3 +233,4 @@
 <script type="module" src="{% static 'js/container_threejs_viewer.js' %}?v=20261121-bag-film"></script>
 <script type="module" src="{% static 'js/product_unit_threejs_viewer.js' %}?v=20261102-product-unit-display"></script>
 <script src="{% static 'js/unit_selector.js' %}"></script>
+<script src="{% static 'js/bag_film.js' %}"></script>

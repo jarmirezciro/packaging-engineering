@@ -1,0 +1,77 @@
+{% load l10n %}
+<hr class="app-divider">
+<div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+    <div>
+        <div class="app-form-section-title mb-0">Additional parameters</div>
+        <div class="app-form-note">Film properties, packaging weight and payload.</div>
+    </div>
+    <button type="button" class="btn btn-app-outline btn-sm flex-shrink-0"
+            aria-controls="{{ bag_ui.ids.bag_advanced }}" aria-expanded="{% if bag_film.open %}true{% else %}false{% endif %}"
+            onclick="KolliPackProductAllowance.toggle('{{ bag_ui.ids.bag_advanced }}', this)">
+        <i class="bi bi-chevron-{% if bag_film.open %}up{% else %}down{% endif %} me-2" aria-hidden="true"></i><span>{% if bag_film.open %}Hide Advanced{% else %}Show Advanced{% endif %}</span>
+    </button>
+</div>
+<div id="{{ bag_ui.ids.bag_advanced }}" data-tool-advanced-panel data-bag-film-panel
+     data-advanced-state-name="{{ bag_ui.names.bag_advanced_open }}"
+     data-preview-url="{% url 'bag_film_preview' %}"
+     data-catalogue-film="{% if bag_film.catalogue %}1{% else %}0{% endif %}"
+     data-design-length="{{ result.flat_bag_length_mm|unlocalize }}"
+     data-design-width="{{ result.flat_bag_width_mm|unlocalize }}"
+     {% if not bag_film.open %}hidden{% endif %}>
+    <input type="hidden" name="{{ bag_ui.names.bag_advanced_open }}" value="{% if bag_film.open %}1{% endif %}">
+    <input type="hidden" name="{{ bag_ui.names.film_preset }}" value="{{ bag_values.film_preset }}">
+    <input type="hidden" name="{{ bag_ui.names.film_preset_override }}" value="{% if bag_film.preset_override %}1{% else %}0{% endif %}">
+    <input type="hidden" name="{{ bag_ui.names.film_caliper_override }}" value="{% if bag_film.caliper_override %}1{% else %}0{% endif %}">
+    <input type="hidden" name="{{ bag_ui.names.film_grammage_override }}" value="{% if bag_film.grammage_override %}1{% else %}0{% endif %}">
+    <input type="hidden" name="{{ bag_ui.names.bag_weight_override }}" value="{% if bag_film.weight_override %}1{% else %}0{% endif %}">
+    <input type="hidden" name="{{ bag_ui.names.film_caliper_unit }}" id="{{ bag_ui.unit_selectors.film_caliper.hidden_id }}"
+           data-unit-hidden data-unit-group="{{ bag_ui.unit_selectors.film_caliper.group }}" value="{{ bag_film.unit }}">
+    <div class="tool-compact-grid-two mt-2">
+        <div class="tool-field-group mb-0">
+            <label class="form-label" for="bagCaliper{{ bag_ui.prefix }}">Caliper</label>
+            {% include "shared/_unit_selector.html" with unit_selector=bag_ui.unit_selectors.film_caliper current_unit=bag_film.unit selector_key='caliper' %}
+            <input id="bagCaliper{{ bag_ui.prefix }}" type="number" step="any" min="0" class="form-control"
+                   name="{{ bag_ui.names.film_caliper }}" data-unit-input data-unit-group="{{ bag_ui.unit_selectors.film_caliper.group }}"
+                   value="{{ bag_film.inputs.caliper }}">
+            {% include "container_selection_tool/partials/_container_selection_property_source.html" with property='caliper' source_label=bag_film.sources.caliper overridden=bag_film.caliper_override %}
+        </div>
+        <div class="tool-field-group mb-0">
+            <label class="form-label" for="bagGrammage{{ bag_ui.prefix }}">Grammage <span class="text-muted">(g/m²)</span></label>
+            <input id="bagGrammage{{ bag_ui.prefix }}" type="number" step="any" min="0" class="form-control"
+                   name="{{ bag_ui.names.film_grammage }}" value="{{ bag_film.inputs.grammage }}"
+                   {% if bag_film.preset != 'custom' and bag_film.preset != 'catalogue' %}readonly{% endif %}>
+            {% include "container_selection_tool/partials/_container_selection_property_source.html" with property='grammage' source_label=bag_film.sources.grammage overridden=bag_film.grammage_override %}
+        </div>
+    </div>
+    <div class="tool-field-group mt-3">
+        <label class="form-label" for="bagFilmPreset{{ bag_ui.prefix }}">Film material</label>
+        <select id="bagFilmPreset{{ bag_ui.prefix }}" class="form-select" data-bag-film-preset>
+            {% if bag_film.catalogue %}<option value="catalogue" {% if bag_film.preset == "catalogue" %}selected{% endif %}>Catalogue film properties</option>{% endif %}
+            {% for value, label in bag_film.preset_choices %}
+                <option value="{{ value }}" {% if bag_film.preset == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <div class="app-form-note" data-bag-film-density>{{ bag_film.density }}</div>
+    </div>
+    <div class="tool-compact-grid-two">
+        <div class="tool-field-group mb-0">
+            <label class="form-label" for="bagFilmWeight{{ bag_ui.prefix }}">Packaging weight</label>
+            {% include "shared/_unit_selector.html" with unit_selector=bag_ui.unit_selectors.bag_mass current_unit=bag_values.bag_mass_unit selector_key='weight' %}
+            <input id="bagFilmWeight{{ bag_ui.prefix }}" type="number" step="any" min="0" class="form-control"
+                   name="{{ bag_ui.names.bag_weight }}" data-unit-input data-unit-group="{{ bag_ui.unit_selectors.bag_mass.group }}"
+                   value="{{ bag_film.inputs.tare }}" {% if not bag_film.weight_override %}readonly{% endif %}>
+            {% include "container_selection_tool/partials/_container_selection_property_source.html" with property='tare' source_label=bag_film.sources.tare overridden=bag_film.weight_override %}
+            <label class="form-check mt-1 small">
+                <input type="checkbox" class="form-check-input" data-bag-weight-override {% if bag_film.weight_override %}checked{% endif %}>
+                Enter actual / measured weight
+            </label>
+        </div>
+        <div class="tool-field-group mb-0">
+            <label class="form-label" for="bagFilmPayload{{ bag_ui.prefix }}">Max payload <span class="text-muted">(<span data-unit-label data-unit-group="{{ bag_ui.unit_selectors.bag_mass.group }}">{{ bag_values.bag_mass_unit }}</span>)</span></label>
+            <input id="bagFilmPayload{{ bag_ui.prefix }}" type="number" step="any" min="0" class="form-control" placeholder="Optional"
+                   name="{{ bag_ui.names.bag_max_payload }}" data-unit-input data-unit-group="{{ bag_ui.unit_selectors.bag_mass.group }}"
+                   value="{{ bag_values.bag_max_payload }}">
+        </div>
+    </div>
+    <div class="app-form-note mt-2">Weight estimates use two film walls and apply to simple, non-gusseted bags.</div>
+</div>

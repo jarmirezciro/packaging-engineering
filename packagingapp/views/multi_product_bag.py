@@ -14,6 +14,9 @@ from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
 from packagingapp.models import PackagingCatalogue, ProductCatalogue, PackagingMaterial, Product
+from packagingapp.tools.bag.film import catalogue_bag_weight_g, resolve_bag_film
+from packagingapp.tools.bag.presenter import bag_film_result_rows
+from packagingapp.units import g_to_kg
 from packagingapp.utils.bag_selection.engine import (
     build_required_bag_options,
     best_usage_for_bag,
@@ -104,7 +107,7 @@ def _serialize_packaging_catalogues(user) -> List[Dict]:
                         "external_length": float(m.external_length) if getattr(m, "external_length", None) is not None else None,
                         "external_width": float(m.external_width) if getattr(m, "external_width", None) is not None else None,
                         "external_height": float(m.external_height) if getattr(m, "external_height", None) is not None else None,
-                        "part_weight": float(m.part_weight) if getattr(m, "part_weight", None) is not None else None,
+                        "part_weight": _catalogue_weight_kg(m),
                         "part_volume": float(m.part_volume) if m.part_volume is not None else None,
                     }
                     for m in materials
@@ -112,6 +115,11 @@ def _serialize_packaging_catalogues(user) -> List[Dict]:
             }
         )
     return payload
+
+
+def _catalogue_weight_kg(material):
+    tare = catalogue_bag_weight_g(material)
+    return float(g_to_kg(tare)) if tare is not None else None
 
 
 def _rank_top5_for_product(product: Product, materials: List[PackagingMaterial]) -> List[Dict[str, Any]]:
@@ -150,7 +158,7 @@ def _rank_top5_for_product(product: Product, materials: List[PackagingMaterial])
                         "external_length": float(m.external_length) if getattr(m, "external_length", None) is not None else None,
                         "external_width": float(m.external_width) if getattr(m, "external_width", None) is not None else None,
                         "external_height": float(m.external_height) if getattr(m, "external_height", None) is not None else None,
-                        "part_weight": float(m.part_weight) if getattr(m, "part_weight", None) is not None else None,
+                        "part_weight": _catalogue_weight_kg(m),
                         "part_volume": float(m.part_volume) if m.part_volume is not None else None,
                     },
                     "bag_len": float(bag_len),
@@ -158,6 +166,7 @@ def _rank_top5_for_product(product: Product, materials: List[PackagingMaterial])
                     "usage": float(best["usage"]),
                     "best_required": [float(best["req_len"]), float(best["req_w"])],
                     "bag_area": float(bag_area),
+                    **resolve_bag_film({"bag_source": "catalogue"}, (bag_len, bag_w), m),
                     "smooth_qty": smooth_qty,
                     "required_bags": [[float(x), float(y)] for (x, y) in required_bags],
                 }
@@ -225,6 +234,8 @@ def multi_product_bag_run(request: HttpRequest) -> JsonResponse:
                         "best_required": row["best_required"],
                         "smooth_qty": row["smooth_qty"],
                         "required_bags": row["required_bags"],
+                        "bag_tare_g": row["bag_tare_g"],
+                        "bag_tare_source": row["bag_tare_source"],
                     }
                     for row in top5
                 ],
@@ -291,6 +302,7 @@ def multi_product_bag_draw(request: HttpRequest) -> JsonResponse:
             "bag_w": bag_w,
             "best_required": [float(best["req_len"]), float(best["req_w"])],
             "usage": float(best["usage"]),
+            "film_summary": bag_film_result_rows(resolve_bag_film({"bag_source": "catalogue"}, (bag_len, bag_w), m)),
             "used_layout": list(render_result.used_layout),
             "inner_box": [float(x) for x in render_result.inner_box],
             "required_bag": [float(x) for x in render_result.required_bag],
@@ -332,7 +344,8 @@ def multi_product_bag_export_excel(request: HttpRequest) -> HttpResponse:
         "bag_length", "bag_width",
         "usage",
         "best_required_length", "best_required_width",
-        "packaging_type", "branding",
+        "packaging_type", "branding", "film_material_family", "film_caliper_mm",
+        "film_grammage_g_m2", "bag_tare_g", "bag_tare_source",
     ])
 
     ws_full.append([
@@ -344,7 +357,8 @@ def multi_product_bag_export_excel(request: HttpRequest) -> HttpResponse:
         "bag_length", "bag_width",
         "usage",
         "best_required_length", "best_required_width",
-        "packaging_type", "branding",
+        "packaging_type", "branding", "film_material_family", "film_caliper_mm",
+        "film_grammage_g_m2", "bag_tare_g", "bag_tare_source",
     ])
 
     for p in products:
@@ -362,6 +376,8 @@ def multi_product_bag_export_excel(request: HttpRequest) -> HttpResponse:
                 float(best["usage"]),
                 float(best["best_required"][0]), float(best["best_required"][1]),
                 m["packaging_type"], m["branding"],
+                best["film_material_family"], best["film_caliper_mm"],
+                best["film_grammage_g_m2"], best["bag_tare_g"], best["bag_tare_source"],
             ])
         else:
             ws_best.append([
@@ -383,6 +399,8 @@ def multi_product_bag_export_excel(request: HttpRequest) -> HttpResponse:
                 float(row["usage"]),
                 float(row["best_required"][0]), float(row["best_required"][1]),
                 m["packaging_type"], m["branding"],
+                row["film_material_family"], row["film_caliper_mm"],
+                row["film_grammage_g_m2"], row["bag_tare_g"], row["bag_tare_source"],
             ])
 
     for ws in (ws_best, ws_full):

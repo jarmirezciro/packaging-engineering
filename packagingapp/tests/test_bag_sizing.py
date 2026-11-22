@@ -395,7 +395,10 @@ class BagSizingSurfaceTests(TestCase):
         self.assertEqual(self.client.session["bag_selection_single_export"]["analysis_report"], report)
         capacity = analyze_bag_capacity(manual.context["bag_config"])["pending_result"]
         self.assertEqual(capacity["units_per_parent"], 2)
-        self.assertEqual((capacity["length"], capacity["width"], capacity["height"]), (92, 62, 50))
+        self.assertEqual((capacity["length"], capacity["width"], capacity["height"]), (90.06096, 60.06096, 50.06096))
+        legacy = analyze_bag_capacity({**manual.context["bag_config"], "film_preset": "legacy"})["pending_result"]
+        self.assertEqual((legacy["length"], legacy["width"], legacy["height"]), (92, 62, 50))
+        self.assertEqual(legacy["outer_dimension_source"], "legacy_bag_dimensions")
 
     def test_single_selects_third_insertion_with_manual_catalogue_and_equivalent_units(self):
         bag = self.bags[97, 152]
@@ -421,7 +424,9 @@ class BagSizingSurfaceTests(TestCase):
                 })
                 capacity = analyze_bag_capacity(response.context["bag_config"], selected_material=bag)["pending_result"]
                 self.assertEqual(capacity["insertion"], HEIGHT_INSERTION)
-                self.assertEqual(tuple(capacity[axis] for axis in ("length", "width", "height")), (25, 90, 60))
+                self.assertEqual(tuple(capacity[f"bundle_{axis}_mm"] for axis in ("length", "width", "height")), (25, 90, 60))
+                expected = (25, 90, 60) if inputs.get("bag_id") else (25.06096, 90.06096, 60.06096)
+                self.assertEqual(tuple(capacity[axis] for axis in ("length", "width", "height")), expected)
 
     def test_optimal_catalogue_top_five_and_public_selection_respect_bag_axes(self):
         config = {"mode": "optimal", "bag_source": "catalogue", "catalogue_id": self.catalogue.pk}

@@ -2,15 +2,16 @@ import json
 
 from django.conf import settings
 from django.shortcuts import render
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from ..tools.bag.case_presets import (
     SEO_BAG_SELECTION_EXAMPLE_CONFIG,
     get_bag_selection_case_preset,
 )
-from ..tools.bag.presenter import selected_bag_summary, selected_product_summary
+from ..tools.bag.presenter import bag_film_result_rows, build_bag_film_context, selected_bag_summary, selected_product_summary
 from ..tools.bag.serializers import sanitize_bag_config_for_session
 from ..tools.bag.service import (
     analyze_bag_config,
@@ -23,12 +24,13 @@ from ..tools.bag.service import (
     get_selected_material,
     get_selected_product,
 )
-from ..tools.bag.state import BAG_ALLOWANCE_DEFAULTS_MM, default_bag_config, read_bag_allowances
+from ..tools.bag.state import BAG_ALLOWANCE_DEFAULTS_MM, BAG_FILM_DEFAULTS, default_bag_config, read_bag_allowances, read_bag_film
+from ..models import PackagingMaterial
 from ..tools.selection_mode import normalize_selection_mode
 from ..tools.bag.export import build_bag_selection_pdf
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 from ..entitlements import PDF_REPORTS, feature_required
-from ..units import format_dimensions, format_length, kg_to_g
+from ..units import format_dimensions, format_length
 from ..units.ui import build_unit_selector_contract
 from ..user_preferences import apply_user_unit_defaults
 from ..catalogue_units import (
@@ -90,6 +92,7 @@ def _read_raw_bag_config(
     for key in BAG_ALLOWANCE_DEFAULTS_MM:
         cfg.pop(key, None)
     cfg.update(read_bag_allowances(source, initial_config, cfg["bag_dimension_unit"]))
+    cfg.update(read_bag_film(source, cfg))
     return sanitize_bag_config_for_session(cfg)
 
 
@@ -130,6 +133,7 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "bag_max_payload": f"bag_max_payload{suffix}",
             "bag_mass_unit": f"bag_mass_unit{suffix}",
             "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
+            **{key: f"{key}{suffix}" for key in BAG_FILM_DEFAULTS},
         },
         "unit_selectors": {
             "product_dimensions": build_unit_selector_contract(
@@ -164,6 +168,11 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
                 hidden_id=f"bagPackagingMassUnit{suffix}",
                 menu_id=f"bagPackagingMassUnitMenu{suffix}",
             ),
+            "film_caliper": build_unit_selector_contract(
+                quantity="film", label="film caliper", group=f"bag-film-caliper{suffix}",
+                hidden_name=f"film_caliper_unit{suffix}", hidden_id=f"bagFilmCaliperUnit{suffix}",
+                menu_id=f"bagFilmCaliperUnitMenu{suffix}",
+            ),
         },
         "ids": {
             "root": f"bagSelectionRoot{suffix}",
@@ -179,6 +188,7 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "product_shape": f"id_product_shape{suffix}",
             "sealing_allowance": f"id_sealing_allowance{suffix}",
             "fit_tolerance": f"id_fit_tolerance{suffix}",
+            "bag_advanced": f"bagAdvanced{suffix}",
             "global_catalogue_chooser": f"globalCatalogueChooser{suffix}" if prefix else "globalCatalogueChooser",
             "single_bag_controls": f"singleBagControls{suffix}" if prefix else "singleBagControls",
             "optimal_bag_controls": f"optimalBagControls{suffix}" if prefix else "optimalBagControls",
@@ -252,18 +262,11 @@ def _bag_payload(*, form, selected_material, analysis_report):
         description = selected_material.part_description
         brand = selected_material.branding
         material = selected_material.packaging_materials
-        bag_length = selected_material.part_length
-        bag_width = selected_material.part_width
-        bag_weight_kg = getattr(selected_material, "part_weight", None)
-        bag_weight = kg_to_g(bag_weight_kg) if bag_weight_kg is not None else None
     else:
         part_number = "Manual bag"
         description = "Manual input"
         brand = "Manual"
         material = "Manual input"
-        bag_length = form.cleaned_data.get("bag_length")
-        bag_width = form.cleaned_data.get("bag_width")
-        bag_weight = form.cleaned_data.get("bag_weight")
 
     payload_display = (analysis_report or {}).get("payload_capacity_display") or "Not available"
 
@@ -380,7 +383,7 @@ def _build_design_export_payload(*, form, analysis, selected_product):
             "part_number": selected["candidate_id"],
             "description": f"Arrangement {selected['arrangement']} · {selected['product_orientation']}",
             "brand": "KolliPack Design Mode",
-            "material": "To be specified",
+            "material": report.get("film_material_family") or "Unavailable",
             "dimensions": selected.get("bag_dimensions_display"),
         },
         "analysis_report": analysis_payload,
@@ -533,6 +536,12 @@ def _build_bag_selection_page_context(
         "bag_form": form,
         "bag_config": config,
         "bag_values": config,
+        "bag_film": build_bag_film_context(
+            config, selected_material,
+            design_dimensions=(result["flat_bag_length_mm"], result["flat_bag_width_mm"])
+            if result and config["mode"] == "design" else None,
+        ),
+        "bag_film_rows": bag_film_result_rows(analysis_report),
         "result": result,
         "image_url": image_url,
         "top5": top5,
@@ -696,6 +705,22 @@ def bag_selection_calculator(request):
         }
     )
     return render(request, "marketing/bag_selection_calculator.html", context)
+
+
+@require_POST
+def bag_film_preview(request):
+    cfg = _read_raw_bag_config(request)
+    bag_id = cfg["bag_id"]
+    material = None
+    if bag_id.isascii() and bag_id.isdecimal() and len(bag_id) <= 18:
+        material = PackagingMaterial.objects.filter(
+            pk=bag_id, packaging_type="BAG", catalogue__in=get_packaging_catalogues(request.user)
+        ).first()
+    preview = build_bag_film_context(
+        cfg, material,
+        design_dimensions=(request.POST.get("design_length"), request.POST.get("design_width")),
+    )
+    return JsonResponse({key: preview[key] for key in ("inputs", "sources", "density")})
 
 
 @feature_required(PDF_REPORTS, "pdf")

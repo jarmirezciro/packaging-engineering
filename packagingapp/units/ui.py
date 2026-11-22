@@ -1,6 +1,6 @@
 """JSON-safe metadata for the shared manual-input unit selector."""
 
-from .definitions import LENGTH_UNIT_OPTIONS, MASS_UNIT_OPTIONS
+from .definitions import FILM_THICKNESS_UNIT_OPTIONS, LENGTH_UNIT_OPTIONS, MASS_UNIT_OPTIONS
 
 
 def build_unit_selector_contract(
@@ -14,7 +14,11 @@ def build_unit_selector_contract(
     storage_key=None,
     url_param=None,
 ):
-    options = LENGTH_UNIT_OPTIONS if quantity == "length" else MASS_UNIT_OPTIONS
+    options = {
+        "length": LENGTH_UNIT_OPTIONS,
+        "mass": MASS_UNIT_OPTIONS,
+        "film": FILM_THICKNESS_UNIT_OPTIONS,
+    }[quantity]
     return {
         "quantity": quantity,
         "label": label,

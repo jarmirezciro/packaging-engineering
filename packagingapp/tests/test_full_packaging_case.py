@@ -101,12 +101,14 @@ class FullPackagingCaseTests(TestCase):
             "product_l_0": 90, "product_w_0": 60, "product_h_0": 25,
             "bag_length_0": 154, "bag_width_0": 114,
             "fit_tolerance_0": 2, "sealing_allowance_0": 10,
+            "film_preset_0": "legacy",
         })
         self.client.post(url, {"action": "use_step_result", "index": 0})
         self.client.post(url, {
             "action": "run_step", "index": 1, "action_1": "run_single",
             "bag_length_1": 18.5, "bag_width_1": 16, "bag_dimension_unit_1": "cm",
             "fit_tolerance_1": 0.5, "sealing_allowance_1": 2,
+            "film_preset_1": "legacy",
         })
         self.client.post(url, {"action": "use_step_result", "index": 1})
         inner, outer, _ = self.client.session[key]["steps"]

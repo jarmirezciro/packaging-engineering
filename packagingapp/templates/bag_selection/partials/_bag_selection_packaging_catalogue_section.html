@@ -39,7 +39,7 @@
                         <td>{{ m.branding }}</td>
                         <td><span data-unit-display data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ m.part_length }}">{{ m.picker_display_part_length }}</span></td>
                         <td><span data-unit-display data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}" data-unit-quantity="length" data-unit-canonical-unit="mm" data-unit-canonical="{{ m.part_width }}">{{ m.picker_display_part_width }}</span></td>
-                        <td>{% if m.part_weight is not None %}<span data-unit-display data-unit-group="{{ bag_ui.unit_selectors.bag_mass.group }}" data-unit-quantity="mass" data-unit-canonical-unit="kg" data-unit-canonical="{{ m.part_weight }}">{{ m.picker_display_weight }}</span>{% else %}—{% endif %}</td>
+                        <td>{% if m.picker_weight_kg is not None %}<span data-unit-display data-unit-group="{{ bag_ui.unit_selectors.bag_mass.group }}" data-unit-quantity="mass" data-unit-canonical-unit="kg" data-unit-canonical="{{ m.picker_weight_kg }}">{{ m.picker_display_weight }}</span>{% else %}—{% endif %}</td>
                     </tr>
                     {% empty %}
                     <tr>

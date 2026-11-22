@@ -21,7 +21,7 @@ from reportlab.platypus import (
 )
 
 from ...units import format_dimensions, format_length, format_mass
-from ..bag.presenter import bag_allowance_rows
+from ..bag.presenter import bag_allowance_rows, bag_film_result_rows, bag_workflow_dimension_rows
 from .presentation import payload_for_display, step_display_units
 
 
@@ -467,6 +467,8 @@ def _step_metrics(step):
             ("Bag usage", analysis.get("bag_usage_current_display") or f"{_num(analysis.get('bag_usage_current_pct'), 0)}%"),
             ("Max bag usage", analysis.get("bag_usage_max_display") or f"{_num(analysis.get('bag_usage_max_pct'), 0)}%"),
             *bag_allowance_rows(analysis.get("bag_assumptions") or output.get("bag_assumptions")),
+            *bag_film_result_rows(output or analysis),
+            *bag_workflow_dimension_rows(output, step_display_units(step)["output_dimension"]),
             ("Total weight", analysis.get("total_weight_display") or _format_weight(output)),
             ("Payload usage", analysis.get("payload_usage_display") or "Not set"),
         ]

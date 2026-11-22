@@ -76,7 +76,8 @@ Serialize or flatten:
 - engine-specific result classes.
 
 Each Bag step stores its own `sealing_allowance`, `fit_tolerance` and
-`bag_dimension_unit`. The shared Bag service normalizes these display-unit
+`bag_dimension_unit`, plus the film preset, caliper unit, analysis overrides
+and advanced-panel visibility. The shared Bag service normalizes display-unit
 strings to millimetres and provides the calculated package dimensions, capacity,
 and assumptions for the pending or accepted output. The assumptions appear in
 the Bag stage of the workflow PDF.
@@ -111,6 +112,24 @@ weight once into the downstream payload's authoritative `weight_kg` and keeps
 the tare source metadata JSON-safe. If product weight is unknown, tare may be
 reported independently but gross weight remains unavailable rather than
 silently treating tare as total contents.
+
+Bag Selection carries net contents and resolved tare in grams. Single,
+Optimal, Design, and capacity-only evaluations add the tare once to the
+selected bundle's content mass, including any packaging already inherited
+from an upstream step. A missing tare is labelled net-only when content mass
+is known. Missing content mass or incomplete upstream mass leaves gross
+weight unavailable.
+
+Bag output keeps flat stock, occupied bundle, and downstream outer dimensions
+as separate fields. For simple two-wall film with known caliper, the
+downstream length, width and height add two calipers to the complete
+selected arrangement's axes. A 90 × 60 × 25 mm bundle with 0.03048 mm
+caliper yields 90.06096 × 60.06096 × 25.06096 mm. Reports identify the
+tight-fit film estimate, which excludes protruding seals, wrinkles and air
+gaps. Unknown or unsuitable construction and missing caliper use the
+labelled legacy dimensions fallback. PF-05 and PF-06 explicitly keep their
+historical, unspecified film so their documented downstream comparisons
+remain reproducible.
 
 Container analysis overrides live in prefixed form/session state, scoped to the
 selected packaging/product IDs. Advanced controls use the same presenter and

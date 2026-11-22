@@ -171,11 +171,10 @@ bundles with more than one product also retain distinct upright spans and
 layer counts because these distinguish downstream packing. For a single
 90 × 60 × 25 mm product, nine proposals consolidate to three. Older IDs for
 removed rotations resolve to the retained proposal with the same flat size.
-Squareness is not a Bag Design metric. Design Mode accepts only product weight
-for optional net-content weight. Packaging weight, total package weight, and
-payload metrics belong to later package evaluation and are not read or
-serialized by Design Mode. Selection Mode keeps its length/opening convention,
-weight and payload handling, and Top 5 scoring.
+Squareness is not a Bag Design metric. Each Design candidate carries the
+net content mass and resolves its own tare from the candidate's flat stock.
+Selection Mode uses the selected stock's dimensions. Tare and film properties
+do not participate in Top 5 scoring or change geometric capacity.
 
 Single, Optimal, and Design results serialize the selected authoritative bag
 arrangement into the shared `packageType=bag` Three.js scene. The standalone,
@@ -196,6 +195,27 @@ Design alternatives and Optimal Top 5 rows display the flat-bag area to two
 decimal places. The bag-dimension selector determines the display unit. Use
 cm² for mm, cm, and m, and in² for in and ft. Calculation and ranking use the
 canonical area in mm².
+
+## Flexible film properties and tare
+
+The shared film resolver applies to manual, Design, and catalogue evaluations.
+New manual and Design configurations start with LDPE 1.2 mil. The LDPE
+reference presets use 0.920 g/cm³ and the cast PP reference presets use
+0.900 g/cm³. These densities are reference assumptions. Catalogue data and
+Custom film may supply independent single-ply caliper and grammage.
+
+Caliper converts to millimetres at the service boundary (1 µm = 0.001 mm,
+1 mil = 0.0254 mm). Preset grammage in g/m² equals caliper in µm times the
+density in g/cm³, so LDPE 1.2 mil yields 28.0416 g/m². An 87 × 127 mm
+lay-flat bag has 0.022098 m² of two-wall film and an estimated tare of
+0.6196632768 g. The full flat length includes the existing sealing allowance.
+
+Tare precedence is explicit manual weight, actual supplier weight, estimated
+catalogue film weight, estimated selected film weight, then unavailable. A
+catalogue selection with missing properties retains that uncertainty. The
+estimate requires simple non-gusseted two-wall construction. It excludes
+closures, printing, reinforcements, and other contributions beyond the two
+film walls. Film calculations do not alter the Three.js geometry.
 
 ## Case compendium
 

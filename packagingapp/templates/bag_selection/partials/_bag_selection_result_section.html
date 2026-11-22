@@ -49,6 +49,7 @@
                 </div>
             {% endif %}
 
+            {% include "bag_selection/partials/_bag_selection_film_results.html" %}
             {% include "shared/_package_threejs_panel.html" with scene=threejs_scene scene_id=bag_ui.ids.threejs_scene viewer_id=bag_ui.ids.threejs_viewer package_label="bag" %}
 
             {% if mode != "workflow" and analysis_report %}

@@ -492,6 +492,11 @@
             Usage: ${Number(data.usage).toFixed(4)}
         `;
 
+        if (data.film_summary?.length) {
+            arrangementMeta.innerHTML += '<div class="app-form-note">' +
+                data.film_summary.map(([label, value]) => esc(label) + " " + esc(value)).join(" · ") +
+                '</div>';
+        }
         renderArrangementScene(data.threejs_scene);
     }
 

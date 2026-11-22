@@ -4,7 +4,7 @@ from copy import deepcopy
 import json
 import logging
 
-from ...units import g_to_kg
+from ..bag.workflow import build_bag_design_pending_result
 from ..container.dimensions import (
     EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
     EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
@@ -75,90 +75,38 @@ def build_design_candidate_payload(source_type, candidate, upstream=None):
         "render_data": candidate.get("render_data"),
     }
 
-    if source_type == "container":
-        thickness = candidate.get("box_thickness_mm")
-        if candidate.get("box_thickness_assumed"):
-            thickness = None
-        thickness_source = candidate.get("external_dimension_source")
-        if thickness_source not in (
-            EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
-            EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
-        ):
-            thickness_source = EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS
-        dimensions = resolve_external_carton_dimensions(
-            candidate.get("container_length"),
-            candidate.get("container_width"),
-            candidate.get("container_height"),
-            thickness_mm=thickness,
-            thickness_source=thickness_source,
-        )
-        common.update({
-            "label": "Designed Container",
-            **dimensions,
-            "length": dimensions["external_length"],
-            "width": dimensions["external_width"],
-            "height": dimensions["external_height"],
-            "metrics": {
-                "cubicity": candidate.get("container_cubicity_score"),
-                "volume": candidate.get("required_container_volume"),
-            },
-        })
-    else:
-        common.update({
-            "label": "Designed bag",
-            "length": candidate.get("bag_length"),
-            "width": candidate.get("bag_width"),
-            "height": candidate.get("bundle_height"),
-            "selected_arrangement_id": candidate.get("arrangement_id"),
-            **({"insertion": candidate["insertion"]} if "insertion" in candidate else {}),
-            **({"bag_assumptions": candidate["bag_assumptions"]} if "bag_assumptions" in candidate else {}),
-            "metrics": {
-                "cubicity": candidate.get("bundle_cubicity_score"),
-                "bag_area": candidate.get("bag_area"),
-                "bundle_volume": (
-                    float(candidate.get("bundle_length") or 0)
-                    * float(candidate.get("bundle_width") or 0)
-                    * float(candidate.get("bundle_height") or 0)
-                ),
-            },
-        })
+    if source_type == "bag":
+        return build_bag_design_pending_result(candidate, upstream=upstream, common=common)
 
-    if source_type == "container":
-        from ..container.carton_tare import attach_carton_weight_metadata
-        return attach_carton_weight_metadata(common, candidate, upstream=upstream)
-
-    if candidate.get("net_content_weight") is not None:
-        net_content_weight_g = float(candidate.get("net_content_weight"))
-        common["net_content_weight_g"] = net_content_weight_g
-    gross_weight_g = candidate.get("gross_carton_weight_g")
-    if gross_weight_g is None:
-        gross_weight_g = candidate.get("gross_carton_weight")
-    if gross_weight_g is not None:
-        gross_weight_g = float(gross_weight_g)
-        common["weight_g"] = gross_weight_g
-        common["weight_kg"] = float(g_to_kg(gross_weight_g))
-    elif candidate.get("net_content_weight") is not None:
-        # Preserve the historical Design payload for cases with no known or
-        # estimated carton tare.
-        net_content_weight_g = float(candidate.get("net_content_weight"))
-        common["weight_g"] = net_content_weight_g
-        common["weight_kg"] = float(g_to_kg(net_content_weight_g))
-    for source_key in (
-        "container_tare",
-        "carton_tare_g",
-        "carton_tare_source",
-        "carton_tare_source_display",
-        "weight_source",
-        "weight_source_display",
-        "corrugated_material_id",
-        "corrugated_material_name",
-        "combined_grammage_g_m2",
-        "effective_box_area_m2",
-        "fefco_code",
+    thickness = candidate.get("box_thickness_mm")
+    if candidate.get("box_thickness_assumed"):
+        thickness = None
+    thickness_source = candidate.get("external_dimension_source")
+    if thickness_source not in (
+        EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
+        EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
     ):
-        if candidate.get(source_key) is not None:
-            common[source_key] = candidate.get(source_key)
-    return common
+        thickness_source = EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS
+    dimensions = resolve_external_carton_dimensions(
+        candidate.get("container_length"),
+        candidate.get("container_width"),
+        candidate.get("container_height"),
+        thickness_mm=thickness,
+        thickness_source=thickness_source,
+    )
+    common.update({
+        "label": "Designed Container",
+        **dimensions,
+        "length": dimensions["external_length"],
+        "width": dimensions["external_width"],
+        "height": dimensions["external_height"],
+        "metrics": {
+            "cubicity": candidate.get("container_cubicity_score"),
+            "volume": candidate.get("required_container_volume"),
+        },
+    })
+    from ..container.carton_tare import attach_carton_weight_metadata
+    return attach_carton_weight_metadata(common, candidate, upstream=upstream)
 
 
 def _signature_value(value):

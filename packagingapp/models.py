@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
+from .tools.bag.film import BAG_CONSTRUCTIONS, FILM_FAMILIES
 from django.db import models
 from django.utils import timezone
 from decimal import Decimal
@@ -282,6 +283,17 @@ class PackagingMaterial(models.Model):
 
     # Weight (kg)
     part_weight = models.DecimalField(max_digits=12, decimal_places=3, blank=True, null=True)
+
+    bag_film_family = models.CharField(max_length=8, choices=FILM_FAMILIES, blank=True, null=True)
+    bag_construction = models.CharField(max_length=8, choices=BAG_CONSTRUCTIONS, blank=True, null=True)
+    bag_film_caliper_mm = models.DecimalField(
+        max_digits=10, decimal_places=7, blank=True, null=True,
+        validators=[MinValueValidator(Decimal("0.0000001"))],
+    )
+    bag_actual_weight_g = models.DecimalField(
+        max_digits=12, decimal_places=6, blank=True, null=True,
+        validators=[MinValueValidator(Decimal("0.000001"))],
+    )
 
     corrugated_construction = models.ForeignKey(
         "CorrugatedBoardConstruction", on_delete=models.SET_NULL,

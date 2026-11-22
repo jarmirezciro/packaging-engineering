@@ -513,6 +513,11 @@ existing service boundary.
 | Transport Load Unit Product | `load_unit_dimension_unit` | `load_unit_mass_unit` |
 | Transport Packaging / Transport Unit | `transport_dimension_unit` | `transport_mass_unit` |
 
+Bag caliper has an independent `film_caliper_unit` selector for µm and mil.
+It converts to canonical millimetres and never changes the ordinary length
+selector. The bag film resolver carries tare in grams, including the
+optional high-precision catalogue finished-bag weight.
+
 Palletization has no separate pallet-tare selector. Its existing `mass_unit`
 is therefore the verified shared presentation state for both carton/load mass
 and catalogue pallet tare. This does not reinterpret the historical pallet

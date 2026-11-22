@@ -140,6 +140,7 @@ def build_canonical_design_arrangements(
                 "bundle_length": _dimension(bundle_l),
                 "bundle_width": _dimension(bundle_w),
                 "bundle_height": _dimension(bundle_h),
+                "packed_bundle_mm": (bundle_l, bundle_w, bundle_h),
                 "bundle_volume": round(volume, 2),
                 "bundle_cubicity_score": round(cubicity, DIMENSION_PRECISION),
                 "products": products,

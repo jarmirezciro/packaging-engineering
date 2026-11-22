@@ -10,7 +10,7 @@
             aria-expanded="false"
             aria-controls="{{ unit_selector.menu_id }}-{{ selector_key }}"
             aria-label="Select {{ unit_selector.label }} unit">
-        (<span data-unit-symbol>{{ current_unit }}</span>)
+        (<span data-unit-symbol>{% if current_unit == "um" %}µm{% else %}{{ current_unit }}{% endif %}</span>)
     </button>
     <span id="{{ unit_selector.menu_id }}-{{ selector_key }}"
           class="unit-selector-menu"

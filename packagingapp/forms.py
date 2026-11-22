@@ -25,7 +25,8 @@ from .tools.corrugated_material_strength.constants import (
     WALL_DOUBLE,
     WALL_SINGLE,
 )
-from .units import LENGTH_UNIT_OPTIONS, MASS_UNIT_OPTIONS
+from .units import FILM_THICKNESS_UNIT_OPTIONS, LENGTH_UNIT_OPTIONS, MASS_UNIT_OPTIONS
+from .tools.bag.film import FILM_PRESET_CHOICES
 from .units import LENGTH_UNITS, MASS_UNITS, convert_length, convert_mass, normalize_unit
 from .catalogue_units import (
     CATALOGUE_ENTRY_LENGTH_GROUP,
@@ -331,6 +332,10 @@ class PackagingMaterialForm(CataloguePhysicalUnitFormMixin, CatalogueImageFormMi
             "external_height",
             "box_thickness_mm",
             "part_weight",
+            "bag_film_family",
+            "bag_construction",
+            "bag_film_caliper_mm",
+            "bag_actual_weight_g",
             "corrugated_construction",
             "combined_grammage_g_m2",
             "carton_style",
@@ -398,12 +403,23 @@ class PackagingMaterialForm(CataloguePhysicalUnitFormMixin, CatalogueImageFormMi
         self.fields["combined_grammage_g_m2"].widget.attrs.update({"class": "form-control", "step": "any"})
         for field_name in ("corrugated_construction", "carton_style"):
             self.fields[field_name].widget.attrs.update({"class": "form-select"})
+        for field_name in ("bag_film_family", "bag_construction"):
+            self.fields[field_name].widget.attrs.update({"class": "form-select"})
+        for field_name in ("bag_film_caliper_mm", "bag_actual_weight_g"):
+            self.fields[field_name].widget.attrs.update({"class": "form-control", "step": "any"})
         self.fields["part_description"].widget.attrs.update({"placeholder": "Short material description"})
         self.fields["packaging_materials"].widget.attrs.update({"placeholder": "e.g. Corrugated board, wood, plastic"})
 
         # Use a clean file input. Current files are shown by the template in modern preview cards.
         self.fields["drawing"].widget = forms.FileInput(attrs={"class": "form-control"})
         self.fields["picture"].widget = forms.FileInput(attrs={"class": "form-control", "accept": "image/*"})
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("packaging_type") != "BAG":
+            for field in ("bag_film_family", "bag_construction", "bag_film_caliper_mm", "bag_actual_weight_g"):
+                cleaned[field] = None
+        return cleaned
 
 
 class ExcelUploadForm(forms.Form):
@@ -860,6 +876,14 @@ class ProductImagesZipUploadForm(forms.Form):
 
 
 class BagSelectionForm(forms.Form):
+    film_preset = forms.ChoiceField(choices=FILM_PRESET_CHOICES, required=False)
+    film_caliper_unit = forms.ChoiceField(
+        choices=[(option["value"], option["symbol"]) for option in FILM_THICKNESS_UNIT_OPTIONS],
+        required=False,
+    )
+    film_caliper = FiniteFloatField(required=False, min_value=0)
+    film_grammage = FiniteFloatField(required=False, min_value=0)
+
     sealing_allowance = FiniteFloatField(
         min_value=0,
         label="Sealing allowance",
@@ -1057,7 +1081,7 @@ class BagSelectionForm(forms.Form):
         widget=forms.HiddenInput(),
     )
 
-    bag_weight = forms.FloatField(
+    bag_weight = FiniteFloatField(
         min_value=0,
         required=False,
         label="Packaging weight (g)",

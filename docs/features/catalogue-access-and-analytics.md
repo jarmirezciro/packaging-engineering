@@ -31,6 +31,15 @@ picture
 
 Verify current models before relying on this list.
 
+BAG records may store a film family, construction, single-ply
+`bag_film_caliper_mm`, and actual finished bag weight in `bag_actual_weight_g`.
+For BAG records, `combined_grammage_g_m2` describes one ply of film. The
+catalogue editor and workbook import/export expose these fields. Existing
+records retain their original values. A positive legacy `part_weight`
+remains available as actual tare when the gram field is empty. The shared
+film resolver uses a legacy caliper only for a confirmed simple two-wall bag
+without carton specification fields.
+
 ## Access management
 
 - Superuser/admin creation and Railway administration are deployment operations and require explicit user intent.

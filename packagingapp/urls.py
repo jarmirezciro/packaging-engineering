@@ -192,6 +192,7 @@ urlpatterns = [
     # Bag Selection
     path("bag-selection/", bag_selection.bag_selection_mode1, name="bag_selection"),
     path("bag-selection/mode1/", bag_selection.bag_selection_mode1, name="bag_selection_mode1"),
+    path("bag-selection/film-preview/", bag_selection.bag_film_preview, name="bag_film_preview"),
     path(
         "bag-selection/mode1/export/pdf/",
         bag_selection.bag_selection_export_pdf,

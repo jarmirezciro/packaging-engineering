@@ -45,6 +45,9 @@ from ..views.container_selection import _build_shared_container_ui_contract
 from ..views.bag_selection import _build_shared_bag_ui_contract
 
 from ..tools.bag.presenter import (
+    bag_film_result_rows,
+    bag_workflow_dimension_rows,
+    build_bag_film_context,
     selected_bag_summary as selected_bag_summary_bag,
     selected_product_summary as selected_product_summary_bag,
 )
@@ -60,7 +63,8 @@ from ..tools.bag.service import (
     get_selected_material as get_bag_selected_material,
     get_selected_product as get_bag_selected_product,
 )
-from ..tools.bag.state import BAG_ALLOWANCE_DEFAULTS_MM, default_bag_config, read_bag_allowances
+from ..tools.bag.state import BAG_ALLOWANCE_DEFAULTS_MM, default_bag_config, read_bag_allowances, read_bag_film
+from ..tools.bag.workflow import attach_bag_workflow_weight
 
 from ..tools.container.presenter import (
     selected_container_summary as selected_container_summary_container,
@@ -1906,6 +1910,13 @@ def _prepare_bag_step_view_model(step, idx):
             for row in (step.get(key) or [])
         ]
     step["bag_ui"] = _build_shared_bag_ui_contract(prefix=str(idx))
+    bag_output = step.get("pending_result") or step.get("selected") or {}
+    step["bag_film"] = build_bag_film_context(
+        cfg, selected_material,
+        design_dimensions=(bag_output.get("flat_bag_length_mm"), bag_output.get("flat_bag_width_mm")),
+    )
+    step["bag_film_rows"] = bag_film_result_rows(step.get("analysis_report"))
+    step["bag_workflow_rows"] = bag_workflow_dimension_rows(bag_output, cfg["bag_dimension_unit"])
     step["mode"] = "workflow"
     step["prefix"] = str(idx)
 
@@ -2446,52 +2457,39 @@ def _process_container_step(step, steps, idx, post):
     step["expanded"] = True
 
 
-def _finalize_bag_workflow_payload(
-    pending_result,
-    cfg,
-    selected_product,
-    selected_material,
-    upstream,
-):
+def _finalize_bag_workflow_payload(pending_result, upstream):
     if not pending_result:
         return None
     payload = dict(pending_result)
-    payload["source_step_type"] = "bag"
-    payload["package_type"] = "bag"
-    payload.setdefault("transport_qty", 1)
-    if cfg.get("mode") == "design":
-        net_content_weight_g = _to_float(
-            payload.get("net_content_weight_g"), None
-        )
-        if net_content_weight_g is not None:
-            _set_payload_weight_kg(payload, g_to_kg(net_content_weight_g))
-    else:
-        payload = _enrich_package_payload_weight(
-            payload,
-            product_weight_kg=_resolve_product_weight_kg(cfg, selected_product),
-            packaging_weight_kg=_resolve_packaging_weight_kg(
-                cfg,
-                "bag_weight",
-                selected_material,
-                source_key="bag_source",
-            ),
-        )
-        upstream_units = _to_int((upstream or {}).get("total_base_units"), 1) or 1
-        payload["total_base_units"] = int(
-            payload.get("units_per_parent") or 1
-        ) * int(upstream_units)
-    if (upstream or {}).get("weight_status") in {"net_only", "unknown", "incomplete"}:
-        payload.pop("weight_kg", None)
-        payload.pop("weight_g", None)
-        payload["weight_status"] = "unknown"
-    return payload
+    upstream_units = _to_int((upstream or {}).get("total_base_units"), 1) or 1
+    payload.update({
+        "source_step_type": "bag",
+        "package_type": "bag",
+        "transport_qty": 1,
+        "total_base_units": payload["units_per_parent"] * upstream_units,
+    })
+    return attach_bag_workflow_weight(payload, pending_result, upstream=upstream)
 
 
-def _posted_bag_allowances_changed(step, idx, post):
+def _posted_bag_parameters_changed(step, idx, post):
     cfg = sanitize_bag_config_for_session(step.get("config") or {})
+    suffix = f"_{idx}"
+    film = read_bag_film(post, {
+        **cfg,
+        "mode": post.get(f"mode{suffix}", cfg["mode"]),
+        "bag_source": post.get(f"bag_source{suffix}", cfg["bag_source"]),
+    }, suffix=suffix)
+    if film["bag_weight_override"] == "0":
+        # Older state used a blank flag for a weight field with no value.
+        cfg["bag_weight_override"] = cfg["bag_weight_override"] or ("0" if not cfg["bag_weight"] else "")
+    bag_weight = film.get("bag_weight", post.get(f"bag_weight{suffix}", cfg["bag_weight"]))
+    if bag_weight != cfg["bag_weight"]:
+        return True
     return any(
-        post.get(f"{key}_{idx}", cfg[key]) != cfg[key]
-        for key in ("bag_dimension_unit", *BAG_ALLOWANCE_DEFAULTS_MM)
+        value != cfg[key] for key, value in film.items() if key not in {"bag_advanced_open", "bag_weight"}
+    ) or any(
+        post.get(f"{key}{suffix}", cfg[key]) != cfg[key]
+        for key in ("bag_dimension_unit", "bag_max_payload", "bag_mass_unit", *BAG_ALLOWANCE_DEFAULTS_MM)
     )
 
 
@@ -2585,6 +2583,7 @@ def _process_bag_step(step, steps, idx, post):
         f"bag_weight{suffix}",
         post.get(f"bag_weight_{idx}", cfg.get("bag_weight", "")),
     )
+    cfg.update(read_bag_film(post, cfg, suffix=suffix))
     cfg["bag_max_payload"] = post.get(
         f"bag_max_payload{suffix}",
         post.get(f"bag_max_payload_{idx}", cfg.get("bag_max_payload", "")),
@@ -2632,20 +2631,17 @@ def _process_bag_step(step, steps, idx, post):
         media_root=settings.MEDIA_ROOT,
     )
 
-    pending_result = analysis.get("pending_result")
+    upstream = _selected_input_for_step(steps, idx)
     if cfg.get("mode") == "design" and analysis.get("result"):
-        pending_result = build_design_candidate_payload(
-            "bag",
-            analysis["result"],
-            _selected_input_for_step(steps, idx),
-        )
-    pending_result = _finalize_bag_workflow_payload(
-        pending_result,
-        cfg,
-        selected_product,
-        selected_material,
-        _selected_input_for_step(steps, idx),
-    )
+        pending_result = build_design_candidate_payload("bag", analysis["result"], upstream)
+    else:
+        pending_result = _finalize_bag_workflow_payload(analysis.get("pending_result"), upstream)
+
+    if pending_result and analysis.get("analysis_report") and pending_result["weight_status"] == "unknown":
+        analysis["analysis_report"].update({
+            "gross_bag_weight_g": None, "total_weight": None,
+            "total_weight_display": "—", "has_total_weight": False,
+        })
 
     step["config"] = cfg
     step["result"] = analysis.get("result")
@@ -2949,18 +2945,8 @@ def _evaluate_bag_capacity_step(step, temporary_steps, idx):
 
     upstream = _selected_input_for_step(temporary_steps, idx)
     if analysis.get("mode") == "design":
-        pending_result = build_design_candidate_payload(
-            "bag", analysis["result"], upstream
-        )
-    else:
-        pending_result = analysis.get("pending_result")
-    return _finalize_bag_workflow_payload(
-        pending_result,
-        cfg,
-        selected_product,
-        selected_material,
-        upstream,
-    )
+        return build_design_candidate_payload("bag", analysis["result"], upstream)
+    return _finalize_bag_workflow_payload(analysis.get("pending_result"), upstream)
 
 
 def _evaluate_pallet_capacity_step(step, temporary_steps, idx):
@@ -3161,14 +3147,14 @@ def full_packaging_mode(request, case_slug=None):
                     _apply_chained_defaults(steps[idx], steps, idx)
                     pallet_signature_before = _pallet_capacity_input_signature(steps[idx])
                 else:
-                    bag_allowances_changed = (
+                    bag_parameters_changed = (
                         steps[idx].get("type") == "bag"
-                        and _posted_bag_allowances_changed(steps[idx], idx, request.POST)
+                        and _posted_bag_parameters_changed(steps[idx], idx, request.POST)
                     )
                     invalidate_design_chain_optimizations(
                         steps,
                         changed_step_index=idx,
-                        preserve_source=step_action == "select_design_candidate" and not bag_allowances_changed,
+                        preserve_source=step_action == "select_design_candidate" and not bag_parameters_changed,
                     )
                     _apply_chained_defaults(steps[idx], steps, idx)
 
@@ -3204,9 +3190,9 @@ def full_packaging_mode(request, case_slug=None):
             if idx is not None and 0 <= idx < len(steps):
                 _apply_chained_defaults(steps[idx], steps, idx)
                 is_pallet_step = steps[idx].get("type") == "pallet"
-                bag_allowances_changed = (
+                bag_parameters_changed = (
                     steps[idx].get("type") == "bag"
-                    and _posted_bag_allowances_changed(steps[idx], idx, request.POST)
+                    and _posted_bag_parameters_changed(steps[idx], idx, request.POST)
                 )
                 pallet_signature_before = (
                     _pallet_capacity_input_signature(steps[idx])
@@ -3218,7 +3204,7 @@ def full_packaging_mode(request, case_slug=None):
                     invalidate_design_chain_optimizations(
                         steps,
                         changed_step_index=idx,
-                        preserve_source=not bag_allowances_changed,
+                        preserve_source=not bag_parameters_changed,
                     )
 
                 if steps[idx].get("type") == "container" and any(
@@ -3229,7 +3215,7 @@ def full_packaging_mode(request, case_slug=None):
                     selection_mode = posted.get(f"mode_{idx}", (steps[idx].get("config") or {}).get("mode", "single"))
                     posted[f"action_{idx}"] = {"design": "select_design_candidate", "optimal": "select_candidate"}.get(selection_mode, "run_single")
                     _process_container_step(steps[idx], steps, idx, posted)
-                elif bag_allowances_changed:
+                elif bag_parameters_changed:
                     posted = request.POST.copy()
                     selection_mode = posted.get(f"mode_{idx}", steps[idx]["config"].get("mode", "single"))
                     posted[f"action_{idx}"] = {
@@ -3239,6 +3225,8 @@ def full_packaging_mode(request, case_slug=None):
                     if not steps[idx].get("pending_result"):
                         _save_workflow(request, workflow)
                         return _redirect_to_workflow(request)
+                elif steps[idx].get("type") == "bag" and f"bag_advanced_open_{idx}" in request.POST:
+                    steps[idx]["config"]["bag_advanced_open"] = request.POST[f"bag_advanced_open_{idx}"]
                 elif steps[idx].get("type") == "transport":
                     step = steps[idx]
                     step["messages"] = []

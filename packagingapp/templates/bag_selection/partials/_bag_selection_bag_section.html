@@ -37,7 +37,15 @@
             <div class="tool-field-group mb-0"><label class="form-label">Bag length {% if current_bag_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=bag_ui.unit_selectors.bag_dimensions current_unit=bag_values.bag_dimension_unit|default:'mm' selector_key='length' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.bag_length }}" data-unit-input data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}" value="{{ bag_values.bag_length|default:'' }}">{% else %}{{ form.bag_length }}{% endif %}</div>
             <div class="tool-field-group mb-0"><label class="form-label">Bag width {% if current_bag_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=bag_ui.unit_selectors.bag_dimensions current_unit=bag_values.bag_dimension_unit|default:'mm' selector_key='width' %}{% else %}<span class="text-muted">(mm)</span>{% endif %}</label>{% if mode == "workflow" %}<input type="number" step="any" class="form-control" name="{{ bag_ui.names.bag_width }}" data-unit-input data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}" value="{{ bag_values.bag_width|default:'' }}">{% else %}{{ form.bag_width }}{% endif %}</div>
         </div>
+        {% if selected_material and current_mode != "design" %}
+            <div class="tool-summary-strip mb-3">
+                <div class="tool-summary-main"><strong>{{ selected_bag_summary.title }}</strong></div>
+                <div class="tool-summary-meta">Flat dimensions {{ selected_bag_summary.dims }}</div>
+            </div>
+        {% endif %}
         </div>
+
+        <p class="app-form-note" data-bag-design-size {% if current_mode != "design" %}hidden{% endif %}>Bag length and width are calculated in Design Mode.{% if result and current_mode == "design" %} {{ result.bag_dimensions_display }}{% endif %}</p>
 
         <div class="tool-compact-grid-two mb-3">
             <div class="tool-field-group mb-0">
@@ -60,26 +68,10 @@
         </div>
         <div class="app-form-note mb-3">Sealing is reserved along bag length. Fit tolerance applies to both length and width.</div>
 
+        {% include "bag_selection/partials/_bag_selection_film.html" %}
+
         <div data-bag-selection-actions>
         <div id="{{ bag_ui.ids.single_bag_controls }}">
-            <div id="{{ bag_ui.ids.manual_bag_fields }}">
-                <div class="tool-compact-grid-two">
-                    <div class="tool-field-group mb-0"><label class="form-label">Packaging weight {% if current_bag_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=bag_ui.unit_selectors.bag_mass current_unit=bag_values.bag_mass_unit|default:'g' selector_key='weight' %}{% else %}<span class="text-muted">(g)</span>{% endif %}</label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ bag_ui.names.bag_weight }}" data-unit-input data-unit-group="{{ bag_ui.unit_selectors.bag_mass.group }}" value="{{ bag_values.bag_weight|default:'' }}">{% else %}{{ form.bag_weight }}{% endif %}</div>
-                    <div class="tool-field-group mb-0"><label class="form-label">Max payload {% if current_bag_source == "manual" %}{% include "shared/_unit_selector.html" with unit_selector=bag_ui.unit_selectors.bag_mass current_unit=bag_values.bag_mass_unit|default:'g' selector_key='payload' %}{% else %}<span class="text-muted">(g)</span>{% endif %}</label>{% if mode == "workflow" %}<input type="number" step="any" min="0" class="form-control" name="{{ bag_ui.names.bag_max_payload }}" data-unit-input data-unit-group="{{ bag_ui.unit_selectors.bag_mass.group }}" value="{{ bag_values.bag_max_payload|default:'' }}">{% else %}{{ form.bag_max_payload }}{% endif %}</div>
-                </div>
-                <div class="app-form-note mt-2">Packaging weight and max payload are optional. They are used only for weight and payload calculations.</div>
-            </div>
-
-            {% if selected_material and current_mode == "single" %}
-                <div class="tool-summary-strip">
-                    <div class="tool-summary-main"><strong>{{ selected_bag_summary.title }}</strong></div>
-                    <div class="tool-summary-meta">
-                        {{ selected_bag_summary.dims }}
-                        {% if selected_bag_summary.meta %} | {{ selected_bag_summary.meta }}{% endif %}
-                    </div>
-                </div>
-            {% endif %}
-
             <div class="app-form-actions tool-card-actions">
                 {% if current_bag_source == "catalogue" %}
                     {% if selected_material %}
@@ -101,7 +93,6 @@
         </div>
 
         <div id="{{ bag_ui.ids.design_packaging_fields }}">
-            <div class="alert alert-light border small">Bag width and length are calculated outputs in Design Mode.</div>
             <div class="app-form-actions tool-card-actions"><button type="button" class="btn btn-app-primary btn-sm" onclick="bagSelectionRunDesign('{{ bag_ui.prefix }}')"><i class="bi bi-rulers me-2"></i>Generate Designs</button></div>
         </div>
     </div>

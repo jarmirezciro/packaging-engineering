@@ -122,10 +122,23 @@
         </section>
         <section class="catalogue-form-card">
             <div class="catalogue-field-stack">
+                <div class="catalogue-field">
+                    <label for="{{ form.combined_grammage_g_m2.id_for_label }}" data-catalogue-grammage-label>SKU grammage (g/m², optional)</label>
+                    {{ form.combined_grammage_g_m2 }}{{ form.combined_grammage_g_m2.errors }}
+                </div>
+            </div>
+            <div class="catalogue-field-stack mt-3" data-catalogue-carton-fields>
                 <div class="catalogue-field"><label for="{{ form.corrugated_construction.id_for_label }}">Board construction (optional)</label>{{ form.corrugated_construction }}{{ form.corrugated_construction.errors }}</div>
-                <div class="catalogue-field"><label for="{{ form.combined_grammage_g_m2.id_for_label }}">SKU grammage (g/m², optional)</label>{{ form.combined_grammage_g_m2 }}{{ form.combined_grammage_g_m2.errors }}</div>
                 <div class="catalogue-field"><label for="{{ form.carton_style.id_for_label }}">Confirmed carton style (optional)</label>{{ form.carton_style }}{{ form.carton_style.errors }}</div>
                 <div class="catalogue-field-hint">SKU caliper and grammage override construction values. Tare estimation requires confirmed FEFCO 0201 geometry; actual catalogue weight takes priority.</div>
+            </div>
+            <div class="catalogue-field-stack mt-3" data-catalogue-film-fields>
+                <div class="catalogue-mini-title">Bag film properties</div>
+                <div class="catalogue-field"><label for="{{ form.bag_film_family.id_for_label }}">Film family</label>{{ form.bag_film_family }}{{ form.bag_film_family.errors }}</div>
+                <div class="catalogue-field"><label for="{{ form.bag_construction.id_for_label }}">Bag construction</label>{{ form.bag_construction }}{{ form.bag_construction.errors }}</div>
+                <div class="catalogue-field"><label for="{{ form.bag_film_caliper_mm.id_for_label }}">Single-ply film caliper (mm)</label>{{ form.bag_film_caliper_mm }}{{ form.bag_film_caliper_mm.errors }}</div>
+                <div class="catalogue-field"><label for="{{ form.bag_actual_weight_g.id_for_label }}">Actual finished bag weight (g)</label>{{ form.bag_actual_weight_g }}{{ form.bag_actual_weight_g.errors }}</div>
+                <div class="catalogue-field-hint">Confirm a simple two-wall construction to enable estimates. Actual finished bag weight takes priority over the legacy weight field.</div>
             </div>
         </section>
     </div>
@@ -186,3 +199,20 @@
         </section>
     </aside>
 </div>
+<script>
+    (() => {
+        const form = document.currentScript.closest("form");
+        const type = form.elements.namedItem("packaging_type");
+        const film = form.querySelector("[data-catalogue-film-fields]");
+        const carton = form.querySelector("[data-catalogue-carton-fields]");
+        const grammage = form.querySelector("[data-catalogue-grammage-label]");
+        function update() {
+            const isBag = type.value === "BAG";
+            film.hidden = !isBag;
+            carton.hidden = isBag;
+            grammage.textContent = isBag ? "Single-ply film grammage (g/m², optional)" : "SKU grammage (g/m², optional)";
+        }
+        type.addEventListener("change", update);
+        update();
+    })();
+</script>

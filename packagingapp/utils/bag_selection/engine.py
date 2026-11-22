@@ -364,6 +364,9 @@ def build_bag_design_candidates(
                 "rank": len(candidates) + 1,
                 "bag_width": round(bag_width, 2),
                 "bag_length": round(bag_length, 2),
+                "flat_bag_length_mm": bag_length,
+                "flat_bag_width_mm": bag_width,
+                "packed_bundle_mm": arrangement["packed_bundle_mm"],
                 "bag_area": round(bag_area, 2),
                 "insertion": insertion,
                 "render_data": _build_bag_threejs_scene(
@@ -571,6 +574,7 @@ class BagRenderResult:
     inner_box: Tuple[float, float, float]   # visual arrangement body as placed in bag: L,W,H
     required_bag: Tuple[float, float]       # req_len, req_w
     threejs_scene: Dict[str, Any]
+    packed_bundle_mm: Tuple[float, float, float]
 
 
 def _fallback_bag_options_for_solution(
@@ -792,6 +796,7 @@ def run_bag_mode1_and_render(
         image_rel_path="",
         used_layout=(nx, ny, nz),
         inner_box=(round(body_length, 2), round(body_width, 2), round(body_height, 2)),
+        packed_bundle_mm=(body_length, body_width, body_height),
         required_bag=(best["req_len"], best["req_w"]),
         threejs_scene=scene,
     )

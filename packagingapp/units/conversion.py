@@ -4,7 +4,7 @@ from decimal import Decimal
 import math
 from numbers import Real
 
-from .definitions import LENGTH_UNITS, MASS_UNITS
+from .definitions import FILM_THICKNESS_UNITS, LENGTH_UNITS, MASS_UNITS
 
 
 class UnsupportedUnitError(ValueError):
@@ -59,6 +59,11 @@ def convert_length(value, from_unit, to_unit):
 def convert_mass(value, from_unit, to_unit):
     """Convert a numeric mass; Decimal input produces Decimal output."""
     return _convert(value, from_unit, to_unit, MASS_UNITS, "mass")
+
+
+def convert_film_thickness(value, from_unit, to_unit):
+    """Convert film thickness with millimetres as the canonical unit."""
+    return _convert(value, from_unit, to_unit, FILM_THICKNESS_UNITS, "film thickness")
 
 
 def kg_to_g(value):

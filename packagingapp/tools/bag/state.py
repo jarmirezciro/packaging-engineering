@@ -3,11 +3,24 @@ from decimal import Decimal, InvalidOperation
 from ...units import LENGTH_UNITS, convert_length
 from ...units.input import validate_unit
 from ...utils.bag_selection.engine import DEFAULT_BAG_SIZING
+from .film import DEFAULT_FILM_PRESET, catalogue_bag_mode, film_flag
 
 
 BAG_ALLOWANCE_DEFAULTS_MM = {
     "sealing_allowance": DEFAULT_BAG_SIZING.sealing_allowance_mm,
     "fit_tolerance": DEFAULT_BAG_SIZING.fit_tolerance_mm,
+}
+
+BAG_FILM_DEFAULTS = {
+    "film_preset": DEFAULT_FILM_PRESET,
+    "film_preset_override": "0",
+    "film_caliper": "",
+    "film_caliper_unit": "mil",
+    "film_caliper_override": "0",
+    "film_grammage": "",
+    "film_grammage_override": "0",
+    "bag_weight_override": "",
+    "bag_advanced_open": "",
 }
 
 
@@ -43,6 +56,7 @@ def default_bag_config(bag_dimension_unit="mm"):
         "bag_max_payload": "",
         "bag_mass_unit": "g",
         "selected_design_candidate_id": "",
+        **BAG_FILM_DEFAULTS,
     }
 
 
@@ -67,3 +81,16 @@ def read_bag_allowances(source, previous, bag_dimension_unit, *, suffix=""):
                     pass
             values[key] = value
     return values
+
+
+def read_bag_film(source, config, *, suffix=""):
+    film = {key: source.get(f"{key}{suffix}", config[key]) for key in BAG_FILM_DEFAULTS}
+    custom = film["film_preset"] == "custom" and (
+        not catalogue_bag_mode(config) or film_flag(film["film_preset_override"])
+    )
+    for field in ("film_caliper", "film_grammage"):
+        if not custom and not film_flag(film[f"{field}_override"]):
+            film[field] = ""
+    if film["bag_weight_override"] == "0":
+        film["bag_weight"] = ""
+    return film
