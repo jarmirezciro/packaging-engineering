@@ -51,8 +51,10 @@
         const singleBagControls = document.getElementById(prefix ? ('singleBagControls_' + prefix) : 'singleBagControls');
         const optimalBagControls = document.getElementById(prefix ? ('optimalBagControls_' + prefix) : 'optimalBagControls');
         const manualBagFields = document.getElementById(prefix ? ('manualBagFields_' + prefix) : 'manualBagFields');
+        const manualBagDimensions = root?.querySelector('[data-bag-manual-dimensions]');
         const globalCatalogueChooser = document.getElementById(prefix ? ('globalCatalogueChooser_' + prefix) : 'globalCatalogueChooser');
         const selectionPackageControls = document.getElementById(prefix ? ('selectionPackageControls_' + prefix) : 'selectionPackageControls');
+        const selectionPackageActions = root?.querySelector('[data-bag-selection-actions]');
         const designPackagingFields = document.getElementById(prefix ? ('designPackagingFields_' + prefix) : 'designPackagingFields');
 
         function toggleBlock(block, visible) {
@@ -61,6 +63,7 @@
             block.querySelectorAll('input,select,textarea,button').forEach(function (field) { field.disabled = !visible; });
         }
         toggleBlock(selectionPackageControls, mode !== 'design');
+        toggleBlock(selectionPackageActions, mode !== 'design');
         toggleBlock(designPackagingFields, mode === 'design');
 
         if (allowProductCatalogue && productCatalogueChooser) {
@@ -79,6 +82,8 @@
         if (manualDesiredQtyWrap) manualDesiredQtyWrap.style.display = (mode === 'design' || mode === 'optimal') ? 'block' : 'none';
 
         if (mode === 'design') return;
+
+        if (manualBagDimensions) manualBagDimensions.style.display = mode === 'single' && bagSource !== 'catalogue' ? '' : 'none';
 
         if (mode === 'single') {
             if (singleBagControls) singleBagControls.style.display = 'block';
