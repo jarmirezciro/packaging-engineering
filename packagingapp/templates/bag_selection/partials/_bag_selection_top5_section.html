@@ -15,6 +15,7 @@
                         <th>Description</th>
                         <th>Brand</th>
                         <th>Bag dimensions</th>
+                        <th class="text-end text-nowrap">Bag area ({{ top5.0.bag_area_unit }})</th>
                         <th>Usage</th>
                         <th>Best required</th>
                     </tr>
@@ -30,6 +31,7 @@
                         <td>{{ row.description }}</td>
                         <td>{{ row.branding }}</td>
                         <td>{{ row.bag_dimensions_display }}</td>
+                        <td class="text-end">{{ row.bag_area_display }}</td>
                         <td>{% if row.usage_pct %}{{ row.usage_pct }}%{% else %}{{ row.usage|floatformat:4 }}{% endif %}</td>
                         <td>{{ row.required_dimensions_display }}</td>
                     </tr>

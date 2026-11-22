@@ -18,7 +18,7 @@ from packagingapp.models import (
     UserSubscription,
 )
 from packagingapp.tools.bag.export import build_bag_selection_pdf
-from packagingapp.tools.bag.service import analyze_bag_capacity, analyze_bag_config
+from packagingapp.tools.bag.service import analyze_bag_capacity, analyze_bag_config, format_bag_area
 from packagingapp.utils.bag_selection.engine import (
     BagSizingParameters,
     bag_formula,
@@ -196,6 +196,18 @@ class BagSizingEngineTests(SimpleTestCase):
                 self.assertEqual(len(selection["solutions"][0]["bag_options"]), len(required))
 
 
+class BagAreaFormattingTests(SimpleTestCase):
+    def test_fixed_precision_and_invalid_areas(self):
+        self.assertEqual(format_bag_area(10000, "mm"), {
+            "bag_area_display": "100.00", "bag_area_unit": "cm²",
+        })
+        for value in (None, "", "invalid", float("inf"), float("nan"), -1):
+            with self.subTest(value=value):
+                self.assertEqual(format_bag_area(value, "in"), {
+                    "bag_area_display": "—", "bag_area_unit": "in²",
+                })
+
+
 class BagSizingSurfaceTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -219,6 +231,30 @@ class BagSizingSurfaceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context["form"].errors)
         return response
+
+    def test_design_area_uses_bag_dimension_unit_and_preserves_engine_results(self):
+        expected_display = {
+            "cm²": {11049: "110.49", 11349: "113.49", 14744: "147.44"},
+            "in²": {11049: "17.13", 11349: "17.59", 14744: "22.85"},
+        }
+        engine = build_bag_design_candidates(*PRODUCT, 1)["candidates"]
+        for length_unit, area_unit in (
+            ("mm", "cm²"), ("cm", "cm²"), ("m", "cm²"), ("in", "in²"), ("ft", "in²"),
+        ):
+            with self.subTest(length_unit=length_unit):
+                response = self.post_bag(mode="design", action="run_design", bag_dimension_unit=length_unit)
+                self.assertContains(
+                    response, f'<th>Bag W × L</th><th class="text-end text-nowrap">Bag area ({area_unit})</th>',
+                )
+                rows = response.context["design_candidates"]
+                self.assertEqual([row["candidate_id"] for row in rows], [row["candidate_id"] for row in engine])
+                self.assertEqual(response.context["result"]["candidate_id"], engine[0]["candidate_id"])
+                for row, candidate in zip(rows, engine):
+                    for key in ("bag_area", "bag_width", "bag_length", "design_quantity", "bag_usage", "rank"):
+                        self.assertEqual(row[key], candidate[key], key)
+                    display = expected_display[area_unit][row["bag_area"]]
+                    self.assertEqual((row["bag_area_display"], row["bag_area_unit"]), (display, area_unit))
+                    self.assertContains(response, f'<td class="text-end">{display}</td>', count=1, html=True)
 
     def test_custom_single_fit_capacity_utilization_and_report_use_the_same_values(self):
         custom = {"fit_tolerance": 4, "sealing_allowance": 15}
@@ -394,6 +430,25 @@ class BagSizingSurfaceTests(TestCase):
             [(row["bag_len"], row["bag_w"]) for row in optimal.context["top5"]],
             [(127, 87), (97, 117), (97, 152), (128, 87), (98, 117)],
         )
+        for unit, header, displays in (
+            ("mm", "cm²", ["110.49", "113.49", "147.44", "111.36", "114.66"]),
+            ("in", "in²", ["17.13", "17.59", "22.85", "17.26", "17.77"]),
+        ):
+            with self.subTest(unit=unit):
+                response = optimal if unit == "mm" else self.post_bag(
+                    route="bag_selection_calculator", action="find_top5", bag_dimension_unit=unit, **config,
+                )
+                self.assertRegex(
+                    response.content.decode(),
+                    rf'<th>Bag dimensions</th>\s*<th class="text-end text-nowrap">Bag area \({header}\)</th>',
+                )
+                rows = response.context["top5"]
+                self.assertEqual([row["bag_area"] for row in rows], [11049, 11349, 14744, 11136, 11466])
+                self.assertEqual([row["bag_area_display"] for row in rows], displays)
+                for key in ("id", "usage", "best_required"):
+                    self.assertEqual([row[key] for row in rows], [row[key] for row in optimal.context["top5"]])
+                for display in displays:
+                    self.assertContains(response, f'<td class="text-end">{display}</td>', count=1, html=True)
         bag = self.bags[98, 117]
         selected = self.post_bag(
             route="bag_selection_calculator", action="select_candidate", bag_id=bag.pk, **config

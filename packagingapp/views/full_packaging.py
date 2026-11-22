@@ -54,6 +54,7 @@ from ..tools.product_shape import build_product_unit_scene, normalize_product_sh
 from ..tools.bag.service import (
     analyze_bag_capacity,
     analyze_bag_config as analyze_bag_config_shared,
+    format_bag_area,
     get_materials_for_catalogue as get_bag_materials_for_catalogue,
     get_products_for_catalogue as get_bag_products_for_catalogue,
     get_selected_material as get_bag_selected_material,
@@ -1896,6 +1897,14 @@ def _prepare_bag_step_view_model(step, idx):
 
     step["config"] = cfg
     step["bag_values"] = {k: cfg.get(k) for k in default_bag_config().keys()}
+    for key in ("design_candidates", "top5"):
+        # Older sessions have the canonical area but lack the display fields.
+        step[key] = [
+            row if "bag_area_display" in row else {
+                **row, **format_bag_area(row.get("bag_area"), cfg["bag_dimension_unit"]),
+            }
+            for row in (step.get(key) or [])
+        ]
     step["bag_ui"] = _build_shared_bag_ui_contract(prefix=str(idx))
     step["mode"] = "workflow"
     step["prefix"] = str(idx)

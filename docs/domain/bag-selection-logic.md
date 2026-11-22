@@ -190,6 +190,13 @@ the bag. `bag.film` identifies the depth axis and dimensions in the actual
 placement coordinates, so the viewer can form the film around the bundle
 without moving the products.
 
+## Bag area in result tables
+
+Design alternatives and Optimal Top 5 rows display the flat-bag area to two
+decimal places. The bag-dimension selector determines the display unit. Use
+cm² for mm, cm, and m, and in² for in and ft. Calculation and ranking use the
+canonical area in mm².
+
 ## Case compendium
 
 `/regressions` lists the Bag Selection cases from

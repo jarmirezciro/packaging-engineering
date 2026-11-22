@@ -45,6 +45,19 @@ from .state import BAG_ALLOWANCE_DEFAULTS_MM
 BAG_DRAW_LIMIT = 250
 
 
+def format_bag_area(area_mm2, dimension_unit):
+    """Return result table metadata for a canonical flat-bag area."""
+    length_unit = "in" if str(dimension_unit).strip().lower() in ("in", "ft") else "cm"
+    display = "—"
+    try:
+        area = Decimal(str(area_mm2))
+        if area.is_finite() and area >= 0:
+            display = f"{area / LENGTH_UNITS[length_unit] ** 2:.2f}"
+    except DecimalException:
+        pass
+    return {"bag_area_display": display, "bag_area_unit": f"{length_unit}²"}
+
+
 def _to_float(value):
     if value in (None, "", "None"):
         return None
@@ -637,10 +650,12 @@ def _positive_integer(value):
 
 def _add_bag_design_metrics(candidate, config, selected_product=None):
     row = dict(candidate)
+    bag_dimension_unit = (config or {}).get("bag_dimension_unit") or "mm"
     product_weight = _resolve_product_weight(config, selected_product)
     quantity = int(row["design_quantity"])
     net_weight = product_weight * quantity if product_weight is not None else None
     row.update({
+        **format_bag_area(row.get("bag_area"), bag_dimension_unit),
         "net_content_weight": _round_or_none(net_weight, 3),
         "bundle_dimensions_display": format_dimensions(
             row["bundle_length"],
@@ -651,12 +666,12 @@ def _add_bag_design_metrics(candidate, config, selected_product=None):
         "bag_dimensions_display": format_dimensions(
             row["bag_width"],
             row["bag_length"],
-            display_unit=(config or {}).get("bag_dimension_unit") or "mm",
+            display_unit=bag_dimension_unit,
         ),
         "bag_width_display": format_dimensions(
             row["bag_width"],
             canonical_unit="mm",
-            display_unit=(config or {}).get("bag_dimension_unit") or "mm",
+            display_unit=bag_dimension_unit,
         ),
         "net_content_weight_display": format_mass(
             net_weight,
@@ -1002,6 +1017,8 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                 })
             scored.sort(key=lambda x: (-x["usage"], x["bag_area"]))
             top5 = scored[:5]
+            for row in top5:
+                row.update(format_bag_area(row["bag_area"], normalized_inputs["bag_dimension_unit"]))
 
             if action == "select_candidate":
                 if not selected_material:
