@@ -541,7 +541,7 @@ def _build_bag_selection_page_context(
             design_dimensions=(result["flat_bag_length_mm"], result["flat_bag_width_mm"])
             if result and config["mode"] == "design" else None,
         ),
-        "bag_film_rows": bag_film_result_rows(analysis_report),
+        "bag_film_rows": bag_film_result_rows(analysis_report, separate_weight_source=True),
         "result": result,
         "image_url": image_url,
         "top5": top5,

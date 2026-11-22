@@ -1,10 +1,12 @@
-{% if bag_film_rows or bag_workflow_rows %}
-    <dl class="small mb-2">
-        {% for label, value in bag_film_rows %}
-            <div class="d-flex flex-wrap justify-content-between gap-1"><dt class="text-muted fw-normal">{{ label }}</dt><dd class="mb-1">{{ value }}</dd></div>
-        {% endfor %}
-        {% for label, value in bag_workflow_rows %}
-            <div class="d-flex flex-wrap justify-content-between gap-1"><dt class="text-muted fw-normal">{{ label }}</dt><dd class="mb-1">{{ value }}</dd></div>
-        {% endfor %}
-    </dl>
-{% endif %}
+{% for label, value in bag_film_rows %}
+    <tr>
+        <th scope="row" class="fw-normal text-muted">{{ label }}</th>
+        <td class="text-end">{{ value }}</td>
+    </tr>
+{% endfor %}
+{% for label, value in bag_workflow_rows %}
+    <tr>
+        <th scope="row" class="fw-normal text-muted">{{ label }}</th>
+        <td class="text-end">{{ value }}</td>
+    </tr>
+{% endfor %}

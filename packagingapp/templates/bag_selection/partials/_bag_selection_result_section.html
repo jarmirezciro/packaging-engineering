@@ -49,7 +49,6 @@
                 </div>
             {% endif %}
 
-            {% include "bag_selection/partials/_bag_selection_film_results.html" %}
             {% include "shared/_package_threejs_panel.html" with scene=threejs_scene scene_id=bag_ui.ids.threejs_scene viewer_id=bag_ui.ids.threejs_viewer package_label="bag" %}
 
             {% if mode != "workflow" and analysis_report %}
@@ -72,7 +71,7 @@
                 <details class="tool-summary-strip mt-3 mb-0">
                     <summary class="tool-summary-main" style="cursor: pointer;">
                         <strong>Detailed analysis</strong>
-                        <span class="tool-summary-meta ms-1">capacity, bag usage, weight and payload</span>
+                        <span class="tool-summary-meta ms-1">dimensions, film, weight and capacity</span>
                     </summary>
                     <div class="table-responsive mt-2">
                         <table class="table table-sm mb-0 align-middle">
@@ -81,24 +80,18 @@
                                     <th scope="row" class="fw-normal text-muted">Product dimensions</th>
                                     <td class="text-end">{{ analysis_report.product_dimensions_display }}</td>
                                 </tr>
-                                <tr>
-                                    <th scope="row" class="fw-normal text-muted">Bag dimensions</th>
-                                    <td class="text-end">{{ analysis_report.bag_dimensions_display }}</td>
-                                </tr>
+                                {% if not bag_workflow_rows %}
+                                    <tr>
+                                        <th scope="row" class="fw-normal text-muted">Bag dimensions</th>
+                                        <td class="text-end">{{ analysis_report.bag_dimensions_display }}</td>
+                                    </tr>
+                                {% endif %}
                                 <tr>
                                     <th scope="row" class="fw-normal text-muted">Required flat dimensions</th>
                                     <td class="text-end">{{ analysis_report.required_dimensions_display }}</td>
                                 </tr>
-                                {% if analysis_report.bag_assumptions %}
-                                <tr>
-                                    <th scope="row" class="fw-normal text-muted">Sealing allowance</th>
-                                    <td class="text-end">{{ analysis_report.bag_assumptions.sealing_allowance_display }}</td>
-                                </tr>
-                                <tr>
-                                    <th scope="row" class="fw-normal text-muted">Fit tolerance</th>
-                                    <td class="text-end">{{ analysis_report.bag_assumptions.fit_tolerance_display }}</td>
-                                </tr>
-                                {% endif %}
+                                {% include "bag_selection/partials/_bag_selection_assumptions.html" with assumptions=analysis_report.bag_assumptions as_rows=True only %}
+                                {% include "bag_selection/partials/_bag_selection_film_results.html" %}
                                 <tr>
                                     <th scope="row" class="fw-normal text-muted">Current quantity</th>
                                     <td class="text-end">{{ analysis_report.current_quantity }} pcs</td>
@@ -122,7 +115,7 @@
                                     <td class="text-end">{{ analysis_report.bag_usage_max_display }}</td>
                                 </tr>
                                 <tr>
-                                    <th scope="row" class="fw-normal text-muted">Net weight</th>
+                                    <th scope="row" class="fw-normal text-muted">Net contents weight</th>
                                     <td class="text-end">
                                         {% if analysis_report.has_product_weight %}
                                             {{ analysis_report.net_weight_display }}

@@ -1915,7 +1915,6 @@ def _prepare_bag_step_view_model(step, idx):
         cfg, selected_material,
         design_dimensions=(bag_output.get("flat_bag_length_mm"), bag_output.get("flat_bag_width_mm")),
     )
-    step["bag_film_rows"] = bag_film_result_rows(step.get("analysis_report"))
     step["bag_workflow_rows"] = bag_workflow_dimension_rows(bag_output, cfg["bag_dimension_unit"])
     step["mode"] = "workflow"
     step["prefix"] = str(idx)
@@ -1948,6 +1947,7 @@ def _prepare_bag_step_view_model(step, idx):
     step["current_bag_source"] = cfg.get("bag_source") or "manual"
     step["allow_product_catalogue"] = idx == 0
     step["analysis_report"] = step.get("analysis_report") or (step.get("result") or {}).get("analysis_report")
+    step["bag_film_rows"] = bag_film_result_rows(step["analysis_report"], separate_weight_source=True)
     step["threejs_scene"] = step.get("threejs_scene") or (step.get("result") or {}).get("render_data")
     step["product_unit_scene"] = step.get("product_unit_scene") or (step.get("result") or {}).get("product_unit_scene")
     if not step["product_unit_scene"]:

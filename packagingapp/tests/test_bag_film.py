@@ -1,11 +1,13 @@
 from decimal import Decimal
 import json
+import re
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import SimpleTestCase, TestCase, TransactionTestCase
+from django.test.html import parse_html
 from django.urls import reverse
 
 from packagingapp.forms import PackagingMaterialForm
@@ -130,6 +132,99 @@ class BagFilmSurfaceTests(TestCase):
         self.client.force_login(get_user_model().objects.create_user(username="film"))
         self.catalogue = PackagingCatalogue.objects.create(name="Film stock", is_public=True)
 
+    def bag_result_details(self, response):
+        html = response.content.decode()
+        pattern = r'<details([^>]*)>\s*<summary[^>]*>\s*<strong>Detailed analysis</strong>.*?</details>'
+        sections = []
+        for match in re.finditer(pattern, html, re.S):
+            self.assertNotIn("open", match[1])
+            start = html.rindex('<div class="app-section-title">', 0, match.start())
+            summary = html[start:match.start()]
+            self.assertIn("Interactive 3D result", summary)
+            for label in ("Film material", "Estimated film area", "Packaging weight source", "Outer dimensions source"):
+                self.assertNotIn(label, summary)
+            tbody = re.search(r"<tbody>.*?</tbody>", match[0], re.S)[0]
+            rows = parse_html(tbody).children
+            self.assertTrue(all(row.name == "tr" for row in rows))
+            labels = [row.children[0].children[0] for row in rows]
+            self.assertEqual(len(labels), len(set(labels)))
+            sections.append((summary, dict(zip(labels, (row.children[1].children[0] for row in rows)))))
+        return sections
+
+    def test_single_and_design_disclosures_use_the_selected_results(self):
+        product = {
+            "product_source": "manual", "bag_source": "manual", "desired_qty": 1,
+            "product_l": 90, "product_w": 60, "product_h": 25, "product_weight": 100,
+        }
+        single = self.client.post(reverse("bag_selection_calculator"), {
+            **product, "mode": "single", "action": "run_single", "bag_length": 127, "bag_width": 87,
+        })
+        self.assertFalse(single.context["form"].errors)
+        (summary, rows), = self.bag_result_details(single)
+        self.assertIn("Total weight", summary)
+        self.assertIn("100.62 g", summary)
+        self.assertEqual(rows["Total weight"], "100.62 g")
+        self.assertEqual(rows["Packaging weight"], "0.620 g")
+        self.assertEqual(rows["Packaging weight source"], "Estimated from film properties")
+        self.assertEqual(rows["Sealing allowance"], "10 mm")
+        self.assertEqual(rows["Fit tolerance"], "2 mm")
+        self.assertEqual(rows["Film material"], "LDPE")
+        self.assertEqual(rows["Caliper"], "1.2 mil (30.48 µm)")
+        self.assertEqual(rows["Grammage"], "28.04 g/m²")
+        self.assertEqual(rows["Estimated film area"], "220.98 cm²")
+
+        url = reverse("bag_selection_mode1")
+        design_config = {**product, "mode": "design"}
+        initial = self.client.post(url, {**design_config, "action": "run_design"})
+        alternatives = initial.context["design_candidates"]
+        chosen = alternatives[-1]
+        selected = self.client.post(url, {
+            **design_config, "action": "select_design_candidate", "selected_design_candidate_id": chosen["candidate_id"],
+        })
+        (design_summary, design_rows), = self.bag_result_details(selected)
+        self.assertIn("Designed bag", design_summary)
+        self.assertIn("Bundle:", design_summary)
+        self.assertNotIn("Total weight", design_summary)
+        self.assertNotIn("Sealing allowance", design_summary)
+        self.assertEqual(design_rows["Net contents weight"], "100 g")
+        self.assertEqual(design_rows["Total weight"], chosen["total_weight_display"])
+        self.assertEqual(design_rows["Packaging weight"], chosen["bag_tare_display"])
+        self.assertNotEqual(design_rows["Packaging weight"], self.bag_result_details(initial)[0][1]["Packaging weight"])
+
+    def test_optimal_disclosure_distinguishes_actual_weight_and_unknown_film(self):
+        actual = PackagingMaterial.objects.create(
+            catalogue=self.catalogue, packaging_type="BAG", part_number="FILM",
+            part_length=127, part_width=87, part_height=0, bag_film_family="pp",
+            bag_film_caliper_mm=Decimal("0.03"), bag_construction="two_wall",
+            bag_actual_weight_g=Decimal("0.729"),
+        )
+        unknown = PackagingMaterial.objects.create(
+            catalogue=self.catalogue, packaging_type="BAG", part_number="UNKNOWN",
+            part_length=128, part_width=87, part_height=0,
+        )
+        url = reverse("bag_selection_mode1")
+        inputs = {
+            "mode": "optimal", "action": "select_candidate", "bag_source": "catalogue",
+            "catalogue_id": self.catalogue.pk, "desired_qty": 1,
+            "product_source": "manual", "product_l": 90, "product_w": 60,
+            "product_h": 25, "product_weight": 100,
+        }
+        selected = self.client.post(url, {**inputs, "bag_id": actual.pk})
+        self.assertFalse(selected.context["form"].errors)
+        self.assertEqual([row["id"] for row in selected.context["top5"]], [str(actual.pk), str(unknown.pk)])
+        (summary, rows), = self.bag_result_details(selected)
+        self.assertIn("100.729 g", summary)
+        self.assertEqual(rows["Film material"], "PP")
+        self.assertEqual(rows["Packaging weight"], "0.729 g")
+        self.assertEqual(rows["Packaging weight source"], "Actual catalogue weight")
+
+        missing = self.client.post(url, {**inputs, "bag_id": unknown.pk})
+        (_summary, missing_rows), = self.bag_result_details(missing)
+        self.assertEqual(missing_rows["Packaging weight"], "Unavailable")
+        self.assertEqual(missing_rows["Packaging weight source"], "Unavailable")
+        self.assertNotIn("Caliper", missing_rows)
+        self.assertNotIn("Grammage", missing_rows)
+
     def test_preview_and_catalogue_high_precision_form(self):
         form = PackagingMaterialForm(data={
             "part_number": "BAG-87", "part_description": "Sample stock",
@@ -200,7 +295,15 @@ class BagFilmSurfaceTests(TestCase):
         html = self.client.get(url)
         for index in range(3):
             self.assertContains(html, f'name="film_caliper_unit_{index}"', count=1)
-        self.assertContains(html, "Estimated outer dimensions")
+        sections = self.bag_result_details(html)
+        self.assertEqual(len(sections), 3)
+        for (_summary, rows), output in zip(sections, (inner, design, optimal)):
+            self.assertIn("Flat bag dimensions", rows)
+            self.assertIn("Packed bundle dimensions", rows)
+            self.assertIn("Outer dimensions", rows)
+            self.assertNotIn("Bag dimensions", rows)
+            self.assertEqual(rows["Outer dimensions source"], output["outer_dimension_source_display"])
+            self.assertEqual(rows["Packaging weight source"], output["bag_tare_source_display"])
         json.dumps(steps, allow_nan=False)
 
 

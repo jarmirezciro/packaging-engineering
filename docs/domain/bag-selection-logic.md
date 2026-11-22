@@ -217,6 +217,11 @@ estimate requires simple non-gusseted two-wall construction. It excludes
 closures, printing, reinforcements, and other contributions beyond the two
 film walls. Film calculations do not alter the Three.js geometry.
 
+Bag results group film properties, allowances, tare and its source inside
+the collapsed Detailed analysis table. Packaging Flow includes the selected
+bag's flat, packed bundle and outer dimensions in that table. Single and
+Optimal also show total weight in the main result summary.
+
 ## Case compendium
 
 `/regressions` lists the Bag Selection cases from

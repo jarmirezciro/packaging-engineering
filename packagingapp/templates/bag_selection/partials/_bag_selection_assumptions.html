@@ -1,3 +1,14 @@
 {% if assumptions %}
-<div class="tool-summary-meta mb-2">Sealing allowance: {{ assumptions.sealing_allowance_display }} · Fit tolerance: {{ assumptions.fit_tolerance_display }}</div>
+    {% if as_rows %}
+        <tr>
+            <th scope="row" class="fw-normal text-muted">Sealing allowance</th>
+            <td class="text-end">{{ assumptions.sealing_allowance_display }}</td>
+        </tr>
+        <tr>
+            <th scope="row" class="fw-normal text-muted">Fit tolerance</th>
+            <td class="text-end">{{ assumptions.fit_tolerance_display }}</td>
+        </tr>
+    {% else %}
+        <div class="tool-summary-meta mb-2">Sealing allowance: {{ assumptions.sealing_allowance_display }} · Fit tolerance: {{ assumptions.fit_tolerance_display }}</div>
+    {% endif %}
 {% endif %}

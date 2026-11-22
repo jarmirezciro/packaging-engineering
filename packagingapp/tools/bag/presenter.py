@@ -7,7 +7,7 @@ from .film import (
 )
 
 
-def bag_film_result_rows(report):
+def bag_film_result_rows(report, *, separate_weight_source=False):
     if not report or "bag_tare_source" not in report:
         return []
     rows = []
@@ -25,7 +25,12 @@ def bag_film_result_rows(report):
     area = report.get("film_area_m2")
     if area is not None:
         rows.append(("Estimated film area", f"{area * 10000:.2f} cm²"))
-    rows.append(("Packaging weight", f"{report['bag_tare_display']} · {report['bag_tare_source_display']}"))
+    weight = report["bag_tare_display"]
+    source = report["bag_tare_source_display"]
+    if separate_weight_source:
+        rows.extend([("Packaging weight", weight), ("Packaging weight source", source)])
+    else:
+        rows.append(("Packaging weight", f"{weight} · {source}"))
     return rows
 
 
