@@ -26,14 +26,14 @@ function assertNear(actual, expected) {
     assert.ok(Math.abs(actual - expected) < 1e-8, `Expected ${actual} to be near ${expected}`);
 }
 
-function assertEndBudget(film, depthAxis, depth, developedLength) {
+function assertEndBudget(film, depthAxis, depth, developedLength, allowance = 10) {
     const crossAxes = [0, 1, 2].filter((axis) => axis !== depthAxis);
     const halfShort = Math.min(...crossAxes.map((axis) => span(film.mouth, axis))) / 2;
     const rearRun = distance(film.rearSeam[0], film.shoulder[0]);
     const openingRun = film.collar[0][depthAxis] - depth;
     const sealingStrip = distance(film.collar[0], film.mouth[0]);
     const developedBody = distance(film.shoulder[0], film.collar[0]);
-    assertNear(sealingStrip, 10);
+    assertNear(sealingStrip, allowance);
     assertNear(rearRun + developedBody + sealingStrip, developedLength);
     assert.ok(openingRun + 1e-8 >= halfShort, "Both faces can reach the center plane before sealing");
     assert.ok(rearRun <= openingRun + 1e-8);
@@ -172,3 +172,34 @@ test("the preview does not invent closure stock for an inconsistent saved bag le
     };
     assert.equal(buildBagFilmGeometry(scene), null);
 });
+
+for (const [index, width, length] of [[0, 89, 134], [1, 119, 104], [2, 154, 104]]) {
+    test(`custom fit and seal keep the film within stock for ${cases[index].axis} insertion`, () => {
+        const film = buildBagFilmGeometry({
+            mode: "design",
+            bag: {
+                film: { depthAxis: cases[index].axis, bundleDimensions: bundle },
+                flatWidth: width, flatLength: length, fitTolerance: 4, sealingAllowance: 15,
+            },
+        });
+        assertNear(perimeter(film.mouth), 2 * width);
+        assertEndBudget(film, index, bundle[index], length, 15);
+    });
+}
+
+for (const seal of [0, 15.1]) {
+    test(`exact fit with zero tolerance and ${seal} mm sealing produces finite film`, () => {
+        const film = buildBagFilmGeometry({
+            mode: "design",
+            bag: {
+                film: { depthAxis: "length", bundleDimensions: bundle },
+                flatWidth: 85, flatLength: 115 + seal, fitTolerance: 0, sealingAllowance: seal,
+            },
+        });
+        assert.ok(film);
+        assert.ok([film.rearSeam, film.shoulder, film.collar, film.mouth].flat(2).every(Number.isFinite));
+        assertNear(perimeter(film.mouth), 170);
+        assertEndBudget(film, 0, 90, 115 + seal, seal);
+        if (seal === 0) assert.deepEqual(film.mouth, film.collar);
+    });
+}

@@ -44,8 +44,12 @@ export function buildBagFilmGeometry(scene) {
     // axial reach r develops to hypot(r, b). Keep at least the same budget
     // at the open end so each face can travel b inward before sealing.
     // Loose stock beyond the fitted envelope remains unmodelled.
-    const endFilm = Math.min(bag.flatLength - depth - seal, shortSpan + tolerance);
-    if (!(endFilm >= 2 * b)) return null;
+    const availableEndFilm = Math.min(bag.flatLength - depth - seal, shortSpan + tolerance);
+    // Flat length and bundle spans are serialized to six decimal places.
+    // Allow their accumulated rounding error at the exact-fit boundary.
+    const roundingSlack = 1.5e-6 + 4 * Number.EPSILON * Math.max(bag.flatLength, depth, seal, shortSpan);
+    if (!(availableEndFilm >= 2 * b - roundingSlack)) return null;
+    const endFilm = Math.max(availableEndFilm, 2 * b);
     const rearBudget = endFilm / 2;
     const rearFold = Math.min(shortSpan / 2, Math.sqrt((rearBudget - b) * (rearBudget + b)));
     const openingRun = endFilm - Math.hypot(rearFold, b);

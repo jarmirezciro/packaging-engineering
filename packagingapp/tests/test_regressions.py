@@ -934,8 +934,19 @@ class BagCompendiumTests(TestCase):
             "bottle-dimensional-allowances": 30,
             "imperial-metric-units": 12,
             "pillow-bag-visualization": 6,
+            "custom-fit-tolerance": 1,
+            "imperial-bag-allowances": 1,
         }
-        design_quantities = {"three-dimensional-bag-design": 12, "non-smooth-quantity-design": 8}
+        design_quantities = {
+            "three-dimensional-bag-design": 12, "non-smooth-quantity-design": 8,
+            "custom-sealing": 1, "zero-bag-allowances": 1,
+        }
+        custom_assumptions_mm = {
+            "custom-sealing": (20, 2),
+            "custom-fit-tolerance": (10, 5),
+            "zero-bag-allowances": (0, 0),
+            "imperial-bag-allowances": (15.875, 3.175),
+        }
         cases = list(zip(parser.links, BAG_SELECTION_CASE_PRESETS.items()))
         for link, (slug, preset) in cases + cases[:1]:
             with self.subTest(case=slug):
@@ -962,8 +973,9 @@ class BagCompendiumTests(TestCase):
                 self.assertEqual((scene["packageType"], scene["mode"], scene["units"]), ("bag", config["mode"], "mm"))
                 bag = scene["bag"]
                 self.assertEqual((bag["openingSide"], bag["openingAt"]), ("width", "length-end"))
-                self.assertEqual((bag["sealingAllowance"], bag["fitTolerance"]), (10, 2))
-                self.assertAlmostEqual(scene["container"]["length"] - bag["usableBodyLength"], 10)
+                sealing, tolerance = custom_assumptions_mm.get(slug, (10, 2))
+                self.assertEqual((bag["sealingAllowance"], bag["fitTolerance"]), (sealing, tolerance))
+                self.assertAlmostEqual(scene["container"]["length"] - bag["usableBodyLength"], sealing)
                 for item in scene["products"]:
                     self.assertLessEqual(item["x"] + item["dx"], bag["usableBodyLength"] + 0.000001)
 
@@ -996,11 +1008,16 @@ class BagCompendiumTests(TestCase):
                         tuple(expected[f"product_{axis}"] for axis in "lwh"), expected["desired_qty"], 1, 1, 1
                     )
                     candidates = response.context["design_candidates"]
-                    self.assertEqual([row["arrangement_id"] for row in candidates if row["insertion"]["axis"] == "length"], [
-                        row["arrangement_id"] for row in canonical["arrangements"]
-                    ])
+                    if quantity > 1:
+                        self.assertEqual([row["arrangement_id"] for row in candidates if row["insertion"]["axis"] == "length"], [
+                            row["arrangement_id"] for row in canonical["arrangements"]
+                        ])
+                    else:
+                        self.assertEqual(len(candidates), 3)
                     for arrangement in canonical["arrangements"]:
                         siblings = [row for row in candidates if row["arrangement_id"] == arrangement["arrangement_id"]]
+                        if quantity == 1 and not siblings:
+                            continue
                         sizes = {(row["bag_width"], row["bag_length"]) for row in siblings}
                         distinct_spans = len({arrangement[f"bundle_{axis}"] for axis in ("length", "width", "height")})
                         self.assertEqual(len(siblings), distinct_spans)

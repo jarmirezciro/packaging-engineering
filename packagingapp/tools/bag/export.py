@@ -19,6 +19,7 @@ from reportlab.platypus import (
 )
 
 from ...units import format_dimensions
+from .presenter import bag_allowance_rows
 
 
 def _clean(value, default="-"):
@@ -298,6 +299,7 @@ def build_bag_selection_single_pdf(export_payload):
         ("Description", bag.get("description")),
         ("Brand", bag.get("brand")),
         ("Flat dimensions", bag.get("dimensions")),
+        *bag_allowance_rows(analysis.get("bag_assumptions")),
     ]
     if not is_design:
         bag_rows.append(("Packaging wt / payload", f"{bag.get('weight', '-')} / {bag.get('payload_capacity', '-')}"))
@@ -416,6 +418,7 @@ def build_bag_selection_optimal_pdf(export_payload):
         ("Selected", recommendation.get("part_number")),
         ("Description", recommendation.get("description")),
         ("Flat dimensions", recommendation.get("dimensions")),
+        *bag_allowance_rows(analysis.get("bag_assumptions")),
     ], [36 * mm, 66 * mm])
 
     info_grid = Table(

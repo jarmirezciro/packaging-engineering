@@ -106,6 +106,40 @@ BAG_SELECTION_CASE_PRESETS = {
         "label": "Pillow Bag Visualization",
         "config": {**SEO_BAG_SELECTION_EXAMPLE_CONFIG, "product_shape": "pillow_bag"},
     },
+    "custom-sealing": {
+        "label": "Custom Sealing (20 mm)",
+        "config": {
+            "mode": "design", "action": "run_design",
+            "product_l": 90, "product_w": 60, "product_h": 25, "desired_qty": 1,
+            "sealing_allowance": 20,
+        },
+    },
+    "custom-fit-tolerance": {
+        "label": "Custom Fit Tolerance (5 mm)",
+        "config": {
+            "mode": "single", "action": "run_single",
+            "product_l": 90, "product_w": 60, "product_h": 25,
+            "bag_length": 154, "bag_width": 112, "fit_tolerance": 5,
+        },
+    },
+    "zero-bag-allowances": {
+        "label": "Zero Sealing Allowance and Fit Tolerance",
+        "config": {
+            "mode": "design", "action": "run_design",
+            "product_l": 90, "product_w": 60, "product_h": 25, "desired_qty": 1,
+            "sealing_allowance": 0, "fit_tolerance": 0,
+        },
+    },
+    "imperial-bag-allowances": {
+        "label": "Imperial Bag Allowances",
+        "config": {
+            "mode": "single", "action": "run_single",
+            "product_l": 90, "product_w": 60, "product_h": 25,
+            "bag_dimension_unit": "in",
+            "bag_length": 6, "bag_width": 4,
+            "sealing_allowance": 0.625, "fit_tolerance": 0.125,
+        },
+    },
 }
 
 

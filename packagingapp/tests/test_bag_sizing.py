@@ -18,8 +18,9 @@ from packagingapp.models import (
     UserSubscription,
 )
 from packagingapp.tools.bag.export import build_bag_selection_pdf
-from packagingapp.tools.bag.service import analyze_bag_capacity
+from packagingapp.tools.bag.service import analyze_bag_capacity, analyze_bag_config
 from packagingapp.utils.bag_selection.engine import (
+    BagSizingParameters,
     bag_formula,
     build_bag_design_candidates,
     build_required_bag_options,
@@ -54,6 +55,30 @@ DESIGN_SHORT_INSERTION = {
 
 
 class BagSizingEngineTests(SimpleTestCase):
+    def test_configurable_allowances_preserve_reference_axes_and_design_identities(self):
+        expected = [
+            (BagSizingParameters(), [(87, 127), (117, 97), (152, 97)]),
+            (BagSizingParameters(4, 15), [(89, 134), (119, 104), (154, 104)]),
+            (BagSizingParameters(0, 0), [(85, 115), (115, 85), (150, 85)]),
+        ]
+        baseline = build_bag_design_candidates(*PRODUCT, 1)
+        for assumptions, sizes in expected:
+            with self.subTest(assumptions=assumptions):
+                grid = build_required_bag_options(*PRODUCT, 1, parameters=assumptions)["solutions"][0]
+                self.assertEqual([(row["req_w"], row["req_len"]) for row in grid["bag_options"]], sizes)
+                self.assertEqual([row["insertion"]["axis"] for row in grid["bag_options"]], ["length", "width", "height"])
+                design = build_bag_design_candidates(*PRODUCT, 1, parameters=assumptions)
+                self.assertCountEqual([(row["bag_width"], row["bag_length"]) for row in design["candidates"]], sizes)
+                self.assertEqual(
+                    [row["candidate_id"] for row in design["candidates"]],
+                    [row["candidate_id"] for row in baseline["candidates"]],
+                )
+                self.assertEqual(design["candidate_aliases"], baseline["candidate_aliases"])
+                for row in design["candidates"]:
+                    bag = row["render_data"]["bag"]
+                    self.assertEqual(bag["fitTolerance"], assumptions.fit_tolerance_mm)
+                    self.assertEqual(bag["sealingAllowance"], assumptions.sealing_allowance_mm)
+
     def test_required_dimensions_for_each_opening_plane(self):
         cases = [
             ((90, 60, 25), (127, 87, 11049)),
@@ -194,6 +219,127 @@ class BagSizingSurfaceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context["form"].errors)
         return response
+
+    def test_custom_single_fit_capacity_utilization_and_report_use_the_same_values(self):
+        custom = {"fit_tolerance": 4, "sealing_allowance": 15}
+        original = self.post_bag(action="run_single", bag_length=154, bag_width=114)
+        self.assertEqual(original.context["result"]["max_quantity"], 2)
+        manual = self.post_bag(action="run_single", bag_length=154, bag_width=114, **custom)
+        catalogue = self.post_bag(
+            action="select_bag", bag_source="catalogue", catalogue_id=self.catalogue.pk,
+            bag_id=self.bags[154, 114].pk, **custom,
+        )
+        for response in (manual, catalogue):
+            result, report = response.context["result"], response.context["analysis_report"]
+            self.assertTrue(result["fits"])
+            self.assertEqual(result["best_required"], (134, 89))
+            self.assertEqual((result["max_quantity"], report["max_quantity"]), (1, 1))
+            self.assertAlmostEqual(result["usage"], (134 * 89) / (154 * 114))
+            self.assertEqual(report["required_area_max"], 134 * 89)
+            self.assertEqual(report["bag_assumptions"], result["bag_assumptions"])
+            scene = response.context["threejs_scene"]["bag"]
+            self.assertEqual((scene["fitTolerance"], scene["sealingAllowance"], scene["insertion"]["axis"]), (4, 15, "length"))
+        no_fit = self.post_bag(action="run_single", bag_length=127, bag_width=87, **custom)
+        self.assertFalse(no_fit.context["result"]["fits"])
+        self.assertEqual(no_fit.context["analysis_report"]["max_quantity"], 0)
+        switched = self.post_bag(action="run_single", bag_length=120, bag_width=155, fit_tolerance=0, sealing_allowance=0)
+        old = self.post_bag(action="run_single", bag_length=120, bag_width=155)
+        self.assertEqual(old.context["threejs_scene"]["bag"]["insertion"]["axis"], "height")
+        self.assertEqual(switched.context["threejs_scene"]["bag"]["insertion"]["axis"], "length")
+
+    def test_custom_optimal_top_five_use_current_allowances_and_keep_them_when_selected(self):
+        for length, width in [(134, 89), (104, 119), (104, 154), (135, 89), (105, 119)]:
+            PackagingMaterial.objects.create(
+                catalogue=self.catalogue, packaging_type="BAG", part_number=f"{length}x{width}",
+                part_length=length, part_width=width, part_height=0,
+            )
+        config = {
+            "mode": "optimal", "bag_source": "catalogue", "catalogue_id": self.catalogue.pk,
+            "fit_tolerance": 4, "sealing_allowance": 15,
+        }
+        route = "bag_selection_calculator"
+        optimal = self.post_bag(route=route, action="find_top5", **config)
+        rows = optimal.context["top5"]
+        self.assertEqual([row["part_number"] for row in rows], ["134x89", "104x119", "104x154", "135x89", "105x119"])
+        self.assertEqual([row["best_required"] for row in rows], [(134, 89), (104, 119), (104, 154), (134, 89), (104, 119)])
+        self.assertTrue(all(row["bag_assumptions"]["sealing_allowance_mm"] == 15 for row in rows))
+        self.assertContains(optimal, "Sealing allowance: 15 mm")
+        selected = self.post_bag(route=route, action="select_candidate", bag_id=rows[2]["id"], **config)
+        self.assertEqual(selected.context["threejs_scene"]["bag"]["insertion"], HEIGHT_INSERTION)
+        self.assertEqual(selected.context["threejs_scene"]["bag"]["fitTolerance"], 4)
+        saved = self.client.session["bag_selection_optimal_export"]
+        self.assertEqual(saved["analysis_report"]["bag_assumptions"]["fit_tolerance_display"], "4 mm")
+
+    def test_custom_design_values_survive_product_selection_mode_changes_and_candidate_selection(self):
+        products = ProductCatalogue.objects.create(name="Reference products")
+        product = Product.objects.create(
+            catalogue=products, product_id="reference", product_length=90, product_width=60, product_height=25,
+        )
+        config = {
+            "product_source": "catalogue", "product_catalogue_id": products.pk, "selected_product_id": product.pk,
+            "fit_tolerance": 4.125, "sealing_allowance": 15.25,
+        }
+        for mode in ("single", "optimal", "design"):
+            response = self.post_bag(mode=mode, action="select_product", **config)
+            self.assertEqual(response.context["form"]["fit_tolerance"].value(), "4.125")
+            self.assertEqual(response.context["form"]["sealing_allowance"].value(), "15.25")
+            self.assertContains(response, "bagPackagingDimensionUnitMenu-sealing-allowance")
+        generated = self.post_bag(mode="design", action="run_design", **config)
+        self.assertEqual(len(generated.context["design_candidates"]), 3)
+        candidate = next(row for row in generated.context["design_candidates"] if row["insertion"]["depth"] == 90)
+        selected = self.post_bag(
+            mode="design", action="select_design_candidate", selected_design_candidate_id=candidate["candidate_id"], **config,
+        )
+        self.assertEqual(selected.context["result"]["candidate_id"], candidate["candidate_id"])
+        self.assertEqual(selected.context["threejs_scene"]["bag"]["flatLength"], 134.375)
+        self.assertEqual(selected.context["threejs_scene"]["bag"]["flatWidth"], 89.125)
+        self.assertEqual(self.client.session["bag_selection_design_export"]["analysis_report"]["bag_assumptions"], {
+            "fit_tolerance_mm": 4.125, "fit_tolerance_display": "4.125 mm",
+            "sealing_allowance_mm": 15.25, "sealing_allowance_display": "15.25 mm",
+        })
+
+    def test_invalid_allowances_are_rejected_before_the_packing_engine(self):
+        for field in ("sealing_allowance", "fit_tolerance"):
+            for value in ("", "-0.1", "NaN", "Infinity", "bad"):
+                with self.subTest(field=field, value=value), patch(
+                    "packagingapp.tools.bag.service.build_bag_design_candidates"
+                ) as engine:
+                    config = {**PRODUCT_INPUTS, "mode": "design", "action": "run_design", field: value}
+                    response = self.client.post(reverse("bag_selection_mode1"), config)
+                    self.assertIn(field, response.context["form"].errors)
+                    self.assertIsNone(response.context["result"])
+                    self.assertTrue(analyze_bag_config(config, "run_design")["messages"])
+                    self.assertFalse(analyze_bag_capacity(config)["ok"])
+                    engine.assert_not_called()
+
+    def test_pdf_exports_include_custom_assumptions_and_the_current_snapshot(self):
+        self.client.force_login(self.user)
+        png = BytesIO()
+        Image.new("RGB", (32, 32)).save(png, format="PNG")
+        snapshot = "data:image/png;base64," + base64.b64encode(png.getvalue()).decode("ascii")
+        modes = {
+            "single": {"action": "run_single", "bag_length": 15.4, "bag_width": 11.4},
+            "optimal": {
+                "action": "select_candidate", "bag_source": "catalogue",
+                "catalogue_id": self.catalogue.pk, "bag_id": self.bags[154, 114].pk,
+            },
+            "design": {"action": "run_design"},
+        }
+        with TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root), patch(
+            "reportlab.rl_config.pageCompression", 0
+        ):
+            for mode, inputs in modes.items():
+                with self.subTest(mode=mode):
+                    self.post_bag(
+                        mode=mode, fit_tolerance="0.4", sealing_allowance="1.5",
+                        bag_dimension_unit="cm", **inputs,
+                    )
+                    route = "bag_selection_export_optimal_pdf" if mode == "optimal" else "bag_selection_export_pdf"
+                    pdf = self.client.post(reverse(route), {f"{mode}_export": "1", "threejs_snapshot": snapshot})
+                    self.assertEqual(pdf.status_code, 200)
+                    self.assertEqual(pdf["Content-Type"], "application/pdf")
+                    for text in (b"Sealing allowance", b"1.5 cm", b"Fit tolerance", b"0.4 cm", b"/Subtype /Image"):
+                        self.assertIn(text, pdf.content)
 
     def test_single_manual_catalogue_and_capacity_agree_on_required_area(self):
         bag = self.bags[154, 114]

@@ -15,6 +15,7 @@ from packagingapp.tools.container.service import (
     analyze_container_capacity,
     build_container_analysis_report,
 )
+from packagingapp.units import convert_length
 
 
 def _container_form(**overrides):
@@ -182,6 +183,34 @@ class ContainerManualUnitBoundaryTests(SimpleTestCase):
 
 
 class BagManualUnitBoundaryTests(SimpleTestCase):
+    def test_bag_allowances_normalize_once_in_all_supported_units(self):
+        base = {"product_l": 90, "product_w": 60, "product_h": 25, "desired_qty": 1}
+        for unit in ("mm", "cm", "m", "in", "ft"):
+            with self.subTest(unit=unit):
+                converted = {
+                    "bag_dimension_unit": unit,
+                    "bag_length": convert_length(104.375, "mm", unit),
+                    "bag_width": convert_length(154.125, "mm", unit),
+                    "fit_tolerance": convert_length(4.125, "mm", unit),
+                    "sealing_allowance": convert_length(15.25, "mm", unit),
+                }
+                config = {**base, **converted}
+                result = analyze_bag_config(config, "run_single")
+                self.assertTrue(result["result"]["fits"])
+                self.assertEqual(result["result"]["max_quantity"], 1)
+                length, width = result["result"]["best_required"]
+                self.assertAlmostEqual(length, 104.375)
+                self.assertAlmostEqual(width, 154.125)
+                self.assertAlmostEqual(result["result"]["usage"], 1)
+                bag = result["threejs_scene"]["bag"]
+                self.assertAlmostEqual(bag["fitTolerance"], 4.125)
+                self.assertAlmostEqual(bag["sealingAllowance"], 15.25)
+                self.assertEqual(analyze_bag_capacity(config)["pending_result"]["units_per_parent"], 1)
+
+                legacy = analyze_bag_config({**base, "mode": "design", "bag_dimension_unit": unit}, "run_design")
+                assumptions = legacy["analysis_report"]["bag_assumptions"]
+                self.assertEqual((assumptions["sealing_allowance_mm"], assumptions["fit_tolerance_mm"]), (10, 2))
+
     def test_capacity_helper_uses_the_same_canonical_bag_dimensions(self):
         metric = analyze_bag_capacity(_bag_config())
         imperial = analyze_bag_capacity(

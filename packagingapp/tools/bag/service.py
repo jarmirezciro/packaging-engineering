@@ -1,3 +1,6 @@
+import math
+from decimal import Decimal, DecimalException
+
 from django.conf import settings
 
 from ...access import visible_packaging_catalogues, visible_product_catalogues
@@ -15,13 +18,13 @@ from ...units import (
 )
 from ...units.input import convert_optional, validate_unit
 from ...utils.bag_selection.engine import (
-    SEALING_AREA,
-    TOLERANCE,
+    BagSizingParameters,
     build_required_bag_options,
     build_bag_design_candidates,
     best_usage_for_bag,
     compute_max_quantity_for_bag,
     run_bag_mode1_and_render,
+    usable_bag_body_dimensions,
     _select_render_solution,
 )
 from ..product_shape import (
@@ -36,6 +39,7 @@ from ..product_dimensions import (
 )
 
 from .serializers import sanitize_bag_config_for_session
+from .state import BAG_ALLOWANCE_DEFAULTS_MM
 
 
 BAG_DRAW_LIMIT = 250
@@ -71,6 +75,33 @@ def _convert_manual(value, unit, converter, canonical_unit):
         return convert_optional(value, unit, converter, canonical_unit)
     except (TypeError, ValueError, UnsupportedUnitError):
         return None
+
+
+def _normalize_bag_sizing_parameters(config, unit, messages):
+    values = {}
+    for key in BAG_ALLOWANCE_DEFAULTS_MM:
+        try:
+            number = Decimal(config[key])
+            value = float(convert_length(number, unit, "mm"))
+        except (DecimalException, TypeError, ValueError, OverflowError):
+            value = None
+        if value is None or not math.isfinite(value) or number < 0:
+            messages.append(f"{key.replace('_', ' ').capitalize()} must be a finite, non-negative number.")
+        else:
+            values[f"{key}_mm"] = value
+    return BagSizingParameters(**values) if len(values) == len(BAG_ALLOWANCE_DEFAULTS_MM) else None
+
+
+def _bag_assumption_metadata(parameters, display_unit):
+    if parameters is None:
+        return {}
+    assumptions = {}
+    for key in BAG_ALLOWANCE_DEFAULTS_MM:
+        canonical = getattr(parameters, f"{key}_mm")
+        display = convert_length(canonical, "mm", display_unit)
+        assumptions[f"{key}_mm"] = canonical
+        assumptions[f"{key}_display"] = f"{display:.12g} {display_unit}"
+    return {"bag_assumptions": assumptions}
 
 
 def _normalize_manual_bag_inputs(config):
@@ -115,9 +146,14 @@ def _normalize_manual_bag_inputs(config):
         if any(value is None for value in bag):
             bag = None
 
+    bag_parameters = (
+        _normalize_bag_sizing_parameters(config, bag_dimension_unit, messages)
+        if bag_dimension_unit is not None else None
+    )
     return {
         "product": product,
         "product_allowances": product_allowances,
+        "bag_parameters": bag_parameters,
         "bag": bag,
         "product_dimension_unit": product_dimension_unit,
         "product_mass_unit": product_mass_unit,
@@ -222,6 +258,8 @@ def get_selected_material(config):
 def build_hydrated_post_data(raw_post, config, selected_product=None, selected_material=None):
     post_data = raw_post.copy()
     post_data["mode"] = (config or {}).get("mode") or "single"
+    for key in BAG_ALLOWANCE_DEFAULTS_MM:
+        post_data.setdefault(key, config[key])
     post_data["product_shape"] = normalize_product_shape(
         (config or {}).get("product_shape")
     )
@@ -356,7 +394,7 @@ def _resolve_payload_capacity(config, selected_material=None):
     return _convert_manual(value, unit, convert_mass, "g")
 
 
-def _resolve_visual_bag_box(selected_bag, inner_box):
+def _resolve_visual_bag_box(selected_bag, inner_box, parameters):
     bag_len, bag_w = selected_bag
     body_length, body_width, body_height = inner_box
 
@@ -364,8 +402,9 @@ def _resolve_visual_bag_box(selected_bag, inner_box):
     # width is the opening side and only carries tolerance. They should not be
     # swapped here. The engine already chooses the correct product-arrangement
     # orientation before returning inner_box.
-    bag_box_length = bag_len - TOLERANCE - SEALING_AREA - body_height
-    bag_box_width = bag_w - TOLERANCE - body_height
+    bag_box_length, bag_box_width = usable_bag_body_dimensions(
+        bag_len, bag_w, body_height, parameters=parameters
+    )
 
     if bag_box_length <= 0 or bag_box_width <= 0:
         return None
@@ -386,12 +425,24 @@ def build_bag_analysis_report(
     selected_material=None,
     nominal_product=None,
     product_allowances=None,
+    parameters=None,
 ):
     if result is None or product is None:
         return None
 
     nominal_product = nominal_product if nominal_product is not None else product
     product_allowances = tuple(product_allowances or (0.0, 0.0, 0.0))
+
+    bag_dimension_unit = validate_unit(
+        (config or {}).get("bag_dimension_unit"), LENGTH_UNITS, "mm", "bag dimension"
+    )
+    if parameters is None:
+        messages = []
+        parameters = _normalize_bag_sizing_parameters(
+            sanitize_bag_config_for_session(config), bag_dimension_unit, messages
+        )
+        if messages:
+            raise ValueError(" ".join(messages))
 
     current_quantity = int(quantity or result.get("desired_qty") or result.get("max_quantity") or 0)
 
@@ -416,7 +467,7 @@ def build_bag_analysis_report(
     max_search_capped = bool(result.get("search_capped"))
 
     if bag_len > 0 and bag_w > 0:
-        max_info = compute_max_quantity_for_bag(product[0], product[1], product[2], bag_len, bag_w)
+        max_info = compute_max_quantity_for_bag(*product, bag_len, bag_w, parameters=parameters)
         max_quantity = int(max_info.get("max_quantity") or max_quantity or 0)
         max_best = max_info.get("best")
         max_search_capped = bool(max_info.get("capped")) or max_search_capped
@@ -448,10 +499,10 @@ def build_bag_analysis_report(
 
     product_dimension_unit = (config or {}).get("product_dimension_unit") or "mm"
     product_mass_unit = (config or {}).get("product_mass_unit") or "g"
-    bag_dimension_unit = (config or {}).get("bag_dimension_unit") or "mm"
     bag_mass_unit = (config or {}).get("bag_mass_unit") or "g"
 
     return {
+        **_bag_assumption_metadata(parameters, bag_dimension_unit),
         "current_quantity": current_quantity,
         "requested_qty": current_quantity,
         "max_quantity": max_quantity,
@@ -537,8 +588,10 @@ def build_bag_analysis_report(
     }
 
 
-def _build_pending_result_from_inner_box(label, selected_bag, inner_box, quantity, insertion=None):
-    bag_box = _resolve_visual_bag_box(selected_bag, inner_box)
+def _build_pending_result_from_inner_box(
+    label, selected_bag, inner_box, quantity, *, insertion, parameters, assumption_metadata,
+):
+    bag_box = _resolve_visual_bag_box(selected_bag, inner_box, parameters)
     if bag_box:
         length, width, height = bag_box
     else:
@@ -548,6 +601,7 @@ def _build_pending_result_from_inner_box(label, selected_bag, inner_box, quantit
             round(inner_box[2], 2),
         )
     return {
+        **assumption_metadata,
         "label": label,
         "length": length,
         "width": width,
@@ -558,13 +612,15 @@ def _build_pending_result_from_inner_box(label, selected_bag, inner_box, quantit
     }
 
 
-def _build_pending_result(label, selected_bag, render_res, quantity):
+def _build_pending_result(label, selected_bag, render_res, quantity, parameters, assumption_metadata):
     return _build_pending_result_from_inner_box(
         label,
         selected_bag,
         render_res.inner_box,
         quantity,
         insertion=render_res.threejs_scene["bag"].get("insertion"),
+        parameters=parameters,
+        assumption_metadata=assumption_metadata,
     )
 
 
@@ -611,6 +667,17 @@ def _add_bag_design_metrics(candidate, config, selected_product=None):
     return row
 
 
+def _design_candidates_for_display(design, config, selected_product, assumption_metadata, messages):
+    try:
+        return [
+            _add_bag_design_metrics({**row, **assumption_metadata}, config, selected_product)
+            for row in design["candidates"]
+        ]
+    except DecimalException:
+        messages.append("Calculated Bag Design values are outside the reporting range. Check the dimensions and allowances.")
+        return []
+
+
 def _analyze_bag_design(
     config,
     action,
@@ -620,6 +687,9 @@ def _analyze_bag_design(
     selected_material=None,
     initial_messages=None,
     product_allowances=None,
+    *,
+    parameters,
+    assumption_metadata,
 ):
     packing_product = packing_product if packing_product is not None else product
     product_allowances = tuple(product_allowances or (0.0, 0.0, 0.0))
@@ -654,14 +724,14 @@ def _analyze_bag_design(
     # be rotated freely during handling, so all product orientations are always
     # evaluated regardless of catalogue product rotation flags or legacy state.
     design = build_bag_design_candidates(
-        packing_product[0], packing_product[1], packing_product[2], desired_quantity
+        *packing_product, desired_quantity, parameters=parameters
     )
-    candidates = [
-        _add_bag_design_metrics(row, config, selected_product)
-        for row in design["candidates"]
-    ]
+    candidates = _design_candidates_for_display(
+        design, config, selected_product, assumption_metadata, messages
+    )
     if not candidates:
-        messages.append("No valid bag design candidate could be generated for these inputs.")
+        if not messages:
+            messages.append("No valid bag design candidate could be generated for these inputs.")
         return {
             "messages": messages,
             "notices": notices,
@@ -722,6 +792,7 @@ def _analyze_bag_design(
         ),
     }
     pending_result = {
+        **assumption_metadata,
         "label": "Designed bag",
         "length": selected["bag_length"],
         "width": selected["bag_width"],
@@ -774,6 +845,8 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
     analysis_report = None
     threejs_scene = None
     normalized_inputs = _normalize_manual_bag_inputs(cfg)
+    parameters = normalized_inputs["bag_parameters"]
+    assumption_metadata = _bag_assumption_metadata(parameters, normalized_inputs["bag_dimension_unit"])
     messages = list(normalized_inputs["messages"])
 
     if product_source == "catalogue":
@@ -800,6 +873,8 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
             selected_material=selected_material,
             initial_messages=messages,
             product_allowances=normalized_inputs["product_allowances"],
+            parameters=parameters,
+            assumption_metadata=assumption_metadata,
         )
 
     if mode == "optimal" and product_source == "catalogue" and selected_product is not None:
@@ -828,10 +903,11 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                     bag = (float(selected_material.part_length), float(selected_material.part_width))
 
         if not messages and bag is not None and product is not None:
-            max_info = compute_max_quantity_for_bag(product[0], product[1], product[2], bag[0], bag[1])
+            max_info = compute_max_quantity_for_bag(*product, *bag, parameters=parameters)
             max_qty = int(max_info.get("max_quantity") or 0)
             best = max_info.get("best")
             result = {
+                **assumption_metadata,
                 "kind": "bag",
                 "max_quantity": max_qty,
                 "desired_qty": max_qty,
@@ -851,6 +927,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                 product=product,
                 nominal_product=nominal_product,
                 product_allowances=normalized_inputs["product_allowances"],
+                parameters=parameters,
                 quantity=max_qty,
                 selected_product=selected_product,
                 selected_material=selected_material,
@@ -864,6 +941,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                     media_root=media_root or settings.MEDIA_ROOT,
                     draw_limit=min(max_qty, BAG_DRAW_LIMIT),
                     selected_required_bag=result.get("best_required"),
+                    parameters=parameters,
                 )
                 decorate_product_scene(
                     render_res.threejs_scene,
@@ -874,7 +952,9 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                 result["threejs_scene"] = render_res.threejs_scene
                 threejs_scene = render_res.threejs_scene
                 label = selected_material.part_number if selected_material else "Manual Bag"
-                pending_result = _build_pending_result(label, (bag[0], bag[1]), render_res, max_qty)
+                pending_result = _build_pending_result(
+                    label, bag, render_res, max_qty, parameters, assumption_metadata
+                )
                 pending_result["render_data"] = render_res.threejs_scene
 
     if mode == "optimal" and action in ("find_top5", "select_candidate"):
@@ -886,7 +966,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
             messages.append("Please select a packaging catalogue.")
 
         if not messages:
-            req = build_required_bag_options(product[0], product[1], product[2], desired_qty)
+            req = build_required_bag_options(*product, desired_qty, parameters=parameters)
             required_bags = req["required"]
             scored = []
             for m in (materials or []):
@@ -898,6 +978,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                 if best is None:
                     continue
                 scored.append({
+                    **assumption_metadata,
                     "id": str(m.id),
                     "part_number": m.part_number,
                     "description": m.part_description,
@@ -929,6 +1010,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                     bag = (float(selected_material.part_length), float(selected_material.part_width))
                     best = best_usage_for_bag(bag[0], bag[1], required_bags)
                     result = {
+                        **assumption_metadata,
                         "kind": "bag",
                         "max_quantity": None,
                         "desired_qty": desired_qty,
@@ -947,6 +1029,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                         product=product,
                         nominal_product=nominal_product,
                         product_allowances=normalized_inputs["product_allowances"],
+                        parameters=parameters,
                         quantity=desired_qty,
                         selected_product=selected_product,
                         selected_material=selected_material,
@@ -961,6 +1044,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                             draw_limit=min(desired_qty, BAG_DRAW_LIMIT),
                             selected_required_bag=result.get("best_required"),
                             render_mode="optimal",
+                            parameters=parameters,
                         )
                         decorate_product_scene(
                             render_res.threejs_scene,
@@ -970,7 +1054,10 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
                         result["image_rel_path"] = render_res.image_rel_path
                         result["threejs_scene"] = render_res.threejs_scene
                         threejs_scene = render_res.threejs_scene
-                        pending_result = _build_pending_result(selected_material.part_number, (bag[0], bag[1]), render_res, desired_qty)
+                        pending_result = _build_pending_result(
+                            selected_material.part_number, bag, render_res, desired_qty,
+                            parameters, assumption_metadata,
+                        )
                         pending_result["render_data"] = render_res.threejs_scene
 
     return {
@@ -995,6 +1082,8 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
     product_source = cfg.get("product_source") or "manual"
     bag_source = cfg.get("bag_source") or "manual"
     normalized_inputs = _normalize_manual_bag_inputs(cfg)
+    parameters = normalized_inputs["bag_parameters"]
+    assumption_metadata = _bag_assumption_metadata(parameters, normalized_inputs["bag_dimension_unit"])
     nominal_product = (
         resolve_product_tuple(cfg, selected_product)
         if product_source == "catalogue"
@@ -1021,16 +1110,15 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
 
     if mode == "design":
         design = build_bag_design_candidates(
-            product[0], product[1], product[2], desired_quantity
+            *product, desired_quantity, parameters=parameters
         )
-        candidates = [
-            _add_bag_design_metrics(row, cfg, selected_product)
-            for row in design["candidates"]
-        ]
+        candidates = _design_candidates_for_display(
+            design, cfg, selected_product, assumption_metadata, messages
+        )
         if not candidates:
             return {
                 "ok": False,
-                "messages": ["No valid bag design candidate could be generated for these inputs."],
+                "messages": messages or ["No valid bag design candidate could be generated for these inputs."],
                 "mode": mode,
                 "pending_result": None,
             }
@@ -1041,6 +1129,7 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
             candidates[0],
         )
         pending_result = {
+            **assumption_metadata,
             "label": "Designed bag",
             "length": selected["bag_length"],
             "width": selected["bag_width"],
@@ -1098,7 +1187,7 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
 
     if mode == "single":
         max_info = compute_max_quantity_for_bag(
-            product[0], product[1], product[2], selected_bag[0], selected_bag[1]
+            *product, *selected_bag, parameters=parameters
         )
         quantity = int(max_info.get("max_quantity") or 0)
         solutions = max_info.get("solutions") or []
@@ -1110,7 +1199,7 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
             )
     else:
         required = build_required_bag_options(
-            product[0], product[1], product[2], desired_quantity
+            *product, desired_quantity, parameters=parameters
         )
         best = best_usage_for_bag(
             selected_bag[0], selected_bag[1], required["required"]
@@ -1132,6 +1221,7 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
         selected_bag=selected_bag,
         solutions=solutions,
         selected_required_bag=selected_required,
+        parameters=parameters,
     )
     if not option:
         return {
@@ -1152,5 +1242,7 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
             option["body_box"],
             quantity,
             insertion=option.get("insertion"),
+            parameters=parameters,
+            assumption_metadata=assumption_metadata,
         ),
     }

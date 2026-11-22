@@ -88,6 +88,16 @@
                                     <th scope="row" class="fw-normal text-muted">Required flat dimensions</th>
                                     <td class="text-end">{{ analysis_report.required_dimensions_display }}</td>
                                 </tr>
+                                {% if analysis_report.bag_assumptions %}
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Sealing allowance</th>
+                                    <td class="text-end">{{ analysis_report.bag_assumptions.sealing_allowance_display }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="fw-normal text-muted">Fit tolerance</th>
+                                    <td class="text-end">{{ analysis_report.bag_assumptions.fit_tolerance_display }}</td>
+                                </tr>
+                                {% endif %}
                                 <tr>
                                     <th scope="row" class="fw-normal text-muted">Current quantity</th>
                                     <td class="text-end">{{ analysis_report.current_quantity }} pcs</td>

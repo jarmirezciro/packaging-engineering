@@ -12,6 +12,7 @@ from .models import CorrugatedBoardConstruction, PackagingCatalogue, PackagingMa
 from .models import ProductCatalogue, Product
 from .services.catalogue_media import CatalogueMediaError, prepare_catalogue_image
 from .tools.product_shape import PRODUCT_SHAPE_CHOICES
+from .utils.bag_selection.engine import DEFAULT_BAG_SIZING
 from .tools.transport.modes import (
     DEFAULT_TRANSPORT_PACKING_MODE,
     TRANSPORT_PACKING_MODE_CHOICES,
@@ -859,6 +860,25 @@ class ProductImagesZipUploadForm(forms.Form):
 
 
 class BagSelectionForm(forms.Form):
+    sealing_allowance = FiniteFloatField(
+        min_value=0,
+        label="Sealing allowance",
+        initial=DEFAULT_BAG_SIZING.sealing_allowance_mm,
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "bag-packaging-dimensions",
+        }),
+    )
+    fit_tolerance = FiniteFloatField(
+        min_value=0,
+        label="Fit tolerance",
+        initial=DEFAULT_BAG_SIZING.fit_tolerance_mm,
+        widget=forms.NumberInput(attrs={
+            "class": "form-control", "step": "any",
+            "data-unit-input": "true", "data-unit-group": "bag-packaging-dimensions",
+        }),
+    )
+
     MODE_CHOICES = [
         ("design", "Design Mode"),
         ("single", "Single bag analysis"),

@@ -1,6 +1,15 @@
 from ...units import format_dimensions, format_mass
 
 
+def bag_allowance_rows(assumptions):
+    if not assumptions:
+        return []
+    return [
+        ("Sealing allowance", assumptions["sealing_allowance_display"]),
+        ("Fit tolerance", assumptions["fit_tolerance_display"]),
+    ]
+
+
 def _read_value(data, key, default=""):
     if isinstance(data, dict):
         return data.get(key, default)

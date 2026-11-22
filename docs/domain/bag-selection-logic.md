@@ -7,7 +7,7 @@ Select the smallest feasible bag from a catalogue, or analyse a chosen bag, for 
 ## Established behaviour
 
 - Single Bag analysis returns the maximum feasible quantity for the chosen bag.
-- Product and packaging dimensions are shown in mm.
+- Product and packaging dimensions use their selected display units and are calculated in millimetres.
 - Product weight, packaging weight, and optional maximum payload are part of the result logic/UI where provided.
 - Sealing margin belongs to **bag length**, not bag width.
 - Product dimensions do not consume the sealing area; sealing space is reserved after the product-fit requirement is calculated.
@@ -48,14 +48,28 @@ These responsibilities do not justify a fork of the underlying bag equations or 
 
 For a rectangular bundle in a conventional non-gusseted bag, the opening
 plane is perpendicular to the insertion depth. The shared Bag engine applies
-both allowances in millimetres.
+both allowances in millimetres. Users can edit sealing allowance and fit
+tolerance in every mode, including when selecting catalogue bags. Both fields
+accept finite, non-negative decimals and use the bag-dimension unit selector.
 
 ```text
-fit_tolerance = 2 mm
-sealing_allowance = 10 mm
+default_fit_tolerance = 2 mm
+default_sealing_allowance = 10 mm
 required_bag_width  = opening_a + opening_b + fit_tolerance
 required_bag_length = insertion_depth + min(opening_a, opening_b) + fit_tolerance + sealing_allowance
 ```
+
+Standalone, the public calculator, and each Packaging Flow Bag step keep the
+entered values as strings in the selected bag-dimension unit. The shared
+service validates and converts them to millimetres once per calculation. Old
+configurations without either field receive the corresponding physical default.
+An explicit zero is valid. A submitted blank is a validation error.
+
+Sizing, capacity, catalogue fitting, utilization, and body dimensions use the
+same values. Results, PDFs and selected workflow outputs carry the assumptions
+used. Design candidate IDs continue to identify the arrangement and insertion
+direction when the user changes the allowances. Multi-product Bag Selection
+uses the same engine with the historical defaults.
 
 Single and Optimal evaluate the three insertion depths for each supported
 regular grid in descending span order, carrying the original product axes

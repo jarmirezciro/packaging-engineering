@@ -24,10 +24,6 @@ from ..units import (
 from ..entitlements import AI_ASSISTANT, PDF_REPORTS, feature_required, has_feature
 from ..assistant.contracts import ToolContextValidationError
 from ..utils.box_selection.engine import run_mode1_and_render, compute_max_quantity_only
-from ..utils.bag_selection.engine import (
-    SEALING_AREA,
-    TOLERANCE,
-)
 from ..tools.palletization.presenter import (
     build_pallet_ui_contract,
     result_card_from_row,
@@ -63,7 +59,7 @@ from ..tools.bag.service import (
     get_selected_material as get_bag_selected_material,
     get_selected_product as get_bag_selected_product,
 )
-from ..tools.bag.state import default_bag_config
+from ..tools.bag.state import BAG_ALLOWANCE_DEFAULTS_MM, default_bag_config, read_bag_allowances
 
 from ..tools.container.presenter import (
     selected_container_summary as selected_container_summary_container,
@@ -269,7 +265,10 @@ def _new_container_step(user=None):
 
 def _new_bag_step(user=None):
     config = default_bag_config()
+    for key in BAG_ALLOWANCE_DEFAULTS_MM:
+        config.pop(key)
     apply_user_unit_defaults(config, user, "bag", replace_legacy=True)
+    config = sanitize_bag_config_for_session(config)
     return {
         "type": "bag",
         "expanded": True,
@@ -1726,24 +1725,6 @@ def _resolve_product_for_bag(cfg, selected_product):
     )
 
 
-def _resolve_visual_bag_box(selected_bag, inner_box):
-    bag_len, bag_w = selected_bag
-    bl, bw, bh = inner_box
-    # Bag dimensions are physical L × W values and must not be swapped.
-    # Length carries sealing; width is the opening side and carries tolerance only.
-    bag_box_length = bag_len - TOLERANCE - SEALING_AREA - bh
-    bag_box_width = bag_w - TOLERANCE - bh
-
-    if bag_box_length <= 0 or bag_box_width <= 0:
-        return None
-
-    bag_box_length = max(float(bag_box_length), float(bl))
-    bag_box_width = max(float(bag_box_width), float(bw))
-
-    return (round(bag_box_length, 2), round(bag_box_width, 2), round(bh, 2))
-
-
-
 def _inflate_container_top5_rows(top5_rows):
     hydrated = []
     for row in top5_rows or []:
@@ -2497,10 +2478,20 @@ def _finalize_bag_workflow_payload(
     return payload
 
 
+def _posted_bag_allowances_changed(step, idx, post):
+    cfg = sanitize_bag_config_for_session(step.get("config") or {})
+    return any(
+        post.get(f"{key}_{idx}", cfg[key]) != cfg[key]
+        for key in ("bag_dimension_unit", *BAG_ALLOWANCE_DEFAULTS_MM)
+    )
+
+
 def _process_bag_step(step, steps, idx, post):
     existing_cfg = step.get("config") or {}
     cfg = default_bag_config()
     cfg.update(existing_cfg)
+    for key in BAG_ALLOWANCE_DEFAULTS_MM:
+        cfg.pop(key, None)
 
     suffix = f"_{idx}"
     cfg["mode"] = normalize_selection_mode({
@@ -2580,6 +2571,7 @@ def _process_bag_step(step, steps, idx, post):
         f"bag_dimension_unit{suffix}",
         post.get(f"bag_dimension_unit_{idx}", cfg.get("bag_dimension_unit", "mm")),
     )
+    cfg.update(read_bag_allowances(post, existing_cfg, cfg["bag_dimension_unit"], suffix=suffix))
     cfg["bag_weight"] = post.get(
         f"bag_weight{suffix}",
         post.get(f"bag_weight_{idx}", cfg.get("bag_weight", "")),
@@ -2935,9 +2927,7 @@ def _evaluate_container_capacity_step(step, temporary_steps, idx):
 
 
 def _evaluate_bag_capacity_step(step, temporary_steps, idx):
-    cfg = default_bag_config()
-    cfg.update(step.get("config") or {})
-    cfg = sanitize_bag_config_for_session(cfg)
+    cfg = sanitize_bag_config_for_session(step.get("config") or {})
     selected_product = get_bag_selected_product(cfg) if idx == 0 else None
     selected_material = get_bag_selected_material(cfg)
     analysis = analyze_bag_capacity(
@@ -3162,10 +3152,14 @@ def full_packaging_mode(request, case_slug=None):
                     _apply_chained_defaults(steps[idx], steps, idx)
                     pallet_signature_before = _pallet_capacity_input_signature(steps[idx])
                 else:
+                    bag_allowances_changed = (
+                        steps[idx].get("type") == "bag"
+                        and _posted_bag_allowances_changed(steps[idx], idx, request.POST)
+                    )
                     invalidate_design_chain_optimizations(
                         steps,
                         changed_step_index=idx,
-                        preserve_source=step_action == "select_design_candidate",
+                        preserve_source=step_action == "select_design_candidate" and not bag_allowances_changed,
                     )
                     _apply_chained_defaults(steps[idx], steps, idx)
 
@@ -3201,6 +3195,10 @@ def full_packaging_mode(request, case_slug=None):
             if idx is not None and 0 <= idx < len(steps):
                 _apply_chained_defaults(steps[idx], steps, idx)
                 is_pallet_step = steps[idx].get("type") == "pallet"
+                bag_allowances_changed = (
+                    steps[idx].get("type") == "bag"
+                    and _posted_bag_allowances_changed(steps[idx], idx, request.POST)
+                )
                 pallet_signature_before = (
                     _pallet_capacity_input_signature(steps[idx])
                     if is_pallet_step
@@ -3211,7 +3209,7 @@ def full_packaging_mode(request, case_slug=None):
                     invalidate_design_chain_optimizations(
                         steps,
                         changed_step_index=idx,
-                        preserve_source=True,
+                        preserve_source=not bag_allowances_changed,
                     )
 
                 if steps[idx].get("type") == "container" and any(
@@ -3222,6 +3220,16 @@ def full_packaging_mode(request, case_slug=None):
                     selection_mode = posted.get(f"mode_{idx}", (steps[idx].get("config") or {}).get("mode", "single"))
                     posted[f"action_{idx}"] = {"design": "select_design_candidate", "optimal": "select_candidate"}.get(selection_mode, "run_single")
                     _process_container_step(steps[idx], steps, idx, posted)
+                elif bag_allowances_changed:
+                    posted = request.POST.copy()
+                    selection_mode = posted.get(f"mode_{idx}", steps[idx]["config"].get("mode", "single"))
+                    posted[f"action_{idx}"] = {
+                        "design": "select_design_candidate", "optimal": "select_candidate"
+                    }.get(selection_mode, "run_single")
+                    _process_bag_step(steps[idx], steps, idx, posted)
+                    if not steps[idx].get("pending_result"):
+                        _save_workflow(request, workflow)
+                        return _redirect_to_workflow(request)
                 elif steps[idx].get("type") == "transport":
                     step = steps[idx]
                     step["messages"] = []

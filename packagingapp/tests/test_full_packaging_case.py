@@ -9,6 +9,7 @@ from packagingapp.models import PackagingCatalogue, PackagingMaterial
 from packagingapp.tests.transport_physical_validator import assert_transport_result_physical
 from packagingapp.tools.full_packaging.case_presets import get_case_preset, get_case_titles
 from packagingapp.tools.full_packaging.export import build_workflow_report_payload
+from packagingapp.tools.bag.service import analyze_bag_capacity
 from packagingapp.tools.transport.service import _prepare_transport_analysis
 from packagingapp.units import convert_length, convert_mass
 from packagingapp.utils.container_tool.engine import pack_container
@@ -84,6 +85,53 @@ class FullPackagingCaseTests(TestCase):
             for key in ("selected", "pending_result", "result", "threejs_scene", "analysis_report", "selected_result"):
                 self.assertIsNone(step[key], (step["type"], key))
             self.assertFalse(step["summary"])
+
+    def test_bag_steps_keep_independent_allowances_and_supply_calculated_payloads(self):
+        url = reverse("full_packaging_mode")
+        key = "full_packaging_mode_session"
+        for step_type in ("bag", "bag", "container"):
+            response = self.client.post(url, {"action": "add_step", "step_type": step_type})
+            self.assertRedirects(response, url, fetch_redirect_response=False)
+        response = self.client.get(url)
+        for index in (0, 1):
+            for field in ("sealing_allowance", "fit_tolerance"):
+                self.assertContains(response, f'name="{field}_{index}"', count=1)
+        self.client.post(url, {
+            "action": "run_step", "index": 0, "action_0": "run_single",
+            "product_l_0": 90, "product_w_0": 60, "product_h_0": 25,
+            "bag_length_0": 154, "bag_width_0": 114,
+            "fit_tolerance_0": 2, "sealing_allowance_0": 10,
+        })
+        self.client.post(url, {"action": "use_step_result", "index": 0})
+        self.client.post(url, {
+            "action": "run_step", "index": 1, "action_1": "run_single",
+            "bag_length_1": 18.5, "bag_width_1": 16, "bag_dimension_unit_1": "cm",
+            "fit_tolerance_1": 0.5, "sealing_allowance_1": 2,
+        })
+        self.client.post(url, {"action": "use_step_result", "index": 1})
+        inner, outer, _ = self.client.session[key]["steps"]
+        self.assertEqual((inner["config"]["fit_tolerance"], inner["config"]["sealing_allowance"]), ("2", "10"))
+        self.assertEqual((outer["config"]["fit_tolerance"], outer["config"]["sealing_allowance"]), ("0.5", "2"))
+        for step, (fit, seal, quantity, body) in zip(
+            (inner, outer),
+            ((2, 10, 2, (92, 62, 50)), (5, 20, 1, (98, 93, 62))),
+        ):
+            pending = analyze_bag_capacity(step["config"])["pending_result"]
+            scene = step["threejs_scene"]["bag"]
+            output = step["selected"]
+            self.assertEqual((scene["fitTolerance"], scene["sealingAllowance"]), (fit, seal))
+            self.assertEqual(output["bag_assumptions"], pending["bag_assumptions"])
+            self.assertEqual(output["units_per_parent"], quantity)
+            self.assertEqual(tuple(output[k] for k in ("length", "width", "height")), body)
+            self.assertEqual(tuple(pending[k] for k in ("length", "width", "height")), body)
+            self.assertEqual(output["total_base_units"], 2)
+        response = self.client.get(url)
+        carton = response.context["steps"][2]
+        self.assert_inherited_output(outer["selected"], carton)
+        report = build_workflow_report_payload({"steps": [inner, outer]})
+        self.assertEqual(dict(report["steps"][0]["metrics"])["Sealing allowance"], "10 mm")
+        self.assertEqual(dict(report["steps"][1]["metrics"])["Fit tolerance"], "0.5 cm")
+        json.dumps(self.client.session[key], allow_nan=False)
 
     def test_all_compendium_cases_open_with_complete_json_safe_chains(self):
         expected = {

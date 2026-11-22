@@ -4,6 +4,8 @@
         <div class="app-section-title">Top 5 Most Suitable Bags</div>
         <div class="app-section-subtitle">Sorted by highest bag usage and smallest fitting area. Select a candidate by clicking the row.</div>
 
+        {% include "bag_selection/partials/_bag_selection_assumptions.html" with assumptions=top5.0.bag_assumptions %}
+
         <div class="app-table-wrap">
             <table class="table table-hover app-table align-middle">
                 <thead class="table-light">

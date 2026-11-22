@@ -1,3 +1,4 @@
+from ...units import LENGTH_UNITS
 from .state import default_bag_config
 from ..selection_mode import normalize_selection_mode
 from ..product_shape import normalize_product_shape
@@ -10,7 +11,8 @@ def _safe_str(value, default=""):
 
 
 def sanitize_bag_config_for_session(config):
-    base = default_bag_config()
+    unit = str((config or {}).get("bag_dimension_unit") or "mm").strip().lower()
+    base = default_bag_config(unit if unit in LENGTH_UNITS else "mm")
     base.update(config or {})
 
     return {
@@ -36,6 +38,8 @@ def sanitize_bag_config_for_session(config):
         "bag_length": _safe_str(base.get("bag_length") or ""),
         "bag_width": _safe_str(base.get("bag_width") or ""),
         "bag_dimension_unit": _safe_str(base.get("bag_dimension_unit") or "mm"),
+        "sealing_allowance": _safe_str(base["sealing_allowance"]),
+        "fit_tolerance": _safe_str(base["fit_tolerance"]),
         "bag_weight": _safe_str(base.get("bag_weight") or ""),
         "bag_max_payload": _safe_str(base.get("bag_max_payload") or ""),
         "bag_mass_unit": _safe_str(base.get("bag_mass_unit") or "g"),

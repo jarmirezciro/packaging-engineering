@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import List, Tuple, Dict, Any, Set, Optional
 import hashlib
 import json
+from math import isfinite
 
 from packagingapp.utils.quantity_decomposition import (
     generate_factor_arrangements,
@@ -20,8 +21,17 @@ from packagingapp.tools.product_shape import (
 # Bag math constants
 # ---------------------------
 
-TOLERANCE = 2.0
-SEALING_AREA = 10.0
+DEFAULT_FIT_TOLERANCE_MM = TOLERANCE = 2.0
+DEFAULT_SEALING_ALLOWANCE_MM = SEALING_AREA = 10.0
+
+
+@dataclass(frozen=True)
+class BagSizingParameters:
+    fit_tolerance_mm: float = DEFAULT_FIT_TOLERANCE_MM
+    sealing_allowance_mm: float = DEFAULT_SEALING_ALLOWANCE_MM
+
+
+DEFAULT_BAG_SIZING = BagSizingParameters()
 EPSILON = 1e-9
 # When two orientations have almost the same bag usage, prefer the orientation
 # that respects the bag L/W convention instead of chasing a tiny area difference.
@@ -33,20 +43,31 @@ USAGE_ORIENTATION_TOLERANCE = 0.005
 # ---------------------------
 
 def required_bag_dimensions(
-    insertion_depth: float, opening_a: float, opening_b: float
+    insertion_depth: float,
+    opening_a: float,
+    opening_b: float,
+    *,
+    parameters: BagSizingParameters = DEFAULT_BAG_SIZING,
 ) -> Tuple[float, float]:
     """Return the required lay-flat (length, opening width) in millimetres."""
-    bag_length = insertion_depth + min(opening_a, opening_b) + TOLERANCE + SEALING_AREA
-    bag_width = opening_a + opening_b + TOLERANCE
+    bag_length = insertion_depth + min(opening_a, opening_b) + parameters.fit_tolerance_mm + parameters.sealing_allowance_mm
+    bag_width = opening_a + opening_b + parameters.fit_tolerance_mm
     return bag_length, bag_width
 
 
-def _bag_insertion_options(axes: Tuple[Tuple[str, float], ...]):
+def usable_bag_body_dimensions(bag_length, bag_width, body_height, *, parameters):
+    return (
+        bag_length - parameters.fit_tolerance_mm - parameters.sealing_allowance_mm - body_height,
+        bag_width - parameters.fit_tolerance_mm - body_height,
+    )
+
+
+def _bag_insertion_options(axes: Tuple[Tuple[str, float], ...], parameters: BagSizingParameters):
     """Yield one option per distinct flat size in parent-axis order."""
     seen = set()
     for order in ((0, 1, 2), (1, 0, 2), (2, 0, 1)):
         depth_axis, opening_a, opening_b = (axes[index] for index in order)
-        required = required_bag_dimensions(depth_axis[1], opening_a[1], opening_b[1])
+        required = required_bag_dimensions(depth_axis[1], opening_a[1], opening_b[1], parameters=parameters)
         if required in seen:
             continue
         seen.add(required)
@@ -62,10 +83,12 @@ def _bag_insertion_options(axes: Tuple[Tuple[str, float], ...]):
         }
 
 
-def bag_formula(bl: float, bw: float, bh: float) -> Set[Tuple[float, float]]:
+def bag_formula(
+    bl: float, bw: float, bh: float, *, parameters: BagSizingParameters = DEFAULT_BAG_SIZING
+) -> Set[Tuple[float, float]]:
     """Return the unique flat-bag requirements for the three insertion axes."""
     axes = (("length", bl), ("width", bw), ("height", bh))
-    return {(option["req_len"], option["req_w"]) for _, option in _bag_insertion_options(axes)}
+    return {(option["req_len"], option["req_w"]) for _, option in _bag_insertion_options(axes, parameters)}
 
 
 def _axis_record(axis_name: str, count: int, unit_size: float) -> Dict[str, Any]:
@@ -77,12 +100,14 @@ def _axis_record(axis_name: str, count: int, unit_size: float) -> Dict[str, Any]
     }
 
 
-def _solution_bag_options(visual_axes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _solution_bag_options(
+    visual_axes: List[Dict[str, Any]], parameters: BagSizingParameters
+) -> List[Dict[str, Any]]:
     """Map the depth and opening axes back to the selected product grid."""
     axes = tuple((axis["axis"].removeprefix("product_"), axis["total"]) for axis in visual_axes)
     orientations = ("length_to_bag_length", "length_to_bag_width", "height_to_bag_length")
     options = []
-    for order, option in _bag_insertion_options(axes):
+    for order, option in _bag_insertion_options(axes, parameters):
         body_axes = [visual_axes[index] for index in order]
         # The spans are sorted, so the shorter opening axis is last. The
         # existing body-envelope calculation uses that span as its height.
@@ -99,7 +124,10 @@ def _solution_bag_options(visual_axes: List[Dict[str, Any]]) -> List[Dict[str, A
 # Build required options + keep layouts
 # ---------------------------
 
-def get_final_packing_solution(target_qty: int, p_l: float, p_w: float, p_h: float):
+def get_final_packing_solution(
+    target_qty: int, p_l: float, p_w: float, p_h: float, *,
+    parameters: BagSizingParameters = DEFAULT_BAG_SIZING,
+):
     """
     Returns:
       smooth_qty,
@@ -148,7 +176,7 @@ def get_final_packing_solution(target_qty: int, p_l: float, p_w: float, p_h: flo
             continue
         seen_signatures.add(signature)
 
-        bag_options = _solution_bag_options(visual_axes)
+        bag_options = _solution_bag_options(visual_axes, parameters)
         bags = {(option["req_len"], option["req_w"]) for option in bag_options}
 
         final_results.append({
@@ -162,8 +190,13 @@ def get_final_packing_solution(target_qty: int, p_l: float, p_w: float, p_h: flo
     return smooth_qty, final_results
 
 
-def build_required_bag_options(product_l: float, product_w: float, product_h: float, desired_qty: int) -> Dict[str, Any]:
-    smooth_qty, solutions = get_final_packing_solution(desired_qty, product_l, product_w, product_h)
+def build_required_bag_options(
+    product_l: float, product_w: float, product_h: float, desired_qty: int, *,
+    parameters: BagSizingParameters = DEFAULT_BAG_SIZING,
+) -> Dict[str, Any]:
+    smooth_qty, solutions = get_final_packing_solution(
+        desired_qty, product_l, product_w, product_h, parameters=parameters
+    )
 
     required_set = set()
     for sol in solutions:
@@ -196,6 +229,7 @@ def _build_bag_threejs_scene(
     bundle: Tuple[float, float, float],
     scene_insertion_axis: str,
     insertion: Optional[Dict[str, Any]] = None,
+    parameters: BagSizingParameters,
 ) -> Dict[str, Any]:
     return {
         "version": 1,
@@ -203,7 +237,7 @@ def _build_bag_threejs_scene(
         "packageType": "bag",
         "mode": mode,
         "container": {
-            "length": round(body_length + SEALING_AREA, 6),
+            "length": round(body_length + parameters.sealing_allowance_mm, 6),
             "width": round(body_width, 6),
             "height": round(body_height, 6),
         },
@@ -214,8 +248,8 @@ def _build_bag_threejs_scene(
             "openingAt": "length-end",
             "usableBodyLength": round(body_length, 6),
             "usableBodyWidth": round(body_width, 6),
-            "sealingAllowance": round(SEALING_AREA, 6),
-            "fitTolerance": round(TOLERANCE, 6),
+            "sealingAllowance": parameters.sealing_allowance_mm,
+            "fitTolerance": parameters.fit_tolerance_mm,
             "film": {
                 "bundleDimensions": [round(span, 6) for span in bundle],
                 "depthAxis": scene_insertion_axis,
@@ -236,6 +270,8 @@ def build_bag_design_candidates(
     r1: int = 1,
     r2: int = 1,
     r3: int = 1,
+    *,
+    parameters: BagSizingParameters = DEFAULT_BAG_SIZING,
 ) -> Dict[str, Any]:
     """Map each canonical 3D arrangement to its distinct flat-bag designs.
 
@@ -283,17 +319,23 @@ def build_bag_design_candidates(
             "bag_usage": 1.0,
             "opening_dimension": "width",
         }
-        for order, option in _bag_insertion_options(axes):
+        for order, option in _bag_insertion_options(axes, parameters):
             bag_length, bag_width = option["req_len"], option["req_w"]
+            bag_area = bag_width * bag_length
+            if not isfinite(bag_area):
+                continue
             insertion = option["insertion"]
             if order[0] == 0:
-                # Keep saved IDs for the original length-axis proposal.
-                legacy_length = round(bundle_l + bundle_h + TOLERANCE + SEALING_AREA, 2)
+                # Keep the historical identity for this arrangement when its allowances change.
+                legacy_length = round(
+                    bundle_l + bundle_h + DEFAULT_FIT_TOLERANCE_MM + DEFAULT_SEALING_ALLOWANCE_MM, 2
+                )
+                legacy_width = round(bundle_w + bundle_h + DEFAULT_FIT_TOLERANCE_MM, 2)
                 identity = {
                     "mode": "design",
                     "design_quantity": design["design_quantity"],
                     "arrangement_id": parent["arrangement_id"],
-                    "bag_dimensions": (round(bag_width, 2), legacy_length),
+                    "bag_dimensions": (legacy_width, legacy_length),
                     "arrangement": (parent["rows"], parent["columns"], parent["layers"]),
                     "orientation_index": parent["orientation_index"],
                 }
@@ -322,7 +364,7 @@ def build_bag_design_candidates(
                 "rank": len(candidates) + 1,
                 "bag_width": round(bag_width, 2),
                 "bag_length": round(bag_length, 2),
-                "bag_area": round(bag_width * bag_length, 2),
+                "bag_area": round(bag_area, 2),
                 "insertion": insertion,
                 "render_data": _build_bag_threejs_scene(
                     bag_width=bag_width,
@@ -335,6 +377,7 @@ def build_bag_design_candidates(
                     bundle=(bundle_l, bundle_w, bundle_h),
                     scene_insertion_axis=insertion["axis"],
                     insertion=insertion,
+                    parameters=parameters,
                 ),
             })
 
@@ -433,10 +476,13 @@ def best_usage_for_bag(bag_len: float, bag_w: float, required_bags: List[Tuple[f
     return best
 
 
-def _quantity_fits_in_bag(product_l: float, product_w: float, product_h: float, bag_len: float, bag_w: float, quantity: int) -> bool:
+def _quantity_fits_in_bag(
+    product_l: float, product_w: float, product_h: float, bag_len: float, bag_w: float,
+    quantity: int, parameters: BagSizingParameters,
+) -> bool:
     if quantity <= 0:
         return True
-    req = build_required_bag_options(product_l, product_w, product_h, quantity)
+    req = build_required_bag_options(product_l, product_w, product_h, quantity, parameters=parameters)
     return best_usage_for_bag(bag_len, bag_w, req["required"]) is not None
 
 
@@ -448,6 +494,7 @@ def compute_max_quantity_for_bag(
     bag_w: float,
     *,
     max_search_qty: int = 10000,
+    parameters: BagSizingParameters = DEFAULT_BAG_SIZING,
 ) -> Dict[str, Any]:
     """
     Compute the maximum quantity supported by the existing bag formula.
@@ -471,7 +518,7 @@ def compute_max_quantity_for_bag(
     product_l, product_w, product_h = float(product_l), float(product_w), float(product_h)
     bag_len, bag_w = float(bag_len), float(bag_w)
 
-    if not _quantity_fits_in_bag(product_l, product_w, product_h, bag_len, bag_w, 1):
+    if not _quantity_fits_in_bag(product_l, product_w, product_h, bag_len, bag_w, 1, parameters):
         return {
             "max_quantity": 0,
             "smooth_qty": 0,
@@ -485,7 +532,7 @@ def compute_max_quantity_for_bag(
     high = 2
     capped = False
 
-    while high <= max_search_qty and _quantity_fits_in_bag(product_l, product_w, product_h, bag_len, bag_w, high):
+    while high <= max_search_qty and _quantity_fits_in_bag(product_l, product_w, product_h, bag_len, bag_w, high, parameters):
         low = high
         high *= 2
 
@@ -495,12 +542,12 @@ def compute_max_quantity_for_bag(
 
     while low < high:
         mid = (low + high + 1) // 2
-        if _quantity_fits_in_bag(product_l, product_w, product_h, bag_len, bag_w, mid):
+        if _quantity_fits_in_bag(product_l, product_w, product_h, bag_len, bag_w, mid, parameters):
             low = mid
         else:
             high = mid - 1
 
-    req = build_required_bag_options(product_l, product_w, product_h, low)
+    req = build_required_bag_options(product_l, product_w, product_h, low, parameters=parameters)
     best = best_usage_for_bag(bag_len, bag_w, req["required"])
 
     return {
@@ -526,7 +573,9 @@ class BagRenderResult:
     threejs_scene: Dict[str, Any]
 
 
-def _fallback_bag_options_for_solution(sol: Dict[str, Any], product: Tuple[float, float, float]) -> List[Dict[str, Any]]:
+def _fallback_bag_options_for_solution(
+    sol: Dict[str, Any], product: Tuple[float, float, float], parameters: BagSizingParameters
+) -> List[Dict[str, Any]]:
     """Support older solution dictionaries that do not yet carry bag_options."""
     p_l, p_w, p_h = product
     nx, ny, nz = sol["layout"]
@@ -539,16 +588,18 @@ def _fallback_bag_options_for_solution(sol: Dict[str, Any], product: Tuple[float
         axis_data,
         key=lambda item: (-float(item["total"]), -float(item["unit"]), str(item["axis"])),
     )
-    return _solution_bag_options(visual_axes)
+    return _solution_bag_options(visual_axes, parameters)
 
 
-def _iter_solution_bag_options(sol: Dict[str, Any], product: Tuple[float, float, float]):
+def _iter_solution_bag_options(
+    sol: Dict[str, Any], product: Tuple[float, float, float], parameters: BagSizingParameters
+):
     options = sol.get("bag_options")
     if options:
         for option in options:
             yield option
         return
-    for option in _fallback_bag_options_for_solution(sol, product):
+    for option in _fallback_bag_options_for_solution(sol, product, parameters):
         yield option
 
 
@@ -558,6 +609,7 @@ def _select_render_solution(
     selected_bag: Tuple[float, float],
     solutions: List[Dict[str, Any]],
     selected_required_bag: Optional[Tuple[float, float]] = None,
+    parameters: BagSizingParameters = DEFAULT_BAG_SIZING,
 ):
     bag_len, bag_w = selected_bag
     bag_area = bag_len * bag_w
@@ -569,7 +621,7 @@ def _select_render_solution(
     def consider(require_exact: bool):
         nonlocal best, best_sol, best_option
         for sol_index, sol in enumerate(solutions):
-            for option_index, option in enumerate(_iter_solution_bag_options(sol, product)):
+            for option_index, option in enumerate(_iter_solution_bag_options(sol, product, parameters)):
                 req_pair = (float(option["req_len"]), float(option["req_w"]))
                 if require_exact and not _same_required_bag(req_pair, selected_required_bag):
                     continue
@@ -613,6 +665,8 @@ def run_bag_mode1_and_render(
     selected_required_bag: Optional[Tuple[float, float]] = None,
     render_mode: str = "single",
     include_product_orientation_metadata: bool = True,
+    *,
+    parameters: BagSizingParameters = DEFAULT_BAG_SIZING,
 ) -> BagRenderResult:
     """Serialize the authoritative selected Single/Optimal solution for Three.js."""
     product = (float(product[0]), float(product[1]), float(product[2]))
@@ -624,6 +678,7 @@ def run_bag_mode1_and_render(
         selected_bag=(bag_len, bag_w),
         solutions=solutions,
         selected_required_bag=selected_required_bag,
+        parameters=parameters,
     )
 
     if best is None or best_sol is None or best_option is None:
@@ -652,8 +707,9 @@ def run_bag_mode1_and_render(
     # - products may only occupy the usable body area
     # - the sealing allowance is a reserved strip on the LENGTH direction
     # - width/opening receives tolerance only, not sealing
-    usable_body_length = bag_len - TOLERANCE - SEALING_AREA - body_height
-    usable_body_width = bag_w - TOLERANCE - body_height
+    usable_body_length, usable_body_width = usable_bag_body_dimensions(
+        bag_len, bag_w, body_height, parameters=parameters
+    )
     bag_box_height = body_height
 
     if usable_body_length <= 0 or usable_body_width <= 0 or bag_box_height <= 0:
@@ -725,6 +781,7 @@ def run_bag_mode1_and_render(
         bundle=(body_length, body_width, body_height),
         scene_insertion_axis="length",
         insertion=best_option.get("insertion"),
+        parameters=parameters,
     )
     scene["selectedRequiredBag"] = {
         "length": round(float(best["req_len"]), 6),

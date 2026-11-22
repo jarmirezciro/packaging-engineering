@@ -23,10 +23,9 @@ from ..tools.bag.service import (
     get_selected_material,
     get_selected_product,
 )
-from ..tools.bag.state import default_bag_config
+from ..tools.bag.state import BAG_ALLOWANCE_DEFAULTS_MM, default_bag_config, read_bag_allowances
 from ..tools.selection_mode import normalize_selection_mode
 from ..tools.bag.export import build_bag_selection_pdf
-from ..utils.bag_selection.engine import SEALING_AREA, TOLERANCE
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 from ..entitlements import PDF_REPORTS, feature_required
 from ..units import format_dimensions, format_length, kg_to_g
@@ -88,6 +87,9 @@ def _read_raw_bag_config(
         "selected_design_candidate_id": source.get("selected_design_candidate_id", cfg["selected_design_candidate_id"]),
     })
 
+    for key in BAG_ALLOWANCE_DEFAULTS_MM:
+        cfg.pop(key, None)
+    cfg.update(read_bag_allowances(source, initial_config, cfg["bag_dimension_unit"]))
     return sanitize_bag_config_for_session(cfg)
 
 
@@ -99,10 +101,6 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
     return {
         "prefix": prefix,
         "render_action_hidden": render_action_hidden,
-        "assumptions": {
-            "tolerance_mm": TOLERANCE,
-            "sealing_allowance_mm": SEALING_AREA,
-        },
         "names": {
             "action": action_name,
             "mode": f"mode{suffix}",
@@ -126,6 +124,8 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "bag_length": f"bag_length{suffix}",
             "bag_width": f"bag_width{suffix}",
             "bag_dimension_unit": f"bag_dimension_unit{suffix}",
+            "sealing_allowance": f"sealing_allowance{suffix}",
+            "fit_tolerance": f"fit_tolerance{suffix}",
             "bag_weight": f"bag_weight{suffix}",
             "bag_max_payload": f"bag_max_payload{suffix}",
             "bag_mass_unit": f"bag_mass_unit{suffix}",
@@ -177,6 +177,8 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "additional_parameters_toggle": f"productAdditionalParametersToggle{suffix}" if prefix else "productAdditionalParametersToggle",
             "manual_desired_qty_wrap": f"manualDesiredQtyWrap{suffix}" if prefix else "manualDesiredQtyWrap",
             "product_shape": f"id_product_shape{suffix}",
+            "sealing_allowance": f"id_sealing_allowance{suffix}",
+            "fit_tolerance": f"id_fit_tolerance{suffix}",
             "global_catalogue_chooser": f"globalCatalogueChooser{suffix}" if prefix else "globalCatalogueChooser",
             "single_bag_controls": f"singleBagControls{suffix}" if prefix else "singleBagControls",
             "optimal_bag_controls": f"optimalBagControls{suffix}" if prefix else "optimalBagControls",
@@ -553,10 +555,6 @@ def _build_bag_selection_page_context(
         "mode": mode,
         "prefix": "",
         "bag_ui": _build_shared_bag_ui_contract(prefix=""),
-        "bag_assumptions": {
-            "tolerance_mm": TOLERANCE,
-            "sealing_allowance_mm": SEALING_AREA,
-        },
         "allow_product_catalogue": True,
     }
 

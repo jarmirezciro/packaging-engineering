@@ -3,17 +3,26 @@
         <div class="app-section-title">Packaging / Bag</div>
         <div class="app-section-subtitle">Manual size with selectable units, or packaging catalogue selection.</div>
 
-        <div class="tool-compact-grid-two mb-3" aria-label="Shared bag fit assumptions">
+        <div class="tool-compact-grid-two mb-3">
             <div class="tool-field-group mb-0">
-                <label class="form-label">Sealing allowance <span class="text-muted">(<span data-unit-label data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}">{{ bag_values.bag_dimension_unit|default:'mm' }}</span>)</span></label>
-                <div class="form-control bg-light" data-bag-sealing-allowance data-unit-display data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}" data-unit-canonical="{{ bag_ui.assumptions.sealing_allowance_mm }}" data-unit-canonical-unit="mm">{{ bag_ui.assumptions.sealing_allowance_mm|floatformat:-2 }}</div>
+                <label class="form-label" for="{{ bag_ui.ids.sealing_allowance }}">Sealing allowance</label>
+                {% include "shared/_unit_selector.html" with unit_selector=bag_ui.unit_selectors.bag_dimensions current_unit=bag_values.bag_dimension_unit|default:'mm' selector_key='sealing-allowance' %}
+                {% if mode == "workflow" %}
+                    <input type="number" step="any" min="0" required class="form-control" id="{{ bag_ui.ids.sealing_allowance }}" name="{{ bag_ui.names.sealing_allowance }}" data-unit-input data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}" value="{{ bag_values.sealing_allowance }}">
+                {% else %}
+                    {{ form.sealing_allowance }}
+                {% endif %}
             </div>
             <div class="tool-field-group mb-0">
-                <label class="form-label">Fit tolerance <span class="text-muted">(<span data-unit-label data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}">{{ bag_values.bag_dimension_unit|default:'mm' }}</span>)</span></label>
-                <div class="form-control bg-light" data-bag-fit-tolerance data-unit-display data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}" data-unit-canonical="{{ bag_ui.assumptions.tolerance_mm }}" data-unit-canonical-unit="mm">{{ bag_ui.assumptions.tolerance_mm|floatformat:-2 }}</div>
+                <label class="form-label" for="{{ bag_ui.ids.fit_tolerance }}">Fit tolerance <span class="text-muted">(<span data-unit-label data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}">{{ bag_values.bag_dimension_unit|default:'mm' }}</span>)</span></label>
+                {% if mode == "workflow" %}
+                    <input type="number" step="any" min="0" required class="form-control" id="{{ bag_ui.ids.fit_tolerance }}" name="{{ bag_ui.names.fit_tolerance }}" data-unit-input data-unit-group="{{ bag_ui.unit_selectors.bag_dimensions.group }}" value="{{ bag_values.fit_tolerance }}">
+                {% else %}
+                    {{ form.fit_tolerance }}
+                {% endif %}
             </div>
         </div>
-        <div class="app-form-note mb-3">These fixed shared-engine allowances are shown for transparency. Sealing is reserved along bag length; width receives tolerance only.</div>
+        <div class="app-form-note mb-3">Sealing is reserved along bag length. Fit tolerance applies to both length and width.</div>
 
         <div id="{{ bag_ui.ids.selection_package_controls }}">
 

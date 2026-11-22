@@ -111,6 +111,7 @@ def build_design_candidate_payload(source_type, candidate, upstream=None):
             "height": candidate.get("bundle_height"),
             "selected_arrangement_id": candidate.get("arrangement_id"),
             **({"insertion": candidate["insertion"]} if "insertion" in candidate else {}),
+            **({"bag_assumptions": candidate["bag_assumptions"]} if "bag_assumptions" in candidate else {}),
             "metrics": {
                 "cubicity": candidate.get("bundle_cubicity_score"),
                 "bag_area": candidate.get("bag_area"),

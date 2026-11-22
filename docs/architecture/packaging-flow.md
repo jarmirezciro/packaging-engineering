@@ -75,6 +75,12 @@ Serialize or flatten:
 - paths/URLs;
 - engine-specific result classes.
 
+Each Bag step stores its own `sealing_allowance`, `fit_tolerance` and
+`bag_dimension_unit`. The shared Bag service normalizes these display-unit
+strings to millimetres and provides the calculated package dimensions, capacity,
+and assumptions for the pending or accepted output. The assumptions appear in
+the Bag stage of the workflow PDF.
+
 Past failures included `TypeError: Object of type PackagingMaterial is not JSON serializable`. The prevention belongs in shared serializers, not ad hoc workflow patches.
 
 ## Physical mass contract
