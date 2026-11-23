@@ -107,7 +107,7 @@ Unless current code says otherwise:
 - material thickness, stretch, gusset mechanics, valve geometry, and irregular product compressibility are not inferred automatically;
 - sealing space is unavailable for product occupancy;
 - catalogue dimensions use the same measurement convention as the engine;
-- supported quantity arrangements are deterministic and enumerated; Bag Design does not expose R1/R2/R3 restrictions because the complete flexible-bag arrangement may be rotated during handling.
+- supported quantity arrangements are deterministic and enumerated. Bag Design evaluates the product orientations permitted by R1/R2/R3.
 
 ## Constraints and invariants
 
@@ -156,10 +156,9 @@ For Design Mode, the design quantity is the first smooth quantity greater than
 or equal to the requested quantity. Bag Design and Container Design consume the
 same canonical three-axis arrangement generator in
 `packagingapp/utils/package_design_arrangements.py`. It enumerates every
-rows x columns x layers grid and every axis-aligned product orientation. Bag
-Design deliberately does not apply R1/R2/R3 restrictions: unlike an RSC, the
-complete flexible-bag arrangement may be rotated freely during handling to meet
-product-orientation needs. The shared generator then normalizes horizontal axes
+rows x columns x layers grid for the axis-aligned product orientations enabled
+by [product rotation permissions](#product-rotation-permissions). The shared
+generator then normalizes horizontal axes
 so bundle length is not shorter than bundle width, keeps height distinct, and
 retains one deterministic representative for each canonical bundle `(L, W, H)`.
 Design evaluates insertion along `L`, `W`, and `H` in each canonical
@@ -176,6 +175,26 @@ Squareness is not a Bag Design metric. Each Design candidate carries the
 net content mass and resolves its own tare from the candidate's flat stock.
 Selection Mode uses the selected stock's dimensions. Tare and film properties
 do not participate in Top 5 scoring or change geometric capacity.
+
+### Product rotation permissions
+
+Bag Design uses the same original product axes as Container Selection. R1
+permits length vertical, R2 permits width vertical, and R3 permits height
+vertical. The Product Additional parameters panel shows the three permissions
+in Design mode. All three default to enabled for new manual products and saved
+manual configurations without permissions. The panel shows the catalogue
+product's stored settings as read-only when a catalogue product is selected.
+Manual permissions are saved separately and restored when returning to manual
+input. Each Packaging Flow Bag step keeps its own manual settings.
+
+Design requires at least one permitted orientation. Both interactive Design and
+capacity-only analysis apply the same filter before canonical arrangements and
+insertion alternatives are selected. Independent permitted arrangements may
+produce the same flat bag dimensions. Surviving IDs and aliases can be selected
+as before. When the previously selected alternative is unavailable, Design
+selects the first remaining candidate by area. These permissions apply within
+the Bag Design calculation. Single and Optimal use their existing sizing rules,
+and downstream steps receive the selected bag as a packed unit.
 
 Single, Optimal, and Design results serialize the selected authoritative bag
 arrangement into the shared `packageType=bag` Three.js scene. The standalone,

@@ -11,7 +11,10 @@ from ..tools.bag.case_presets import (
     SEO_BAG_SELECTION_EXAMPLE_CONFIG,
     get_bag_selection_case_preset,
 )
-from ..tools.bag.presenter import bag_film_result_rows, build_bag_film_context, selected_bag_summary, selected_product_summary
+from ..tools.bag.presenter import (
+    bag_film_result_rows, bag_rotation_options, build_bag_film_context,
+    selected_bag_summary, selected_product_summary,
+)
 from ..tools.bag.serializers import sanitize_bag_config_for_session
 from ..tools.bag.service import (
     analyze_bag_config,
@@ -24,10 +27,14 @@ from ..tools.bag.service import (
     get_selected_material,
     get_selected_product,
 )
-from ..tools.bag.state import BAG_ALLOWANCE_DEFAULTS_MM, BAG_FILM_DEFAULTS, default_bag_config, read_bag_allowances, read_bag_film
+from ..tools.bag.state import (
+    BAG_ALLOWANCE_DEFAULTS_MM, BAG_FILM_DEFAULTS, BAG_PRODUCT_ADVANCED_DEFAULTS,
+    default_bag_config, read_bag_allowances, read_bag_film, read_bag_product_advanced,
+)
 from ..models import PackagingMaterial
 from ..tools.selection_mode import normalize_selection_mode
 from ..tools.bag.export import build_bag_selection_pdf
+from ..utils.bag_selection.engine import BAG_DESIGN_ROTATION_ERROR
 from ..tools.threejs_snapshot import save_threejs_snapshot_from_request
 from ..entitlements import PDF_REPORTS, feature_required
 from ..units import format_dimensions, format_length
@@ -93,6 +100,7 @@ def _read_raw_bag_config(
         cfg.pop(key, None)
     cfg.update(read_bag_allowances(source, initial_config, cfg["bag_dimension_unit"]))
     cfg.update(read_bag_film(source, cfg))
+    cfg.update(read_bag_product_advanced(source, cfg))
     return sanitize_bag_config_for_session(cfg)
 
 
@@ -134,6 +142,8 @@ def _build_shared_bag_ui_contract(prefix="", action_field_name=None, action_fiel
             "bag_mass_unit": f"bag_mass_unit{suffix}",
             "selected_design_candidate_id": f"selected_design_candidate_id{suffix}",
             **{key: f"{key}{suffix}" for key in BAG_FILM_DEFAULTS},
+            **{key: f"{key}{suffix}" for key in BAG_PRODUCT_ADVANCED_DEFAULTS},
+            "rotation_fields_present": f"rotation_fields_present{suffix}",
         },
         "unit_selectors": {
             "product_dimensions": build_unit_selector_contract(
@@ -404,9 +414,11 @@ def _build_bag_selection_page_context(
     packaging_catalogues = get_packaging_catalogues(request.user)
     product_catalogues = get_product_catalogues(request.user)
 
+    prefs_key = f"bag_product_advanced_{mode}"
+    product_prefs = request.session.get(prefs_key, {})
     config = _read_raw_bag_config(
         request,
-        initial_config=initial_config,
+        initial_config=product_prefs if initial_config is None else initial_config,
         user=request.user,
         initialize_user_units=(
             mode == "standalone"
@@ -414,6 +426,10 @@ def _build_bag_selection_page_context(
             and request.method == "GET"
         ),
     )
+    if request.method == "POST":
+        submitted_prefs = read_bag_product_advanced({}, config)
+        if submitted_prefs != read_bag_product_advanced({}, product_prefs):
+            request.session[prefs_key] = submitted_prefs
 
     selected_product = get_selected_product(config)
     selected_material = get_selected_material(config)
@@ -470,7 +486,11 @@ def _build_bag_selection_page_context(
         threejs_scene = analysis.get("threejs_scene")
         product_unit_scene = analysis.get("product_unit_scene")
         design_candidates = analysis.get("design_candidates") or []
-        selected_design_candidate_id = analysis.get("selected_design_candidate_id") or selected_design_candidate_id
+        if config["mode"] == "design":
+            selected_design_candidate_id = analysis["selected_design_candidate_id"]
+            config["selected_design_candidate_id"] = selected_design_candidate_id
+            if BAG_DESIGN_ROTATION_ERROR in analysis["messages"]:
+                request.session.pop("bag_selection_design_export", None)
         notices = analysis.get("notices") or []
 
         current_form_mode = (
@@ -532,6 +552,7 @@ def _build_bag_selection_page_context(
         data=form if request.method == "POST" else config,
     )
 
+    bag_ui = _build_shared_bag_ui_contract()
     return {
         "form": form,
         "bag_form": form,
@@ -543,6 +564,7 @@ def _build_bag_selection_page_context(
             if result and config["mode"] == "design" else None,
         ),
         "bag_film_rows": bag_film_result_rows(analysis_report, separate_weight_source=True),
+        "bag_rotation_options": bag_rotation_options(config, selected_product, bag_ui["names"]),
         "result": result,
         "image_url": image_url,
         "top5": top5,
@@ -564,7 +586,7 @@ def _build_bag_selection_page_context(
         "current_bag_source": config.get("bag_source") or "manual",
         "mode": mode,
         "prefix": "",
-        "bag_ui": _build_shared_bag_ui_contract(prefix=""),
+        "bag_ui": bag_ui,
         "allow_product_catalogue": True,
     }
 

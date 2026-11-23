@@ -9,10 +9,11 @@ from packagingapp.models import PackagingCatalogue, PackagingMaterial
 from packagingapp.tests.transport_physical_validator import assert_transport_result_physical
 from packagingapp.tools.full_packaging.case_presets import get_case_preset, get_case_titles
 from packagingapp.tools.full_packaging.export import build_workflow_report_payload
-from packagingapp.tools.bag.service import analyze_bag_capacity
+from packagingapp.tools.bag.service import analyze_bag_capacity, analyze_bag_config
 from packagingapp.tools.transport.service import _prepare_transport_analysis
 from packagingapp.units import convert_length, convert_mass
 from packagingapp.utils.container_tool.engine import pack_container
+from packagingapp.utils.bag_selection.engine import BAG_DESIGN_ROTATION_ERROR
 from packagingapp.views.full_packaging import (
     _decorate_transport_scene_with_pallet_visualization,
 )
@@ -85,6 +86,68 @@ class FullPackagingCaseTests(TestCase):
             for key in ("selected", "pending_result", "result", "threejs_scene", "analysis_report", "selected_result"):
                 self.assertIsNone(step[key], (step["type"], key))
             self.assertFalse(step["summary"])
+
+    def test_bag_design_rotation_permissions_are_independent_and_reach_capacity_optimizer(self):
+        url = reverse("full_packaging_mode")
+        session_key = "full_packaging_mode_session"
+        for _ in range(2):
+            self.assertRedirects(
+                self.client.post(url, {"action": "add_step", "step_type": "bag"}), url, fetch_redirect_response=False,
+            )
+        self.client.post(url, {
+            "action": "run_step", "index": 0, "action_0": "run_design", "mode_0": "design",
+            "product_l_0": 90, "product_w_0": 60, "product_h_0": 25, "desired_qty_0": 12,
+            "rotation_fields_present_0": "1", "r1_0": "1", "product_advanced_open_0": "1",
+        })
+        self.client.post(url, {"action": "use_step_result", "index": 0})
+        self.client.post(url, {
+            "action": "run_step", "index": 1, "action_1": "run_design", "mode_1": "design",
+            "desired_qty_1": 2, "rotation_fields_present_1": "1", "r3_1": "1", "product_advanced_open_1": "1",
+        })
+        first, second = self.client.session[session_key]["steps"]
+        accepted_id = first["selected"]["selected_candidate_id"]
+        self.assertEqual(accepted_id, first["design_candidates"][0]["candidate_id"])
+        html = self.client.get(url)
+        for index, step, flags in ((0, first, (True, False, False)), (1, second, (False, False, True))):
+            cfg = step["config"]
+            self.assertEqual(tuple(cfg[key] for key in ("r1", "r2", "r3")), flags)
+            self.assertTrue(cfg["product_advanced_open"])
+            self.assertContains(html, f'name="rotation_fields_present_{index}"', count=1)
+            for key, checked in zip(("r1", "r2", "r3"), flags):
+                checked_attr = " checked" if checked else ""
+                self.assertContains(html, f'<input type="checkbox" name="{key}_{index}" value="1"{checked_attr}>', html=True)
+            ids = [row["candidate_id"] for row in step["design_candidates"]]
+            self.assertTrue(ids)
+            for analysis in (analyze_bag_config(cfg, "run_design"), analyze_bag_capacity(cfg)):
+                self.assertEqual([row["candidate_id"] for row in analysis["design_candidates"]], ids)
+
+        self.client.post(url, {
+            "action": "optimize_design_final_capacity", "index": 0, "rotation_fields_present_0": "1", "r3_0": "1",
+            "selected_design_candidate_id_0": accepted_id,
+        })
+        first, second = self.client.session[session_key]["steps"]
+        expected = analyze_bag_capacity(first["config"])
+        capacity_trials = first["design_chain_optimization"]["candidate_results"]
+        self.assertEqual(len(capacity_trials), 50)
+        self.assertEqual(list(capacity_trials), [row["candidate_id"] for row in expected["design_candidates"]])
+        self.assertTrue(all(trial["status"] == "ok" for trial in capacity_trials.values()))
+        self.assertNotIn(accepted_id, capacity_trials)
+        self.assertEqual(first["pending_result"]["selected_candidate_id"], next(iter(capacity_trials)))
+        self.assertIsNone(first["selected"])
+        self.assertIsNone(second["pending_result"])
+
+        self.client.post(url, {"action": "use_step_result", "index": 0})
+        self.client.post(url, {"action": "use_step_result", "index": 0, "rotation_fields_present_0": "1"})
+        first, second = self.client.session[session_key]["steps"]
+        self.assertEqual(first["messages"], [BAG_DESIGN_ROTATION_ERROR])
+        self.assertEqual(first["config"]["selected_design_candidate_id"], "")
+        self.assertEqual(first["design_candidates"], [])
+        for step in (first, second):
+            for key in ("selected", "pending_result", "result", "threejs_scene", "analysis_report"):
+                self.assertIsNone(step[key], key)
+            self.assertFalse(step["summary"])
+        self.assertTrue(second["config"]["r3"])
+        json.dumps([first, second], allow_nan=False)
 
     def test_bag_steps_keep_independent_allowances_and_supply_calculated_payloads(self):
         url = reverse("full_packaging_mode")

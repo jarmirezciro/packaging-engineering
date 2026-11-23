@@ -279,6 +279,9 @@ def rank_bag_design_candidates(candidates: List[Dict[str, Any]]) -> List[Dict[st
     ]
 
 
+BAG_DESIGN_ROTATION_ERROR = "Enable at least one product rotation permission."
+
+
 def build_bag_design_candidates(
     product_l: float,
     product_w: float,
@@ -292,15 +295,13 @@ def build_bag_design_candidates(
 ) -> Dict[str, Any]:
     """Map each canonical 3D arrangement to its distinct flat-bag designs.
 
-    ``r1``, ``r2`` and ``r3`` remain in the signature for backwards
-    compatibility with older callers, but Bag Design deliberately ignores
-    orientation restrictions. A flexible bag arrangement may be rotated as a
-    complete bundle during handling, so every axis-aligned product orientation
-    is evaluated.
+    Product orientations use the shared R1/R2/R3 permissions. Each allowed
+    arrangement still evaluates the existing bag insertion directions.
     """
-    del r1, r2, r3
+    if not any((r1, r2, r3)):
+        raise ValueError(BAG_DESIGN_ROTATION_ERROR)
     product = (float(product_l), float(product_w), float(product_h))
-    design = build_canonical_design_arrangements(product, desired_quantity, 1, 1, 1)
+    design = build_canonical_design_arrangements(product, desired_quantity, r1, r2, r3)
     candidates = []
     representatives = {}
     candidate_aliases = {}

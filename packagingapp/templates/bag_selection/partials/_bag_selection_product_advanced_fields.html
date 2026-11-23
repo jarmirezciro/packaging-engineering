@@ -1,0 +1,20 @@
+{% if current_mode == "design" and product_source == "manual" or current_mode == "design" and selected_product %}
+    {% include "shared/_product_rotation_styles.html" %}
+    <fieldset class="tool-field-group">
+        <legend class="form-label fs-6">Product rotation permissions</legend>
+        {% if product_source == "manual" %}<input type="hidden" name="{{ ui.names.rotation_fields_present }}" value="1">{% endif %}
+        <div class="tool-checkbox-group tool-checkbox-group--inline container-rotation-group">
+            {% for option in bag_rotation_options %}
+                <label class="tool-check-option container-rotation-option">
+                    <span class="container-rotation-visual-row">
+                        <input type="checkbox" name="{{ option.name }}" value="1" {% if option.checked %}checked{% endif %} {% if product_source == "catalogue" %}disabled{% endif %}>
+                        {% include "shared/_product_rotation_icon.html" with rotation=option.code only %}
+                    </span>
+                    <span class="container-rotation-text"><strong>{{ option.code }}</strong><small>{{ option.axis }} vertical</small></span>
+                </label>
+            {% endfor %}
+        </div>
+        <div class="app-form-note mt-2">Defines which original product dimension may be vertical. Different orientations may produce the same bag size but represent different packing arrangements.</div>
+        {% if product_source == "catalogue" %}<div class="app-form-note">Permissions come from the selected catalogue product.</div>{% endif %}
+    </fieldset>
+{% endif %}

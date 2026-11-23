@@ -876,6 +876,9 @@ class ProductImagesZipUploadForm(forms.Form):
 
 
 class BagSelectionForm(forms.Form):
+    r1 = forms.BooleanField(required=False, initial=True, label="Allow rotation 1")
+    r2 = forms.BooleanField(required=False, initial=True, label="Allow rotation 2")
+    r3 = forms.BooleanField(required=False, initial=True, label="Allow rotation 3")
     film_preset = forms.ChoiceField(choices=FILM_PRESET_CHOICES, required=False)
     film_caliper_unit = forms.ChoiceField(
         choices=[(option["value"], option["symbol"]) for option in FILM_THICKNESS_UNIT_OPTIONS],

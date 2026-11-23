@@ -18,14 +18,19 @@ from packagingapp.models import (
     UserSubscription,
 )
 from packagingapp.tools.bag.export import build_bag_selection_pdf
+from packagingapp.tools.bag.serializers import sanitize_bag_config_for_session
 from packagingapp.tools.bag.service import analyze_bag_capacity, analyze_bag_config, format_bag_area
 from packagingapp.utils.bag_selection.engine import (
+    BAG_DESIGN_ROTATION_ERROR,
     BagSizingParameters,
     bag_formula,
     build_bag_design_candidates,
     build_required_bag_options,
     compute_max_quantity_for_bag,
     required_bag_dimensions,
+)
+from packagingapp.utils.box_selection.box_selection_tool_arrays_2_origin_coordinates import (
+    allowed_product_orientations,
 )
 
 
@@ -54,7 +59,71 @@ DESIGN_SHORT_INSERTION = {
 }
 
 
+def physical_design_candidate(candidate):
+    return {
+        **candidate,
+        "render_data": {
+            key: value for key, value in candidate["render_data"].items()
+            if key not in {"productShape", "productDefinition"}
+        },
+    }
+
+
 class BagSizingEngineTests(SimpleTestCase):
+    def test_design_rotation_permissions_preserve_reference_alternatives_and_geometry(self):
+        config = {**PRODUCT_INPUTS, "mode": "design", "desired_qty": 12, "product_weight": 50}
+        baseline = analyze_bag_config(config, "run_design")["design_candidates"]
+        self.assertEqual(len(baseline), 148)
+        self.assertEqual(
+            analyze_bag_config({**config, "r1": True, "r2": True, "r3": True}, "run_design")["design_candidates"],
+            baseline,
+        )
+        reference_ids = [
+            "bag-design-90e1dd5f89f589e5", "bag-design-30270563d3b4a9f7", "bag-design-138ba262b3550a49",
+        ]
+        self.assertEqual(
+            [(row["arrangement"], row["product_orientation"], row["candidate_id"]) for row in baseline
+             if (row["bag_length"], row["bag_width"]) == (267, 197)],
+            [
+                ("2 × 3 × 2", "W × H × L", reference_ids[0]),
+                ("2 × 3 × 2", "L × H × W", reference_ids[1]),
+                ("2 × 2 × 3", "L × W × H", reference_ids[2]),
+            ],
+        )
+        by_id = {row["candidate_id"]: row for row in baseline}
+        for permissions, reference_indices, count in (
+            ((True, False, False), [0], 53),
+            ((False, True, False), [1], 53),
+            ((False, False, True), [2], 50),
+            ((True, False, True), [0, 2], 103),
+        ):
+            with self.subTest(permissions=permissions):
+                restricted = {**config, **dict(zip(("r1", "r2", "r3"), permissions))}
+                rows = analyze_bag_config(restricted, "run_design")["design_candidates"]
+                self.assertEqual(len(rows), count)
+                allowed = {item["index"] for item in allowed_product_orientations(PRODUCT, *permissions)}
+                self.assertEqual({row["orientation_index"] for row in rows}, allowed)
+                self.assertEqual([row["rank"] for row in rows], list(range(1, count + 1)))
+                areas = [row["flat_bag_length_mm"] * row["flat_bag_width_mm"] for row in rows]
+                self.assertEqual(areas, sorted(areas))
+                self.assertEqual(
+                    [row["candidate_id"] for row in rows if (row["bag_length"], row["bag_width"]) == (267, 197)],
+                    [reference_ids[index] for index in reference_indices],
+                )
+                self.assertLessEqual(
+                    {row["candidate_id"] for row in baseline if row["orientation_index"] in allowed},
+                    {row["candidate_id"] for row in rows},
+                )
+                for row in rows:
+                    original = by_id.get(row["candidate_id"])
+                    if original is not None:
+                        self.assertEqual(physical_design_candidate(row), {
+                            **physical_design_candidate(original), "rank": row["rank"],
+                        })
+
+        with self.assertRaisesMessage(ValueError, BAG_DESIGN_ROTATION_ERROR):
+            build_bag_design_candidates(*PRODUCT, 12, False, False, False)
+
     def test_configurable_allowances_preserve_reference_axes_and_design_identities(self):
         expected = [
             (BagSizingParameters(), [(87, 127), (117, 97), (152, 97)]),
@@ -259,6 +328,91 @@ class BagSizingSurfaceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context["form"].errors)
         return response
+
+    def test_design_rotation_choices_restore_and_refresh_the_selected_result(self):
+        design_inputs = {"mode": "design", "desired_qty": 12, "product_weight": 50}
+        default = self.post_bag(action="run_design", **design_inputs)
+        self.assertContains(default, "Product rotation permissions")
+        self.assertTrue(all(option["checked"] for option in default.context["bag_rotation_options"]))
+        previous = default.context["result"]["candidate_id"]
+        restricted = self.post_bag(
+            action="select_design_candidate", selected_design_candidate_id=previous,
+            rotation_fields_present="1", r3="1", product_advanced_open="1", **design_inputs,
+        )
+        rows = restricted.context["design_candidates"]
+        rank_one = rows[0]
+        self.assertNotIn(previous, [row["candidate_id"] for row in rows])
+        self.assertEqual(restricted.context["result"]["candidate_id"], rank_one["candidate_id"])
+        self.assertEqual(restricted.context["threejs_scene"]["bag"], rank_one["render_data"]["bag"])
+        self.assertEqual(
+            json.loads(json.dumps(self.client.session["bag_product_advanced_standalone"])),
+            {"r1": False, "r2": False, "r3": True, "product_advanced_open": True},
+        )
+
+        chosen_id = rows[1]["candidate_id"]
+        chosen = self.post_bag(action="select_design_candidate", selected_design_candidate_id=chosen_id, **design_inputs)
+        capacity = analyze_bag_capacity(chosen.context["bag_config"])
+        self.assertEqual(chosen.context["result"]["candidate_id"], chosen_id)
+        self.assertEqual(capacity["selected_design_candidate_id"], chosen_id)
+        self.assertEqual(
+            capacity["design_candidates"],
+            [physical_design_candidate(row) for row in chosen.context["design_candidates"]],
+        )
+        self.assertEqual(self.client.session["bag_selection_design_export"]["selected_candidate"]["candidate_id"], chosen_id)
+
+        for mode in ("single", "optimal"):
+            response = self.post_bag(mode=mode, action="switch_tool_mode")
+            self.assertNotContains(response, "Product rotation permissions")
+        for response in (
+            self.post_bag(mode="design", action="switch_tool_mode"),
+            self.client.get(reverse("bag_selection_mode1"), {"mode": "design"}),
+        ):
+            self.assertEqual([option["checked"] for option in response.context["bag_rotation_options"]], [False, False, True])
+            self.assertTrue(response.context["bag_config"]["product_advanced_open"])
+
+        invalid = self.client.post(reverse("bag_selection_mode1"), {
+            **PRODUCT_INPUTS, **design_inputs, "action": "run_design", "rotation_fields_present": "1",
+            "selected_design_candidate_id": chosen_id,
+        })
+        self.assertEqual(list(invalid.context["form"].non_field_errors()), [BAG_DESIGN_ROTATION_ERROR])
+        self.assertEqual(invalid.context["selected_design_candidate_id"], "")
+        self.assertIsNone(invalid.context["result"])
+        self.assertIsNone(invalid.context["threejs_scene"])
+        self.assertNotIn("bag_selection_design_export", self.client.session)
+        config = invalid.context["bag_config"]
+        self.assertEqual(analyze_bag_capacity(config)["messages"], [BAG_DESIGN_ROTATION_ERROR])
+        self.assertTrue(analyze_bag_capacity({
+            **config, "mode": "single", "bag_length": 500, "bag_width": 500,
+        })["ok"])
+
+    def test_catalogue_rotation_permissions_are_read_only_and_manual_choices_are_retained(self):
+        catalogue = ProductCatalogue.objects.create(name="Products with rotation permissions", is_public=True)
+        product = Product.objects.create(
+            catalogue=catalogue, product_id="upright-width", product_length=90, product_width=60, product_height=25,
+            rotation_1=False, rotation_2=True, rotation_3=False,
+        )
+        route = "bag_selection_calculator"
+        self.post_bag(route, mode="design", action="run_design", rotation_fields_present="1", r1="1")
+        config = {
+            "mode": "design", "product_source": "catalogue", "product_catalogue_id": catalogue.pk,
+            "selected_product_id": product.pk, "desired_qty": 12,
+        }
+        response = self.post_bag(route, action="run_design", **config)
+        for name, checked in (("r1", ""), ("r2", " checked"), ("r3", "")):
+            self.assertContains(response, f'<input type="checkbox" name="{name}" value="1"{checked} disabled>', html=True)
+        self.assertNotContains(response, 'name="rotation_fields_present"')
+        self.assertEqual({row["orientation_index"] for row in response.context["design_candidates"]}, {1, 5})
+        capacity = analyze_bag_capacity(response.context["bag_config"], selected_product=product)
+        self.assertEqual(
+            capacity["design_candidates"],
+            [physical_design_candidate(row) for row in response.context["design_candidates"]],
+        )
+        manual = self.post_bag(route, mode="design", action="run_design", desired_qty=12)
+        self.assertEqual([option["checked"] for option in manual.context["bag_rotation_options"]], [True, False, False])
+        self.assertEqual({row["orientation_index"] for row in manual.context["design_candidates"]}, {3, 4})
+
+        legacy = sanitize_bag_config_for_session(PRODUCT_INPUTS)
+        self.assertTrue(all(legacy[key] is True for key in ("r1", "r2", "r3")))
 
     def test_design_area_uses_bag_dimension_unit_and_preserves_engine_results(self):
         expected_display = {

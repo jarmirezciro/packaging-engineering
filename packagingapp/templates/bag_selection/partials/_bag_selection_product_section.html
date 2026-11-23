@@ -78,7 +78,8 @@
 
         {% include "shared/_product_unit_threejs_panel.html" with scene=product_unit_scene scene_id=bag_ui.ids.product_unit_scene viewer_id=bag_ui.ids.product_unit_viewer live=True input_context=True product_source=current_product_source dimension_unit_input_name=bag_ui.names.product_dimension_unit dimension_unit_group=bag_ui.unit_selectors.product_dimensions.group length_input_name=bag_ui.names.product_l width_input_name=bag_ui.names.product_w height_input_name=bag_ui.names.product_h shape_input_name=bag_ui.names.product_shape %}
 
-        {% include "shared/_product_dimensional_allowance.html" with ui=bag_ui values=bag_values product_source=current_product_source selected_product=selected_product %}
+        <input type="hidden" name="{{ bag_ui.names.product_advanced_open }}" value="{% if bag_values.product_advanced_open %}1{% endif %}">
+        {% include "shared/_product_dimensional_allowance.html" with ui=bag_ui values=bag_values product_source=current_product_source selected_product=selected_product advanced_fields_template="bag_selection/partials/_bag_selection_product_advanced_fields.html" advanced_open=bag_values.product_advanced_open advanced_state_name=bag_ui.names.product_advanced_open %}
 
         {% if selected_product %}
             <div class="tool-summary-strip">

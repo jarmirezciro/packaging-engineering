@@ -1,5 +1,5 @@
 from ...units import LENGTH_UNITS
-from .state import BAG_FILM_DEFAULTS, default_bag_config
+from .state import BAG_FILM_DEFAULTS, default_bag_config, read_bag_product_advanced
 from ..selection_mode import normalize_selection_mode
 from ..product_shape import normalize_product_shape
 
@@ -32,6 +32,7 @@ def sanitize_bag_config_for_session(config):
         "product_mass_unit": _safe_str(base.get("product_mass_unit") or "g"),
         "desired_qty": _safe_str(base.get("desired_qty") or "1"),
         "product_shape": normalize_product_shape(base.get("product_shape")),
+        **read_bag_product_advanced({}, base),
         "bag_source": _safe_str(base.get("bag_source") or "manual"),
         "catalogue_id": _safe_str(base.get("catalogue_id") or ""),
         "bag_id": _safe_str(base.get("bag_id") or ""),

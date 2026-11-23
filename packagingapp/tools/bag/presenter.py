@@ -5,12 +5,22 @@ from .film import (
     FILM_PRESET_CHOICES, FILM_SOURCES, FILM_UNITS, bag_weight_overridden,
     catalogue_bag_mode, film_flag, resolve_bag_film,
 )
+from .state import resolve_bag_design_rotations
 
 
 def format_design_bag_dimensions(candidate, display_unit):
     return format_dimensions(
         candidate["bag_length"], candidate["bag_width"], display_unit=display_unit,
     )
+
+
+def bag_rotation_options(config, selected_product, names):
+    return [
+        {"code": f"R{index}", "axis": axis, "name": names[f"r{index}"], "checked": checked}
+        for index, (axis, checked) in enumerate(
+            zip(("Length", "Width", "Height"), resolve_bag_design_rotations(config, selected_product)), start=1
+        )
+    ]
 
 
 def bag_film_result_rows(report, *, separate_weight_source=False):

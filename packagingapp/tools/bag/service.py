@@ -18,6 +18,7 @@ from ...units import (
 )
 from ...units.input import convert_optional, validate_unit
 from ...utils.bag_selection.engine import (
+    BAG_DESIGN_ROTATION_ERROR,
     BagSizingParameters,
     build_required_bag_options,
     build_bag_design_candidates,
@@ -43,7 +44,9 @@ from .film import catalogue_bag_mode, resolve_bag_film
 from .presenter import format_design_bag_dimensions
 from .workflow import bag_design_outer_dimensions, build_bag_design_pending_result
 from .serializers import sanitize_bag_config_for_session
-from .state import BAG_ALLOWANCE_DEFAULTS_MM, BAG_FILM_DEFAULTS
+from .state import (
+    BAG_ALLOWANCE_DEFAULTS_MM, BAG_FILM_DEFAULTS, BAG_ROTATION_KEYS, resolve_bag_design_rotations,
+)
 
 
 BAG_DRAW_LIMIT = 250
@@ -300,6 +303,7 @@ def build_hydrated_post_data(raw_post, config, selected_product=None, selected_m
 
     for key in BAG_FILM_DEFAULTS:
         post_data.setdefault(key, config[key])
+    post_data.update(dict(zip(BAG_ROTATION_KEYS, resolve_bag_design_rotations(config, selected_product))))
     if (config or {}).get("mode") == "design":
         post_data.setdefault("bag_source", "manual")
 
@@ -321,6 +325,7 @@ def build_hydrated_post_data(raw_post, config, selected_product=None, selected_m
 
 def build_initial_data(config, selected_product=None, selected_material=None):
     initial_data = dict(config)
+    initial_data.update(dict(zip(BAG_ROTATION_KEYS, resolve_bag_design_rotations(config, selected_product))))
 
     if config.get("product_source") == "catalogue" and selected_product is not None:
         initial_data.update({
@@ -738,7 +743,11 @@ def _analyze_bag_design(
         messages.append("Enter product length, width, and height greater than zero in millimetres.")
     if desired_quantity is None:
         messages.append("Enter the desired quantity as a positive whole number.")
-    if action not in ("run_design", "select_design_candidate") or messages:
+    calculate = action in ("run_design", "select_design_candidate")
+    rotations = resolve_bag_design_rotations(config, selected_product)
+    if calculate and not any(rotations):
+        messages.append(BAG_DESIGN_ROTATION_ERROR)
+    if not calculate or messages:
         return {
             "messages": messages,
             "notices": notices,
@@ -748,16 +757,13 @@ def _analyze_bag_design(
             "product_unit_scene": product_unit_scene,
             "top5": [],
             "design_candidates": [],
-            "selected_design_candidate_id": config.get("selected_design_candidate_id") or "",
+            "selected_design_candidate_id": (config.get("selected_design_candidate_id") or "") if not calculate else "",
             "pending_result": None,
             "analysis_report": None,
         }
 
-    # Bag Design has no R1/R2/R3 restriction. The complete packed bundle may
-    # be rotated freely during handling, so all product orientations are always
-    # evaluated regardless of catalogue product rotation flags or legacy state.
     design = build_bag_design_candidates(
-        *packing_product, desired_quantity, parameters=parameters
+        *packing_product, desired_quantity, *rotations, parameters=parameters
     )
     candidates = _design_candidates_for_display(
         design, config, selected_product, assumption_metadata, messages
@@ -1125,12 +1131,15 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
         desired_quantity = int(selected_product.desired_qty or 1)
     if desired_quantity is None:
         messages.append("Enter the desired quantity as a positive whole number.")
+    rotations = resolve_bag_design_rotations(cfg, selected_product) if mode == "design" else ()
+    if mode == "design" and not any(rotations):
+        messages.append(BAG_DESIGN_ROTATION_ERROR)
     if messages:
         return {"ok": False, "messages": messages, "mode": mode, "pending_result": None}
 
     if mode == "design":
         design = build_bag_design_candidates(
-            *product, desired_quantity, parameters=parameters
+            *product, desired_quantity, *rotations, parameters=parameters
         )
         candidates = _design_candidates_for_display(
             design, cfg, selected_product, assumption_metadata, messages
