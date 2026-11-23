@@ -101,6 +101,7 @@
           Load unit inherited from the previous workflow step.
           {% endif %}
         </div>
+        {% include "shared/_workflow_bag_rotation_note.html" with state=step.bag_rotation_inheritance r1=product_rows.0.r1 r2=product_rows.0.r2 r3=product_rows.0.r3 only %}
       </div>
       {% if is_first_step %}
       <button type="button" class="btn btn-app-outline btn-sm" onclick="fpTransportAddProductRow({{ step_index }})">

@@ -140,6 +140,9 @@
                     {% endif %}
                 </div>
                 <div class="app-form-note mt-2">Restriction means which original product dimension may be placed vertically.</div>
+                {% if mode == "workflow" %}
+                    {% include "shared/_workflow_bag_rotation_note.html" with state=step.bag_rotation_inheritance r1=container_values.r1 r2=container_values.r2 r3=container_values.r3 only %}
+                {% endif %}
             </div>
         </div>
 

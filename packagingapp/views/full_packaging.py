@@ -71,6 +71,7 @@ from ..tools.bag.state import (
     read_bag_allowances, read_bag_film, read_bag_product_advanced, resolve_bag_design_rotations,
 )
 from ..tools.bag.workflow import attach_bag_workflow_weight
+from ..tools.bag.workflow_rotation import rotation_tuple
 from ..utils.bag_selection.engine import BAG_DESIGN_ROTATION_ERROR
 
 from ..tools.container.presenter import (
@@ -140,6 +141,9 @@ from ..tools.full_packaging.chain_optimizer import (
     build_design_chain_ui,
     invalidate_design_chain_optimizations,
     optimize_design_chain,
+)
+from ..tools.full_packaging.rotation_inheritance import (
+    apply_bag_rotation_submission, is_bag_design, refresh_bag_rotation_inheritance,
 )
 from ..tools.container.assistant import (
     build_container_result_snapshot,
@@ -767,40 +771,40 @@ def _build_case_workflow(case_slug):
 
     if "carton" in preset:
         _append_case_manual_carton(steps, preset["carton"])
-    else:
+    elif "box_design" in preset:
         _append_case_carton_design(steps, preset, display_units)
     if "outer_carton" in preset:
         _append_case_manual_carton(steps, preset["outer_carton"])
 
-    pallet_preset = preset["pallet"]
-    pallet_idx = len(steps)
-    pallet_step = _new_step("pallet")
-    steps.append(pallet_step)
-    pallet_step["config"].update({
-        "box_dimension_unit": display_units.get(
-            "pallet_box_dimension_unit", display_units.get("container_dimension_unit", "mm")
-        ),
-        "pallet_dimension_unit": display_units.get("pallet_dimension_unit", "mm"),
-        "mass_unit": display_units.get("mass_unit", "g"),
-    })
-    _apply_chained_defaults(pallet_step, steps, pallet_idx)
-    pallet_cfg = _extract_pallet_config_from_step(pallet_step)
-    pallet_cfg.update({
-        "box_source": "manual",
-        "pallet_source": "manual",
-        "pallet_l": pallet_preset["length"],
-        "pallet_w": pallet_preset["width"],
-        "pallet_height": pallet_preset.get("height", ""),
-        "max_stack_height": pallet_preset["max_stack_height"],
-        "max_pallet_load": pallet_preset.get("max_pallet_load", ""),
-        "max_weight_on_bottom_box": pallet_preset.get("max_weight_on_bottom_box", ""),
-        "max_width_stickout": pallet_preset["max_width_stickout"],
-        "max_length_stickout": pallet_preset["max_length_stickout"],
-    })
-    _update_pallet_config_on_step(pallet_step, pallet_cfg)
-    pallet_step["analysis_ran"] = True
-    _run_pallet_analysis_shared(pallet_step, steps, pallet_idx)
-    _accept_pending_result(pallet_step)
+    if pallet_preset := preset.get("pallet"):
+        pallet_idx = len(steps)
+        pallet_step = _new_step("pallet")
+        steps.append(pallet_step)
+        pallet_step["config"].update({
+            "box_dimension_unit": display_units.get(
+                "pallet_box_dimension_unit", display_units.get("container_dimension_unit", "mm")
+            ),
+            "pallet_dimension_unit": display_units.get("pallet_dimension_unit", "mm"),
+            "mass_unit": display_units.get("mass_unit", "g"),
+        })
+        _apply_chained_defaults(pallet_step, steps, pallet_idx)
+        pallet_cfg = _extract_pallet_config_from_step(pallet_step)
+        pallet_cfg.update({
+            "box_source": "manual",
+            "pallet_source": "manual",
+            "pallet_l": pallet_preset["length"],
+            "pallet_w": pallet_preset["width"],
+            "pallet_height": pallet_preset.get("height", ""),
+            "max_stack_height": pallet_preset["max_stack_height"],
+            "max_pallet_load": pallet_preset.get("max_pallet_load", ""),
+            "max_weight_on_bottom_box": pallet_preset.get("max_weight_on_bottom_box", ""),
+            "max_width_stickout": pallet_preset["max_width_stickout"],
+            "max_length_stickout": pallet_preset["max_length_stickout"],
+        })
+        _update_pallet_config_on_step(pallet_step, pallet_cfg)
+        pallet_step["analysis_ran"] = True
+        _run_pallet_analysis_shared(pallet_step, steps, pallet_idx)
+        _accept_pending_result(pallet_step)
 
     transport_preset = preset.get("transport")
     if transport_preset:
@@ -1687,13 +1691,24 @@ def _merge_transport_inherited_rows(existing_rows, inherited_rows):
 
 def _apply_chained_defaults(step, steps, idx):
     prev = _selected_input_for_step(steps, idx)
-    if not prev:
+    step_type = step.get("type")
+    cfg = step.get("config") or {}
+    if prev:
+        step["config"] = _apply_payload_to_config(cfg, step_type, prev)
+    elif idx > 0 and steps[idx - 1].get("type") == "bag":
+        # Keep edits while the upstream Bag is waiting for a valid result.
         return
-    step["config"] = _apply_payload_to_config(
-        step.get("config") or {},
-        step.get("type"),
-        prev,
-    )
+
+    tracking_rotations = is_bag_design(prev) or step.get("bag_rotation_inheritance")
+    if not tracking_rotations:
+        return
+    if step_type == "container":
+        defaults = default_container_config()
+        cfg.update({key: bool(cfg.get(key, defaults[key])) for key in BAG_ROTATION_KEYS})
+        refresh_bag_rotation_inheritance(step, cfg, prev)
+    elif step_type == "transport" and cfg.get("product_rows"):
+        other_defaults = rotation_tuple(_transport_rows_from_selected(prev)[0]) if prev and not is_bag_design(prev) else None
+        refresh_bag_rotation_inheritance(step, cfg["product_rows"][0], prev, other_defaults=other_defaults)
 
 
 def _resolve_product_for_container(cfg, selected_product):
@@ -2179,6 +2194,7 @@ def _build_container_non_design_workflow_payload(
 
 
 def _process_container_step(step, steps, idx, post):
+    _apply_chained_defaults(step, steps, idx)
     existing_cfg = step.get("config") or {}
     legacy_thickness_override = (
         "box_thickness_user_override" not in existing_cfg
@@ -2257,7 +2273,18 @@ def _process_container_step(step, steps, idx, post):
     has_prefixed_rotation_inputs = (
         f"r1{suffix}" in post or f"r2{suffix}" in post or f"r3{suffix}" in post
     )
-    if has_prefixed_rotation_inputs:
+    rotation_inheritance = step.get("bag_rotation_inheritance")
+    if rotation_inheritance:
+        displayed = post.get("bag_rotations_displayed", "")
+        submitted = (
+            tuple(_as_bool(post, f"{key}{suffix}") for key in BAG_ROTATION_KEYS)
+            if displayed or has_prefixed_rotation_inputs else None
+        )
+        apply_bag_rotation_submission(
+            rotation_inheritance, cfg, submitted=submitted, displayed=displayed,
+            restore="restore_bag_rotations" in post,
+        )
+    elif has_prefixed_rotation_inputs:
         cfg["r1"] = post.get(f"r1{suffix}") is not None
         cfg["r2"] = post.get(f"r2{suffix}") is not None
         cfg["r3"] = post.get(f"r3{suffix}") is not None
@@ -2671,7 +2698,10 @@ def _process_bag_step(step, steps, idx, post, *, has_downstream=None):
 
     upstream = _selected_input_for_step(steps, idx)
     if cfg.get("mode") == "design" and analysis.get("result"):
-        pending_result = build_design_candidate_payload("bag", analysis["result"], upstream)
+        pending_result = build_design_candidate_payload(
+            "bag", analysis["result"], upstream,
+            original_rotations=analysis["pending_result"]["original_product_rotations"],
+        )
     else:
         pending_result = _finalize_bag_workflow_payload(analysis.get("pending_result"), upstream)
 
@@ -2711,6 +2741,7 @@ def _process_bag_step(step, steps, idx, post, *, has_downstream=None):
                 _invalidate_downstream(steps, idx)
 
 def _process_transport_step(step, steps, idx, post):
+    _apply_chained_defaults(step, steps, idx)
     cfg = step["config"]
     step["result"] = None
     step["image_url"] = None
@@ -2797,7 +2828,31 @@ def _process_transport_step(step, steps, idx, post):
         cfg["selected_row_index"] = ""
         inherited_rows = _transport_rows_from_selected(_selected_input_for_step(steps, idx))
         posted_rows = read_product_rows_raw(post)
-        cfg["product_rows"] = _merge_transport_inherited_rows(posted_rows or cfg.get("product_rows"), inherited_rows)
+        rotation_inheritance = step.get("bag_rotation_inheritance")
+        existing_rows = cfg.get("product_rows")
+        if rotation_inheritance and existing_rows:
+            current = dict(existing_rows[0])
+            if posted_rows:
+                # Partial submits must not reset independent row controls.
+                fields = {
+                    "qty": "item_qty[]", "max_qty": "item_max_qty[]",
+                    "stackable": "item_stackable[]", "sequence": "item_sequence[]",
+                }
+                for key, field in fields.items():
+                    if field in post or (key == "max_qty" and "item_max_qty_checked[]" in post):
+                        current[key] = posted_rows[0][key]
+            submitted = (
+                rotation_tuple(posted_rows[0])
+                if posted_rows and all(post.getlist(f"item_{key}[]") for key in BAG_ROTATION_KEYS) else None
+            )
+            apply_bag_rotation_submission(
+                rotation_inheritance, current, submitted=submitted,
+                displayed=post.get("bag_rotations_displayed", ""), restore="restore_bag_rotations" in post,
+            )
+            existing_rows = [current]
+        else:
+            existing_rows = posted_rows or existing_rows
+        cfg["product_rows"] = _merge_transport_inherited_rows(existing_rows, inherited_rows)
         step["messages"] = []
 
     if action == "select_product" and idx == 0:
@@ -2996,7 +3051,10 @@ def _evaluate_bag_capacity_step(step, temporary_steps, idx):
 
     upstream = _selected_input_for_step(temporary_steps, idx)
     if analysis.get("mode") == "design":
-        return build_design_candidate_payload("bag", analysis["result"], upstream)
+        return build_design_candidate_payload(
+            "bag", analysis["result"], upstream,
+            original_rotations=analysis["pending_result"]["original_product_rotations"],
+        )
     return _finalize_bag_workflow_payload(analysis.get("pending_result"), upstream)
 
 

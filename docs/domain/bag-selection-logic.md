@@ -216,9 +216,10 @@ capacity-only analysis apply the same filter before canonical arrangements and
 insertion alternatives are selected. Independent permitted arrangements may
 produce the same flat bag dimensions. Surviving IDs and aliases can be selected
 as before. When the previously selected alternative is unavailable, Design
-selects the first row in its context. These permissions apply within
-the Bag Design calculation. Single and Optimal use their existing sizing rules,
-and downstream steps receive the selected bag as a packed unit.
+selects the first row in its context. Single and Optimal use their existing
+sizing rules. In Packaging Flow, the immediate Container or Transport step
+can receive [editable bag-axis rotation defaults](../architecture/packaging-flow.md#editable-rotation-defaults-from-bag-design)
+from the selected Design candidate.
 
 Single, Optimal, and Design results serialize the selected authoritative bag
 arrangement into the shared `packageType=bag` Three.js scene. The standalone,

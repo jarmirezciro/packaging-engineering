@@ -264,6 +264,11 @@ class FullPackagingCaseTests(TestCase):
 
     def test_all_compendium_cases_open_with_complete_json_safe_chains(self):
         expected = {
+            "calibration-bag-to-container-r3": (("bag", "container"), (12, 15)),
+            "calibration-bag-to-container-r1": (("bag", "container"), (12, 14)),
+            "calibration-bag-to-transport-rotations": (("bag", "transport"), (12, 1)),
+            "calibration-bag-candidate-rotation-override": (("bag", "container"), (12, 14)),
+            "calibration-bag-same-size-different-rotations": (("bag", "container"), (12, 16)),
             "think-beyond-the-box": (("container", "pallet", "transport"), (12, 24, 48)),
             "tops-product-pallet-optimization": (("container", "pallet"), (8, 144)),
             "cape-pack-12-carton-two-layouts": (("container", "pallet"), (12, 20)),

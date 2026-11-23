@@ -11,6 +11,18 @@ from ..bag.case_presets import SEO_BAG_SELECTION_EXAMPLE_CONFIG, get_bag_selecti
 from ..container.case_presets import get_container_selection_case_preset
 
 
+_ROTATION_CALIBRATION_BAG = {
+    "mode": "design", "action": "run_design", "product_l": 90, "product_w": 60, "product_h": 25,
+    "product_weight": 50, "desired_qty": 12, "r1": True, "r2": False, "r3": True,
+    "selected_design_candidate_id": "bag-design-90e1dd5f89f589e5",
+}
+_ROTATION_CALIBRATION_CARTON = {"box_l": 500, "box_w": 300, "box_h": 240, "box_weight": 150}
+_ROTATION_CALIBRATION_TRANSPORT = {
+    "length": 495, "width": 315, "height": 310, "max_weight": 20, "tare_weight": 0,
+    "packing_mode": "front_to_back", "calculate_max_quantity": False,
+}
+
+
 _DEMO_PALLET = {
     "length": 1200,
     "width": 800,
@@ -86,6 +98,41 @@ def _bottle_carton_design(source_case, *, weight_lb, dimensions_mm, arrangement,
 
 
 _CASE_PRESETS = {
+    "calibration-bag-to-container-r3": {
+        "slug": "calibration-bag-to-container-r3",
+        "title": "Calibration — Bag to Container, R3-only inheritance",
+        "description": "The original product height is the bag height. Container Selection starts with height vertical only.",
+        "bag": {**_ROTATION_CALIBRATION_BAG, "r1": False, "selected_design_candidate_id": "bag-design-138ba262b3550a49"},
+        "carton": _ROTATION_CALIBRATION_CARTON,
+    },
+    "calibration-bag-to-container-r1": {
+        "slug": "calibration-bag-to-container-r1",
+        "title": "Calibration — Bag to Container, mapped R1-only product",
+        "description": "The original product length is the bag height. Container Selection starts with height vertical only.",
+        "bag": {**_ROTATION_CALIBRATION_BAG, "r3": False},
+        "carton": _ROTATION_CALIBRATION_CARTON,
+    },
+    "calibration-bag-to-transport-rotations": {
+        "slug": "calibration-bag-to-transport-rotations",
+        "title": "Calibration — Bag to Transport, editable rotation defaults",
+        "description": "The load row starts with width and height vertical. Edit its rotation permissions and run the analysis.",
+        "bag": _ROTATION_CALIBRATION_BAG,
+        "transport": _ROTATION_CALIBRATION_TRANSPORT,
+    },
+    "calibration-bag-candidate-rotation-override": {
+        "slug": "calibration-bag-candidate-rotation-override",
+        "title": "Calibration — Bag candidate change with downstream override",
+        "description": "The carton has customized rotations. Select another Bag candidate to see the custom settings persist.",
+        "bag": _ROTATION_CALIBRATION_BAG,
+        "carton": {**_ROTATION_CALIBRATION_CARTON, "r1": "on", "r3": "on"},
+    },
+    "calibration-bag-same-size-different-rotations": {
+        "slug": "calibration-bag-same-size-different-rotations",
+        "title": "Calibration — Same bag dimensions, different rotation mappings",
+        "description": "Switch between the 267 × 197 mm Bag candidates to compare the Container rotation defaults.",
+        "bag": _ROTATION_CALIBRATION_BAG,
+        "carton": _ROTATION_CALIBRATION_CARTON,
+    },
     "think-beyond-the-box": {
         "slug": "think-beyond-the-box",
         "title": "Think Beyond the Box",

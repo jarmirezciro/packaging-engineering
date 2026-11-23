@@ -94,7 +94,7 @@
           <span class="fp-shell-badge"><i class="bi bi-journal-text"></i>Interactive article case</span>
           <div class="flex-grow-1">
             <strong>{{ case_preset.title }}</strong>
-            <div class="text-muted small mt-1">{{ case_preset.description }}{% if not case_preset.bag_only %} Choose another Box Design Mode alternative to see the pallet and container results recalculate.{% endif %}</div>
+            <div class="text-muted small mt-1">{{ case_preset.description }}{% if case_preset.box_design %} Choose another Box Design Mode alternative to see the pallet and container results recalculate.{% endif %}</div>
           </div>
         </div>
       </div>

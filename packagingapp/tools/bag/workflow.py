@@ -2,6 +2,7 @@
 
 from ...units import g_to_kg
 from .dimensions import resolve_bag_outer_dimensions
+from .workflow_rotation import bag_design_rotation_metadata
 
 
 def bag_design_outer_dimensions(candidate):
@@ -16,12 +17,14 @@ def bag_design_outer_dimensions(candidate):
     return resolve_bag_outer_dimensions(flat, bundle, candidate, legacy=legacy)
 
 
-def build_bag_design_pending_result(candidate, *, upstream=None, common=None):
+def build_bag_design_pending_result(candidate, *, upstream=None, common=None, original_rotations=None):
     quantity = candidate["design_quantity"]
     payload = {
         "units_per_parent": quantity,
         "total_base_units": quantity,
         "mode": "design",
+        "source_step_type": "bag",
+        "package_type": "bag",
         "desired_quantity": candidate.get("desired_quantity", quantity),
         "design_quantity": quantity,
         "additional_capacity": candidate.get("additional_capacity", 0),
@@ -45,6 +48,7 @@ def build_bag_design_pending_result(candidate, *, upstream=None, common=None):
             ),
         },
     }
+    payload.update(bag_design_rotation_metadata(candidate, payload, original_rotations))
     return attach_bag_workflow_weight(payload, candidate, upstream=upstream)
 
 

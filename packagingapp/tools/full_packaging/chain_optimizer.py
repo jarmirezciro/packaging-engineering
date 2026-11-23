@@ -12,6 +12,7 @@ from ..container.dimensions import (
     EXTERNAL_DIMENSION_SOURCE_PROVIDED_THICKNESS,
     resolve_external_carton_dimensions,
 )
+from .rotation_inheritance import bag_rotation_defaults, is_bag_design
 
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ def terminal_capacity_labels(step_type):
     return FINAL_STEP_LABELS.get(step_type, (str(step_type or "step"), "Max base units / final step"))
 
 
-def build_design_candidate_payload(source_type, candidate, upstream=None):
+def build_design_candidate_payload(source_type, candidate, upstream=None, *, original_rotations=None):
     """Build the same workflow payload used by a selected Design candidate."""
     if source_type not in SOURCE_TYPES:
         raise ValueError("Final-capacity optimization requires a Container or Bag Design step.")
@@ -78,7 +79,9 @@ def build_design_candidate_payload(source_type, candidate, upstream=None):
     }
 
     if source_type == "bag":
-        return build_bag_design_pending_result(candidate, upstream=upstream, common=common)
+        return build_bag_design_pending_result(
+            candidate, upstream=upstream, common=common, original_rotations=original_rotations,
+        )
 
     thickness = candidate.get("box_thickness_mm")
     if candidate.get("box_thickness_assumed"):
@@ -133,6 +136,13 @@ def _evaluation_signature(step, step_index, inherited):
             "transport_stackable", "transport_r1", "transport_r2", "transport_r3",
         )
     }
+    if step.get("type") in {"container", "transport"}:
+        state = step.get("bag_rotation_inheritance") or {}
+        if is_bag_design(inherited) or state:
+            physical_input["bag_design_input"] = is_bag_design(inherited)
+            physical_input["bag_design_rotations"] = (
+                state.get("override") or bag_rotation_defaults(inherited) or state.get("fallback")
+            )
     signature = {
         "step_index": step_index,
         "step_type": step.get("type"),
@@ -200,6 +210,7 @@ def optimize_design_chain(workflow, source_step_index, evaluate_step):
     terminal_type = steps[terminal_index].get("type")
     terminal_label, column_label = terminal_capacity_labels(terminal_type)
     upstream = _effective_output(steps[source_step_index - 1]) if source_step_index else None
+    original_rotations = (_effective_output(source) or {}).get("original_product_rotations")
     memo = {}
     candidate_results = {}
     original_ids = []
@@ -211,7 +222,9 @@ def optimize_design_chain(workflow, source_step_index, evaluate_step):
         original_ids.append(candidate_id)
         temporary_steps = deepcopy(steps)
         try:
-            payload = build_design_candidate_payload(source_type, candidate, upstream)
+            payload = build_design_candidate_payload(
+                source_type, candidate, upstream, original_rotations=original_rotations,
+            )
         except (TypeError, ValueError) as exc:
             candidate_results[candidate_id] = _unavailable_result(
                 source_step_index, source_type, str(exc)

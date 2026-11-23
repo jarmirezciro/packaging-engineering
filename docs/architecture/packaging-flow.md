@@ -182,6 +182,28 @@ tool's ordinary input contract. It records upstream provenance but does not
 bypass the downstream form, service, validation, or engine. A user override is
 distinct from an inherited value and must remain explicit.
 
+### Editable rotation defaults from Bag Design
+
+Container Selection and Transport initialize rotation controls from the
+immediately preceding Bag Design result. The Bag payload carries the selected
+orientation index, effective original-product permissions, and a recommendation
+in the completed bag's length, width and height axes. Mapping requires a
+tight-fit film estimate with external axes aligned to the packed bundle.
+Legacy flat-stock dimensions or missing orientation provenance leave the step's
+existing rotation behavior in place and show an unavailable recommendation.
+
+Each receiving step stores its own rotation override. Ordinary form submissions
+retain inheritance when the submitted controls match the values that were
+displayed. A new Bag candidate updates the recommendation and preserves an
+explicit edit. **Use bag defaults** clears the override. Transport retains its
+independent quantity, Max qty, stackability and loading sequence settings.
+Palletization consumes the Bag's existing physical output. A later step uses
+its own immediate upstream package under the usual contract.
+
+Capacity trials derive the recommendation for every candidate and apply the
+same override precedence on temporary steps. The memoization signature includes
+the rotation input for each direct Container or Transport evaluation.
+
 ### Pending and selected results
 
 **Current implementation note:** a pending result is the freshest successfully

@@ -839,7 +839,7 @@ def _analyze_bag_design(
             display_unit=config.get("product_dimension_unit") or "mm",
         ),
     }
-    pending_result = build_bag_design_pending_result(selected)
+    pending_result = build_bag_design_pending_result(selected, original_rotations=rotations)
     return {
         "messages": messages,
         "notices": notices,
@@ -1170,7 +1170,7 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
             (row for row in candidates if row["candidate_id"] == requested_id),
             candidates[0],
         )
-        pending_result = build_bag_design_pending_result(selected)
+        pending_result = build_bag_design_pending_result(selected, original_rotations=rotations)
         return {
             "ok": True,
             "messages": [],

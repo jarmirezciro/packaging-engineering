@@ -1,0 +1,13 @@
+{% if state %}
+    <input type="hidden" name="bag_rotations_displayed" value="{{ r1|yesno:'1,0' }}{{ r2|yesno:'1,0' }}{{ r3|yesno:'1,0' }}">
+    <div class="app-form-note mt-2">
+        {% if state.override %}Rotation permissions customized for this step.{% endif %}
+        {% if not state.defaults %}
+            Rotation defaults could not be derived from the selected bag. Review the allowed orientations.
+        {% elif state.override %}
+            <button type="submit" name="restore_bag_rotations" value="1" class="btn btn-link btn-sm p-0 align-baseline">Use bag defaults</button>
+        {% else %}
+            Rotation defaults inherited from the selected bag arrangement. You can modify them for this packaging step.
+        {% endif %}
+    </div>
+{% endif %}
