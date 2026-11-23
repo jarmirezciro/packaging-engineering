@@ -87,6 +87,70 @@ class FullPackagingCaseTests(TestCase):
                 self.assertIsNone(step[key], (step["type"], key))
             self.assertFalse(step["summary"])
 
+    def test_bag_design_display_tracks_downstream_steps_and_keeps_the_existing_selection(self):
+        slug = "calibration-bag-terminal-and-downstream"
+        url = self.case_url(slug)
+        page = self.open_case(slug)
+        stored = self.case_steps(slug)[0]
+        full_ids = [row["candidate_id"] for row in stored["design_candidates"]]
+        reference = [row for row in stored["design_candidates"] if (row["bag_length"], row["bag_width"]) == (267, 197)]
+        reference_ids = [row["candidate_id"] for row in reference]
+        self.assertEqual(len(full_ids), 148)
+        self.assertEqual(len(reference_ids), 3)
+        self.assertContains(self.client.get(reverse("regressions")), f'href="{url}?reset=1">Open in Packaging Flow</a>')
+
+        def assert_display(response, *, downstream, selected_id):
+            step = response.context["steps"][0]
+            displayed = step["design_candidates_for_display"]
+            ids = [row["candidate_id"] for row in displayed]
+            self.assertEqual(step["selected_design_candidate_id"], selected_id)
+            self.assertEqual(step["result"]["candidate_id"], selected_id)
+            self.assertEqual(step["pending_result"]["selected_candidate_id"], selected_id)
+            self.assertEqual(step["threejs_scene"], step["result"]["render_data"])
+            self.assertEqual(step["design_chain_ui"]["has_downstream"], downstream)
+            self.assertEqual([row["candidate_id"] for row in step["design_candidates"]], full_ids)
+            self.assertContains(response, f'tool-row-selected" onclick="bagSelectionSelectDesignCandidate(\'0\', \'{selected_id}\')"')
+            if downstream:
+                self.assertEqual(ids, full_ids)
+                self.assertTrue(all("display_rank" not in row for row in displayed))
+                self.assertContains(response, "Orientation-specific arrangements are retained")
+            else:
+                self.assertEqual(len(ids), 53)
+                self.assertEqual([row["display_rank"] for row in displayed], list(range(1, 54)))
+                self.assertEqual([candidate_id for candidate_id in ids if candidate_id in reference_ids], [selected_id])
+                self.assertContains(response, "Unique bag designs by physical bundle arrangement")
+            return step["threejs_scene"]
+
+        default_id = reference_ids[0]
+        scene = assert_display(page, downstream=False, selected_id=default_id)
+        self.assertEqual(scene["bag"]["film"]["depthAxis"], "height")
+        for step_type in ("pallet", "transport", "bag", "container"):
+            self.post_case(slug, "add_step", 0, step_type=step_type)
+            self.assertEqual(assert_display(self.client.get(url), downstream=True, selected_id=default_id), scene)
+            if step_type != "container":
+                self.post_case(slug, "remove_step", 1)
+        self.post_case(slug, "add_step", 1, step_type="pallet", after_index="1")
+        self.assertEqual(assert_display(self.client.get(url), downstream=True, selected_id=default_id), scene)
+
+        explicit_id = reference_ids[2]
+        self.post_case(slug, "run_step", 0, action_0="select_design_candidate", selected_design_candidate_id_0=explicit_id)
+        explicit_scene = assert_display(self.client.get(url), downstream=True, selected_id=explicit_id)
+        self.assertEqual(explicit_scene["bag"]["film"]["depthAxis"], "length")
+        self.post_case(slug, "remove_step", 2)
+        self.post_case(slug, "remove_step", 1)
+        self.assertEqual(assert_display(self.client.get(url), downstream=False, selected_id=explicit_id), explicit_scene)
+
+        session = self.client.session
+        old_step = session[f"full_packaging_mode_session_case_{slug}"]["steps"][0]
+        old_step.pop("selected_design_candidate_id")
+        for row in old_step["design_candidates"]:
+            row.pop("flat_bag_length_mm")
+            row.pop("flat_bag_width_mm")
+            row["render_data"]["bag"].pop("film")
+        session.save()
+        self.assertEqual(assert_display(self.client.get(url), downstream=False, selected_id=explicit_id), explicit_scene)
+        self.assertTrue(all("display_rank" not in row for row in self.case_steps(slug)[0]["design_candidates"]))
+
     def test_bag_design_rotation_permissions_are_independent_and_reach_capacity_optimizer(self):
         url = reverse("full_packaging_mode")
         session_key = "full_packaging_mode_session"

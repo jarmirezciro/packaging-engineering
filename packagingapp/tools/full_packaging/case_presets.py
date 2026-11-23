@@ -7,7 +7,7 @@ shared tool engines remain the single source of calculation logic.
 from copy import deepcopy
 
 from ...units import convert_length, convert_mass
-from ..bag.case_presets import SEO_BAG_SELECTION_EXAMPLE_CONFIG
+from ..bag.case_presets import SEO_BAG_SELECTION_EXAMPLE_CONFIG, get_bag_selection_case_preset
 from ..container.case_presets import get_container_selection_case_preset
 
 
@@ -406,7 +406,15 @@ _CASE_PRESETS = {
 def get_case_preset(slug):
     """Return a defensive copy of one named case, or ``None`` when unknown."""
     preset = _CASE_PRESETS.get(str(slug or "").strip())
-    return deepcopy(preset) if preset else None
+    if preset:
+        return deepcopy(preset)
+    bag_case = get_bag_selection_case_preset(slug)
+    if bag_case and bag_case.get("workflow_description"):
+        return {
+            "slug": slug, "title": bag_case["label"], "description": bag_case["workflow_description"],
+            "bag": bag_case["config"], "bag_only": True,
+        }
+    return None
 
 
 def get_case_titles():

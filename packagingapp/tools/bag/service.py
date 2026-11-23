@@ -41,6 +41,7 @@ from ..product_dimensions import (
 
 from .dimensions import resolve_bag_outer_dimensions
 from .film import catalogue_bag_mode, resolve_bag_film
+from .presentation import select_bag_design_display_candidates
 from .presenter import format_design_bag_dimensions
 from .workflow import bag_design_outer_dimensions, build_bag_design_pending_result
 from .serializers import sanitize_bag_config_for_session
@@ -705,7 +706,7 @@ def _add_bag_design_metrics(candidate, config, selected_product=None):
     return row
 
 
-def _design_candidates_for_display(design, config, selected_product, assumption_metadata, messages):
+def _build_design_candidate_rows(design, config, selected_product, assumption_metadata, messages):
     try:
         return [
             _add_bag_design_metrics({**row, **assumption_metadata}, config, selected_product)
@@ -728,6 +729,7 @@ def _analyze_bag_design(
     *,
     parameters,
     assumption_metadata,
+    has_downstream,
 ):
     packing_product = packing_product if packing_product is not None else product
     product_allowances = tuple(product_allowances or (0.0, 0.0, 0.0))
@@ -757,6 +759,7 @@ def _analyze_bag_design(
             "product_unit_scene": product_unit_scene,
             "top5": [],
             "design_candidates": [],
+            "design_candidates_for_display": [],
             "selected_design_candidate_id": (config.get("selected_design_candidate_id") or "") if not calculate else "",
             "pending_result": None,
             "analysis_report": None,
@@ -765,7 +768,7 @@ def _analyze_bag_design(
     design = build_bag_design_candidates(
         *packing_product, desired_quantity, *rotations, parameters=parameters
     )
-    candidates = _design_candidates_for_display(
+    candidates = _build_design_candidate_rows(
         design, config, selected_product, assumption_metadata, messages
     )
     if not candidates:
@@ -780,6 +783,7 @@ def _analyze_bag_design(
             "product_unit_scene": product_unit_scene,
             "top5": [],
             "design_candidates": [],
+            "design_candidates_for_display": [],
             "selected_design_candidate_id": "",
             "pending_result": None,
             "analysis_report": None,
@@ -787,7 +791,12 @@ def _analyze_bag_design(
 
     requested_id = str(config.get("selected_design_candidate_id") or "")
     requested_id = design["candidate_aliases"].get(requested_id, requested_id)
-    selected = next((row for row in candidates if row["candidate_id"] == requested_id), candidates[0])
+    display_candidates = select_bag_design_display_candidates(
+        candidates, has_downstream=has_downstream, selected_candidate_id=requested_id,
+    )
+    by_id = {row["candidate_id"]: row for row in candidates}
+    selected = by_id.get(requested_id) or by_id[display_candidates[0]["candidate_id"]]
+    selected = {**selected, "render_data": dict(selected["render_data"])}
     decorate_product_scene(
         selected["render_data"],
         product_shape=config.get("product_shape"),
@@ -840,13 +849,16 @@ def _analyze_bag_design(
         "product_unit_scene": product_unit_scene,
         "top5": [],
         "design_candidates": candidates,
+        "design_candidates_for_display": display_candidates,
         "selected_design_candidate_id": selected["candidate_id"],
         "pending_result": pending_result,
         "analysis_report": analysis_report,
     }
 
 
-def analyze_bag_config(config, action, selected_product=None, selected_material=None, materials=None, media_root=None):
+def analyze_bag_config(
+    config, action, selected_product=None, selected_material=None, materials=None, media_root=None, *, has_downstream=False,
+):
     cfg = sanitize_bag_config_for_session(config)
     mode = cfg.get("mode") or "single"
     product_source = cfg.get("product_source") or "manual"
@@ -893,6 +905,7 @@ def analyze_bag_config(config, action, selected_product=None, selected_material=
             product_allowances=normalized_inputs["product_allowances"],
             parameters=parameters,
             assumption_metadata=assumption_metadata,
+            has_downstream=has_downstream,
         )
 
     if mode == "optimal" and product_source == "catalogue" and selected_product is not None:
@@ -1141,7 +1154,7 @@ def analyze_bag_capacity(config, selected_product=None, selected_material=None):
         design = build_bag_design_candidates(
             *product, desired_quantity, *rotations, parameters=parameters
         )
-        candidates = _design_candidates_for_display(
+        candidates = _build_design_candidate_rows(
             design, cfg, selected_product, assumption_metadata, messages
         )
         if not candidates:

@@ -759,8 +759,11 @@ def _build_case_workflow(case_slug):
         bag_step = _new_step("bag")
         steps.append(bag_step)
         bag_post = {f"{key}_0": str(value) for key, value in preset["bag"].items()}
-        _process_bag_step(bag_step, steps, 0, bag_post)
+        # Chained cases seed the Bag before building their downstream steps.
+        _process_bag_step(bag_step, steps, 0, bag_post, has_downstream=not preset.get("bag_only"))
         _accept_pending_result(bag_step)
+        if preset.get("bag_only"):
+            return {**_empty_workflow(), "steps": steps, "case_slug": case_slug}
 
     if "carton" in preset:
         _append_case_manual_carton(steps, preset["carton"])
@@ -1910,6 +1913,7 @@ def _prepare_bag_step_view_model(step, idx):
     step["bag_values"] = {k: cfg.get(k) for k in default_bag_config().keys()}
     if cfg["mode"] == "design" and step.get("result"):
         selected = step["result"]
+        step["selected_design_candidate_id"] = selected.get("candidate_id") or step.get("selected_design_candidate_id", "")
         step["result"] = {
             **selected,
             "bag_dimensions_display": format_design_bag_dimensions(selected, cfg["bag_dimension_unit"]),
@@ -2523,7 +2527,7 @@ def _posted_bag_parameters_changed(step, idx, post):
     )
 
 
-def _process_bag_step(step, steps, idx, post):
+def _process_bag_step(step, steps, idx, post, *, has_downstream=None):
     existing_cfg = step.get("config") or {}
     accepted_id = (step.get("selected") or {}).get("selected_candidate_id")
     previous_id = (_effective_step_output(step) or {}).get("selected_candidate_id")
@@ -2662,6 +2666,7 @@ def _process_bag_step(step, steps, idx, post):
         selected_material=selected_material,
         materials=materials,
         media_root=settings.MEDIA_ROOT,
+        has_downstream=idx + 1 < len(steps) if has_downstream is None else has_downstream,
     )
 
     upstream = _selected_input_for_step(steps, idx)

@@ -271,12 +271,15 @@ ordered downstream `workflow["steps"]` slice and runs capacity-only service
 entry points on temporary step copies. Those entry points reuse each tool's
 authoritative numeric engine and shared workflow-payload builders, but skip PNG,
 Three.js, analysis-report, and other presentation work. Engine candidate
-generation, normal standalone ranking, and interactive rendering are unchanged.
+generation and interactive rendering are unchanged by capacity optimization.
 
 Bag Design's underlying rank orders alternatives by flat-bag area. Final
 capacity takes priority when optimization is active, with the area rank
 breaking capacity ties. Saved Bag trials use the current area rank when
 displayed and retain their previously evaluated downstream capacities.
+For a final Bag step, the [terminal display grouping](../domain/bag-selection-logic.md#terminal-display-grouping)
+uses the saved candidate set and keeps the selected row visible. Adding any
+downstream step exposes the full set without recalculating the Bag.
 
 The source step stores JSON-safe `design_chain_optimization` metadata keyed by
 stable `candidate_id`. Canonical Design candidates remain in engine order; the

@@ -463,6 +463,7 @@ def _build_bag_selection_page_context(
     threejs_scene = None
     product_unit_scene = None
     design_candidates = []
+    design_candidates_for_display = []
     selected_design_candidate_id = config.get("selected_design_candidate_id") or ""
     notices = []
 
@@ -486,6 +487,7 @@ def _build_bag_selection_page_context(
         threejs_scene = analysis.get("threejs_scene")
         product_unit_scene = analysis.get("product_unit_scene")
         design_candidates = analysis.get("design_candidates") or []
+        design_candidates_for_display = analysis.get("design_candidates_for_display") or []
         if config["mode"] == "design":
             selected_design_candidate_id = analysis["selected_design_candidate_id"]
             config["selected_design_candidate_id"] = selected_design_candidate_id
@@ -573,6 +575,7 @@ def _build_bag_selection_page_context(
         "threejs_scene": threejs_scene,
         "product_unit_scene": product_unit_scene,
         "design_candidates": design_candidates,
+        "design_candidates_for_display": design_candidates_for_display,
         "selected_design_candidate_id": selected_design_candidate_id,
         "notices": notices,
         "materials": materials,

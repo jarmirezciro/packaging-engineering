@@ -941,6 +941,8 @@ class BagCompendiumTests(TestCase):
             "three-dimensional-bag-design": 12, "non-smooth-quantity-design": 8,
             "custom-sealing": 1, "zero-bag-allowances": 1,
             "blog-soap-bar-single": 1, "blog-soap-bar-multipack-12": 12,
+            "calibration-equivalent-bag-rotations": 12, "calibration-different-bundles-same-bag": 12,
+            "calibration-bag-r3-only": 12, "calibration-bag-terminal-and-downstream": 12,
         }
         self.assertEqual(set(BAG_SELECTION_CASE_PRESETS), set(single_capacities) | set(design_quantities))
         custom_assumptions_mm = {
@@ -960,7 +962,7 @@ class BagCompendiumTests(TestCase):
                 config = response.context["bag_config"]
                 expected = preset["config"]
                 for key, value in expected.items():
-                    self.assertEqual(config[key], str(value), key)
+                    self.assertEqual(config[key], value if isinstance(value, bool) else str(value), key)
                 for key, fallback in (
                     ("product_dimension_unit", "mm"), ("bag_dimension_unit", "mm"),
                     ("product_mass_unit", "g"), ("bag_mass_unit", "g"),
@@ -1007,12 +1009,19 @@ class BagCompendiumTests(TestCase):
                     self.assertEqual(bag["flatLength"], result["bag_length"])
                     self.assertEqual(bag["flatWidth"], result["bag_width"])
                     canonical = build_canonical_design_arrangements(
-                        tuple(expected[f"product_{axis}"] for axis in "lwh"), expected["desired_qty"], 1, 1, 1
+                        tuple(expected[f"product_{axis}"] for axis in "lwh"), expected["desired_qty"],
+                        config["r1"], config["r2"], config["r3"],
                     )
                     candidates = response.context["design_candidates"]
                     self.assertEqual([row["bag_area"] for row in candidates], sorted(row["bag_area"] for row in candidates))
                     self.assertEqual([row["rank"] for row in candidates], list(range(1, len(candidates) + 1)))
-                    self.assertEqual(result["candidate_id"], candidates[0]["candidate_id"])
+                    visible = response.context["design_candidates_for_display"]
+                    self.assertEqual(result["candidate_id"], expected.get("selected_design_candidate_id") or visible[0]["candidate_id"])
+                    if slug == "calibration-different-bundles-same-bag":
+                        self.assertEqual(
+                            [row["packed_bundle_mm"] for row in visible if (row["bag_length"], row["bag_width"]) == (252, 212)],
+                            [(120, 90, 150), (180, 60, 150)],
+                        )
                     if quantity > 1:
                         self.assertCountEqual([row["arrangement_id"] for row in candidates if row["insertion"]["axis"] == "length"], [
                             row["arrangement_id"] for row in canonical["arrangements"]
@@ -1073,7 +1082,7 @@ class BagCompendiumTests(TestCase):
         initial = self.client.get(url)
         config = initial.context["bag_config"]
         original = initial.context["result"]
-        candidates = initial.context["design_candidates"]
+        candidates = initial.context["design_candidates_for_display"]
         self.assertGreaterEqual(len({row["arrangement_id"] for row in candidates}), 4)
         alternative = next(
             row for row in candidates

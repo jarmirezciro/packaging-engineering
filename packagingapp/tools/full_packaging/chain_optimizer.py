@@ -5,6 +5,7 @@ import json
 import logging
 
 from ...utils.bag_selection.engine import rank_bag_design_candidates
+from ..bag.presentation import select_bag_design_display_candidates
 from ..bag.workflow import build_bag_design_pending_result
 from ..container.dimensions import (
     EXTERNAL_DIMENSION_SOURCE_CATALOGUE_THICKNESS,
@@ -321,7 +322,8 @@ def build_design_chain_ui(step, steps, source_step_index):
     _terminal_label, default_column_label = terminal_capacity_labels(terminal_type)
     state = step.get("design_chain_optimization") or {}
     state_is_current = bool(
-        state.get("active")
+        has_downstream
+        and state.get("active")
         and state.get("source_step_index") == source_step_index
         and state.get("terminal_step_index") == len(steps) - 1
         and state.get("terminal_step_type") == terminal_type
@@ -350,13 +352,21 @@ def build_design_chain_ui(step, steps, source_step_index):
         ordered_ids = [candidate_id for candidate_id in ordered_ids if candidate_id in display_by_id]
         ordered_ids.extend(candidate_id for candidate_id in original_ids if candidate_id not in ordered_ids)
 
+    display_candidates = [display_by_id[candidate_id] for candidate_id in ordered_ids]
+    if is_design_source and step.get("type") == "bag":
+        display_candidates = select_bag_design_display_candidates(
+            display_candidates, has_downstream=has_downstream,
+            selected_candidate_id=step.get("selected_design_candidate_id"),
+        )
+
     return {
         "show": show,
         "active": state_is_current,
+        "has_downstream": has_downstream,
         "column_label": state.get("column_label") if state_is_current else default_column_label,
         "message": (
             state.get("message") if state_is_current
             else step.get("design_chain_optimization_message", "")
         ),
-        "display_candidates": [display_by_id[candidate_id] for candidate_id in ordered_ids],
+        "display_candidates": display_candidates,
     }

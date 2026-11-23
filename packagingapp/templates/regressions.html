@@ -25,7 +25,7 @@
   <h2 class="h4 text-dark mt-4 mb-3">Bag Selection Cases</h2>
   <ul class="mb-0">
     {% for slug, case in bag_cases %}
-    <li class="mb-2">Case {{ forloop.counter|stringformat:"02d" }} &mdash; <a href="{% url 'bag_selection_mode1' %}?case={{ slug|urlencode }}">{{ case.label }}</a></li>
+    <li class="mb-2">Case {{ forloop.counter|stringformat:"02d" }} &mdash; <a href="{% url 'bag_selection_mode1' %}?case={{ slug|urlencode }}">{{ case.label }}</a>{% if case.workflow_description %} · <a href="{% url 'full_packaging_case' slug %}?reset=1">Open in Packaging Flow</a>{% endif %}</li>
     {% endfor %}
   </ul>
   <h2 class="h4 text-dark mt-4 mb-3">Packaging Flow Cases</h2>

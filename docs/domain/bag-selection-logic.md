@@ -121,10 +121,10 @@ Unless current code says otherwise:
 ## Ranking and tie-breaking
 
 Bag Design ranks deduplicated alternatives by ascending unrounded flat-bag
-area in canonical mm². Rank 1 is the smallest-area alternative and is the
-default when no valid candidate ID is supplied. Equal areas retain generation
-order. Ranking preserves geometry, insertion direction and stable candidate
-IDs, so saved selections remain valid at their new ranks.
+area in canonical mm². Equal areas retain generation order. Capacity-only
+analysis and steps with downstream packaging use this engineering order when
+no valid candidate ID is supplied. Standalone and terminal workflow use the
+first visible row after [display grouping](#terminal-display-grouping).
 
 Optimal Mode ranks feasible catalogue bags by highest bag usage and then by
 smallest area. Packaging Flow's optional final-capacity optimization ranks
@@ -176,6 +176,30 @@ net content mass and resolves its own tare from the candidate's flat stock.
 Selection Mode uses the selected stock's dimensions. Tare and film properties
 do not participate in Top 5 scoring or change geometric capacity.
 
+### Terminal display grouping
+
+Standalone, the public calculator, and the final Packaging Flow step group
+rotation-equivalent designs for display. Each canonical axis descriptor pairs
+the product size, grid count, and packed span in millimetres at the scene's
+six-decimal geometry precision. Matching designs have the same quantity and
+canonical flat dimensions and construction. The depth axis and the renderer's
+long and short opening axes must have matching descriptors after rotation.
+Designs with insufficient scene metadata stay visible. Older scenes with
+insertion metadata can use their recorded bundle and flat dimensions.
+
+A valid selected candidate represents its group. For other groups, a height-axis
+mouth is preferred because the viewer places it above the products. If that
+orientation is unavailable, the first eligible candidate represents the group.
+Visible rows rank by ascending unrounded flat area, then descending cubicity,
+then original order. Display ranks are computed separately from stored ranks.
+
+With twelve 90 × 60 × 25 mm products, three rotations use the same 267 × 197 mm
+bag and one represents their grid in the terminal display. Two different grids
+use the 252 × 212 mm bag. Both remain visible, each with its own representative.
+Adding any downstream step restores all candidates already held by the workflow
+and preserves the selected ID. The engine and downstream capacity trials use
+the complete candidate set.
+
 ### Product rotation permissions
 
 Bag Design uses the same original product axes as Container Selection. R1
@@ -192,7 +216,7 @@ capacity-only analysis apply the same filter before canonical arrangements and
 insertion alternatives are selected. Independent permitted arrangements may
 produce the same flat bag dimensions. Surviving IDs and aliases can be selected
 as before. When the previously selected alternative is unavailable, Design
-selects the first remaining candidate by area. These permissions apply within
+selects the first row in its context. These permissions apply within
 the Bag Design calculation. Single and Optimal use their existing sizing rules,
 and downstream steps receive the selected bag as a packed unit.
 

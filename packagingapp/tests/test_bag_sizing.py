@@ -1,5 +1,7 @@
 import base64
+import hashlib
 import json
+from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -18,6 +20,7 @@ from packagingapp.models import (
     UserSubscription,
 )
 from packagingapp.tools.bag.export import build_bag_selection_pdf
+from packagingapp.tools.bag.presentation import select_bag_design_display_candidates
 from packagingapp.tools.bag.serializers import sanitize_bag_config_for_session
 from packagingapp.tools.bag.service import analyze_bag_capacity, analyze_bag_config, format_bag_area
 from packagingapp.utils.bag_selection.engine import (
@@ -57,6 +60,12 @@ DESIGN_SHORT_INSERTION = {
     "opening_axes": ["length", "height"],
     "opening_dimensions": [60, 90],
 }
+EQUIVALENT_ROTATION_IDS = (
+    "bag-design-90e1dd5f89f589e5", "bag-design-30270563d3b4a9f7", "bag-design-138ba262b3550a49",
+)
+DISTINCT_SAME_BAG_IDS = (
+    "bag-design-000b08eec76829dc", "bag-design-87f77f08f2620cb4",
+)
 
 
 def physical_design_candidate(candidate):
@@ -293,6 +302,68 @@ class BagSizingEngineTests(SimpleTestCase):
                 self.assertEqual(len(selection["solutions"][0]["bag_options"]), len(required))
 
 
+class BagDesignPresentationTests(SimpleTestCase):
+    def test_authoritative_reference_and_display_for_each_rotation_permission(self):
+        for permissions, candidate_count, opening, visible_count, reference_id in (
+            ((True, True, True), 148, "height", 53, EQUIVALENT_ROTATION_IDS[0]),
+            ((True, False, False), 53, "height", 53, EQUIVALENT_ROTATION_IDS[0]),
+            ((False, True, False), 53, "length", 53, EQUIVALENT_ROTATION_IDS[1]),
+            ((False, False, True), 50, "length", 50, EQUIVALENT_ROTATION_IDS[2]),
+        ):
+            with self.subTest(permissions=permissions):
+                design = build_bag_design_candidates(*PRODUCT, 12, *permissions)
+                original = deepcopy(design)
+                rows = design["candidates"]
+                visible = select_bag_design_display_candidates(rows, has_downstream=False)
+                self.assertEqual((len(rows), len(visible)), (candidate_count, visible_count))
+                self.assertEqual([row["display_rank"] for row in visible], list(range(1, visible_count + 1)))
+                order = [(row["flat_bag_length_mm"] * row["flat_bag_width_mm"], -row["bundle_cubicity_score"]) for row in visible]
+                self.assertEqual(order, sorted(order))
+                self.assertEqual(visible[0]["candidate_id"], reference_id)
+                self.assertEqual(visible[0]["render_data"]["bag"]["film"]["depthAxis"], opening)
+                self.assertEqual(visible[0]["insertion"]["axis"], opening)
+                self.assertEqual([row for row in visible if (row["bag_length"], row["bag_width"]) == (267, 197)], visible[:1])
+                self.assertEqual(select_bag_design_display_candidates(rows, has_downstream=True), rows)
+                self.assertEqual(design, original)
+                self.assertTrue({row["candidate_id"] for row in visible} <= {row["candidate_id"] for row in rows})
+                if all(permissions):
+                    signature = hashlib.sha256(json.dumps(design, sort_keys=True, allow_nan=False).encode()).hexdigest()
+                    self.assertEqual(signature, "550cbc4f76daa1ef2f314f5686f10e009302ccf5074e7adf6c03681d91b157a2")
+                    self.assertEqual(tuple(row["candidate_id"] for row in rows[:3]), EQUIVALENT_ROTATION_IDS)
+
+    def test_distinct_insertions_and_uncertain_legacy_geometry_stay_visible(self):
+        rows = build_bag_design_candidates(*PRODUCT, 12)["candidates"]
+        original = next(row for row in rows if row["candidate_id"] == "bag-design-2abdff21a185c047")
+        self.assertEqual(original["packed_bundle_mm"], (180, 180, 50))
+        self.assertNotEqual(original["rows"], original["columns"])
+        alternate = deepcopy(original)
+        alternate["candidate_id"] = "alternate-width-insertion"
+        alternate["insertion"].update(axis="width", opening_axes=["length", "height"])
+        alternate["render_data"]["bag"]["film"]["depthAxis"] = "width"
+        alternate["render_data"]["bag"]["insertion"] = alternate["insertion"]
+        other_construction = deepcopy(original)
+        other_construction["candidate_id"] = "different-film-construction"
+        other_construction["film_two_wall"] = False
+        unknown = {**original, "candidate_id": "legacy-without-scene", "render_data": {}}
+        candidates = [original, alternate, other_construction, unknown]
+        self.assertEqual(
+            [row["candidate_id"] for row in select_bag_design_display_candidates(candidates, has_downstream=False)],
+            [row["candidate_id"] for row in candidates],
+        )
+
+    def test_representative_preference_and_cubicity_ties_follow_display_policy(self):
+        rows = build_bag_design_candidates(*PRODUCT, 12)["candidates"]
+        lower, higher = [next(row for row in rows if row["candidate_id"] == candidate_id) for candidate_id in (
+            DISTINCT_SAME_BAG_IDS[1], DISTINCT_SAME_BAG_IDS[0],
+        )]
+        visible = select_bag_design_display_candidates([lower, *reversed(rows[:3]), higher], has_downstream=False)
+        self.assertEqual([row["candidate_id"] for row in visible], [
+            EQUIVALENT_ROTATION_IDS[0], higher["candidate_id"], lower["candidate_id"],
+        ])
+        self.assertEqual([row["rank"] for row in visible], [1, 7, 11])
+        self.assertEqual([row["display_rank"] for row in visible], [1, 2, 3])
+
+
 class BagAreaFormattingTests(SimpleTestCase):
     def test_fixed_precision_and_invalid_areas(self):
         self.assertEqual(format_bag_area(10000, "mm"), {
@@ -328,6 +399,44 @@ class BagSizingSurfaceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context["form"].errors)
         return response
+
+    def test_display_representative_keeps_selected_row_scene_report_and_export_in_sync(self):
+        for route in ("bag_selection_mode1", "bag_selection_calculator"):
+            with self.subTest(route=route):
+                config = {"mode": "design", "desired_qty": 12, "product_weight": 50}
+                initial = self.post_bag(route, action="run_design", **config)
+                initial_display = initial.context["design_candidates_for_display"]
+                self.assertEqual(initial.context["result"]["candidate_id"], initial_display[0]["candidate_id"])
+                self.assertEqual(initial.context["threejs_scene"]["bag"]["film"]["depthAxis"], "height")
+                self.assertEqual(len(initial.context["design_candidates"]), 148)
+                same_size = [row for row in initial_display if (row["bag_length"], row["bag_width"]) == (252, 212)]
+                self.assertEqual([row["bundle_cubicity_score"] for row in same_size], [0.6, 0.333333])
+                self.assertEqual(same_size[0]["bag_tare_g"], same_size[1]["bag_tare_g"])
+                self.assertEqual(same_size[0]["candidate_id"], DISTINCT_SAME_BAG_IDS[0])
+                self.assertEqual(same_size[1]["insertion"]["axis"], "height")
+
+                candidate_id = EQUIVALENT_ROTATION_IDS[1]
+                response = self.post_bag(route, action="select_design_candidate", selected_design_candidate_id=candidate_id, **config)
+                visible = response.context["design_candidates_for_display"]
+                result = response.context["result"]
+                self.assertEqual(visible[0]["candidate_id"], candidate_id)
+                self.assertEqual((visible[0]["display_rank"], visible[0]["rank"]), (1, 2))
+                self.assertContains(response, f'tool-row-selected" onclick="bagSelectionSelectDesignCandidate(\'\', \'{candidate_id}\')"')
+                self.assertNotContains(response, f"bagSelectionSelectDesignCandidate('', '{EQUIVALENT_ROTATION_IDS[0]}')")
+                self.assertEqual(response.context["threejs_scene"], result["render_data"])
+                self.assertEqual(result["render_data"]["bag"]["film"]["depthAxis"], "length")
+                saved = self.client.session["bag_selection_design_export"]
+                self.assertEqual(saved["selected_candidate"]["candidate_id"], candidate_id)
+                self.assertEqual(saved["bag"]["dimensions"], "267 × 197 mm")
+                for key in ("candidate_id", "bag_area", "bag_tare_g", "product_orientation", "arrangement"):
+                    self.assertEqual(response.context["analysis_report"][key], result[key])
+
+                distinct = self.post_bag(
+                    route, action="select_design_candidate", selected_design_candidate_id=DISTINCT_SAME_BAG_IDS[1], **config,
+                )
+                visible = distinct.context["design_candidates_for_display"]
+                self.assertEqual([row["candidate_id"] for row in visible if (row["bag_length"], row["bag_width"]) == (252, 212)],
+                                 list(DISTINCT_SAME_BAG_IDS))
 
     def test_design_rotation_choices_restore_and_refresh_the_selected_result(self):
         design_inputs = {"mode": "design", "desired_qty": 12, "product_weight": 50}

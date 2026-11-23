@@ -8,4 +8,4 @@
 
 {% include "bag_selection/partials/_bag_selection_product_catalogue_section.html" %}
 {% include "bag_selection/partials/_bag_selection_packaging_catalogue_section.html" %}
-{% if current_mode == "design" %}{% include "bag_selection/partials/_bag_selection_design_table.html" %}{% else %}{% include "bag_selection/partials/_bag_selection_top5_section.html" %}{% endif %}
+{% if current_mode == "design" %}{% include "bag_selection/partials/_bag_selection_design_table.html" with design_candidates=design_candidates_for_display %}{% else %}{% include "bag_selection/partials/_bag_selection_top5_section.html" %}{% endif %}

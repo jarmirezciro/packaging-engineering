@@ -36,6 +36,8 @@ SOAP_BAR_DESIGN_CONFIG = {
     "product_allowance_h": 0,
 }
 
+ROTATION_CALIBRATION_CONFIG = {**SOAP_BAR_DESIGN_CONFIG, "desired_qty": 12}
+
 
 BAG_SELECTION_CASE_PRESETS = {
     "maximum-bag-capacity": {
@@ -164,6 +166,26 @@ BAG_SELECTION_CASE_PRESETS = {
     "blog-soap-bar-multipack-12": {
         "label": "Blog — Soap Bar Multipack Design (12 Units)",
         "config": {**SOAP_BAR_DESIGN_CONFIG, "desired_qty": 12},
+    },
+    "calibration-equivalent-bag-rotations": {
+        "label": "Calibration — Rotation-equivalent bundles, 267 × 197 mm",
+        "config": ROTATION_CALIBRATION_CONFIG,
+    },
+    "calibration-different-bundles-same-bag": {
+        "label": "Calibration — Different bundles, same bag, 252 × 212 mm",
+        "config": {
+            **ROTATION_CALIBRATION_CONFIG,
+            "selected_design_candidate_id": "bag-design-87f77f08f2620cb4",
+        },
+    },
+    "calibration-bag-r3-only": {
+        "label": "Calibration — R3-only orientation filtering",
+        "config": {**ROTATION_CALIBRATION_CONFIG, "r1": False, "r2": False, "r3": True},
+    },
+    "calibration-bag-terminal-and-downstream": {
+        "label": "Calibration — Terminal versus downstream display",
+        "config": ROTATION_CALIBRATION_CONFIG,
+        "workflow_description": "Add a step after the Bag to see all orientations. Remove it to restore the grouped view.",
     },
 }
 
