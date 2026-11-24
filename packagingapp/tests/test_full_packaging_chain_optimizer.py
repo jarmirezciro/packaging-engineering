@@ -8,13 +8,19 @@ from django.template.loader import render_to_string
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
+from packagingapp.tools.bag.workflow_rotation import BAG_ROTATION_MAPPING_SOURCE
+from packagingapp.tools.full_packaging import chain_optimizer
 from packagingapp.tools.full_packaging.chain_optimizer import (
+    PreparedEvaluation,
     build_design_candidate_payload,
     build_design_chain_ui,
     invalidate_design_chain_optimizations,
     optimize_design_chain,
     terminal_capacity_labels,
 )
+from packagingapp.tools.transport import service as transport_service
+from packagingapp.units import convert_length, convert_mass
+from packagingapp.views import full_packaging as flow
 from packagingapp.views.full_packaging import (
     DESIGN_CHAIN_PALLET_STALE_MESSAGE,
     SESSION_KEY,
@@ -665,6 +671,286 @@ class CapacityOnlyEvaluationTests(TestCase):
         self.assertEqual(optimized["candidate_results"]["thin"]["final_base_units"], 6)
         self.assertEqual(optimized["candidate_results"]["thick"]["final_base_units"], 2)
         self.assertEqual(optimized["sorted_candidate_ids"], ["thin", "thick"])
+
+
+class EffectiveCapacityReuseTests(TestCase):
+    @staticmethod
+    def source():
+        candidates = [
+            {**bag_candidate(candidate_id, rank, 12), "net_content_weight_g": 1200, "bag_tare_g": 3}
+            for rank, candidate_id in enumerate(("a", "b"), start=1)
+        ]
+        return source_step("bag", candidates)
+
+    @staticmethod
+    def carton():
+        step = _new_container_step()
+        step["config"].update(box_l=245, box_w=190, box_h=150, box_weight=150,
+                              box_weight_user_override="1", box_thickness_mm=4,
+                              box_thickness_user_override="1")
+        return step
+
+    @staticmethod
+    def pallet():
+        step = _new_pallet_step()
+        step["config"].update(pallet_l=500, pallet_w=410, pallet_height=100, max_stack_height=430)
+        return step
+
+    @staticmethod
+    def transport():
+        step = _new_transport_step()
+        step["config"].update(
+            container_l=515, container_w=430, container_h=440,
+            max_weight=100, tare_weight=2, packing_mode="front_to_back",
+            product_rows=[
+                dict(name="Load", length=100, width=80, height=60, weight=1.203, qty=2,
+                     r1=True, r2=False, r3=True, sequence=2, stackable=True),
+            ],
+        )
+        return step
+
+    def trial(self, steps, *, memoize=True, change=None, snapshots=None):
+        # An uncached observer sees the final payload as well as the payloads
+        # consumed by later engineering steps. It changes no solver inputs.
+        workflow = {"steps": [*steps, {"type": "observer"}] if snapshots is not None else steps}
+        counters = {}
+
+        def prepare(temporary_steps, index):
+            candidate_id = temporary_steps[0]["pending_result"]["selected_candidate_id"]
+            if snapshots is not None and index > 1:
+                snapshots[candidate_id, index - 1] = deepcopy(temporary_steps[index - 1]["pending_result"])
+            if index == len(steps):
+                return PreparedEvaluation(
+                    {"candidate_id": candidate_id},
+                    lambda: temporary_steps[index - 1]["pending_result"],
+                )
+            if change:
+                change(temporary_steps, index, candidate_id)
+            return flow._prepare_design_chain_evaluation(temporary_steps, index)
+
+        result = optimize_design_chain(
+            workflow, 0, _evaluate_design_chain_step, prepare_step=prepare,
+            memoize=memoize, diagnostics=counters,
+        )
+        json.dumps(counters, allow_nan=False)
+        return result, counters["steps"]
+
+    def test_cached_and_uncached_payloads_match_through_each_chain(self):
+        cases = (
+            (self.carton,), (self.transport,), (self.carton, self.pallet),
+            (self.carton, self.transport), (self.carton, self.pallet, self.transport),
+        )
+        for factories in cases:
+            with self.subTest(chain=[factory.__name__ for factory in factories]):
+                steps = [self.source(), *(factory() for factory in factories)]
+                original = deepcopy(steps)
+                cached_payloads, uncached_payloads = {}, {}
+                with (
+                    patch.object(flow, "analyze_container_capacity", wraps=flow.analyze_container_capacity) as carton,
+                    patch.object(flow, "analyze_transport_capacity", wraps=flow.analyze_transport_capacity) as transport,
+                ):
+                    cached, counts = self.trial(steps, snapshots=cached_payloads)
+                self.assertEqual(carton.call_count, int(self.carton in factories))
+                self.assertEqual(transport.call_count, int(self.transport in factories))
+                uncached, reference_counts = self.trial(steps, memoize=False, snapshots=uncached_payloads)
+                self.assertEqual(cached, uncached)
+                self.assertEqual(cached_payloads, uncached_payloads)
+                self.assertEqual(cached["sorted_candidate_ids"], ["a", "b"])
+                self.assertEqual(cached["candidate_results"]["a"]["status"], "ok")
+                self.assertEqual(cached["candidate_results"]["a"], cached["candidate_results"]["b"])
+                self.assertEqual(steps, original)
+                for index in range(1, len(steps)):
+                    self.assertEqual(counts[index], {
+                        "requests": 2, "solver_calls": 1, "cache_hits": 1, "cache_misses": 1,
+                        "unique_signatures": 1, "successful": 2, "unavailable": 0,
+                    })
+                    self.assertEqual(reference_counts[index]["solver_calls"], 2)
+                _, next_run_counts = self.trial(steps)
+                self.assertEqual(next_run_counts[1]["solver_calls"], 1)
+
+    def test_container_rotation_inheritance_and_override(self):
+        def change_defaults(steps, index, candidate_id):
+            payload = steps[index - 1]["pending_result"]
+            payload["load_unit_rotation_defaults"] = {
+                "source": BAG_ROTATION_MAPPING_SOURCE,
+                "r1": candidate_id == "b", "r2": False, "r3": True,
+            }
+
+        steps = [self.source(), self.carton()]
+        _, counts = self.trial(steps, change=change_defaults)
+        self.assertEqual(counts[1]["solver_calls"], 2)
+
+        steps[1]["bag_rotation_inheritance"] = {"override": [False, False, True]}
+        _, counts = self.trial(steps, change=change_defaults)
+        self.assertEqual(counts[1]["solver_calls"], 1)
+
+    def test_each_trial_gets_its_own_source_payload(self):
+        steps = [self.source(), self.carton()]
+        original = deepcopy(steps)
+
+        def edit_render_data(steps, index, candidate_id):
+            self.assertEqual(steps[index - 1]["design_candidates"], [])
+            steps[index - 1]["pending_result"]["render_data"]["candidate"] = "local edit"
+
+        result, counts = self.trial(steps, change=edit_render_data)
+        self.assertEqual(counts[1]["cache_hits"], 1)
+        self.assertEqual(result["sorted_candidate_ids"], ["a", "b"])
+        self.assertEqual(steps, original)
+
+    def test_quantity_and_mass_status_are_payload_dependencies(self):
+        for factory in (self.carton, self.transport):
+            for change_fields in ({"total_base_units": 16}, {"weight_status": "net_only"}):
+                with self.subTest(tool=factory.__name__, change=change_fields):
+                    def change(steps, index, candidate_id):
+                        if candidate_id == "b":
+                            steps[index - 1]["pending_result"].update(change_fields)
+
+                    steps = [self.source(), factory()]
+                    cached_payloads, uncached_payloads = {}, {}
+                    result, counts = self.trial(steps, change=change, snapshots=cached_payloads)
+                    uncached, _ = self.trial(steps, change=change, snapshots=uncached_payloads, memoize=False)
+                    self.assertEqual(result, uncached)
+                    self.assertEqual(cached_payloads, uncached_payloads)
+                    self.assertEqual(counts[1]["solver_calls"], 2)
+                    first, second = cached_payloads["a", 1], cached_payloads["b", 1]
+                    if "total_base_units" in change_fields:
+                        self.assertEqual(first["total_base_units"] * 16, second["total_base_units"] * 12)
+                    else:
+                        self.assertIn("weight_kg", first)
+                        self.assertNotIn("weight_kg", second)
+                        self.assertEqual(first["total_base_units"], second["total_base_units"])
+
+    def test_effective_transport_controls_and_max_quantity_solver(self):
+        for key, value in (("qty", 3), ("max_qty", True), ("stackable", False),
+                           ("sequence", 3), ("r1", False), ("packing_mode", "space_evenly")):
+            with self.subTest(setting=key):
+                def change(steps, index, candidate_id):
+                    if candidate_id == "b":
+                        config = steps[index]["config"]
+                        target = config if key == "packing_mode" else config["product_rows"][0]
+                        target[key] = value
+
+                _, counts = self.trial([self.source(), self.transport()], change=change)
+                self.assertEqual(counts[1]["solver_calls"], 2)
+
+        locked = self.transport()
+        locked["config"]["packing_mode"] = "space_evenly"
+
+        def change_sequence(steps, index, candidate_id):
+            if candidate_id == "b":
+                steps[index]["config"]["product_rows"][0]["sequence"] = 3
+
+        _, counts = self.trial([self.source(), locked], change=change_sequence)
+        self.assertEqual(counts[1]["cache_hits"], 1)
+
+        transport = self.transport()
+        transport["config"].update(container_l=215, container_w=190, container_h=150)
+        transport["config"]["product_rows"][0]["max_qty"] = True
+        with patch.object(
+            transport_service, "_resolve_auto_max_quantities",
+            wraps=transport_service._resolve_auto_max_quantities,
+        ) as auto:
+            _, counts = self.trial([self.source(), transport])
+        self.assertEqual(counts[1]["cache_hits"], 1)
+        auto.assert_called_once()
+
+    def test_all_transport_rows_are_part_of_equivalence(self):
+        transport = self.transport()
+        rows = transport["config"]["product_rows"]
+        rows.append({**rows[0], "name": "Second", "sequence": 3, "qty": 1})
+        for key, value in (("length", 250), ("stackable", False), ("sequence", 4)):
+            with self.subTest(second_row_field=key):
+                def prepare(steps, index):
+                    current = steps[index]
+                    if steps[0]["pending_result"]["selected_candidate_id"] == "b":
+                        current["config"]["product_rows"][1][key] = value
+                    # Mixed cargo is entered on a first Transport step. Use
+                    # that real adapter at the memo boundary for both trials.
+                    return flow._prepare_design_chain_evaluation([current], 0)
+
+                diagnostics = {}
+                optimize_design_chain(
+                    {"steps": [self.source(), transport]}, 0, _evaluate_design_chain_step,
+                    prepare_step=prepare, diagnostics=diagnostics,
+                )
+                self.assertEqual(diagnostics["steps"][1]["solver_calls"], 2)
+
+    def test_physically_equivalent_metric_and_imperial_inputs(self):
+        for factory in (self.carton, self.transport):
+            with self.subTest(tool=factory.__name__):
+                steps = [self.source(), factory()]
+
+                def change(steps, index, candidate_id):
+                    if candidate_id != "b":
+                        return
+                    cfg = steps[index]["config"]
+                    if steps[index]["type"] == "transport":
+                        dimension_keys = ("container_l", "container_w", "container_h")
+                        mass_keys, canonical_mass = ("tare_weight", "max_weight"), "kg"
+                        cfg.update(transport_dimension_unit="in", transport_mass_unit="lb")
+                    else:
+                        dimension_keys = ("box_l", "box_w", "box_h", "box_thickness_mm")
+                        mass_keys, canonical_mass = ("box_weight",), "g"
+                        cfg.update(product_dimension_unit="in", product_mass_unit="lb",
+                                   container_dimension_unit="in", container_mass_unit="lb")
+                    for key in dimension_keys:
+                        cfg[key] = convert_length(cfg[key], "mm", "in")
+                    for key in mass_keys:
+                        cfg[key] = convert_mass(cfg[key], canonical_mass, "lb")
+
+                snapshots = {}
+                result, _ = self.trial(steps, change=change, snapshots=snapshots)
+                self.assertEqual(result["candidate_results"]["a"], result["candidate_results"]["b"])
+                self.assertEqual(result["candidate_results"]["a"]["status"], "ok")
+                for key in ("length", "width", "height", "weight_g"):
+                    self.assertAlmostEqual(snapshots["a", 1][key], snapshots["b", 1][key], places=6)
+
+    def test_pallet_and_transport_preserve_the_inherited_carton_specification(self):
+        for factory in (self.pallet, self.transport):
+            with self.subTest(tool=factory.__name__):
+                def change(steps, index, candidate_id):
+                    if index == 2:
+                        steps[index - 1]["pending_result"]["effective_specification"][
+                            "source_packaging_item_id"
+                        ] = f"carton-{candidate_id}"
+
+                snapshots = {}
+                _, counts = self.trial(
+                    [self.source(), self.carton(), factory()], change=change, snapshots=snapshots,
+                )
+                self.assertEqual(counts[1]["cache_hits"], 1)
+                self.assertEqual(counts[2]["cache_hits"], 0)
+                for candidate_id in ("a", "b"):
+                    payload = snapshots[candidate_id, 2]
+                    self.assertEqual(payload["source_container_item_id"], f"carton-{candidate_id}")
+                    self.assertEqual(payload["upstream_packaging_specification"]["source_packaging_item_id"],
+                                     f"carton-{candidate_id}")
+                self.assertEqual(snapshots["a", 1], snapshots["b", 1])
+
+    def test_unavailable_and_exception_outputs_do_not_enter_the_memo(self):
+        for first in ({"total_base_units": 0}, None, RuntimeError("trial failed")):
+            with self.subTest(first=first):
+                def prepare(steps, index):
+                    def evaluate():
+                        if steps[0]["pending_result"]["selected_candidate_id"] == "b":
+                            return {"total_base_units": 120}
+                        if isinstance(first, Exception):
+                            raise first
+                        return first
+
+                    return PreparedEvaluation({"inputs": True}, evaluate)
+
+                diagnostics = {}
+                with patch.object(chain_optimizer.logger, "exception") as log:
+                    result = optimize_design_chain(
+                        {"steps": [self.source(), self.carton()]}, 0, _evaluate_design_chain_step,
+                        prepare_step=prepare, diagnostics=diagnostics,
+                    )
+                self.assertEqual(log.call_count, int(isinstance(first, Exception)))
+                self.assertEqual(result["candidate_results"]["a"]["failed_step_type"], "container")
+                self.assertEqual(result["candidate_results"]["b"]["final_base_units"], 120)
+                self.assertEqual(diagnostics["steps"][1]["solver_calls"], 2)
+                self.assertEqual(diagnostics["steps"][1]["unavailable"], 1)
 
 
 class ChainOptimizerViewTests(TestCase):

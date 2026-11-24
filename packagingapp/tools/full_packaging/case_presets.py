@@ -36,6 +36,12 @@ _PALLET_CALIBRATION_DECK = {
     "max_width_stickout": 0, "max_length_stickout": 0,
 }
 
+_EQUIVALENT_LOAD_BAG = {
+    **_PALLET_CALIBRATION_BAG,
+    "bag_weight": 3,
+    "bag_weight_override": "1",
+}
+
 
 _DEMO_PALLET = {
     "length": 1200,
@@ -497,6 +503,49 @@ _CASE_PRESETS = {
         "description": "The packed dimensions support a geometric pallet layout. Gross weight and load checks are unavailable until the product mass is supplied.",
         "bag": {**_PALLET_CALIBRATION_BAG, "product_weight": ""},
         "pallet": {**_PALLET_CALIBRATION_DECK, "max_pallet_load": 1},
+    },
+    "calibration-equivalent-bags-to-container": {
+        "slug": "calibration-equivalent-bags-to-container",
+        "title": "Calibration — Equivalent Bag candidates to Container",
+        "description": "A measured 3 g bag tare lets designs with the same filled geometry, weight and rotations share a carton calculation. Optimize final capacity to compare all designs.",
+        "bag": _EQUIVALENT_LOAD_BAG,
+        "carton": {**_ROTATION_CALIBRATION_CARTON, "box_thickness_mm": 4},
+    },
+    "calibration-equivalent-loads-different-rotations": {
+        "slug": "calibration-equivalent-loads-different-rotations",
+        "title": "Calibration — Same packed geometry, different rotation permissions",
+        "description": "Keep the selected Bag and its filled dimensions fixed. Change the permitted vertical axes in the carton step, then repeat final-capacity optimization.",
+        "bag": {**_EQUIVALENT_LOAD_BAG, **_ROTATION_CALIBRATION_BAG},
+        "carton": _ROTATION_CALIBRATION_CARTON,
+    },
+    "calibration-equivalent-bags-to-transport": {
+        "slug": "calibration-equivalent-bags-to-transport",
+        "title": "Calibration — Equivalent Bag candidates to Transport",
+        "description": "Designs with the same filled package and effective cargo settings can share a loading calculation. Optimize final capacity and compare the ranked alternatives.",
+        "bag": _EQUIVALENT_LOAD_BAG,
+        "transport": _ROTATION_CALIBRATION_TRANSPORT,
+    },
+    "calibration-mixed-cargo-equivalence": {
+        "slug": "calibration-mixed-cargo-equivalence",
+        "title": "Calibration — Mixed cargo prevents unsafe reuse",
+        "description": "Keep the first load row fixed and change the second row’s dimensions, sequence or stackability. Recalculate to compare the loading problem.",
+        "transport": {
+            **_ROTATION_CALIBRATION_TRANSPORT,
+            "product_rows": [
+                {"name": "Bag load", "length": 180, "width": 120, "height": 75,
+                 "qty": 4, "weight": 1.2, "sequence": 1, "stackable": True, "r3": True},
+                {"name": "Rigid carton", "length": 250, "width": 150, "height": 100,
+                 "qty": 2, "weight": 2, "sequence": 2, "stackable": False, "r3": True},
+            ],
+        },
+    },
+    "calibration-equivalent-bags-to-container-to-pallet": {
+        "slug": "calibration-equivalent-bags-to-container-to-pallet",
+        "title": "Calibration — Reused carton evaluations through to Pallet",
+        "description": "Optimize final capacity across identical filled loads and separate Bag designs. The regression test compares cached and uncached carton and pallet payloads.",
+        "bag": _EQUIVALENT_LOAD_BAG,
+        "carton": {**_ROTATION_CALIBRATION_CARTON, "box_thickness_mm": 4},
+        "pallet": {**_PALLET_CALIBRATION_DECK, "length": 1100, "width": 650, "max_stack_height": 650},
     },
 }
 

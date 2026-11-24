@@ -1,8 +1,11 @@
 """Packaging Flow orchestration for Design Mode final-capacity ranking."""
 
+from collections.abc import Callable
 from copy import deepcopy
 import json
 import logging
+from time import perf_counter
+from typing import NamedTuple
 
 from ...utils.bag_selection.engine import rank_bag_design_candidates
 from ..bag.presentation import select_bag_design_display_candidates
@@ -33,6 +36,13 @@ STEP_NAMES = {
 }
 
 SOURCE_TYPES = {"container", "bag"}
+
+
+class PreparedEvaluation(NamedTuple):
+    """Validated inputs and their deferred evaluator. Missing inputs mark invalid preparation."""
+
+    inputs: dict | None
+    evaluate: Callable[[], dict | None]
 
 
 def _positive_int(value, default=None):
@@ -120,11 +130,20 @@ def _signature_value(value):
     if isinstance(value, dict):
         return {
             str(key): _signature_value(item)
-            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+            for key, item in value.items()
         }
     if isinstance(value, (list, tuple)):
         return [_signature_value(item) for item in value]
     return str(value)
+
+
+def upstream_packaging_specification(payload):
+    payload = payload or {}
+    return payload.get("effective_specification") or payload.get("upstream_packaging_specification")
+
+
+def _serialize_signature(signature):
+    return json.dumps(_signature_value(signature), sort_keys=True, separators=(",", ":"))
 
 
 def _evaluation_signature(step, step_index, inherited):
@@ -136,8 +155,9 @@ def _evaluation_signature(step, step_index, inherited):
             "transport_stackable", "transport_r1", "transport_r2", "transport_r3",
         )
     }
-    if step.get("type") == "pallet":
-        physical_input["weight_status"] = (inherited or {}).get("weight_status")
+    physical_input["weight_status"] = (inherited or {}).get("weight_status")
+    if step.get("type") in {"pallet", "transport"}:
+        physical_input["packaging_specification"] = upstream_packaging_specification(inherited)
     if step.get("type") in {"container", "transport"}:
         state = step.get("bag_rotation_inheritance") or {}
         if is_bag_design(inherited) or state:
@@ -153,7 +173,16 @@ def _evaluation_signature(step, step_index, inherited):
         "selected_result_key": step.get("selected_result_key") or "",
         "inherited": physical_input,
     }
-    return json.dumps(_signature_value(signature), sort_keys=True, separators=(",", ":"))
+    return _serialize_signature(signature)
+
+
+def _effective_evaluation_signature(step_type, step_index, inputs, inherited):
+    payload = inherited or {}
+    return _serialize_signature((
+        step_index, step_type, inputs,
+        payload.get("total_base_units"), payload.get("weight_status"),
+        upstream_packaging_specification(payload) if step_type == "transport" else None,
+    ))
 
 
 def _unavailable_result(step_index, step_type, message=None):
@@ -187,13 +216,18 @@ def _rank_design_trials(candidate_ids, candidate_results, rank_by_id):
     return successful, unavailable
 
 
-def optimize_design_chain(workflow, source_step_index, evaluate_step):
+def optimize_design_chain(
+    workflow, source_step_index, evaluate_step, *, prepare_step=None, memoize=True, diagnostics=None,
+):
     """Evaluate every source candidate through the actual ordered downstream chain.
 
     ``evaluate_step`` receives a temporary step list and an index. It may mutate
     that temporary list and must return the effective JSON-safe output, or None.
-    The live workflow is never passed to the callback.
+    A tool-specific ``prepare_step`` may provide effective inputs and defer its
+    solver until a miss. Prepared trials receive only the current source
+    payload. Diagnostics are written only to the caller's dict.
     """
+    started = perf_counter() if diagnostics is not None else None
     steps = (workflow or {}).get("steps") or []
     if not isinstance(source_step_index, int) or not 0 <= source_step_index < len(steps):
         raise ValueError("Choose a valid Packaging Flow step to optimize.")
@@ -213,7 +247,18 @@ def optimize_design_chain(workflow, source_step_index, evaluate_step):
     terminal_label, column_label = terminal_capacity_labels(terminal_type)
     upstream = _effective_output(steps[source_step_index - 1]) if source_step_index else None
     original_rotations = (_effective_output(source) or {}).get("original_product_rotations")
+    trial_steps = steps
+    if prepare_step is not None:
+        # The authoritative list drives the loop. Downstream capacity adapters
+        # consume the selected payload, so avoid copying every alternative for
+        # each candidate, including their presentation data.
+        trial_steps = list(steps)
+        trial_steps[source_step_index] = {
+            **source, "design_candidates": [], "pending_result": None, "selected": None,
+        }
     memo = {}
+    counters = {}
+    signatures = {}
     candidate_results = {}
     original_ids = []
 
@@ -222,7 +267,7 @@ def optimize_design_chain(workflow, source_step_index, evaluate_step):
         if not candidate_id:
             continue
         original_ids.append(candidate_id)
-        temporary_steps = deepcopy(steps)
+        temporary_steps = deepcopy(trial_steps)
         try:
             payload = build_design_candidate_payload(
                 source_type, candidate, upstream, original_rotations=original_rotations,
@@ -234,40 +279,66 @@ def optimize_design_chain(workflow, source_step_index, evaluate_step):
             continue
 
         temporary_source = temporary_steps[source_step_index]
-        temporary_source["pending_result"] = payload
+        temporary_source["pending_result"] = deepcopy(payload)
         temporary_source["selected"] = deepcopy(payload)
 
         failure = None
         for step_index in range(source_step_index + 1, len(temporary_steps)):
             downstream = temporary_steps[step_index]
+            step_type = downstream.get("type")
             inherited = _effective_output(temporary_steps[step_index - 1])
-            signature = _evaluation_signature(downstream, step_index, inherited)
-            if signature in memo:
-                output = deepcopy(memo[signature])
-            else:
-                downstream["pending_result"] = None
-                downstream["selected"] = None
-                try:
-                    output = evaluate_step(temporary_steps, step_index)
-                except Exception:
-                    logger.exception(
-                        "Final-capacity evaluation failed at workflow step %s (%s)",
-                        step_index,
-                        downstream.get("type"),
+            downstream["pending_result"] = None
+            downstream["selected"] = None
+            if diagnostics is not None:
+                if step_index not in counters:
+                    counters[step_index] = dict.fromkeys((
+                        "requests", "solver_calls", "cache_hits", "cache_misses",
+                        "unique_signatures", "successful", "unavailable",
+                    ), 0)
+                counts = counters[step_index]
+                counts["requests"] += 1
+                counts["cache_misses"] += 1
+            try:
+                prepared = prepare_step(temporary_steps, step_index) if prepare_step else None
+                signature = None
+                if memoize or diagnostics is not None:
+                    if prepared is None:
+                        signature = _evaluation_signature(downstream, step_index, inherited)
+                    elif prepared.inputs is not None:
+                        signature = _effective_evaluation_signature(
+                            step_type, step_index, prepared.inputs, inherited,
+                        )
+                if diagnostics is not None and signature is not None:
+                    signatures.setdefault(step_index, set()).add(signature)
+                if memoize and signature is not None and signature in memo:
+                    if diagnostics is not None:
+                        counts["cache_hits"] += 1
+                        counts["cache_misses"] -= 1
+                    output = memo[signature]
+                else:
+                    if diagnostics is not None and (prepared is None or prepared.inputs is not None):
+                        counts["solver_calls"] += 1
+                    output = (
+                        prepared.evaluate() if prepared is not None
+                        else evaluate_step(temporary_steps, step_index)
                     )
-                    output = None
-                if output:
-                    output = deepcopy(output)
+                total_base_units = _positive_int(output.get("total_base_units")) if isinstance(output, dict) else None
+                if memoize and signature is not None and total_base_units is not None and signature not in memo:
                     memo[signature] = deepcopy(output)
-
-            if output:
-                downstream["pending_result"] = deepcopy(output)
-                downstream["selected"] = deepcopy(output)
-
-            total_base_units = _positive_int((output or {}).get("total_base_units"))
-            if output is None or total_base_units is None:
-                failure = _unavailable_result(step_index, downstream.get("type"))
+            except Exception:
+                logger.exception(
+                    "Final-capacity evaluation failed at workflow step %s (%s)", step_index, step_type,
+                )
+                total_base_units = None
+            if total_base_units is None:
+                if diagnostics is not None:
+                    counts["unavailable"] += 1
+                failure = _unavailable_result(step_index, step_type)
                 break
+            if diagnostics is not None:
+                counts["successful"] += 1
+            downstream["pending_result"] = deepcopy(output)
+            downstream["selected"] = deepcopy(output)
 
         if failure:
             candidate_results[candidate_id] = failure
@@ -288,6 +359,11 @@ def optimize_design_chain(workflow, source_step_index, evaluate_step):
         failed = next(iter(candidate_results.values()), {})
         failed_name = STEP_NAMES.get(failed.get("failed_step_type"), "downstream")
         message = f"Complete or correct the {failed_name} step before optimizing final capacity."
+
+    if diagnostics is not None:
+        for step_index, counts in counters.items():
+            counts["unique_signatures"] = len(signatures.get(step_index, ()))
+        diagnostics.update(steps=counters, seconds=perf_counter() - started)
 
     return {
         "active": True,

@@ -2,8 +2,9 @@ import json
 import tempfile
 from copy import deepcopy
 from math import prod
+from unittest.mock import patch
 
-from django.test import SimpleTestCase, TestCase
+from django.test import Client, SimpleTestCase, TestCase
 from django.urls import reverse
 
 from packagingapp.models import PackagingCatalogue, PackagingMaterial
@@ -16,6 +17,7 @@ from packagingapp.tools.transport.service import _prepare_transport_analysis
 from packagingapp.units import convert_length, convert_mass
 from packagingapp.utils.container_tool.engine import pack_container
 from packagingapp.utils.bag_selection.engine import BAG_DESIGN_ROTATION_ERROR
+from packagingapp.views import full_packaging as flow
 from packagingapp.views.full_packaging import (
     _decorate_transport_scene_with_pallet_visualization,
     _evaluate_design_chain_step,
@@ -527,6 +529,11 @@ class FullPackagingCaseTests(TestCase):
             "calibration-bag-to-pallet-orientation": (("bag", "pallet"), (12, 4)),
             "calibration-bag-to-container-to-pallet": (("bag", "container", "pallet"), (12, 16, 8)),
             "calibration-incomplete-bag-weight-pallet": (("bag", "pallet"), (12, 4)),
+            "calibration-equivalent-bags-to-container": (("bag", "container"), (12, 15)),
+            "calibration-equivalent-loads-different-rotations": (("bag", "container"), (12, 16)),
+            "calibration-equivalent-bags-to-transport": (("bag", "transport"), (12, 1)),
+            "calibration-mixed-cargo-equivalence": (("transport",), (6,)),
+            "calibration-equivalent-bags-to-container-to-pallet": (("bag", "container", "pallet"), (12, 15, 8)),
         }
         self.assertEqual([slug for slug, _ in get_case_titles()], list(expected))
         compendium = self.client.get(reverse("regressions"))
@@ -547,6 +554,29 @@ class FullPackagingCaseTests(TestCase):
                 self.assertTrue(summary["is_complete"])
                 self.assertEqual(summary["final"]["value"], f"{prod(quantities):,}")
                 json.dumps(steps, allow_nan=False)
+
+    def test_equivalent_bag_case_reuses_carton_work_without_changing_candidate_selection(self):
+        slug = "calibration-equivalent-bags-to-container"
+        self.open_case(slug)
+        before = self.case_steps(slug)[0]
+        other_session = Client()
+        other_session.get(self.case_url(slug), {"reset": 1}, follow=True)
+
+        with patch.object(flow, "analyze_container_capacity", wraps=flow.analyze_container_capacity) as solve:
+            self.post_case(slug, "optimize_design_final_capacity", 0)
+        self.assertEqual(solve.call_count, 50)
+
+        after = self.case_steps(slug)[0]
+        self.assertEqual(after["design_candidates"], before["design_candidates"])
+        self.assertEqual(after["selected_design_candidate_id"], before["selected_design_candidate_id"])
+        self.assertEqual(after["pending_result"], before["pending_result"])
+        ids = {row["candidate_id"] for row in before["design_candidates"]}
+        results = after["design_chain_optimization"]["candidate_results"]
+        self.assertEqual(len(ids), 148)
+        self.assertEqual(set(results), ids)
+        self.assertEqual(results["bag-design-90e1dd5f89f589e5"], results["bag-design-249267a731a0f206"])
+        other_bag = other_session.session[f"full_packaging_mode_session_case_{slug}"]["steps"][0]
+        self.assertFalse(other_bag.get("design_chain_optimization"))
 
     def assert_inherited_output(self, upstream, step):
         config = step["config"]

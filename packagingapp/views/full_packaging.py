@@ -85,6 +85,7 @@ from ..tools.container.service import (
     analyze_container_form,
     apply_catalogue_choices as apply_container_catalogue_choices,
     build_container_form,
+    container_capacity_signature_inputs,
     get_materials_for_catalogue as get_container_materials_for_catalogue,
     get_packaging_catalogues as get_container_packaging_catalogues,
     get_product_catalogues as get_container_product_catalogues,
@@ -94,6 +95,7 @@ from ..tools.container.service import (
     apply_manual_rsc_design_defaults as apply_container_manual_rsc_design_defaults,
     get_selected_material as get_container_selected_material,
     get_selected_product as get_container_selected_product,
+    prepare_container_capacity_inputs,
 )
 from ..tools.container.state import CONTAINER_ADVANCED_STATE_DEFAULTS, default_container_config
 from ..user_preferences import apply_user_unit_defaults
@@ -116,6 +118,7 @@ from ..tools.transport.serializers import sanitize_transport_rows_for_session
 from ..tools.transport.service import (
     analyze_transport_capacity,
     analyze_transport_config,
+    prepare_transport_capacity_inputs,
     read_product_rows_raw,
     transport_rows_for_display,
 )
@@ -138,10 +141,12 @@ from ..tools.full_packaging.presentation import (
 )
 from ..tools.full_packaging.case_presets import get_case_preset
 from ..tools.full_packaging.chain_optimizer import (
+    PreparedEvaluation,
     build_design_candidate_payload,
     build_design_chain_ui,
     invalidate_design_chain_optimizations,
     optimize_design_chain,
+    upstream_packaging_specification,
 )
 from ..tools.full_packaging.rotation_inheritance import (
     apply_bag_rotation_submission, is_bag_design, refresh_bag_rotation_inheritance,
@@ -444,7 +449,7 @@ def _read_prefixed_pallet_post(step, idx, post):
 
 
 def _carry_effective_container_specification(payload, upstream):
-    snapshot = (upstream or {}).get("effective_specification") or (upstream or {}).get("upstream_packaging_specification")
+    snapshot = upstream_packaging_specification(upstream)
     if payload is not None and snapshot:
         payload["upstream_packaging_specification"] = deepcopy(snapshot)
         payload["source_container_item_id"] = snapshot.get("source_packaging_item_id")
@@ -838,10 +843,11 @@ def _build_case_workflow(case_slug):
             "tare_weight": transport_preset["tare_weight"],
             "packing_mode": transport_preset["packing_mode"],
         })
+        manual_rows = transport_preset.get("product_rows") if transport_idx == 0 else None
         rows = sanitize_transport_rows_for_session(
-            transport_cfg.get("product_rows") or default_product_rows()
+            manual_rows or transport_cfg.get("product_rows") or default_product_rows()
         )
-        if rows:
+        if rows and not manual_rows:
             rows[0]["max_qty"] = bool(transport_preset.get("calculate_max_quantity"))
             rows[0]["qty"] = 1
             rows[0]["sequence"] = 1
@@ -3006,7 +3012,7 @@ def _process_pallet_step(step, steps, idx, post):
     _run_pallet_analysis_shared(step, steps, idx)
 
 
-def _evaluate_container_capacity_step(step, temporary_steps, idx):
+def _prepare_container_capacity_step(step, temporary_steps, idx):
     cfg = default_container_config()
     cfg.update(step.get("config") or {})
     cfg = sanitize_container_config_for_session(cfg)
@@ -3039,29 +3045,40 @@ def _evaluate_container_capacity_step(step, temporary_steps, idx):
         ),
     )
     if not form.is_valid():
-        return None
+        return PreparedEvaluation(None, lambda: None)
 
-    analysis = analyze_container_capacity(
-        form=form,
-        config=cfg,
-        selected_product=selected_product,
-        selected_material=selected_material,
-    )
-    if not analysis.get("ok") or not analysis.get("result"):
-        return None
+    prepared = prepare_container_capacity_inputs(form, cfg, selected_product, selected_material)
+    if prepared["messages"]:
+        return PreparedEvaluation(None, lambda: None)
 
-    upstream = _selected_input_for_step(temporary_steps, idx)
-    if analysis.get("mode") == "design":
-        return build_design_candidate_payload(
-            "container", analysis["result"], upstream
+    def evaluate():
+        analysis = analyze_container_capacity(
+            form=form,
+            config=cfg,
+            selected_product=selected_product,
+            selected_material=selected_material,
+            prepared=prepared,
         )
-    return _build_container_non_design_workflow_payload(
-        cfg,
-        analysis["result"].get("max_quantity"),
-        selected_product,
-        selected_material,
-        upstream,
-        analysis_report=analysis.get("result"),
+        if not analysis.get("ok") or not analysis.get("result"):
+            return None
+
+        upstream = _selected_input_for_step(temporary_steps, idx)
+        if analysis.get("mode") == "design":
+            output = build_design_candidate_payload("container", analysis["result"], upstream)
+        else:
+            output = _build_container_non_design_workflow_payload(
+                cfg,
+                analysis["result"].get("max_quantity"),
+                selected_product,
+                selected_material,
+                upstream,
+                analysis_report=analysis["result"],
+            )
+        return _capacity_payload(output)
+
+    return PreparedEvaluation(
+        container_capacity_signature_inputs(form, cfg, selected_product, selected_material, prepared),
+        evaluate,
     )
 
 
@@ -3115,7 +3132,7 @@ def _evaluate_pallet_capacity_step(step, temporary_steps, idx):
     )
 
 
-def _evaluate_transport_capacity_step(step, temporary_steps, idx):
+def _prepare_transport_capacity_step(step, temporary_steps, idx):
     cfg = step.get("config") or {}
     selected_material = PackagingMaterial.objects.filter(
         id=cfg.get("container_id") or None
@@ -3131,42 +3148,74 @@ def _evaluate_transport_capacity_step(step, temporary_steps, idx):
             cfg.get("product_rows"), inherited_rows
         )
 
-    analysis = analyze_transport_capacity(
-        cfg,
-        raw_rows,
-        selected_material=selected_material,
-    )
-    if not analysis.get("ok") or not analysis.get("result"):
+    prepared = prepare_transport_capacity_inputs(cfg, raw_rows, selected_material)
+    if not prepared["ok"]:
+        return PreparedEvaluation(None, lambda: None)
+
+    def evaluate():
+        analysis = analyze_transport_capacity(cfg, raw_rows, selected_material, prepared=prepared)
+        if not analysis.get("ok") or not analysis.get("result"):
+            return None
+        return _capacity_payload(_build_transport_workflow_payload(
+            analysis["container"],
+            analysis["result"],
+            analysis.get("summary") or {},
+            selected_material,
+            _selected_input_for_step(temporary_steps, idx),
+        ))
+
+    # Canonical shadow values and unit sources are for row editing. The packing
+    # engine and capacity payload use the normalized values of every cargo row.
+    cargo_fields = ("name", "length", "width", "height", "weight", "qty", "max_qty",
+                    "stackable", "sequence", "r1", "r2", "r3")
+    return PreparedEvaluation({
+        "container": prepared["container"],
+        "source": cfg.get("container_source") or "manual",
+        "selected_material": (
+            (selected_material.pk, selected_material.part_number) if selected_material else None
+        ),
+        "cargo": [{key: row[key] for key in cargo_fields} for row in prepared["products"]],
+    }, evaluate)
+
+
+def _prepare_design_chain_evaluation(temporary_steps, idx):
+    step = temporary_steps[idx]
+    preparer = {
+        "container": _prepare_container_capacity_step,
+        "transport": _prepare_transport_capacity_step,
+    }.get(step.get("type"))
+    if preparer is None:
         return None
-    return _build_transport_workflow_payload(
-        analysis["container"],
-        analysis["result"],
-        analysis.get("summary") or {},
-        selected_material,
-        _selected_input_for_step(temporary_steps, idx),
-    )
+    _apply_chained_defaults(step, temporary_steps, idx)
+    return preparer(step, temporary_steps, idx)
+
+
+def _capacity_payload(output):
+    if not output:
+        return None
+    output = deepcopy(output)
+    output.pop("render_data", None)
+    output.pop("pallet_visualization", None)
+    return output
 
 
 def _evaluate_design_chain_step(temporary_steps, idx):
     """Evaluate a copied downstream step without presentation generation."""
+    prepared = _prepare_design_chain_evaluation(temporary_steps, idx)
+    if prepared is not None:
+        return prepared.evaluate()
+
     step = temporary_steps[idx]
     _apply_chained_defaults(step, temporary_steps, idx)
     evaluators = {
-        "container": _evaluate_container_capacity_step,
         "bag": _evaluate_bag_capacity_step,
         "pallet": _evaluate_pallet_capacity_step,
-        "transport": _evaluate_transport_capacity_step,
     }
     evaluator = evaluators.get(step.get("type"))
     if evaluator is None:
         return None
 
-    output = deepcopy(evaluator(step, temporary_steps, idx))
-    if not output:
-        return None
-    output.pop("render_data", None)
-    output.pop("pallet_visualization", None)
-    return output
+    return _capacity_payload(evaluator(step, temporary_steps, idx))
 
 
 def _prepare_design_chain_view_model(step, steps, idx):
@@ -3271,6 +3320,7 @@ def full_packaging_mode(request, case_slug=None):
                         workflow,
                         idx,
                         _evaluate_design_chain_step,
+                        prepare_step=_prepare_design_chain_evaluation,
                     )
                 except ValueError as exc:
                     step["design_chain_optimization_message"] = str(exc)

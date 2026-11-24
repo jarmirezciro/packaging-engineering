@@ -1775,13 +1775,13 @@ def analyze_container_form(
     }
 
 
-def analyze_container_capacity(
+def prepare_container_capacity_inputs(
     form,
     config,
     selected_product=None,
     selected_material=None,
 ):
-    """Calculate the workflow capacity payload inputs without presentation work."""
+    """Resolve and validate the capacity inputs shared by the evaluator and Flow."""
     mode = form.cleaned_data.get("mode") or "single"
     product_source = form.cleaned_data.get("product_source") or "manual"
     container_source = "catalogue" if mode == "optimal" else form.cleaned_data.get("container_source") or "manual"
@@ -1818,8 +1818,100 @@ def analyze_container_capacity(
     )
     if int(desired_quantity or 0) <= 0:
         messages.append("Enter the desired quantity as a positive whole number.")
-    if messages:
-        return {"ok": False, "messages": messages, "mode": mode, "result": None}
+    container = None
+    if mode != "design" and not messages:
+        container = resolve_container_from_form(
+            form=form,
+            container_source=container_source,
+            selected_material=selected_material,
+            normalized_container=normalized_inputs["container"],
+        )
+        if container_source == "catalogue" and selected_material is None:
+            messages.append("Please select a packaging item from the catalogue table.")
+        elif container is None:
+            messages.append("Please enter all manual container dimensions (L/W/H).")
+        if mode == "optimal" and not config.get("catalogue_id"):
+            messages.append("Please select a packaging catalogue.")
+        if mode == "optimal" and selected_material is None:
+            messages.append("Please select one of the Top 5 containers.")
+    return {
+        "messages": messages,
+        "mode": mode,
+        "product_source": product_source,
+        "container_source": container_source,
+        "selected_board_construction": selected_board_construction,
+        "product": product,
+        "product_allowances": normalized_inputs["product_allowances"],
+        "rotations": (r1, r2, r3),
+        "desired_quantity": desired_quantity,
+        "container": container,
+    }
+
+
+def container_capacity_signature_inputs(form, config, selected_product, selected_material, prepared):
+    """Describe canonical geometry and remaining inputs used to build a capacity payload."""
+    canonical_fields = {
+        "product_l", "product_w", "product_h", *PRODUCT_ALLOWANCE_KEYS,
+        "product_weight", "r1", "r2", "r3", "desired_qty",
+        "box_l", "box_w", "box_h", "box_thickness_mm", "box_weight", "box_max_payload",
+    }
+    # The bound form and payload still use source, scope, selection and
+    # material controls. Keep their supplied values even if inactive.
+    options = {
+        key: value for key, value in config.items() if key not in canonical_fields
+    }
+    container_source = "manual" if prepared["mode"] == "design" else prepared["container_source"]
+    material = selected_material if container_source == "catalogue" else None
+    properties = resolve_container_material_properties(
+        form, container_source, material, prepared["selected_board_construction"],
+    )
+    catalogue_carton = None
+    if material is not None:
+        catalogue_carton = {
+            key: getattr(material, key, None)
+            for key in (
+                "pk", "part_number", "packaging_type", "packaging_materials", "carton_style",
+                "part_weight", "external_length", "external_width", "external_height",
+            )
+        }
+
+    return {
+        "product_mm": prepared["product"],
+        "allowance_mm": prepared["product_allowances"],
+        "product_weight_g": _resolve_product_weight(form, prepared["product_source"], selected_product),
+        "product_catalogue_weight_kg": getattr(selected_product, "weight", None),
+        "rotations": tuple(bool(flag) for flag in prepared["rotations"]),
+        "quantity": int(prepared["desired_quantity"]),
+        "container_mm": prepared["container"],
+        "thickness_mm": _resolve_manual_quantity(form, "box_thickness_mm", "container_dimension_unit", convert_length, "mm"),
+        "tare_g": _resolve_manual_quantity(form, "box_weight", "container_mass_unit", convert_mass, "g"),
+        "payload_capacity": _resolve_payload_capacity(form, container_source, material),
+        "catalogue_carton": catalogue_carton,
+        "material_properties": {key: value for key, value in properties.items() if not key.endswith("_display")},
+        "options": options,
+    }
+
+
+def analyze_container_capacity(
+    form,
+    config,
+    selected_product=None,
+    selected_material=None,
+    *,
+    prepared=None,
+):
+    """Calculate the workflow capacity payload inputs without presentation work."""
+    if prepared is None:
+        prepared = prepare_container_capacity_inputs(form, config, selected_product, selected_material)
+    mode = prepared["mode"]
+    if prepared["messages"]:
+        return {"ok": False, "messages": prepared["messages"], "mode": mode, "result": None}
+    product = prepared["product"]
+    r1, r2, r3 = prepared["rotations"]
+    desired_quantity = prepared["desired_quantity"]
+    product_source = prepared["product_source"]
+    container_source = prepared["container_source"]
+    selected_board_construction = prepared["selected_board_construction"]
 
     if mode == "design":
         design = build_container_design_candidates(
@@ -1860,23 +1952,7 @@ def analyze_container_capacity(
             "selected_design_candidate_id": selected["candidate_id"],
         }
 
-    container = resolve_container_from_form(
-        form=form,
-        container_source=container_source,
-        selected_material=selected_material,
-        normalized_container=normalized_inputs["container"],
-    )
-    if container_source == "catalogue" and selected_material is None:
-        messages.append("Please select a packaging item from the catalogue table.")
-    elif container is None:
-        messages.append("Please enter all manual container dimensions (L/W/H).")
-    if mode == "optimal" and not config.get("catalogue_id"):
-        messages.append("Please select a packaging catalogue.")
-    if mode == "optimal" and selected_material is None:
-        messages.append("Please select one of the Top 5 containers.")
-    if messages:
-        return {"ok": False, "messages": messages, "mode": mode, "result": None}
-
+    container = prepared["container"]
     max_quantity = compute_max_quantity_only(product, container, r1, r2, r3)
     dimension_contract = resolve_container_dimension_contract(
         form,

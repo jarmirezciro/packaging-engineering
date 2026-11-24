@@ -774,8 +774,8 @@ def run_transport_analysis(container, products, media_root=None):
     }
 
 
-def _prepare_transport_analysis(cfg, raw_rows, selected_material=None):
-    """Validate and normalize authoritative transport calculation inputs."""
+def prepare_transport_capacity_inputs(cfg, raw_rows, selected_material=None):
+    """Resolve the complete packing problem before any Max qty solver calls."""
     cfg = dict(cfg or {})
     cfg["packing_mode"] = normalize_transport_packing_mode(
         cfg.get("packing_mode"),
@@ -798,15 +798,22 @@ def _prepare_transport_analysis(cfg, raw_rows, selected_material=None):
         + list(row_errors)
         + list(container_errors)
     )
-    if messages:
-        return {
-            "ok": False,
-            "messages": messages,
-            "safe_rows": safe_rows,
-            "products": products,
-            "container": container,
-        }
+    return {
+        "ok": not messages,
+        "messages": messages,
+        "safe_rows": safe_rows,
+        "products": products,
+        "container": container,
+    }
 
+
+def _prepare_transport_analysis(cfg, raw_rows, selected_material=None, *, prepared=None):
+    if prepared is None:
+        prepared = prepare_transport_capacity_inputs(cfg, raw_rows, selected_material)
+    if not prepared["ok"]:
+        return prepared
+    container = prepared["container"]
+    products = prepared["products"]
     products, auto_messages = _resolve_auto_max_quantities(container, products)
     safe_rows = sanitize_transport_rows_for_session(_rows_from_products(products))
     if any(int(product.get("qty", 0) or 0) <= 0 for product in products):
@@ -827,9 +834,9 @@ def _prepare_transport_analysis(cfg, raw_rows, selected_material=None):
     }
 
 
-def analyze_transport_capacity(cfg, raw_rows, selected_material=None):
+def analyze_transport_capacity(cfg, raw_rows, selected_material=None, *, prepared=None):
     """Run transport packing without generating PNGs or Three.js presentation."""
-    prepared = _prepare_transport_analysis(cfg, raw_rows, selected_material)
+    prepared = _prepare_transport_analysis(cfg, raw_rows, selected_material, prepared=prepared)
     if not prepared["ok"]:
         return {**prepared, "result": None, "summary": None}
 

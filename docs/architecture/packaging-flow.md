@@ -318,6 +318,25 @@ authoritative numeric engine and shared workflow-payload builders, but skip PNG,
 Three.js, analysis-report, and other presentation work. Engine candidate
 generation and interactive rendering are unchanged by capacity optimization.
 
+Container and Transport trials apply chained defaults and rotation overrides
+before checking the optimization run's in-memory memo. Container keys use the
+prepared ordered dimensions, allowances, mass, rotations, quantity, and
+container and material settings. Transport keys use the normalized container
+and all effective cargo rows, including requested quantity, Max qty, stackability,
+and the loading sequence used by the selected packing mode. A Transport cache
+hit skips Max qty probing as well as packing.
+
+Keys are scoped to the step index and type and include the inherited base-unit
+multiplier and weight status. Transport and Palletization also distinguish
+inherited carton specifications because their outputs carry that provenance.
+Palletization keeps its existing footprint, height and weight comparison.
+The authoritative source list stays outside the temporary workflow. Each trial
+copies its selected source payload and any reused downstream payloads. The memo
+holds successful step payloads. Unavailable evaluations are retried when
+another candidate reaches the same problem. Only the ordinary candidate
+ranking is saved. Tests can disable reuse and collect per-step counters and
+elapsed time without changing the session or public UI.
+
 Bag Design's underlying rank orders alternatives by flat-bag area. Final
 capacity takes priority when optimization is active, with the area rank
 breaking capacity ties. Saved Bag trials use the current area rank when
