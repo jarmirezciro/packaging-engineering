@@ -7,7 +7,11 @@ shared tool engines remain the single source of calculation logic.
 from copy import deepcopy
 
 from ...units import convert_length, convert_mass
-from ..bag.case_presets import SEO_BAG_SELECTION_EXAMPLE_CONFIG, get_bag_selection_case_preset
+from ..bag.case_presets import (
+    ROTATION_CALIBRATION_CONFIG,
+    SEO_BAG_SELECTION_EXAMPLE_CONFIG,
+    get_bag_selection_case_preset,
+)
 from ..container.case_presets import get_container_selection_case_preset
 
 
@@ -20,6 +24,16 @@ _ROTATION_CALIBRATION_CARTON = {"box_l": 500, "box_w": 300, "box_h": 240, "box_w
 _ROTATION_CALIBRATION_TRANSPORT = {
     "length": 495, "width": 315, "height": 310, "max_weight": 20, "tare_weight": 0,
     "packing_mode": "front_to_back", "calculate_max_quantity": False,
+}
+
+
+_PALLET_CALIBRATION_BAG = {
+    **ROTATION_CALIBRATION_CONFIG,
+    "selected_design_candidate_id": "bag-design-000b08eec76829dc",
+}
+_PALLET_CALIBRATION_DECK = {
+    "length": 200, "width": 200, "height": 100, "max_stack_height": 410,
+    "max_width_stickout": 0, "max_length_stickout": 0,
 }
 
 
@@ -446,6 +460,43 @@ _CASE_PRESETS = {
         ),
         "display_units": _CAPE_BOTTLE_DISPLAY_UNITS,
         "pallet": _CAPE_BOTTLE_PALLET,
+    },
+    "calibration-bag-to-pallet-footprints": {
+        "slug": "calibration-bag-to-pallet-footprints",
+        "title": "Calibration — Bag to Pallet, different bundle footprints",
+        "description": "Compare the two 252 × 212 mm bags with 120 × 90 mm and 180 × 60 mm bundle footprints. The 200 × 200 mm pallet fits four or six bags.",
+        "bag": _PALLET_CALIBRATION_BAG,
+        "pallet": _PALLET_CALIBRATION_DECK,
+    },
+    "calibration-same-bag-size-different-bundles": {
+        "slug": "calibration-same-bag-size-different-bundles",
+        "title": "Calibration — Same bag size, different bundle geometries",
+        "description": "On a 250 × 190 mm pallet, both featured 252 × 212 mm designs fit eight bags while retaining their separate bundle geometries.",
+        "bag": {**_PALLET_CALIBRATION_BAG, "selected_design_candidate_id": "bag-design-87f77f08f2620cb4"},
+        "pallet": {**_PALLET_CALIBRATION_DECK, "length": 250, "width": 190},
+    },
+    "calibration-bag-to-pallet-orientation": {
+        "slug": "calibration-bag-to-pallet-orientation",
+        "title": "Calibration — Bag to Pallet, orientation-dependent capacity",
+        "description": "Compare the 267 × 197 mm bag alternatives with 180 mm and 75 mm bundle heights. Palletization keeps the selected height vertical.",
+        "bag": {**_PALLET_CALIBRATION_BAG, "selected_design_candidate_id": "bag-design-90e1dd5f89f589e5"},
+        "pallet": {**_PALLET_CALIBRATION_DECK, "length": 250, "width": 190},
+    },
+    "calibration-bag-to-container-to-pallet": {
+        "slug": "calibration-bag-to-container-to-pallet",
+        "title": "Calibration — Bag to Container to Pallet",
+        "description": "Container Selection starts with editable Bag rotation defaults. Palletization uses the selected carton's external dimensions and gross mass.",
+        "bag": {**_PALLET_CALIBRATION_BAG, "r1": True, "r2": False, "r3": True,
+                "selected_design_candidate_id": "bag-design-90e1dd5f89f589e5"},
+        "carton": {**_ROTATION_CALIBRATION_CARTON, "box_thickness_mm": 4},
+        "pallet": {**_PALLET_CALIBRATION_DECK, "length": 1100, "width": 650, "max_stack_height": 650},
+    },
+    "calibration-incomplete-bag-weight-pallet": {
+        "slug": "calibration-incomplete-bag-weight-pallet",
+        "title": "Calibration — Incomplete Bag weight with geometric pallet result",
+        "description": "The packed dimensions support a geometric pallet layout. Gross weight and load checks are unavailable until the product mass is supplied.",
+        "bag": {**_PALLET_CALIBRATION_BAG, "product_weight": ""},
+        "pallet": {**_PALLET_CALIBRATION_DECK, "max_pallet_load": 1},
     },
 }
 

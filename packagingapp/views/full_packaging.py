@@ -2,6 +2,7 @@ from packagingapp.tools.container.presenter import build_container_advanced_cont
 from packagingapp.tools.container.carton_tare import attach_carton_weight_metadata
 from copy import deepcopy
 import logging
+from math import isfinite
 
 from packagingapp.access import visible_packaging_catalogues, visible_product_catalogues, get_visible_packaging_catalogue_or_404, get_visible_product_catalogue_or_404
 from django.conf import settings
@@ -539,7 +540,10 @@ def _mark_incomplete_pallet_weight(serialized):
         if not isinstance(row, dict):
             continue
         row["weight_status"] = "unknown"
-        for key in ("actual_pallet_load_g", "max_bottom_load_g", "max_bottom_load_kg", "weight_limit_g", "max_pallet_load_g", "load_utilization_pct"):
+        for key in (
+            "actual_pallet_load_g", "max_bottom_load_g", "max_bottom_load_kg", "avg_bottom_load_g", "avg_bottom_load_kg",
+            "weight_limit_g", "weight_limit_kg", "max_pallet_load_g", "load_utilization_pct",
+        ):
             row[key] = None
         for key in ("actual_pallet_load_display", "max_bottom_load_display", "avg_bottom_load_display"):
             row[key] = "Unavailable (incomplete carton mass)"
@@ -552,6 +556,13 @@ def _run_pallet_analysis_shared(step, steps, idx):
     step["selected_result"] = None
     step["pending_result"] = None
     step["results_table"] = []
+
+    upstream = _selected_input_for_step(steps, idx)
+    if is_bag_design(upstream) and not all((step.get("config") or {}).get(key) for key in ("box_l", "box_w", "box_h")):
+        step["selected"] = None
+        step["summary"] = ""
+        step["messages"] = ["Inherited Bag Design dimensions are incomplete. Recalculate Bag Design before running Palletization."]
+        return
 
     if not step.get("analysis_ran"):
         step["messages"] = []
@@ -568,7 +579,6 @@ def _run_pallet_analysis_shared(step, steps, idx):
     )
     _update_pallet_config_on_step(step, cfg)
 
-    upstream = _selected_input_for_step(steps, idx)
     analysis = analyze_palletization_config(
         config=_pallet_config_for_upstream_weight(cfg, upstream),
         selected_result_key=step.get("selected_result_key") or "",
@@ -1140,6 +1150,10 @@ def _as_bool(post, key, default=False):
 
 
 def _invalidate_downstream(steps, start_idx):
+    source = steps[start_idx]
+    bag_design_chain = is_bag_design(_effective_step_output(source)) or (
+        source.get("type") == "container" and is_bag_design(_selected_input_for_step(steps, start_idx))
+    )
     for i in range(start_idx + 1, len(steps)):
         steps[i].pop("design_chain_optimization", None)
         steps[i].pop("design_chain_optimization_message", None)
@@ -1156,7 +1170,10 @@ def _invalidate_downstream(steps, start_idx):
         steps[i]["top5"] = []
         steps[i]["pending_result"] = None
         steps[i]["results_table"] = []
-        steps[i]["selected_result_key"] = ""
+        # A pallet pattern is a selection preference. Its geometry is rebuilt
+        # for the new input, with the shared service's fallback if it no longer fits.
+        if not (bag_design_chain and steps[i].get("type") == "pallet"):
+            steps[i]["selected_result_key"] = ""
         steps[i]["show_box_catalogue"] = False
         steps[i]["show_pallet_catalogue"] = False
         steps[i]["analysis_ran"] = False
@@ -1293,6 +1310,10 @@ def _apply_payload_to_config(cfg, step_type, payload):
         cfg["box_source"] = "manual"
         cfg["box_catalogue_id"] = ""
         cfg["selected_box_id"] = ""
+        from_bag_design = is_bag_design(payload)
+        if from_bag_design:
+            length, width, height = (_to_float(value) for value in (length, width, height))
+            has_dimensions = all(value is not None and isfinite(value) and value > 0 for value in (length, width, height))
         if has_dimensions:
             display_unit = cfg.get("box_dimension_unit", "mm")
             cfg["box_l"] = _canonical_input(
@@ -1304,7 +1325,14 @@ def _apply_payload_to_config(cfg, step_type, payload):
             cfg["box_h"] = _canonical_input(
                 height, "mm", convert_length, display_unit
             )
+        elif from_bag_design:
+            cfg.update(box_l="", box_w="", box_h="")
         cfg["box_weight"] = ""
+        if from_bag_design:
+            if payload.get("weight_status") in {"net_only", "unknown", "incomplete"}:
+                return cfg
+            if _to_float(weight_g) is None and (weight_kg := _to_float(payload.get("weight_kg"))) is not None:
+                weight_g = kg_to_g(weight_kg)
         if weight_g not in (None, "", "None"):
             display_unit = cfg.get("mass_unit", "g")
             cfg["box_weight"] = _canonical_input(
@@ -3551,6 +3579,12 @@ def full_packaging_mode(request, case_slug=None):
             step["mode"] = "workflow"
             step["prefix"] = str(idx)
 
+            upstream = _selected_input_for_step(steps, idx)
+            step["uses_legacy_bag_dimensions"] = (
+                is_bag_design(upstream)
+                and upstream.get("outer_dimension_source") in (None, "", "legacy_bag_dimensions")
+                and all(cfg.get(key) for key in ("box_l", "box_w", "box_h"))
+            )
             _compute_pallet_view_model(step, steps, idx)
         else:
             _prepare_container_step_view_model(step, idx)

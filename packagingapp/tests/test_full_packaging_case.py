@@ -1,5 +1,6 @@
 import json
 import tempfile
+from copy import deepcopy
 from math import prod
 
 from django.test import SimpleTestCase, TestCase
@@ -8,6 +9,7 @@ from django.urls import reverse
 from packagingapp.models import PackagingCatalogue, PackagingMaterial
 from packagingapp.tests.transport_physical_validator import assert_transport_result_physical
 from packagingapp.tools.full_packaging.case_presets import get_case_preset, get_case_titles
+from packagingapp.tools.full_packaging.chain_optimizer import optimize_design_chain
 from packagingapp.tools.full_packaging.export import build_workflow_report_payload
 from packagingapp.tools.bag.service import analyze_bag_capacity, analyze_bag_config
 from packagingapp.tools.transport.service import _prepare_transport_analysis
@@ -16,8 +18,14 @@ from packagingapp.utils.container_tool.engine import pack_container
 from packagingapp.utils.bag_selection.engine import BAG_DESIGN_ROTATION_ERROR
 from packagingapp.views.full_packaging import (
     _decorate_transport_scene_with_pallet_visualization,
+    _evaluate_design_chain_step,
 )
 from packagingapp.utils.palletization.geometry import palletized_load_footprint
+
+
+BAG_PALLET_CASE = "calibration-bag-terminal-and-downstream"
+BAG_PALLET_A = "bag-design-000b08eec76829dc"
+BAG_PALLET_B = "bag-design-87f77f08f2620cb4"
 
 
 class PalletizedLoadFootprintTests(SimpleTestCase):
@@ -86,6 +94,240 @@ class FullPackagingCaseTests(TestCase):
             for key in ("selected", "pending_result", "result", "threejs_scene", "analysis_report", "selected_result"):
                 self.assertIsNone(step[key], (step["type"], key))
             self.assertFalse(step["summary"])
+
+    def select_bag_for_pallet(self, candidate_id, **fields):
+        self.post_case(BAG_PALLET_CASE, "run_step", 0, action_0="select_design_candidate",
+                       selected_design_candidate_id_0=candidate_id, **fields)
+        self.post_case(BAG_PALLET_CASE, "use_step_result", 0)
+
+    def run_bag_pallet(self, **fields):
+        self.post_case(BAG_PALLET_CASE, "run_step", 1, step_action_1="run_analysis", **fields)
+
+    def start_bag_pallet(self, length=200, width=200, candidate_id=BAG_PALLET_A):
+        self.open_case(BAG_PALLET_CASE)
+        self.post_case(BAG_PALLET_CASE, "add_step", 0, step_type="pallet")
+        self.select_bag_for_pallet(candidate_id)
+        self.run_bag_pallet(pallet_l_1=length, pallet_w_1=width, pallet_height_1=100, max_stack_height_1=410)
+
+    def test_same_flat_bag_uses_selected_outer_axes_mass_and_pattern_in_both_pallet_paths(self):
+        self.start_bag_pallet()
+        catalogue = PackagingCatalogue.objects.create(name="Calibration pallets", is_public=True)
+        material = PackagingMaterial.objects.create(
+            catalogue=catalogue, packaging_type="PALLET", part_number="Bag calibration pallet",
+            part_length=200, part_width=200, part_height=100, part_weight=1.5,
+        )
+        self.assertEqual(self.case_steps(BAG_PALLET_CASE)[1]["pending_result"]["units_per_parent"], 4)
+        self.run_bag_pallet(
+            pallet_source_1="catalogue", pallet_catalogue_id_1=catalogue.pk, pallet_id_1=material.pk,
+            box_dimension_unit_1="in", pallet_dimension_unit_1="in", mass_unit_1="lb",
+            max_stack_height_1=convert_length(410, "mm", "in"),
+            max_pallet_load_1=convert_mass(10000, "g", "lb"),
+            max_weight_on_bottom_box_1=convert_mass(2000, "g", "lb"),
+        )
+        controls = None
+        for candidate_id, external, count, insertion in (
+            (BAG_PALLET_A, (120.06096, 90.06096, 150.06096), 4, "height"),
+            (BAG_PALLET_B, (180.06096, 60.06096, 150.06096), 6, "length"),
+        ):
+            with self.subTest(candidate=candidate_id):
+                if candidate_id == BAG_PALLET_B:
+                    self.select_bag_for_pallet(candidate_id)
+                    self.assert_cleared(self.case_steps(BAG_PALLET_CASE)[1:])
+                    self.run_bag_pallet()
+                steps = self.case_steps(BAG_PALLET_CASE)
+                bag, pallet = steps
+                filled_bag = bag["selected"]
+                self.assertEqual(filled_bag["selected_candidate_id"], candidate_id)
+                self.assertEqual(filled_bag["insertion"]["axis"], insertion)
+                self.assertEqual(bag["threejs_scene"]["bag"]["film"]["depthAxis"], insertion)
+                self.assertEqual((filled_bag["flat_bag_length_mm"], filled_bag["flat_bag_width_mm"]), (252, 212))
+                self.assertEqual(tuple(filled_bag[axis] for axis in ("length", "width", "height")), external)
+                self.assertEqual(filled_bag["net_content_weight_g"], 1200)
+                self.assertAlmostEqual(filled_bag["bag_tare_g"], 2.9961888768)
+                self.assertAlmostEqual(filled_bag["weight_g"], 1200 + filled_bag["bag_tare_g"])
+                self.assert_inherited_output(filled_bag, pallet)
+                self.assertNotIn("bag_rotation_inheritance", pallet)
+                cfg = pallet["config"]
+                independent = {key: value for key, value in cfg.items() if key not in {"box_l", "box_w", "box_h", "box_weight"}}
+                if controls is None:
+                    controls = independent
+                self.assertEqual(independent, controls)
+                self.assertEqual(cfg["pallet_id"], str(material.pk))
+                row = pallet["selected_result"]
+                self.assertEqual(row["pattern"], "Block")
+                self.assertEqual(row["total_boxes"], count)
+                self.assertAlmostEqual(row["actual_pallet_load_g"], count * filled_bag["weight_g"])
+                self.assertAlmostEqual(pallet["pending_result"]["weight_g"], count * filled_bag["weight_g"] + 1500)
+                self.assertEqual(pallet["pending_result"]["total_base_units"], count * 12)
+                self.assertEqual(pallet["pending_result"]["weight_status"], "gross_estimated")
+                self.assertEqual(_evaluate_design_chain_step(deepcopy(steps), 1), pallet["pending_result"])
+                for placement in pallet["threejs_scene"]["placements"]:
+                    self.assertAlmostEqual(placement["dz"], external[2])
+                    for actual, expected in zip(sorted((placement["dx"], placement["dy"])), sorted(external[:2])):
+                        self.assertAlmostEqual(actual, expected)
+                report = build_workflow_report_payload({"steps": steps})["steps"][1]
+                self.assertEqual(dict(report["metrics"])["Total cartons"], str(count))
+                self.assertIn("Actual pallet load", dict(report["metrics"]))
+                json.dumps(steps, allow_nan=False)
+
+    def test_bag_pallet_optimizer_keeps_all_candidates_for_different_and_equal_capacities(self):
+        self.start_bag_pallet()
+        for length, width, expected in ((200, 200, (48, 72)), (250, 190, (96, 96))):
+            with self.subTest(pallet=(length, width)):
+                self.run_bag_pallet(pallet_l_1=length, pallet_w_1=width)
+                before = self.case_steps(BAG_PALLET_CASE)
+                self.post_case(BAG_PALLET_CASE, "optimize_design_final_capacity", 0)
+                bag, pallet = self.case_steps(BAG_PALLET_CASE)
+                self.assertEqual(pallet, before[1])
+                self.assertEqual(bag["design_candidates"], before[0]["design_candidates"])
+                self.assertEqual(bag["selected"], before[0]["selected"])
+                candidates = bag["design_candidates"]
+                optimization = bag["design_chain_optimization"]
+                trials = optimization["candidate_results"]
+                self.assertEqual(len(candidates), 148)
+                self.assertEqual(set(trials), {candidate["candidate_id"] for candidate in candidates})
+                self.assertEqual(tuple(trials[candidate]["final_base_units"] for candidate in (BAG_PALLET_A, BAG_PALLET_B)), expected)
+                order = optimization["sorted_candidate_ids"]
+                first, second = (BAG_PALLET_B, BAG_PALLET_A) if expected[0] != expected[1] else (BAG_PALLET_A, BAG_PALLET_B)
+                self.assertLess(order.index(first), order.index(second))
+                successful = [candidate_id for candidate_id in order if trials[candidate_id]["status"] == "ok"]
+                area_ranks = {candidate["candidate_id"]: candidate["rank"] for candidate in candidates}
+                scores = [(-trials[candidate_id]["final_base_units"], area_ranks[candidate_id]) for candidate_id in successful]
+                self.assertEqual(scores, sorted(scores))
+
+    def test_bag_switch_clears_old_pallet_geometry_and_revalidates_selected_pattern(self):
+        self.start_bag_pallet(400, 240, BAG_PALLET_B)
+        self.post_case(BAG_PALLET_CASE, "run_step", 1, step_action_1="select_result", selected_result_key_1="Block__column")
+        self.post_case(BAG_PALLET_CASE, "optimize_design_final_capacity", 0)
+        trials = self.case_steps(BAG_PALLET_CASE)[0]["design_chain_optimization"]["candidate_results"]
+        self.assertEqual(trials[BAG_PALLET_A]["final_base_units"], 144)
+        self.select_bag_for_pallet(BAG_PALLET_A)
+        self.assert_cleared(self.case_steps(BAG_PALLET_CASE)[1:])
+        self.run_bag_pallet()
+        pallet = self.case_steps(BAG_PALLET_CASE)[1]
+        self.assertEqual(pallet["selected_result_key"], "Block__column")
+        self.assertEqual(pallet["pending_result"]["total_base_units"], 144)
+
+        self.post_case(BAG_PALLET_CASE, "run_step", 1, step_action_1="select_result", selected_result_key_1="Pinwheel__column")
+        self.assertEqual(self.case_steps(BAG_PALLET_CASE)[1]["selected_result_key"], "Pinwheel__column")
+        self.select_bag_for_pallet(BAG_PALLET_B)
+        self.assert_cleared(self.case_steps(BAG_PALLET_CASE)[1:])
+        self.run_bag_pallet()
+        pallet = self.case_steps(BAG_PALLET_CASE)[1]
+        self.assertEqual(pallet["selected_result_key"], "Block__column")
+        self.assertEqual(pallet["pending_result"]["total_base_units"], 144)
+
+    def test_legacy_bag_missing_an_axis_cannot_reuse_saved_pallet_footprint(self):
+        self.start_bag_pallet(500, 500)
+        self.post_case(BAG_PALLET_CASE, "use_step_result", 1)
+        session_key = f"full_packaging_mode_session_case_{BAG_PALLET_CASE}"
+        session = self.client.session
+        steps = session[session_key]["steps"]
+        legacy = {
+            **steps[0]["selected"], "length": 252, "width": 212, "height": 150,
+            "outer_dimension_source": "legacy_bag_dimensions",
+        }
+        weight_g = legacy.pop("weight_g")
+        steps[0].update(selected=legacy, pending_result=legacy)
+        session.save()
+        self.run_bag_pallet()
+        self.assertAlmostEqual(self.case_steps(BAG_PALLET_CASE)[1]["config"]["box_weight"], weight_g)
+
+        session = self.client.session
+        steps = session[session_key]["steps"]
+        legacy = {**legacy, "height": None}
+        steps[0].update(selected=legacy, pending_result=legacy)
+        session.save()
+        self.assertIsNone(_evaluate_design_chain_step(deepcopy(steps), 1))
+        response = self.client.get(self.case_url(BAG_PALLET_CASE))
+        pallet = response.context["steps"][1]
+        self.assertIsNone(pallet["pending_result"])
+        self.assertIsNone(pallet["selected"])
+        self.assertIsNone(pallet["threejs_scene"])
+        self.assertContains(response, "Inherited Bag Design dimensions are incomplete")
+
+    def test_incomplete_weight_uses_geometric_pallet_capacity_with_explicit_legacy_fallback(self):
+        self.start_bag_pallet(500, 500)
+        for fields, status in (({"film_preset_0": "legacy", "product_weight_0": "100"}, "net_only"),
+                               ({"film_preset_0": "ldpe_1_2", "product_weight_0": ""}, "unknown")):
+            with self.subTest(status=status):
+                self.select_bag_for_pallet(BAG_PALLET_A, **fields)
+                self.run_bag_pallet(max_pallet_load_1=1, max_weight_on_bottom_box_1=1)
+                steps = self.case_steps(BAG_PALLET_CASE)
+                bag, pallet = steps
+                self.assertEqual(bag["selected"]["weight_status"], status)
+                cfg = pallet["config"]
+                self.assertEqual(tuple(cfg[f"box_{key}"] for key in "lwh"),
+                                 tuple(bag["selected"][key] for key in ("length", "width", "height")))
+                self.assertEqual(cfg["box_weight"], "")
+                self.assertGreater(pallet["pending_result"]["units_per_parent"], 0)
+                self.assertEqual(pallet["pending_result"]["weight_status"], "unknown")
+                self.assertNotIn("weight_g", pallet["pending_result"])
+                self.assertIsNone(pallet["selected_result"]["actual_pallet_load_g"])
+                self.assertIsNone(pallet["selected_result"]["avg_bottom_load_g"])
+                self.assertEqual(_evaluate_design_chain_step(deepcopy(steps), 1), pallet["pending_result"])
+                metrics = dict(build_workflow_report_payload({"steps": steps})["steps"][1]["metrics"])
+                self.assertNotIn("Load utilization", metrics)
+                self.assertEqual(metrics["Bottom-carton load check"], "Unavailable")
+                if status == "net_only":
+                    self.assertEqual((pallet["config"]["box_l"], pallet["config"]["box_w"], pallet["config"]["box_h"]), (252, 212, 150))
+                    self.assertContains(self.client.get(self.case_url(BAG_PALLET_CASE)), "using the legacy Bag dimensions")
+
+    def test_saved_bag_pallet_trials_distinguish_incomplete_and_complete_mass(self):
+        self.start_bag_pallet()
+        steps = self.case_steps(BAG_PALLET_CASE)
+        bag, pallet = steps
+        base = next(row for row in bag["design_candidates"] if row["candidate_id"] == BAG_PALLET_A)
+        known, net_only = "saved-known-weight", "saved-net-only-weight"
+        bag["design_candidates"] = [
+            {**base, "candidate_id": known, "bag_tare_g": 0},
+            {**base, "candidate_id": net_only, "bag_tare_g": None},
+        ]
+        pallet["config"]["max_pallet_load"] = 2500
+        trials = optimize_design_chain({"steps": steps}, 0, _evaluate_design_chain_step)["candidate_results"]
+        self.assertEqual(trials[known]["final_base_units"], 24)
+        self.assertEqual(trials[net_only]["final_base_units"], 48)
+
+    def test_bag_orientation_calibration_keeps_selected_height_and_all_rotations(self):
+        slug = "calibration-bag-to-pallet-orientation"
+        page = self.open_case(slug)
+        bag, pallet = page.context["steps"]
+        orientations = [row for row in bag["design_candidates_for_display"] if (row["bag_length"], row["bag_width"]) == (267, 197)]
+        self.assertEqual(len(orientations), 3)
+        self.assertAlmostEqual(pallet["threejs_scene"]["case"]["height"], 180.06096)
+        self.assertEqual(pallet["pending_result"]["units_per_parent"], 4)
+        candidate = next(row for row in orientations if row["bundle_height"] == 75)
+        self.post_case(slug, "run_step", 0, action_0="select_design_candidate", selected_design_candidate_id_0=candidate["candidate_id"])
+        self.post_case(slug, "use_step_result", 0)
+        self.post_case(slug, "run_step", 1, step_action_1="run_analysis")
+        bag, pallet = self.case_steps(slug)
+        self.assertEqual(bag["selected"]["selected_candidate_id"], candidate["candidate_id"])
+        self.assertAlmostEqual(pallet["config"]["box_h"], 75.06096)
+        self.assertTrue(all(abs(item["dz"] - 75.06096) < 1e-8 for item in pallet["threejs_scene"]["placements"]))
+        self.assertEqual(pallet["pending_result"]["units_per_parent"], 8)
+
+    def test_bag_container_pallet_calibration_keeps_container_output_and_rotation_override(self):
+        slug = "calibration-bag-to-container-to-pallet"
+        page = self.open_case(slug)
+        bag, carton, pallet = page.context["steps"]
+        self.assertEqual(len(bag["design_candidates_for_display"]), len(bag["design_candidates"]))
+        self.assertEqual(carton["bag_rotation_inheritance"]["defaults"], [False, True, True])
+        self.assert_inherited_output(carton["selected"], pallet)
+        self.assertNotEqual(pallet["config"]["box_l"], bag["selected"]["length"])
+        self.post_case(slug, "run_step", 1, action_1="run_single", bag_rotations_displayed="011", r3_1="on")
+        self.post_case(slug, "run_step", 0, action_0="select_design_candidate", selected_design_candidate_id_0="bag-design-138ba262b3550a49")
+        self.post_case(slug, "use_step_result", 0)
+        self.assert_cleared(self.case_steps(slug)[1:])
+        self.post_case(slug, "run_step", 1, action_1="run_single")
+        self.post_case(slug, "use_step_result", 1)
+        self.post_case(slug, "run_step", 2, step_action_2="run_analysis")
+        steps = self.case_steps(slug)
+        bag, carton, pallet = steps
+        self.assertEqual(carton["bag_rotation_inheritance"]["defaults"], [True, False, True])
+        self.assertEqual(carton["bag_rotation_inheritance"]["override"], [False, False, True])
+        self.assert_inherited_output(carton["selected"], pallet)
+        self.assertNotIn("bag_rotation_inheritance", pallet)
+        self.assertEqual(_evaluate_design_chain_step(deepcopy(steps), 2), pallet["pending_result"])
 
     def test_bag_design_display_tracks_downstream_steps_and_keeps_the_existing_selection(self):
         slug = "calibration-bag-terminal-and-downstream"
@@ -280,6 +522,11 @@ class FullPackagingCaseTests(TestCase):
             "capepack-bottle-24": (("container", "pallet"), (24, 42)),
             "capepack-bottle-15": (("container", "pallet"), (15, 72)),
             "capepack-bottle-20": (("container", "pallet"), (20, 48)),
+            "calibration-bag-to-pallet-footprints": (("bag", "pallet"), (12, 4)),
+            "calibration-same-bag-size-different-bundles": (("bag", "pallet"), (12, 8)),
+            "calibration-bag-to-pallet-orientation": (("bag", "pallet"), (12, 4)),
+            "calibration-bag-to-container-to-pallet": (("bag", "container", "pallet"), (12, 16, 8)),
+            "calibration-incomplete-bag-weight-pallet": (("bag", "pallet"), (12, 4)),
         }
         self.assertEqual([slug for slug, _ in get_case_titles()], list(expected))
         compendium = self.client.get(reverse("regressions"))

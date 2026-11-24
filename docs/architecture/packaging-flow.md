@@ -131,6 +131,29 @@ labelled legacy dimensions fallback. PF-05 and PF-06 explicitly keep their
 historical, unspecified film so their documented downstream comparisons
 remain reproducible.
 
+### Bag Design to Palletization
+
+A direct Palletization step takes the selected filled bag's ordered outer
+length, width, and height in canonical millimetres and converts them into the
+pallet input units. Palletization keeps the selected bag height vertical and
+uses its existing in-plane footprint options. For Bag → Container → Pallet,
+the selected carton's external dimensions and gross weight supply the pallet
+input. Bag rotation defaults are editable in Container Selection.
+
+Complete legacy Bag dimensions remain usable with a note identifying their
+source. An incomplete Bag dimension clears the inherited footprint and blocks
+the pallet calculation. A missing gross bag weight leaves geometric layout
+available with the load and compression results unavailable. The gross weight
+of a complete pallet load includes each bag's tare once and adds the selected
+pallet's catalogue tare when available.
+
+Accepting a different Bag candidate clears the old downstream result and scene.
+Palletization retains the pattern key as a preference and resolves it against
+the fresh geometry, using the shared fallback if the pattern is absent. Normal
+and capacity-only evaluations use the same pattern selection and weight policy.
+The existing optimizer evaluates every candidate ID and distinguishes complete
+and incomplete mass even when their numeric values coincide.
+
 Container analysis overrides live in prefixed form/session state, scoped to the
 selected packaging/product IDs. Advanced controls use the same presenter and
 resolver as standalone; their collapsed state does not disable fields. Accepted

@@ -136,6 +136,8 @@ def _evaluation_signature(step, step_index, inherited):
             "transport_stackable", "transport_r1", "transport_r2", "transport_r3",
         )
     }
+    if step.get("type") == "pallet":
+        physical_input["weight_status"] = (inherited or {}).get("weight_status")
     if step.get("type") in {"container", "transport"}:
         state = step.get("bag_rotation_inheritance") or {}
         if is_bag_design(inherited) or state:

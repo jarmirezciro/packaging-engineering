@@ -47,6 +47,11 @@ height, and either the entered length/width footprint or its orthogonal rotation
 must fit inside the effective pallet footprint including permitted overhang.
 Exact height and footprint equality remain feasible.
 
+In [Packaging Flow](../architecture/packaging-flow.md#bag-design-to-palletization),
+Palletization uses the immediate upstream load unit. A filled Bag Design
+candidate supplies its packed outer footprint and selected vertical height.
+The horizontal orientation and layer rules apply to that footprint.
+
 ## Pattern families
 
 **Stage 2 shared-library contract:** Container Selection and Palletization now
