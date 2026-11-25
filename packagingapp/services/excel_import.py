@@ -1,5 +1,8 @@
 import pandas as pd
+from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import DecimalField
+
 from packagingapp.models import CorrugatedBoardConstruction, PackagingMaterial
 
 REQUIRED_COLUMNS = [
@@ -49,6 +52,26 @@ def _optional_number(row, column):
         return None
     return row[column]
 
+
+def _cell_error(excel_row, column, value, message):
+    return ValueError(f"Excel row {excel_row}, column {column} (value {value!r}). {message}")
+
+
+def _clean_optional_property(row, excel_row, column):
+    value = _optional_number(row, column)
+    field = PackagingMaterial._meta.get_field(column)
+    value_to_clean = value
+    if isinstance(field, DecimalField) and pd.api.types.is_float(value):
+        # Django parses the string as a decimal without expanding the binary float.
+        value_to_clean = str(value)
+    elif column == "carton_style" and value is not None:
+        value_to_clean = str(value).strip().removesuffix(".0").zfill(4)
+    try:
+        return field.clean(value_to_clean, None)
+    except ValidationError as exc:
+        raise _cell_error(excel_row, column, value, " ".join(exc.messages)) from exc
+
+
 @transaction.atomic
 def import_packaging_excel(excel_file, catalogue):
     df = pd.read_excel(excel_file)
@@ -61,36 +84,35 @@ def import_packaging_excel(excel_file, catalogue):
     created_count = 0
     updated_count = 0
 
-    for _, row in df.iterrows():
+    for excel_row, (_, row) in enumerate(df.iterrows(), start=2):
         part_number = _normalize_part_number(row["part_number"])
 
         raw_type = str(row["packaging_type"]).strip()
         packaging_type = PACKAGING_TYPE_MAP.get(raw_type, PACKAGING_TYPE_MAP.get(raw_type.lower()))
 
         if not packaging_type:
-            raise ValueError(
-                f"Invalid packaging_type '{raw_type}'. Allowed values: BOX, PALLET, CRATE, BAG, CONTAINER, TRAILER."
+            raise _cell_error(
+                excel_row, "packaging_type", row["packaging_type"],
+                "Allowed values are BOX, PALLET, CRATE, BAG, CONTAINER, and TRAILER.",
             )
 
-        material_properties = {}
-        for column in ("box_thickness_mm", "combined_grammage_g_m2", "carton_style"):
-            if column in df.columns:
-                value = _optional_number(row, column)
-                if column == "carton_style" and value is not None:
-                    value = str(value).strip().removesuffix(".0").zfill(4)
-                material_properties[column] = PackagingMaterial._meta.get_field(column).clean(value, None)
+        optional_columns = ("box_thickness_mm", "combined_grammage_g_m2", "carton_style")
         if packaging_type == "BAG":
-            for column in BAG_FILM_COLUMNS:
-                if column in df.columns:
-                    value = _optional_number(row, column)
-                    material_properties[column] = PackagingMaterial._meta.get_field(column).clean(value, None)
+            optional_columns += BAG_FILM_COLUMNS
+        material_properties = {
+            column: _clean_optional_property(row, excel_row, column)
+            for column in optional_columns
+            if column in df.columns
+        }
         if "corrugated_construction_code" in df.columns:
             code = _optional_number(row, "corrugated_construction_code")
             construction = None
             if code is not None:
                 construction = CorrugatedBoardConstruction.objects.filter(code=str(code).strip()).first()
                 if construction is None:
-                    raise ValueError(f"Unknown corrugated construction code: {code}")
+                    raise _cell_error(
+                        excel_row, "corrugated_construction_code", code, "Unknown corrugated construction code."
+                    )
             material_properties["corrugated_construction"] = construction
 
         _, created = PackagingMaterial.objects.update_or_create(
