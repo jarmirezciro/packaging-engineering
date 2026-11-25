@@ -29,7 +29,8 @@ function assertNear(actual, expected) {
 function assertEndBudget(film, depthAxis, depth, developedLength, allowance = 10) {
     const crossAxes = [0, 1, 2].filter((axis) => axis !== depthAxis);
     const halfShort = Math.min(...crossAxes.map((axis) => span(film.mouth, axis))) / 2;
-    const rearRun = distance(film.rearSeam[0], film.shoulder[0]);
+    const panelCenter = (ring) => ring[0].map((coordinate, axis) => (coordinate + ring[1][axis]) / 2);
+    const rearRun = distance(panelCenter(film.rearSeam), panelCenter(film.shoulder));
     const openingRun = film.collar[0][depthAxis] - depth;
     const sealingStrip = distance(film.collar[0], film.mouth[0]);
     const developedBody = distance(film.shoulder[0], film.collar[0]);
@@ -42,7 +43,7 @@ function assertEndBudget(film, depthAxis, depth, developedLength, allowance = 10
 
 for (const example of cases) {
     test(`bag mouth and seal are perpendicular to scene ${example.axis}`, () => {
-        const film = buildBagFilmGeometry({
+        const scene = {
             mode: "design",
             bag: {
                 film: { depthAxis: example.axis, bundleDimensions: bundle },
@@ -51,7 +52,11 @@ for (const example of cases) {
                 fitTolerance: 2,
                 sealingAllowance: 10,
             },
-        });
+        };
+        const film = buildBagFilmGeometry(scene);
+        // Even an envelope field in a saved Design scene cannot change its film.
+        scene.bag.film.envelopeDimensions = [400, 300, 100];
+        assert.deepEqual(buildBagFilmGeometry(scene), film);
         assert.deepEqual([0, 1, 2].map((axis) => span(film.mouth, axis)), example.mouthSpans);
         assert.equal(film.openingPerimeter, 2 * example.width);
         assertNear(perimeter(film.mouth), 2 * example.width);
@@ -66,22 +71,102 @@ for (const example of cases) {
     });
 }
 
-test("oversized catalogue stock does not stretch into a rigid envelope", () => {
-    const film = buildBagFilmGeometry({
-        mode: "single",
+function stockScene(mode, length, width, bundle, envelope, tolerance = 2, seal = 10) {
+    return {
+        mode,
         bag: {
             insertion: { axis: "height" },
-            film: { depthAxis: "length", bundleDimensions: [25, 90, 60] },
-            flatWidth: 300,
-            flatLength: 400,
-            fitTolerance: 2,
-            sealingAllowance: 10,
+            film: { depthAxis: "length", bundleDimensions: bundle, envelopeDimensions: envelope },
+            flatWidth: width,
+            flatLength: length,
+            fitTolerance: tolerance,
+            sealingAllowance: seal,
         },
-    });
+    };
+}
+
+test("oversized catalogue stock does not stretch into a rigid envelope", () => {
+    const scene = stockScene("optimal", 400, 300, [25, 90, 60], [328, 238, 60]);
+    const film = buildBagFilmGeometry(scene);
+    assertNear(film.openingPerimeter, 600);
+    assertNear(perimeter(film.shoulder), 600);
+    assertNear(perimeter(film.mouth), 600);
+    assertNear(span(film.rearSeam, 1), 300);
+    assertNear(span(film.rearSeam, 2), 0);
+    assert.ok(film.rearSeam.every((point) => point[0] < 0));
+    assert.deepEqual(film.insertionDirection, [-1, 0, 0]);
+    assert.ok(film.mouth.every((point) => point[0] === 369));
+    assertEndBudget(film, 0, 25, 400);
+    assert.deepEqual(film.envelopeOutline, [[0, -74, 60], [328, -74, 60], [328, 164, 60], [0, 164, 60]]);
+});
+
+test("legacy selection scenes without an envelope retain their fitted film", () => {
+    const scene = stockScene("single", 400, 300, [25, 90, 60]);
+    delete scene.bag.film.envelopeDimensions;
+    const film = buildBagFilmGeometry(scene);
     assert.equal(film.openingPerimeter, 304);
     assert.deepEqual(film.insertionDirection, [-1, 0, 0]);
     assert.ok(film.mouth.every((point) => point[0] === 66));
     assertEndBudget(film, 0, 25, 97);
+    assert.equal(film.envelopeOutline, undefined);
+
+    delete scene.bag.film;
+    scene.products = [{ x: 0, y: 0, z: 0, dx: 25, dy: 90, dz: 60 }];
+    assert.deepEqual(buildBagFilmGeometry(scene), film);
+});
+
+for (const mode of ["single", "optimal"]) {
+    test(`${mode} shows the cereal bar envelope and keeps film clear of the authoritative grid`, () => {
+        const scene = stockScene(mode, 300, 200, [216, 130, 50], [238, 148, 50]);
+        scene.products = Array.from({ length: 12 }, (_, index) => ({
+            x: 18 * index, y: 0, z: 0, dx: 18, dy: 130, dz: 50,
+        }));
+        const before = structuredClone(scene);
+        const film = buildBagFilmGeometry(scene);
+        assert.deepEqual(scene, before);
+        assert.deepEqual(film.envelopeOutline, [[0, -9, 50], [238, -9, 50], [238, 139, 50], [0, 139, 50]]);
+        assertEndBudget(film, 0, 216, 300);
+        assertNear(perimeter(film.mouth), 400);
+        assertNear(span(film.rearSeam, 1), 200);
+        assert.ok([film.rearSeam, film.shoulder, film.collar, film.mouth].flat(2).every(Number.isFinite));
+        assert.ok(film.rearSeam.every(([x]) => x <= 0));
+        for (const { x, y, z, dx, dy, dz } of scene.products) {
+            assert.ok(x >= film.shoulder[0][0] && x + dx < film.collar[0][0]);
+            assert.ok(y > film.shoulder[0][1] && y + dy < film.shoulder[1][1]);
+            assert.ok(z > film.shoulder[0][2] && z + dz < film.shoulder[2][2]);
+        }
+
+        const larger = stockScene(mode, 307, 205, [216, 130, 50], [245, 153, 50]);
+        larger.products = scene.products;
+        const largerFilm = buildBagFilmGeometry(larger);
+        assertNear(largerFilm.mouth[0][0] - film.mouth[0][0], 7);
+        assertNear(span(largerFilm.mouth, 1) - span(film.mouth, 1), 5);
+        assertNear(largerFilm.rearSeam[0][0], film.rearSeam[0][0]);
+        assertNear(span(largerFilm.mouth, 2), span(film.mouth, 2));
+    });
+}
+
+test("stock film rejects an undersized or inconsistent envelope", () => {
+    for (const [length, width, envelope] of [
+        [277, 200, [215, 148, 50]], [300, 181, [238, 129, 50]],
+        [300, 200, [238, 148, 49]], [300, 200, [238, 148, 0]],
+        [300, 200, [238, 148, NaN]], [300, 200, [239, 148, 50]],
+    ]) {
+        assert.equal(buildBagFilmGeometry(stockScene("single", length, width, [216, 130, 50], envelope)), null);
+    }
+});
+
+test("stock exact fit handles zero or fractional allowances without inventing a seal", () => {
+    for (const [tolerance, seal] of [[0, 0], [0, 15.1], [4.25, 0], [4.25, 13.5]]) {
+        const length = 115 + tolerance + seal;
+        const width = 85 + tolerance;
+        const film = buildBagFilmGeometry(stockScene("single", length, width, bundle, bundle, tolerance, seal));
+        assert.ok(film);
+        assert.ok([film.rearSeam, film.shoulder, film.collar, film.mouth].flat(2).every(Number.isFinite));
+        assertNear(perimeter(film.mouth), 2 * width);
+        assertEndBudget(film, 0, 90, length, seal);
+        if (seal === 0) assert.deepEqual(film.collar, film.mouth);
+    }
 });
 
 test("saved Design scenes can recover the mouth from insertion and product placement", () => {

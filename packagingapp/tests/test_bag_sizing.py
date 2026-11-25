@@ -793,7 +793,7 @@ class BagSizingSurfaceTests(TestCase):
                     self.assertEqual(response.context["selected_bag_summary"]["dims"], displayed)
                 self.assertEqual(response.context["threejs_scene"]["bag"]["insertion"], HEIGHT_INSERTION)
                 self.assertEqual(response.context["threejs_scene"]["bag"]["film"], {
-                    "depthAxis": "length", "bundleDimensions": [25, 90, 60],
+                    "depthAxis": "length", "bundleDimensions": [25, 90, 60], "envelopeDimensions": [25, 90, 60],
                 })
                 capacity = analyze_bag_capacity(response.context["bag_config"], selected_material=bag)["pending_result"]
                 self.assertEqual(capacity["insertion"], HEIGHT_INSERTION)
@@ -926,7 +926,7 @@ class BagSizingSurfaceTests(TestCase):
         }).json()
         self.assertEqual(draw["threejs_scene"]["bag"]["insertion"], HEIGHT_INSERTION)
         self.assertEqual(draw["threejs_scene"]["bag"]["film"], {
-            "depthAxis": "length", "bundleDimensions": [25, 90, 60],
+            "depthAxis": "length", "bundleDimensions": [25, 90, 60], "envelopeDimensions": [25, 90, 60],
         })
         self.assertEqual(len(results[doubled.pk]), 1)
         self.assertEqual(results[doubled.pk][0]["best_required"], [152, 112])

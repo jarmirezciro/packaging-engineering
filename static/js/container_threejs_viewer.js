@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { buildBagFilmGeometry } from "./bag_film_geometry.js?v=20261121";
+import { buildBagFilmGeometry } from "./bag_film_geometry.js?v=20261125";
 import {
     createApprovedProductMaterials,
     createApprovedProductVisual,
@@ -188,20 +188,22 @@ function addContainerBody(target, dims) {
 
 function addBagFilm(target, dims, sceneData) {
     const film = buildBagFilmGeometry(sceneData);
-    if (!film) return;
+    if (!film) return false;
+    const stock = Boolean(film.envelopeOutline);
 
     function mapped(point) {
         return mapPosition(...point, dims);
     }
 
-    function addFilmPanels(rings, color, opacity) {
+    function addFilmPanels(rings, color, opacity, collapsedRear = false) {
         const positions = rings.flatMap((ring) => ring.flatMap((point) => mapped(point).toArray()));
         const indices = [];
         for (let row = 1; row < rings.length; row += 1) {
             for (let i = 0; i < 4; i += 1) {
                 const a = (row - 1) * 4 + i;
                 const b = (row - 1) * 4 + (i + 1) % 4;
-                indices.push(a, b, b + 4, a, b + 4, a + 4);
+                if (!(collapsedRear && row === 1 && i % 2 === 1)) indices.push(a, b, b + 4);
+                indices.push(a, b + 4, a + 4);
             }
         }
         const geometry = new THREE.BufferGeometry();
@@ -214,12 +216,13 @@ function addBagFilm(target, dims, sceneData) {
         })));
     }
 
-    addFilmPanels([film.rearSeam, film.shoulder, film.collar], 0x56c6d2, 0.23);
-    addFilmPanels([film.collar, film.mouth], 0x0b8ba1, 0.38);
+    addFilmPanels([film.rearSeam, film.shoulder, film.collar], 0x56c6d2, 0.23, stock);
+    const showCollar = !stock || sceneData.bag.sealingAllowance > 0;
+    if (showCollar) addFilmPanels([film.collar, film.mouth], 0x0b8ba1, 0.38);
     const seamMaterial = new THREE.LineBasicMaterial({ color: 0x14748a });
     const seam = new THREE.BufferGeometry().setFromPoints(film.rearSeam.slice(0, 2).map(mapped));
     target.add(new THREE.Line(seam, seamMaterial));
-    for (const ring of [film.collar, film.mouth]) {
+    for (const ring of showCollar ? [film.collar, film.mouth] : [film.mouth]) {
         target.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ring.map(mapped)), seamMaterial));
     }
     const [x, y, z] = film.insertionDirection;
@@ -227,6 +230,22 @@ function addBagFilm(target, dims, sceneData) {
         new THREE.Vector3(x, z, y), mapped(film.arrowTail), film.arrowLength, 0x126f83,
         film.arrowLength * 0.38, film.arrowLength * 0.32,
     ));
+
+    if (stock) {
+        const outline = [...film.envelopeOutline, film.envelopeOutline[0]];
+        const dashSize = Math.max(dims.length, dims.width) / 48;
+        const guide = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(outline.map(mapped)),
+            new THREE.LineDashedMaterial({
+                color: 0x164e63, transparent: true, opacity: 0.9, depthWrite: false,
+                dashSize, gapSize: dashSize * 0.7,
+            }),
+        );
+        guide.computeLineDistances();
+        guide.renderOrder = 1;
+        target.add(guide);
+    }
+    return stock;
 }
 
 function addQuad(target, points, dims, material, edgeColor = 0x111827) {
@@ -316,11 +335,12 @@ function setCameraView(camera, controls, dims, viewName) {
     controls.update();
 }
 
-function setupCamera(width, height, dims) {
+function setupCamera(width, height, dims, fitNarrow = false) {
     const aspect = Math.max(width, 1) / Math.max(height, 1);
     const maxDim = Math.max(dims.length, dims.width, dims.height);
     // Slightly wider orthographic frame so the container, flaps and edges fit comfortably.
-    const viewSize = maxDim * 2.05;
+    const getViewSize = (aspect) => maxDim * 2.05 / (fitNarrow ? Math.min(1, aspect) : 1);
+    const viewSize = getViewSize(aspect);
 
     const camera = new THREE.OrthographicCamera(
         -viewSize * aspect / 2,
@@ -330,7 +350,7 @@ function setupCamera(width, height, dims) {
         -maxDim * 10,
         maxDim * 10,
     );
-    return { camera, viewSize };
+    return { camera, getViewSize };
 }
 
 function initViewer(el) {
@@ -397,9 +417,8 @@ function initViewer(el) {
     root.add(containerGroup, subboxGroup, productGroup);
 
     const isBag = sceneData.packageType === "bag";
-    if (isBag) {
-        addBagFilm(containerGroup, dims, sceneData);
-    } else {
+    const hasStockEnvelope = isBag && addBagFilm(containerGroup, dims, sceneData);
+    if (!isBag) {
         addContainerBody(containerGroup, dims);
         addRscFlaps(containerGroup, dims, sceneData);
     }
@@ -455,7 +474,7 @@ function initViewer(el) {
             target: bounds.getCenter(new THREE.Vector3()),
         };
     }
-    const { camera, viewSize } = setupCamera(width, height, viewDims);
+    const { camera, getViewSize } = setupCamera(width, height, viewDims, hasStockEnvelope);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
@@ -472,10 +491,19 @@ function initViewer(el) {
         });
     });
 
+    let envelopeLegend;
+    if (hasStockEnvelope) {
+        envelopeLegend = document.createElement("p");
+        envelopeLegend.className = "small text-muted mt-2 mb-0";
+        envelopeLegend.textContent = "Dashed outline shows the idealized usable bag footprint at the bundle height.";
+        el.after(envelopeLegend);
+    }
+
     const bagToggle = isBag && panel.querySelector('[data-container-threejs-toggle="container"]');
     if (bagToggle) {
         function syncBagVisibility() {
             containerGroup.visible = bagToggle.checked;
+            if (envelopeLegend) envelopeLegend.hidden = !bagToggle.checked;
         }
         bagToggle.addEventListener("change", syncBagVisibility);
         syncBagVisibility();
@@ -529,6 +557,7 @@ function initViewer(el) {
         lastHeight = nextHeight;
 
         const aspect = nextWidth / nextHeight;
+        const viewSize = getViewSize(aspect);
         camera.left = -viewSize * aspect / 2;
         camera.right = viewSize * aspect / 2;
         camera.top = viewSize / 2;

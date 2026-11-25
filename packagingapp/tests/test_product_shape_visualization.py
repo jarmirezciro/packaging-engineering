@@ -978,13 +978,15 @@ class ProductShapeJavaScriptContractTests(SimpleTestCase):
             "_bag_selection_scripts.html",
             "packagingapp/templates/container_selection_tool/partials/"
             "_container_selection_scripts.html",
+            "packagingapp/templates/multi_product_bag/multi_product_bag_selection.html",
+            "packagingapp/templates/multi_product_container/multi_product_container_selection.html",
         ):
             template = (Path(settings.BASE_DIR) / relative_path).read_text(
                 encoding="utf-8"
             )
             self.assertIn(
                 "container_threejs_viewer.js' %}"
-                "?v=20261121-bag-film",
+                "?v=20261125-bag-envelope",
                 template,
             )
 

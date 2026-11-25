@@ -150,8 +150,9 @@ pointing inward, a tinted sealing collar at the mouth, and a taper to the
 closed rear seam. The Show bag switch hides that group and preserves products.
 The viewer retains the selected product coordinates and dimensions.
 
-The mouth follows the two opening spans plus the fit allowance, within the
-available perimeter of twice the lay-flat width. The film budget along a
+In Design and older saved scenes, the mouth follows the two opening spans
+plus the fit allowance, within an opening perimeter of twice the lay-flat
+width. The film budget along a
 longitudinal face centerline reserves product depth and the sealing collar
 first. The smaller opening span plus longitudinal tolerance supplies both
 end transitions, capped by the remaining flat stock. With padded half-span
@@ -160,9 +161,21 @@ The taper uses at most half the end budget. The material left at the open
 end is shown straight beyond the bundle and before the separate collar.
 Each face can travel at least `b` inward in this model while retaining the
 sealing strip. Projected axial span may be shorter than developed length.
-This model estimates longitudinal closure stock. It omits corner and side
-folds, excess catalogue stock, wrinkles, and deformation. Flat dimensions
-remain in the engine and report data.
+New Single and Optimal scenes carry `bag.film.envelopeDimensions` as
+`[length, width, height]` in millimetres. The envelope uses the selected
+bundle height. Its length is flat length minus height, fit tolerance and
+sealing allowance. Its width is flat width minus height and fit tolerance.
+The renderer centers the width on the product grid and extends the length
+towards the opening. A dashed outline marks the usable footprint at the
+bundle height. The translucent film uses the full lay-flat width at the
+collapsed rear seam and half the opening perimeter, and the full lay-flat
+length along each longitudinal wall centerline. The sealing strip starts
+after the opening-side closure reserve.
+
+The footprint is an idealized geometric reference. The film surface accounts
+for material by these cross-sections and centerlines. Actual corner folds,
+wrinkles, deformation and internal volume require separate evaluation.
+Flat dimensions remain in the engine and report data.
 Standalone Bag Selection, Packaging Flow, the public calculator, and
 Multi-product Bag Selection consume the shared placement contract; the
 multi-product surface uses its intentional cuboid-only fallback.

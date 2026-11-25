@@ -1,4 +1,5 @@
 from decimal import Decimal
+from itertools import product as cartesian_product
 import json
 import re
 from types import SimpleNamespace
@@ -17,6 +18,7 @@ from packagingapp.tools.bag.film import FILM_PRESETS, resolve_bag_film
 from packagingapp.tools.bag.service import analyze_bag_capacity, analyze_bag_config, format_bag_weight
 from packagingapp.tools.bag.workflow import attach_bag_workflow_weight
 from packagingapp.units import convert_film_thickness, format_dimensions
+from packagingapp.utils.bag_selection.engine import build_required_bag_options, run_bag_mode1_and_render
 
 
 class BagFilmTests(SimpleTestCase):
@@ -139,6 +141,97 @@ class BagFilmTests(SimpleTestCase):
             bundle["bundle_length_mm"] * bundle["bundle_width_mm"] * bundle["bundle_height_mm"],
             300 * 10.12345 * 10 * 10,
         )
+
+
+class StockBagEnvelopeTests(SimpleTestCase):
+    def stock_material(self, length, width):
+        return SimpleNamespace(
+            id=1, part_number="Stock", part_description="", branding="", part_length=length, part_width=width,
+        )
+
+    def analyze_stock(self, mode, product, stock, quantity, **allowances):
+        config = dict(zip(("product_l", "product_w", "product_h"), product), mode=mode, **allowances)
+        length, width = stock
+        if mode == "single":
+            return analyze_bag_config({**config, "bag_length": length, "bag_width": width}, "run_single")
+        material = self.stock_material(length, width)
+        config.update(catalogue_id="1", bag_source="catalogue", bag_id="1", desired_qty=quantity)
+        return analyze_bag_config(config, "select_candidate", selected_material=material, materials=[material])
+
+    def test_demo_stock_bags_keep_capacity_usage_and_authoritative_grid(self):
+        # Layout is in original product axes. Placements are in bag L, W, H.
+        fixtures = (
+            ((45, 35, 190), (350, 200), 6, 82.18, (190, 105, 90), (248, 108, 90), (2, 3, 1), (190, 35, 45), 4),
+            ((130, 50, 18), (220, 160), 6, 87.27, (130, 108, 50), (158, 108, 50), (1, 1, 6), (130, 18, 50), 1),
+            ((130, 50, 18), (240, 180), 8, 86.19, (130, 100, 72), (156, 106, 72), (1, 2, 4), (130, 50, 18), 0),
+            ((130, 50, 18), (260, 200), 10, 85.66, (130, 100, 90), (158, 108, 90), (1, 2, 5), (130, 50, 18), 0),
+            ((130, 50, 18), (300, 200), 12, 84.33, (216, 130, 50), (238, 148, 50), (1, 1, 12), (18, 130, 50), 5),
+            ((130, 50, 18), (320, 230), 20, 91.09, (200, 130, 90), (218, 138, 90), (1, 4, 5), (50, 130, 18), 2),
+        )
+        for product, stock, qty, usage, bundle, envelope, layout, unit, orientation in fixtures:
+            for mode, quantity_key in (("single", "max_quantity"), ("optimal", "desired_qty")):
+                with self.subTest(stock=stock, mode=mode):
+                    analysis = self.analyze_stock(mode, product, stock, qty, fit_tolerance=2, sealing_allowance=10)
+                    result = analysis["result"]
+                    scene = analysis["threejs_scene"]
+                    bag = scene["bag"]
+                    self.assertEqual(result[quantity_key], qty)
+                    self.assertEqual(result["usage_pct"], usage)
+                    self.assertEqual((bag["flatLength"], bag["flatWidth"]), stock)
+                    self.assertEqual(bag["film"], {
+                        "depthAxis": "length", "bundleDimensions": list(bundle), "envelopeDimensions": list(envelope),
+                    })
+                    self.assertEqual(scene["usedLayout"], list(layout))
+                    required = scene["selectedRequiredBag"]
+                    self.assertEqual((required["length"], required["width"]), result["best_required"])
+                    self.assertEqual(len(scene["products"]), qty)
+                    origins = set()
+                    for item in scene["products"]:
+                        self.assertEqual((item["dx"], item["dy"], item["dz"]), unit)
+                        self.assertEqual(item["orientationIndex"], orientation)
+                        origin = tuple(item[axis] for axis in "xyz")
+                        origins.add(origin)
+                        for start, size, limit in zip(origin, unit, envelope):
+                            self.assertLessEqual(start + size, limit)
+                    self.assertEqual(origins, set(cartesian_product(*(
+                        range(0, span, size) for span, size in zip(bundle, unit)
+                    ))))
+                    json.dumps(scene, allow_nan=False)
+
+    def test_exact_fit_uses_zero_and_fractional_allowances_in_both_modes(self):
+        for tolerance, seal in ((0, 0), (0, 15.1), (4.25, 0), (4.25, 13.5)):
+            for mode in ("single", "optimal"):
+                with self.subTest(mode=mode, tolerance=tolerance, seal=seal):
+                    stock = (115 + tolerance + seal, 85 + tolerance)
+                    analysis = self.analyze_stock(
+                        mode, (90, 60, 25), stock, 1, fit_tolerance=tolerance, sealing_allowance=seal,
+                    )
+                    bag = analysis["threejs_scene"]["bag"]
+                    self.assertEqual((bag["fitTolerance"], bag["sealingAllowance"]), (tolerance, seal))
+                    self.assertEqual(bag["film"]["envelopeDimensions"], [90, 60, 25])
+                    self.assertEqual(bag["film"]["bundleDimensions"], [90, 60, 25])
+                    self.assertEqual(analysis["result"]["usage_pct"], 100)
+
+    def test_larger_catalogue_stock_keeps_the_same_selected_grid(self):
+        smaller, larger = (
+            self.analyze_stock("optimal", (130, 50, 18), stock, 12)["threejs_scene"]
+            for stock in ((300, 200), (307, 205))
+        )
+        for field in ("products", "selectedRequiredBag", "usedLayout"):
+            self.assertEqual(smaller[field], larger[field])
+        self.assertEqual(smaller["bag"]["insertion"], larger["bag"]["insertion"])
+        self.assertEqual(smaller["bag"]["film"]["envelopeDimensions"], [238, 148, 50])
+        self.assertEqual(larger["bag"]["film"]["envelopeDimensions"], [245, 153, 50])
+
+    def test_inconsistent_selected_bundle_is_rejected_without_clamping(self):
+        product = (90, 60, 25)
+        solutions = build_required_bag_options(*product, 1)["solutions"]
+        for solution in solutions:
+            for option in solution["bag_options"]:
+                length, width, height = option["body_box"]
+                option["body_box"] = length + 1, width, height
+        with self.assertRaisesRegex(ValueError, "usable envelope does not contain"):
+            run_bag_mode1_and_render(product, (127, 87), 1, solutions, "", selected_required_bag=(127, 87))
 
 
 class BagFilmSurfaceTests(TestCase):

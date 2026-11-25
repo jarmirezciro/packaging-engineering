@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import List, Tuple, Dict, Any, Set, Optional
 import hashlib
 import json
-from math import isfinite
+from math import isfinite, ulp
 
 from packagingapp.utils.quantity_decomposition import (
     generate_factor_arrangements,
@@ -231,6 +231,13 @@ def _build_bag_threejs_scene(
     insertion: Optional[Dict[str, Any]] = None,
     parameters: BagSizingParameters,
 ) -> Dict[str, Any]:
+    film = {
+        "bundleDimensions": [round(span, 6) for span in bundle],
+        "depthAxis": scene_insertion_axis,
+    }
+    if mode in ("single", "optimal"):
+        film["envelopeDimensions"] = [round(span, 6) for span in (body_length, body_width, body_height)]
+
     return {
         "version": 1,
         "units": "mm",
@@ -250,10 +257,7 @@ def _build_bag_threejs_scene(
             "usableBodyWidth": round(body_width, 6),
             "sealingAllowance": parameters.sealing_allowance_mm,
             "fitTolerance": parameters.fit_tolerance_mm,
-            "film": {
-                "bundleDimensions": [round(span, 6) for span in bundle],
-                "depthAxis": scene_insertion_axis,
-            },
+            "film": film,
             **({"insertion": insertion} if insertion else {}),
         },
         "rsc": {"enabled": False},
@@ -717,37 +721,18 @@ def run_bag_mode1_and_render(
         tuple(axis["axis"] for axis in body_axes)
     )
 
-    # Draw the actual selected physical/catalogue bag, not the minimum required
-    # bag. The selected required option is used only to preserve the product
-    # orientation that won the calculation. The physical flat bag is resolved
-    # with the same convention used by the calculation:
-    #   bag L = usable product body length + arrangement height + tolerance + sealing
-    #   bag W = usable product body width  + arrangement height + tolerance
-    #
-    # Important for the graphic:
-    # - products may only occupy the usable body area
-    # - the sealing allowance is a reserved strip on the LENGTH direction
-    # - width/opening receives tolerance only, not sealing
     usable_body_length, usable_body_width = usable_bag_body_dimensions(
         bag_len, bag_w, body_height, parameters=parameters
     )
-    bag_box_height = body_height
-
-    if usable_body_length <= 0 or usable_body_width <= 0 or bag_box_height <= 0:
-        raise ValueError(
-            "Resolved physical bag body dimensions are not positive. "
-            "Selected bag fits the 2D requirement list, but not the visual body resolution."
-        )
-
-    # Guard against tiny floating precision differences while preserving the
-    # physical selected bag dimensions for visible extra capacity. If the
-    # selected required option fits, this normally does not change anything.
-    if usable_body_length + EPSILON < body_length or usable_body_width + EPSILON < body_width:
-        usable_body_length = max(usable_body_length, body_length)
-        usable_body_width = max(usable_body_width, body_width)
-
-    bag_box_length = usable_body_length
-    bag_box_width = usable_body_width
+    # _fits already allows EPSILON; reversing the sizing equations can add
+    # floating-point error at the exact-fit boundary.
+    fit_slack = EPSILON + 4 * ulp(max(bag_len, bag_w))
+    if (
+        not all(isfinite(span) and span > 0 for span in (usable_body_length, usable_body_width, body_height))
+        or usable_body_length + fit_slack < body_length
+        or usable_body_width + fit_slack < body_width
+    ):
+        raise ValueError("The selected bag's usable envelope does not contain the selected packing arrangement.")
 
     # Serialize products from the selected required-bag option. This is the same
     # authoritative axis mapping the previous renderer consumed.
@@ -767,9 +752,6 @@ def run_bag_mode1_and_render(
                 x = kx * x_unit
                 y = ky * y_unit
                 z = kz * z_unit
-
-                if x + x_unit > bag_box_length + EPSILON or y + y_unit > bag_box_width + EPSILON or z + z_unit > bag_box_height + EPSILON:
-                    continue
 
                 products.append({
                     "kind": "product",
@@ -796,7 +778,7 @@ def run_bag_mode1_and_render(
         bag_length=bag_len,
         body_length=usable_body_length,
         body_width=usable_body_width,
-        body_height=bag_box_height,
+        body_height=body_height,
         products=products,
         mode=str(render_mode or "single"),
         bundle=(body_length, body_width, body_height),
