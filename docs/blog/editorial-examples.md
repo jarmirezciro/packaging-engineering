@@ -156,6 +156,33 @@ reader can explain from the actual opening. The supplied exports are the
 evidence for the table findings. Check the corresponding article render
 before attributing them to the web page.
 
+## 011 Why Designing a Flat Bag Is Harder Than It Looks
+
+Practical Demo · `demo_case_study` · [Production article][flatbag] · [Live article](https://www.kollilabs.com/blog/flat-bag-sizing-soap-bar-arrangements/)
+
+The owner approved the published edition at `3ed2f90` and the production assets
+linked below.
+
+| ID | Status | Element and production locator | Approved purpose and reusable principle | Adapt to the case | Keep specific to this article |
+| --- | --- | --- | --- | --- | --- |
+| BAG-01 | Approved | Figure 1, conceptual case setup, [desktop][flatbag-setup] and [mobile][flatbag-setup-mobile] | Explain the product-to-package relationship before calculated results. Use recognizable objects, ordered stages and short input labels. | Change the objects, stage count, supported inputs and mobile reflow to match the case. | The soap and bag artwork, bar dimensions and one-to-twelve setup. The illustrated stack is conceptual. |
+| BAG-02 | Approved | Figure 2, single-product comparison, [desktop][flatbag-single] and [mobile][flatbag-single-mobile] | Show how insertion direction changes the bag size for the same product. Use genuine views at comparable display scale, consistent labels and restrained emphasis on the calculated lowest-area result. | Change the option count, view, panel arrangement and primary metric. Keep the detailed values in the accompanying table when that helps. | The three insertion faces, bag dimensions and rank order. |
+| BAG-03 | Approved | Figure 3, multiple-arrangement comparison, [desktop][flatbag-multiple] and [mobile][flatbag-multiple-mobile] | Compare filled shapes at a fixed quantity. Align the result views and their labels, and retain additional or tied results in the adjacent table. | Select representative arrangements and a metric that serves the current decision. Reflow the panels for narrow screens. | The twelve-bar bundle geometry, count grids, ranks and equal-size pair. |
+| BAG-04 | Approved | [Production article][flatbag], rendered tables “Single-bar designs” and “Selected twelve-bar designs” below Figures 2 and 3 | Turn visual differences into a ranked, usable comparison. Align numeric values, state units, highlight the calculated minimum, and disclose the tie and the subset shown. | Use the current ranking criterion, columns, precision and a readable mobile treatment. | The specific bag dimensions, areas, film estimates, rankings and ties. |
+| BAG-05 | Approved | [Production article][flatbag], opening through “Where the smallest bag might win or lose” and the closing assessment | Start with a packaging decision, explain the mechanism, establish it on a simple case, then use a larger case to show what the result changes for the business. | Choose a progression and follow-up measures suited to the intended readers and the available evidence. | The soap-bar scenario, 53 alternatives, 0.046 g difference and downstream questions left open. |
+| BAG-06 | Approved | [Production article][flatbag], rendered “Key Takeaways” from the `takeaways` field | State why the choice matters, what the evidence reveals about the business trade-off, and how readers can act. Identify further assessment where it is needed. | Write the messages for the intended audience, its decision and the verified evidence. | The soap-specific findings and wording. The case does not establish a total-cost or environmental outcome. |
+| BAG-07 | Approved | [Production thumbnail][flatbag-thumb], supplementary example | Use photorealistic packaging subjects in the dark studio treatment to make the article’s contrast readable at card size. | Develop the subject and hook for the new case using the existing thumbnail workflow. | The soap imagery and “Same Soap, Different Bags” hook. |
+
+Choose the row that serves the new candidate’s purpose. Open the linked asset or
+rendered table beside the completed work at comparable sizes and check the
+candidate at article and mobile widths. Record justified deviations and keep
+Engineering Meaning separate in the existing [Visual Editorial Critic][flatbag-critic].
+
+The [Editorial Figures canonical references][flatbag-figure-system] and [design
+tokens][flatbag-figure-tokens] remain authoritative for conceptual artwork. The
+[canonical thumbnail board](assets/kollilabs-approved-thumbnail-board-v1.png)
+and [thumbnail design system](thumbnail-design-system-v1.md) govern thumbnails.
+
 ## Original review locators
 
 The article figures and all six published thumbnail files were opened from the production checkout. The 17 embedded images in the four supplied DOCX files were opened separately and compared with the production assets or article sections. This review used the production source and owner page captures for page-level findings. The Box callouts, takeaways and table and the CapePack table are rendered components with no standalone repository snapshot identified. The RSC table-rendering finding comes from the owner's prose, alongside corroborating source markup. The CapePack proposal is a review-only image. Durable archive status for these owner files is pending.
@@ -205,3 +232,14 @@ The article figures and all six published thumbnail files were opened from the p
 [ori2]: ../../static/img/blog/how-many-products-fit-in-a-box-orientation-case-study/orientation-capacity-comparison.webp
 [ori3]: ../../static/img/blog/how-many-products-fit-in-a-box-orientation-case-study/maximum-result-analysis.webp
 [demo-lessons]: ../../.agents/skills/blog-article/references/demo-case-study-lessons.md#container-selection-orientation-case
+[flatbag]: ../../packagingapp/content/blog/articles/flat-bag-sizing-soap-bar-arrangements.md
+[flatbag-setup]: ../../static/img/blog/flat-bag-sizing-soap-bar-arrangements/soap-bar-bundle-setup.webp
+[flatbag-setup-mobile]: ../../static/img/blog/flat-bag-sizing-soap-bar-arrangements/soap-bar-bundle-setup-mobile.webp
+[flatbag-single]: ../../static/img/blog/flat-bag-sizing-soap-bar-arrangements/single-bar-orientation-comparison.webp
+[flatbag-single-mobile]: ../../static/img/blog/flat-bag-sizing-soap-bar-arrangements/single-bar-orientation-comparison-mobile.webp
+[flatbag-multiple]: ../../static/img/blog/flat-bag-sizing-soap-bar-arrangements/twelve-bar-arrangements-comparison.webp
+[flatbag-multiple-mobile]: ../../static/img/blog/flat-bag-sizing-soap-bar-arrangements/twelve-bar-arrangements-comparison-mobile.webp
+[flatbag-thumb]: ../../static/img/blog/flat-bag-sizing-soap-bar-arrangements/thumbnail-v2.webp
+[flatbag-critic]: ../../.agents/skills/blog-article/references/visual-editorial-critic.md
+[flatbag-figure-system]: ../../.agents/skills/kollilabs-editorial-figures/SKILL.md#canonical-references--mandatory
+[flatbag-figure-tokens]: ../../.agents/skills/kollilabs-editorial-figures/assets/design-tokens.json
