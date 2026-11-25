@@ -936,6 +936,7 @@ class BagCompendiumTests(TestCase):
             "pillow-bag-visualization": 6,
             "custom-fit-tolerance": 1,
             "imperial-bag-allowances": 1,
+            "blog-toothpaste-stock-bag-capacity": 6,
         }
         design_quantities = {
             "three-dimensional-bag-design": 12, "non-smooth-quantity-design": 8,
@@ -1109,6 +1110,20 @@ class BagCompendiumTests(TestCase):
         self.assertFalse(edited.context["form"].errors)
         self.assertEqual(edited.context["result"]["net_content_weight"], 600)
         self.assertEqual(len(edited.context["threejs_scene"]["products"]), 6)
+
+    def test_toothpaste_stock_bag_case_recalculates_after_a_bag_edit(self):
+        url = f"{reverse('bag_selection_mode1')}?case=blog-toothpaste-stock-bag-capacity"
+        initial = self.client.get(url)
+        report = initial.context["analysis_report"]
+        self.assertEqual(report["max_quantity"], 6)
+        self.assertEqual(report["bag_usage_max_pct"], 82)
+        self.assertAlmostEqual(report["gross_bag_weight_g"], 903.926, places=3)
+        self.assertEqual(report["bag_tare_source"], "estimated_material")
+
+        data = {**initial.context["bag_config"], "bag_length": 100, "bag_width": 50}
+        edited = self.client.post(url, data)
+        self.assertFalse(edited.context["form"].errors)
+        self.assertEqual(edited.context["result"]["max_quantity"], 0)
 
     def test_sealing_case_accepts_swapped_bag_and_reports_no_fit(self):
         url = f"{reverse('bag_selection_mode1')}?case=sealing-and-bag-orientation"

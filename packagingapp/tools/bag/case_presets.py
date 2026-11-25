@@ -167,6 +167,22 @@ BAG_SELECTION_CASE_PRESETS = {
         "label": "Blog — Soap Bar Multipack Design (12 Units)",
         "config": {**SOAP_BAR_DESIGN_CONFIG, "desired_qty": 12},
     },
+    "blog-toothpaste-stock-bag-capacity": {
+        "label": "Blog — Toothpaste Stock Bag Capacity",
+        "config": {
+            "mode": "single",
+            "action": "run_single",
+            "product_l": 45,
+            "product_w": 35,
+            "product_h": 190,
+            "product_weight": 150,
+            "bag_length": 350,
+            "bag_width": 200,
+            "sealing_allowance": 10,
+            "fit_tolerance": 2,
+            "film_preset": "ldpe_1_2",
+        },
+    },
     "calibration-equivalent-bag-rotations": {
         "label": "Calibration — Rotation-equivalent bundles, 267 × 197 mm",
         "config": ROTATION_CALIBRATION_CONFIG,
